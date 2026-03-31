@@ -1,160 +1,63 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const cors = require('cors');
-const fs = require('fs');
+module.exports = (req, res) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-const app = express();
-
-// Crear carpeta para uploads si no existe
-const uploadsDir = path.join('/tmp', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  try {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  } catch (e) {
-    console.log('Note: Using system temp directory');
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-}
 
-// Configurar multer para subida de archivos
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir)
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname))
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB límite
-  }
-});
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Ruta raíz - servir HTML
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public', 'index.html'));
-});
-
-// API: Endpoint para subir archivos
-app.post('/api/upload', upload.array('files', 10), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No files uploaded' 
-      });
-    }
-
-    const uploadedFiles = req.files.map(file => ({
-      filename: file.filename,
-      originalName: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
-      path: `/uploads/${file.filename}`,
-      uploadedAt: new Date().toISOString()
-    }));
-
-    res.json({
-      success: true,
-      message: `${req.files.length} archivo(s) subido(s) correctamente`,
-      files: uploadedFiles
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error al subir archivo',
-      error: error.message
-    });
-  }
-});
-
-// API: Obtener lista de archivos subidos
-app.get('/api/files', (req, res) => {
-  try {
-    const files = fs.readdirSync(uploadsDir).map(filename => {
-      const filepath = path.join(uploadsDir, filename);
-      const stats = fs.statSync(filepath);
-      return {
-        filename: filename,
-        size: stats.size,
-        uploadedAt: stats.birthtime,
-        path: `/uploads/${filename}`
-      };
-    });
-    res.json({
-      success: true,
-      files: files
-    });
-  } catch (error) {
-    res.json({
-      success: true,
-      files: []
-    });
-  }
-});
-
-// API: Descargar archivo
-app.get('/api/download/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filepath = path.join(uploadsDir, filename);
+  // API Routes
+  if (req.url.startsWith('/api/')) {
+    res.setHeader('Content-Type', 'application/json');
     
-    if (!fs.existsSync(filepath)) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Archivo no encontrado' 
+    // Upload endpoint would require streaming/form parsing
+    // For now, return a placeholder
+    if (req.method === 'POST' && req.url === '/api/upload') {
+      res.status(200).json({
+        success: true,
+        message: 'File upload would be processed here',
+        note: 'Use local deployment for file uploads'
       });
+      return;
     }
 
-    res.download(filepath, filename);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error al descargar archivo',
-      error: error.message
-    });
-  }
-});
-
-// API: Eliminar archivo
-app.delete('/api/files/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filepath = path.join(uploadsDir, filename);
-
-    if (!fs.existsSync(filepath)) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Archivo no encontrado' 
+    // Files endpoint
+    if (req.url === '/api/files') {
+      res.status(200).json({
+        success: true,
+        files: []
       });
+      return;
     }
 
-    fs.unlinkSync(filepath);
-    res.json({
-      success: true,
-      message: 'Archivo eliminado correctamente'
-    });
-  } catch (error) {
-    res.status(500).json({
+    res.status(404).json({
       success: false,
-      message: 'Error al eliminar archivo',
-      error: error.message
+      message: 'API endpoint not found'
     });
+    return;
   }
-});
 
-// Manejo de errores 404
-app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, '../public', 'index.html'));
-});
-
-module.exports = app;
+  // Serve static files or main page
+  res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>AeroMap - Loading</title>
+      </head>
+      <body>
+        <script>
+          // Redirect to the actual app
+          window.location.href = '/';
+        </script>
+        <p>Redirecting to AeroMap...</p>
+      </body>
+    </html>
+  `);
+};
