@@ -1,4 +1,6 @@
 {
   "version": 2,
-  "public": "public"
+  "public": "public",
+  "cleanUrls": true,
+  "trailingSlash": false
 }
