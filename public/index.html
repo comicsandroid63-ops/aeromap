@@ -26,6 +26,9 @@
   <!-- SheetJS for Excel/CSV -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
+  <!-- Supabase JS for cloud storage -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
     rel="stylesheet" />
@@ -1462,6 +1465,14 @@
   </div>
 
   <script>
+    // ══════════════════════════════════════════
+    //  SUPABASE CLOUD STORAGE CONFIG
+    // ══════════════════════════════════════════
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
+    const SUPABASE_BUCKET = 'shapefiles';
+    const supabase = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
     // ══════════════════════════════════════════
     //  STATE
     // ══════════════════════════════════════════
@@ -3610,8 +3621,32 @@
       await processIncomingFiles(files);
     });
 
+    async function uploadFileToSupabase(file) {
+      if (!supabase) {
+        console.warn('Supabase not configured; skipping cloud upload.');
+        return null;
+      }
+      try {
+        const filePath = `${Date.now()}_${file.name}`;
+        const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(filePath, file, { upsert: true });
+        if (error) throw error;
+        const { data } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filePath);
+        toast(`Subido a la nube: ${file.name}`, 'success');
+        return data.publicUrl;
+      } catch (err) {
+        console.error('Supabase upload error', err);
+        toast('Error subiendo a la nube: ' + (err.message || err), 'error');
+        return null;
+      }
+    }
+
     async function processIncomingFiles(files) {
       if (files.length === 0) return;
+
+      // Upload each file to cloud storage (Supabase) in background
+      for (const file of files) {
+        await uploadFileToSupabase(file);
+      }
 
       // Priority 1: ZIPs (Analyze contents first)
       const zipFile = files.find(f => /\.zip$/i.test(f.name));
@@ -3639,6 +3674,32 @@
       }
     }
 
+    async function listSupabaseFiles() {
+      if (!supabase) return [];
+      const { data, error } = await supabase.storage.from(SUPABASE_BUCKET).list('', { limit: 100, offset: 0 });
+      if (error) {
+        console.error('Supabase list error', error);
+        toast('Error listando archivos en nube: ' + error.message, 'error');
+        return [];
+      }
+      return data;
+    }
+
+    async function loadCloudZipAsLayer(filePath) {
+      if (!supabase) return;
+      const { data: urlData, error: urlErr } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filePath);
+      if (urlErr) {
+        console.error('Supabase public URL error', urlErr);
+        return;
+      }
+
+      const resp = await fetch(urlData.publicUrl);
+      if (!resp.ok) throw new Error('No se pudo descargar file: ' + resp.status);
+      const arrayBuffer = await resp.arrayBuffer();
+      const rawData = await shp(arrayBuffer);
+      const geo = Array.isArray(rawData) ? rawData[0] : rawData;
+      addVectorLayer(geo, filePath.replace(/^.*\//, ''));
+    }
 
     // ══════════════════════════════════════════
     //  RASTER RENDERING LOGIC
