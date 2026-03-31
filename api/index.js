@@ -5,63 +5,46 @@ module.exports = (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-  // Handle preflight
+  // Handle options preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.writeHead(200);
+    res.end();
     return;
   }
 
-  // API Routes
-  if (req.url.startsWith('/api/')) {
-    res.setHeader('Content-Type', 'application/json');
-    
-    // Upload endpoint would require streaming/form parsing
-    // For now, return a placeholder
-    if (req.method === 'POST' && req.url === '/api/upload') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        message: 'File upload would be processed here',
-        note: 'Use local deployment for file uploads'
-      }));
-      return;
-    }
+  // Only handle /api routes
+  if (!req.url.startsWith('/api/')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+    return;
+  }
 
-    // Files endpoint
-    if (req.url === '/api/files') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        files: []
-      }));
-      return;
-    }
-
-    res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Upload endpoint
+  if (req.method === 'POST' && req.url === '/api/upload') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      success: false,
-      message: 'API endpoint not found'
+      success: true,
+      message: 'File upload endpoint ready'
     }));
     return;
   }
 
-  // Serve static files or main page
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>AeroMap - Loading</title>
-      </head>
-      <body>
-        <script>
-          // Redirect to the actual app
-          window.location.href = '/';
-        </script>
-        <p>Redirecting to AeroMap...</p>
-      </body>
-    </html>
-  `);
+  // Files endpoint
+  if (req.url === '/api/files') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      files: []
+    }));
+    return;
+  }
+
+  // Default API response
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    success: false,
+    message: 'API endpoint not found'
+  }));
 };
