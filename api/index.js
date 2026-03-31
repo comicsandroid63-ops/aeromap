@@ -18,32 +18,36 @@ module.exports = (req, res) => {
     // Upload endpoint would require streaming/form parsing
     // For now, return a placeholder
     if (req.method === 'POST' && req.url === '/api/upload') {
-      res.status(200).json({
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
         success: true,
         message: 'File upload would be processed here',
         note: 'Use local deployment for file uploads'
-      });
+      }));
       return;
     }
 
     // Files endpoint
     if (req.url === '/api/files') {
-      res.status(200).json({
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
         success: true,
         files: []
-      });
+      }));
       return;
     }
 
-    res.status(404).json({
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
       success: false,
       message: 'API endpoint not found'
-    });
+    }));
     return;
   }
 
   // Serve static files or main page
-  res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(`
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(`
     <!DOCTYPE html>
     <html>
       <head>
