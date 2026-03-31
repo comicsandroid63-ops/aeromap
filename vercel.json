@@ -1,20 +1,4 @@
 {
   "version": 2,
-  "public": false,
-  "buildCommand": "npm install",
-  "static": {
-    "public": {
-      "headers": [
-        {
-          "source": "**/*",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "public, max-age=3600"
-            }
-          ]
-        }
-      ]
-    }
-  }
+  "buildCommand": "npm install"
 }
