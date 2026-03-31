@@ -1,6 +1,3 @@
 {
-  "version": 2,
-  "public": "public",
-  "cleanUrls": true,
-  "trailingSlash": false
+  "version": 2
 }
