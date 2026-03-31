@@ -1,9 +1,9 @@
 {
-  "name": "aeromap",
   "version": 2,
-  "public": false,
   "buildCommand": "npm install",
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "public": false,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/:path*", "destination": "/" }
+  ]
 }
