@@ -27,6 +27,8 @@
   <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
   <!-- SheetJS for Excel/CSV -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <!-- togeojson for KML/GPX -->
+  <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
 
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
@@ -1465,9 +1467,12 @@
       <button onclick="ctxExportLayer()" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
         <span class="material-symbols-outlined text-[16px]">ios_share</span> Exportar
       </button>
-      <div class="h-[1px] bg-zinc-100 my-1 mx-2"></div>
       <button onclick="ctxDeleteLayer()" class="px-4 py-2 flex items-center gap-3 hover:bg-red-50 text-red-600 transition-colors">
         <span class="material-symbols-outlined text-[16px]">delete</span> Eliminar capa
+      </button>
+      <div class="h-[1px] bg-zinc-100 my-1 mx-2"></div>
+      <button onclick="ctxUploadToCloud()" class="px-4 py-2 flex items-center gap-3 hover:bg-blue-50 text-blue-600 transition-colors">
+        <span class="material-symbols-outlined text-[16px]">cloud_upload</span> Subir a Supabase
       </button>
     </div>
   </div>
@@ -1758,11 +1763,7 @@
     const $cloudUploadStatus = document.getElementById('cloudUploadStatus');
     const $cloudRefreshBtn = document.getElementById('cloudRefreshBtn');
 
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-    const SUPABASE_BUCKET = 'shapefiles';
 
-    let supabaseClient = null;
 
 
     // ══════════════════════════════════════════
@@ -2066,56 +2067,102 @@
     initSupabase();
 
     async function initSupabase() {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.startsWith('YOUR_') || SUPABASE_ANON_KEY.startsWith('YOUR_')) {
-        $cloudUploadStatus.textContent = 'Necesitas configurar SUPABASE_URL y SUPABASE_ANON_KEY en el código o en variables de entorno.';
-        return;
-      }
-
-      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      $cloudUploadStatus.textContent = 'Conectado a Supabase. Actualizando lista de archivos...';
+      $cloudUploadStatus.textContent = 'Conectando con Backend...';
       $cloudRefreshBtn.addEventListener('click', listSupabaseFiles);
-
       await listSupabaseFiles();
+      
+      // CARGAR CAPAS PERSISTENTES (Restaurar sesión)
+      try {
+        const res = await fetch('/api/layers');
+        const layers = await res.json();
+        if (Array.isArray(layers) && layers.length > 0) {
+          toast(`Restaurando ${layers.length} capas de la sesión...`, 'info');
+          for (const L of layers) {
+            if (L.storage_url) {
+              await loadFromCloud(L.storage_url, L.name, { isRestored: true });
+            }
+          }
+        }
+      } catch(e) { console.warn("Restore failed.", e); }
     }
 
+
     async function uploadFileToSupabase(file) {
-      if (!supabaseClient) return;
-      const storageKey = `uploads/${Date.now()}_${file.name}`;
-      $cloudUploadStatus.textContent = `Subiendo ${file.name}...`;
-      const { data, error } = await supabaseClient.storage.from(SUPABASE_BUCKET).upload(storageKey, file, { upsert: true });
-      if (error) {
-        console.error('Supabase upload error:', error);
-        $cloudUploadStatus.textContent = `Error al subir ${file.name}: ${error.message}`;
-        return;
+      $cloudUploadStatus.textContent = `Subiendo ${file.name} a la nube...`;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          toast('Archivo guardado en Supabase', 'success');
+          $cloudUploadStatus.textContent = '¡Subida exitosa!';
+          await listSupabaseFiles();
+          return data;
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      } catch (err) {
+        console.error('Upload error:', err);
+        $cloudUploadStatus.textContent = `Error: ${err.message}`;
+        toast('Error al subir: ' + err.message, 'error');
       }
-      $cloudUploadStatus.textContent = `Subida completada: ${file.name}`;
-      await listSupabaseFiles();
-      return data;
     }
 
     async function listSupabaseFiles() {
-      if (!supabaseClient) return;
-      const { data, error } = await supabaseClient.storage.from(SUPABASE_BUCKET).list('uploads', { limit: 100, offset: 0, sortBy: { column: 'name', order: 'desc' } });
-      if (error) {
-        console.error('Supabase list error:', error);
-        $cloudUploadStatus.textContent = `Error lista Supabase: ${error.message}`;
-        return;
-      }
+      $cloudList.innerHTML = '<li class="animate-pulse">Cargando nube...</li>';
+      try {
+        const res = await fetch('/api/files');
+        const files = await res.json();
+        
+        if (files.error) throw new Error(files.error);
 
-      if (!data || data.length === 0) {
-        $cloudList.innerHTML = '<li class="text-[10px] ">No hay archivos disponibles.</li>';
-        return;
-      }
+        if (!files || files.length === 0) {
+          $cloudList.innerHTML = '<li class="text-[10px] text-zinc-400">No hay archivos en la nube.</li>';
+          $cloudUploadStatus.textContent = 'Nube vacía';
+          return;
+        }
 
-      $cloudList.innerHTML = data.map(item => {
-        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/uploads/${encodeURIComponent(item.name)}`;
-        return `<li class="flex justify-between items-center">
-          <span>${item.name}</span>
-          <button class="text-xs text-blue-600 hover:underline" onclick="window.open('${publicUrl}', '_blank')">Ver/Descargar</button>
-        </li>`;
-      }).join('');
-      $cloudUploadStatus.textContent = `Archivos recuperados: ${data.length}`;
+        $cloudList.innerHTML = files.map(f => `
+          <li class="flex items-center justify-between p-1 hover:bg-black/5 rounded group text-[10px]">
+            <span class="truncate max-w-[120px]" title="${f.name}">${f.name}</span>
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onclick="loadFromCloud('${f.url}', '${f.name}')" class="text-blue-600 hover:text-blue-800 font-bold uppercase">Cargar</button>
+            </div>
+          </li>
+        `).join('');
+        
+        $cloudUploadStatus.textContent = `Nube: ${files.length} archivos detectados`;
+      } catch (err) {
+        console.error('List error:', err);
+        $cloudList.innerHTML = '<li class="text-error">Error de conexión</li>';
+        $cloudUploadStatus.textContent = 'Error de conexión con el backend';
+      }
     }
+
+    async function loadFromCloud(url, name) {
+      showProgress(`Importando ${name} desde la nube...`, 20);
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Error al descargar archivo');
+        const blob = await res.blob();
+        const file = new File([blob], name, { type: blob.type });
+        
+        hideProgress();
+        // El manejador principal procesará el archivo (TIFF o ZIP)
+        await processIncomingFiles([file]);
+      } catch (err) {
+        hideProgress();
+        console.error(err);
+        toast('Error al importar desde nube', 'error');
+      }
+    }
+
 
     // ══════════════════════════════════════════
     //  3D TERRAIN VIEWER
@@ -2486,6 +2533,7 @@
         };
 
         state.layers.unshift(layer);
+        layer.file = file; // Guardar referencia para subir luego si se desea
         showProgress('Listo', 100);
 
         setTimeout(() => {
@@ -2796,7 +2844,7 @@
     }
 
 
-    function addVectorLayer(geoJson, name) {
+    async function addVectorLayer(geoJson, name, opts = {}) {
       const color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
       const layer = {
         id: ++idCounter,
@@ -2822,7 +2870,8 @@
         symbologyMap: {}, // { value: color }
         graduatedColorStart: '#ff0000',
         graduatedColorEnd: '#00ff00',
-        graduatedRange: { min: 0, max: 100, range: 100 }
+        graduatedRange: { min: 0, max: 100, range: 100 },
+        storageUrl: opts.storageUrl || null
       };
 
       // Efficiently create the Leaflet layer once
@@ -2834,17 +2883,45 @@
       state.layers.unshift(layer);
       updateLayersSidebar();
       
-      // Optimized sync: Instead of full rebuild, just manage this layer
       if (layer.visible) {
           layer.mapLayer.addTo(state.map);
-          // Update order of ALL layers to ensure correctly stacked
           syncLayerOrder();
       }
 
-      if (layer.bounds.isValid()) {
+      if (layer.bounds.isValid() && !opts.silent) {
           state.map.fitBounds(layer.bounds, { padding: [40, 40] });
       }
-      toast(`Capa importada: ${name}`);
+
+      if (!opts.silent) toast(`Capa importada: ${name}`);
+
+      // PERSISTIR SI NO ES UNA COPIA RESTAURADA
+      if (!opts.isRestored) {
+        saveLayerToDatabase(layer);
+      }
+    }
+
+    async function saveLayerToDatabase(layer) {
+      try {
+        const payload = {
+          name: layer.name,
+          type: layer.type,
+          storage_url: layer.storageUrl,
+          config: {
+             color: layer.color,
+             opacity: layer.opacity,
+             fillOpacity: layer.fillOpacity,
+             strokeWidth: layer.strokeWidth
+          }
+        };
+        
+        await fetch('/api/layers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.warn('Persistence failed.', err);
+      }
     }
 
     function createVectorLeafletLayer(layer) {
@@ -3100,6 +3177,10 @@
           </div>
         </div>
         <div class="flex items-center gap-1">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
+            onclick="updateLayersSidebar(); uploadFileToSupabase(state.layers.find(l => l.id === ${layer.id}).file || null); event.stopPropagation();" title="Subir a Supabase">
+            <span class="material-symbols-outlined text-xs">cloud_upload</span>
+          </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
             onclick="openProperties(${layer.id})" title="Propiedades">
             <span class="material-symbols-outlined text-xs">info</span>
@@ -3437,9 +3518,6 @@
       renderLayersOnMap();
     }
 
-    // ══════════════════════════════════════════
-    //  RASTER RENDERING LOGIC
-    // ══════════════════════════════════════════
     function updateRasterBandUI(layer) {
       const $container = document.getElementById('rasterBandConfig');
       if (!$container) return;
@@ -3685,41 +3763,78 @@
       await processIncomingFiles(files);
     });
 
+    document.getElementById('btnFit').onclick = fitView;
+    document.getElementById('btnReset').onclick = () => {
+      state.map.setView([0, 0], 2);
+    };
+
+    // Cleanup redundant duplicate section below
+    
+
     async function processIncomingFiles(files) {
       if (files.length === 0) return;
 
-      // Priority 1: ZIPs (Analyze contents first)
-      const zipFile = files.find(f => /\.zip$/i.test(f.name));
-      if (zipFile) {
-          if (supabaseClient) {
-              await uploadFileToSupabase(zipFile);
-          }
-          await handleZipImport(zipFile);
-          return;
-      }
+    async function processIncomingFiles(files) {
+      if (files.length === 0) return;
 
-      // Priority 2: SHPs (Could be multiple layers)
-      const shpFiles = files.filter(f => /\.shp$/i.test(f.name));
-      if (shpFiles.length > 0) {
-          for (const shpFile of shpFiles) {
-              const base = shpFile.name.replace(/\.shp$/i, '');
+      for (const file of files) {
+          // 1. Siempre subir al backend para persistencia
+          const uploadResult = await uploadFileToSupabase(file);
+          const storageUrl = uploadResult ? uploadResult.url : null;
+
+          const name = file.name.toLowerCase();
+
+          // 2. Intentar visualizar según el tipo (Pasando URL de almacenamiento)
+          if (name.endsWith('.zip')) {
+              await handleZipImport(file, { storageUrl });
+          } 
+          else if (name.endsWith('.shp')) {
+              const base = file.name.replace(/\.shp$/i, '');
               const dbfFile = files.find(f => f.name.toLowerCase() === base.toLowerCase() + '.dbf');
               const prjFile = files.find(f => f.name.toLowerCase() === base.toLowerCase() + '.prj');
-              if (supabaseClient) {
-                await uploadFileToSupabase(shpFile);
-                if (dbfFile) await uploadFileToSupabase(dbfFile);
-                if (prjFile) await uploadFileToSupabase(prjFile);
-              }
-              await loadShapefileDirect(shpFile, dbfFile, prjFile);
+              await loadShapefileDirect(file, dbfFile, prjFile, { storageUrl });
           }
-          return;
+          else if (name.endsWith('.geojson') || name.endsWith('.json') || name.endsWith('.kml') || name.endsWith('.gpx')) {
+              await loadGenericVector(file, { storageUrl });
+          }
+          else if (/\.tiff?$/i.test(name)) {
+              await loadTiff(file, { storageUrl });
+          }
+          else if (/\.(xlsx|xls|csv)$/i.test(name)) {
+              await loadExcel(file, { storageUrl });
+          }
+          else {
+              toast(`Archivo "${file.name}" guardado en la nube (formato no visualizable directamente)`, 'info');
+          }
       }
+    }
+    }
 
-      // Priority 3: Other files
-      for (const file of files) {
-          if (/\.tiff?$/i.test(file.name)) await loadTiff(file);
-          else if (/\.(xlsx|xls|csv)$/i.test(file.name)) await loadExcel(file);
-      }
+    async function loadGenericVector(file) {
+        showProgress(`Cargando vector: ${file.name}`, 10);
+        try {
+            const text = await file.text();
+            let geojson = null;
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            if (ext === 'kml' || ext === 'gpx') {
+                const dom = new DOMParser().parseFromString(text, 'text/xml');
+                if (ext === 'kml') geojson = togeojson.kml(dom);
+                else geojson = togeojson.gpx(dom);
+            } else {
+                geojson = JSON.parse(text);
+            }
+
+            if (geojson) {
+                addVectorLayer(geojson, file.name);
+                toast(`Capa cargada: ${file.name}`);
+            }
+        } catch (err) {
+            console.error(err);
+            toast(`Error cargando ${file.name}: Formato inválido`, 'error');
+        } finally {
+            hideProgress();
+        }
     }
 
 
@@ -4321,6 +4436,15 @@
     function ctxDeleteLayer() {
         const layer = state.layers.find(l => l.id === state.ctxLayerId);
         if (layer) removeLayer(layer.id);
+    }
+
+    function ctxUploadToCloud() {
+      const layer = state.layers.find(l => l.id === state.ctxLayerId);
+      if (layer && layer.file) {
+        uploadFileToSupabase(layer.file);
+      } else {
+        toast('No hay archivo original para subir.', 'error');
+      }
     }
     function setMode(mode) {
       state.drawMode = mode;
@@ -5732,6 +5856,7 @@
 
     initMultispectralUI();
     updateZoomDisplay();
+
   </script>
 </body>
 
