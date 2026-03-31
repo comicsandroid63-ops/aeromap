@@ -1,6 +1,4 @@
 {
   "version": 2,
-  "public": false,
-  "buildCommand": "",
-  "env": {}
+  "public": false
 }
