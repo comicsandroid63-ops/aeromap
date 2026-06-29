@@ -138,6 +138,10 @@
       -webkit-backdrop-filter: blur(20px);
     }
 
+    #routeDesignPanel { animation: fadeSlideIn 0.25s ease-out; }
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(-50%) translateX(20px); } to { opacity:1; transform:translateY(-50%) translateX(0); } }
+    .selected-dash { background:#f4f4f5 !important; border-color:#18181b !important; color:#18181b !important; }
+
     #map {
       width: 100%;
       height: 100%;
@@ -185,6 +189,40 @@
     .custom-scrollbar::-webkit-scrollbar {
       width: 4px;
       height: 4px;
+    }
+
+    /* Model Builder */
+    .mb-port-in, .mb-port-out {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid rgba(0,0,0,0.12);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .mb-port-in:hover, .mb-port-out:hover { transform: scale(1.5); }
+    .mb-port-in { background: #d4d4d8; }
+    .mb-port-out { background: #a1a1aa; }
+    .mb-port-highlight {
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.5);
+      background: #22c55e !important;
+    }
+    .mb-port-ready {
+      animation: mbPulse 1s infinite;
+    }
+    .mb-port-in.connected { background: #34d399 !important; }
+    @keyframes mbPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(34,197,94,0.15); }
+    }
+    .mb-node {
+      transition: box-shadow 0.2s;
+    }
+    .mb-node:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+    #mbConnections path { filter: drop-shadow(0 1px 3px rgba(34,197,94,0.3)); }
+    .mb-node-header {
+      user-select: none;
     }
 
     .custom-scrollbar::-webkit-scrollbar-track {
@@ -1250,6 +1288,91 @@
         <ul id="cloudList" class="max-h-40 overflow-auto text-[10px] space-y-1"></ul>
       </div>
 
+      <!-- Model Builder: Herramientas Avanzadas (launch button) -->
+      <div class="bg-gradient-to-br from-zinc-900 to-zinc-800 text-white rounded-lg p-4 cursor-pointer hover:scale-[1.02] transition-all duration-200 shadow-lg" onclick="openModelBuilder()">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-xl">account_tree</span>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-black uppercase tracking-widest">Model Builder</p>
+            <p class="text-[8px] text-zinc-400 mt-0.5">Editor visual de geoprocesos</p>
+          </div>
+          <span class="material-symbols-outlined text-zinc-500">chevron_right</span>
+        </div>
+      </div>
+
+      <!-- Network Analysis (collapsible) -->
+      <div class="bg-white/40 border border-zinc-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 cursor-pointer select-none" onclick="toggleNetworkPanel()">
+          <span class="material-symbols-outlined text-[16px] text-rose-600">alt_route</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900 flex-1">Análisis de Redes</span>
+          <span class="material-symbols-outlined text-zinc-400 transition-transform duration-200" id="networkChevron">expand_less</span>
+        </div>
+        <div id="networkPanelBody" class="space-y-2 mt-3">
+          <select id="networkLayerSelect" class="w-full bg-zinc-100 rounded-xl p-2.5 text-[10px] font-bold border border-zinc-200 outline-none">
+            <option value="">Seleccionar capa de red...</option>
+          </select>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="startNetworkStopPick('origin')" class="py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all flex items-center justify-center gap-1 text-[9px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[14px]">trip_origin</span> Origen
+            </button>
+            <button onclick="startNetworkStopPick('destination')" class="py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-all flex items-center justify-center gap-1 text-[9px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[14px]">location_on</span> Destino
+            </button>
+          </div>
+
+          <div id="networkStopInfo" class="text-[9px] text-zinc-500 font-medium px-1 hidden">
+            <span id="networkOriginLabel">Origen: —</span> · <span id="networkDestLabel">Destino: —</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="solveShortestPath()" class="py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[12px]">route</span> Ruta
+            </button>
+            <button onclick="solveServiceArea()" class="py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[12px]">radio_button_checked</span> Área
+            </button>
+            <button onclick="startFacilityPick()" class="py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[12px]">local_fire_department</span> Facility
+            </button>
+          </div>
+
+          <div id="networkServiceAreaOpts" class="hidden space-y-1">
+            <label class="text-[7px] font-black text-zinc-400 uppercase tracking-widest">Distancia máxima (m)</label>
+            <input type="number" id="serviceAreaDist" value="1000" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none" />
+            <button onclick="solveServiceAreaExecute()" class="w-full py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">play_arrow</span> Calcular Área de Servicio
+            </button>
+          </div>
+
+          <div id="networkFacilityOpts" class="hidden space-y-1">
+            <select id="networkFacilityLayer" class="w-full bg-zinc-100 rounded-xl p-2 text-[10px] font-bold border border-zinc-200 outline-none">
+              <option value="">Capa de facilities...</option>
+            </select>
+            <button onclick="solveClosestFacility()" class="w-full py-1.5 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">play_arrow</span> Encontrar Facility Más Cercana
+            </button>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="startWaypointPick()" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[12px]">multiple_stop</span> Ruta de Reparto
+            </button>
+            <button onclick="clearWaypoints()" class="py-2 bg-zinc-500 text-white rounded-lg hover:bg-zinc-600 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+              <span class="material-symbols-outlined text-[12px]">clear_all</span>
+            </button>
+          </div>
+          <div id="waypointList" class="hidden text-[8px] text-zinc-500 font-medium px-1 max-h-24 overflow-y-auto space-y-0.5"></div>
+          <button id="btnCalcTrip" onclick="solveTripRoute()" class="hidden w-full py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1">
+            <span class="material-symbols-outlined text-[12px]">route</span> Calcular Ruta Óptima
+          </button>
+
+          <div id="networkResults" class="hidden p-2 rounded-lg bg-zinc-50 border border-zinc-200 text-[9px] font-medium text-zinc-700"></div>
+        </div>
+      </div>
+
       <!-- Multispectral Creator -->
       <div class="bg-white/40 border border-zinc-200 rounded-lg p-4">
         <div class="flex items-center gap-2 mb-3">
@@ -1350,7 +1473,6 @@
                     <span class="uppercase text-[8px] font-black tracking-widest">Estadísticas Zonales (Raster-Vector)</span>
                 </button>
 
-            </div>
           </div>
         </div>
         </div>
@@ -1518,6 +1640,38 @@
       </div>
     </div>
 
+    <!-- Travel Time Panel -->
+    <div id="travelTimePanel"
+      class="glass-panel rounded-2xl p-4 shadow-2xl border border-white/20 hidden flex flex-col gap-3">
+      <div class="flex items-center gap-2 text-zinc-900">
+        <span class="material-symbols-outlined text-[18px] text-emerald-600">schedule</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest">Tiempo de recorrido</span>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between bg-black/5 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-blue-600">directions_walk</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Caminando</span>
+          </div>
+          <span id="travelTimeWalk" class="text-[11px] font-black tabular-nums text-zinc-900">—</span>
+        </div>
+        <div class="flex items-center justify-between bg-black/5 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-orange-600">pedal_bike</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Bicicleta</span>
+          </div>
+          <span id="travelTimeBike" class="text-[11px] font-black tabular-nums text-zinc-900">—</span>
+        </div>
+        <div class="flex items-center justify-between bg-black/5 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-emerald-600">directions_car</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Automóvil</span>
+          </div>
+          <span id="travelTimeCar" class="text-[11px] font-black tabular-nums text-zinc-900">—</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Layers List Panel -->
     <div
       class="glass-panel flex-1 min-h-[200px] rounded-2xl p-5 shadow-2xl border border-white/20 overflow-hidden flex flex-col">
@@ -1530,6 +1684,67 @@
           <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">No active layers</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Route Design Panel (floating, left of Active Layers) -->
+  <div id="routeDesignPanel" class="fixed z-[100] glass-panel rounded-2xl p-5 shadow-2xl border border-white/20 w-72 hidden"
+    style="display:none; top:50%; transform:translateY(-50%); right:calc(20rem + 1.5rem + 1rem);">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="material-symbols-outlined text-[18px] text-rose-600">alt_route</span>
+      <span class="text-[10px] font-bold uppercase tracking-widest">Diseño de Ruta</span>
+    </div>
+
+    <div class="mb-3">
+      <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Nombre</label>
+      <input type="text" id="routeDesignName" value="Ruta" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none mt-1" />
+    </div>
+
+    <div class="mb-3">
+      <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Color de línea</label>
+      <div class="flex items-center gap-2 mt-1">
+        <input type="color" id="routeDesignColor" value="#6366f1" class="w-8 h-8 rounded-lg cursor-pointer border border-zinc-200 p-0.5" />
+        <div class="flex gap-1 flex-wrap">
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#6366f1" onclick="pickRouteColor('#6366f1')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#10b981" onclick="pickRouteColor('#10b981')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#e11d48" onclick="pickRouteColor('#e11d48')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#f59e0b" onclick="pickRouteColor('#f59e0b')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#0284c7" onclick="pickRouteColor('#0284c7')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#8b5cf6" onclick="pickRouteColor('#8b5cf6')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#ef4444" onclick="pickRouteColor('#ef4444')"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-200 cursor-pointer hover:scale-110 transition-transform" style="background:#14b8a6" onclick="pickRouteColor('#14b8a6')"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Grosor: <span id="routeDesignWidthVal" class="text-zinc-800">3</span>px</label>
+      <input type="range" id="routeDesignWidth" min="1" max="10" value="3" class="w-full mt-1 accent-zinc-900" oninput="document.getElementById('routeDesignWidthVal').textContent=this.value" />
+    </div>
+
+    <div class="mb-3">
+      <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Opacidad: <span id="routeDesignOpacityVal">90</span>%</label>
+      <input type="range" id="routeDesignOpacity" min="10" max="100" value="90" class="w-full mt-1 accent-zinc-900" oninput="document.getElementById('routeDesignOpacityVal').textContent=this.value" />
+    </div>
+
+    <div class="mb-4">
+      <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Estilo</label>
+      <div class="flex gap-1 mt-1" id="routeDashOptions">
+        <span class="flex-1 h-7 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 flex items-center justify-center text-[6px] font-bold text-zinc-500 transition-all selected-dash" data-dash="none" onclick="pickRouteDash('none',this)">Sólida</span>
+        <span class="flex-1 h-7 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 flex items-center justify-center text-[6px] font-bold text-zinc-500 transition-all" data-dash="4 4" onclick="pickRouteDash('4 4',this)">— —</span>
+        <span class="flex-1 h-7 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 flex items-center justify-center text-[6px] font-bold text-zinc-500 transition-all" data-dash="8 4" onclick="pickRouteDash('8 4',this)">—— ——</span>
+        <span class="flex-1 h-7 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-100 flex items-center justify-center text-[6px] font-bold text-zinc-500 transition-all" data-dash="2 4" onclick="pickRouteDash('2 4',this)">·· ··</span>
+      </div>
+    </div>
+
+      <input type="hidden" id="routeDesignDash" value="none" />
+      <div class="flex gap-2">
+        <button onclick="saveRouteDesign()" class="flex-1 py-2.5 bg-zinc-900 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">save</span> Guardar
+      </button>
+      <button onclick="cancelRouteDesign()" class="py-2.5 px-3 bg-zinc-100 text-zinc-500 rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center justify-center">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
     </div>
   </div>
 
@@ -2375,7 +2590,9 @@
       <div class="p-5 space-y-4">
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa a procesar (A)</label>
-          <div class="bg-zinc-50 rounded-lg p-3 text-sm font-semibold text-zinc-800" id="clipSourceLayer">Seleccionada</div>
+          <select id="clipSourceLayer" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-black/10">
+            <option value="">Seleccionar capa...</option>
+          </select>
         </div>
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa de referencia (B)</label>
@@ -2387,6 +2604,96 @@
           <button onclick="closeClipModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="clipExecuteBtn" onclick="executeClipModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90" style="background:#1a1c1f;">Aplicar</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Builder Modal -->
+  <div id="modelBuilderModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-[1200px] h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <!-- Top Bar -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center">
+            <span class="material-symbols-outlined text-white text-lg">account_tree</span>
+          </div>
+          <div>
+            <h2 class="font-bold text-zinc-900 text-sm">Model Builder</h2>
+            <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Editor visual de geoprocesos</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="mbRunModel()" class="px-4 py-2 bg-zinc-900 text-white rounded-xl hover:bg-black text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">play_arrow</span> Ejecutar
+          </button>
+          <button onclick="mbClearModel()" class="px-3 py-2 bg-zinc-100 text-zinc-600 rounded-xl hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">delete</span>
+          </button>
+          <button onclick="closeModelBuilder()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors ml-2">
+            <span class="material-symbols-outlined text-zinc-400">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Tool Palette (left sidebar) -->
+        <div class="w-48 bg-zinc-50 border-r border-zinc-200 p-3 flex flex-col gap-1.5 overflow-y-auto shrink-0">
+          <p class="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Herramientas</p>
+          <button data-tool="input" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">layers</span></span> Capa Entrada
+          </button>
+          <button data-tool="buffer" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">blur_on</span></span> Buffer
+          </button>
+          <button data-tool="clip" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-violet-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">content_cut</span></span> Clip
+          </button>
+          <button data-tool="intersect" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-teal-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">intersections</span></span> Intersección
+          </button>
+          <button data-tool="dissolve" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">grid_view</span></span> Disolver
+          </button>
+          <button data-tool="centroids" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-amber-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">location_on</span></span> Centroides
+          </button>
+          <button data-tool="spatialjoin" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">join_inner</span></span> Unión Esp.
+          </button>
+          <button data-tool="heatmap" class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white transition-all text-[10px] font-bold text-zinc-700 hover:text-zinc-900 border border-transparent hover:border-zinc-200">
+            <span class="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-white text-xs">local_fire_department</span></span> Mapa Calor
+          </button>
+        </div>
+
+        <!-- Canvas -->
+        <div class="flex-1 relative bg-[#f8f9fb] overflow-hidden" id="mbCanvasWrap">
+          <!-- Grid background -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none" style="opacity:0.4">
+            <defs>
+              <pattern id="mbGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#d0d5dd" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#mbGrid)"/>
+          </svg>
+          <!-- SVG connections -->
+          <svg id="mbConnections" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+          <!-- Nodes container -->
+          <div id="mbNodes" class="absolute inset-0 z-20"></div>
+          <!-- Minimap / empty state -->
+          <div id="mbEmpty" class="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <div class="text-center">
+              <span class="material-symbols-outlined text-5xl text-zinc-300 block mb-2">account_tree</span>
+              <p class="text-[11px] text-zinc-400 font-bold uppercase tracking-widest">Arrastra herramientas desde la barra lateral</p>
+              <p class="text-[9px] text-zinc-300 mt-1">o haz clic para agregar nodos al canvas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom log bar -->
+      <div id="mbLogBar" class="hidden border-t border-zinc-200 px-6 py-2 bg-zinc-50 shrink-0">
+        <div id="mbLog" class="text-[10px] font-mono text-zinc-500 max-h-16 overflow-y-auto space-y-0.5"></div>
       </div>
     </div>
   </div>
@@ -4858,6 +5165,78 @@ self.onmessage = async function(e) {
       });
     }
 
+    async function uploadLayerToCloud(layerId) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer) return;
+
+      if (layer.type === 'vector') {
+        try {
+          $cloudUploadStatus.textContent = `Preparando vector ${layer.name}...`;
+          const jsonStr = JSON.stringify(layer.geoJson);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const compressedBlob = await compressGzip(blob);
+          const baseName = layer.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '_');
+          const file = new File([compressedBlob], `${baseName}.json.gz`, { type: 'application/gzip' });
+          
+          const uploadRes = await uploadFileToSupabase(file);
+          if (uploadRes && uploadRes.success) {
+            layer.storageUrl = uploadRes.url;
+            await saveLayerToDatabase(layer);
+            toast('Capa guardada y registrada en la nube', 'success');
+            await listSupabaseFiles();
+          }
+        } catch (e) {
+          console.error('[Manual Upload] failed:', e);
+          toast('Error al subir capa: ' + e.message, 'error');
+        }
+      } else {
+        if (layer.serverFilename) {
+          try {
+            $cloudUploadStatus.textContent = `Subiendo visualización optimizada...`;
+            const uid = _currentUser?.id || 'guest';
+            const pid = _currentProject?.id || '';
+            const res = await fetch(`/api/upload-visualization?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ savedAs: layer.serverFilename, originalName: layer.name }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && data.results.length > 0) {
+                const tiffUrl = data.results.find(r => r.type === 'tiff')?.url;
+                if (tiffUrl) {
+                  layer.storageUrl = tiffUrl;
+                  await saveLayerToDatabase(layer);
+                  toast('Capa guardada y registrada en la nube', 'success');
+                } else {
+                  toast('No se encontró la URL del archivo subido.', 'error');
+                }
+              } else {
+                const errorStr = (data.errors || []).join(', ') || 'El archivo excede el tamaño máximo permitido en tu bucket de Supabase.';
+                toast(`Error al subir: ${errorStr}`, 'error');
+              }
+              await listSupabaseFiles();
+            } else {
+              throw new Error('Fallo en la respuesta del servidor');
+            }
+          } catch (e) {
+            console.error('[Manual Upload Raster] failed:', e);
+            toast('Error al subir visualización: ' + e.message, 'error');
+          }
+        } else if (layer.file) {
+          const uploadRes = await uploadFileToSupabase(layer.file);
+          if (uploadRes && uploadRes.success) {
+            layer.storageUrl = uploadRes.url;
+            await saveLayerToDatabase(layer);
+            toast('Capa guardada y registrada en la nube', 'success');
+            await listSupabaseFiles();
+          }
+        } else {
+          toast('No hay archivo original para subir.', 'error');
+        }
+      }
+    }
+
     async function listSupabaseFiles() {
       $cloudList.innerHTML = '<li class="animate-pulse">Cargando nube...</li>';
       try {
@@ -6767,25 +7146,20 @@ async function deleteFromCloud(fileName, url, storagePath) {
         hideProgress();
 
         if (bounds && serverFilename) {
-          addTileLayer(layer, serverFilename);
+          const tileSavedAs = upData.optimizedSavedAs || serverFilename;
+          addTileLayer(layer, tileSavedAs);
         }
         updateLayersSidebar();
 
-        const SUPABASE_TIFF_QUOTA_MB = 50;
-        const exceedsQuota = file.size > SUPABASE_TIFF_QUOTA_MB * 1024 * 1024;
-
         if (!opts.isRestored && !layer.dbId) {
-          if (exceedsQuota) {
-            console.log(`[loadTiff] ${file.name} excede ${SUPABASE_TIFF_QUOTA_MB}MB — subiendo solo visualización optimizada`);
-            uploadVisualization(serverFilename);
-          } else {
-            uploadFileToSupabase(file).then(uploadRes => {
-              if (uploadRes && uploadRes.success) {
-                layer.storageUrl = uploadRes.url;
-                saveLayerToDatabase(layer);
-              }
-            });
+          if (upData.status === 'completed') {
+            const optSavedAs = upData.optimizedSavedAs || serverFilename;
+            const optimizedUrl = `/compressed/${encodeURIComponent(optSavedAs)}`;
+            layer._geotiffFileUrl = optimizedUrl;
+            console.log(`[loadTiff] ${file.name} ya está optimizado — subiendo visualización`);
+            uploadVisualization(optSavedAs);
           }
+          // Si la optimización está en proceso, se subirá automáticamente en el polling loop al terminar.
         }
 
         async function uploadVisualization(savedAs) {
@@ -6797,20 +7171,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ savedAs, originalName: file.name }),
             });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.success && data.results.length > 0) {
-                const tiffUrl = data.results.find(r => r.type === 'tiff')?.url;
-                if (tiffUrl) {
-                  layer.storageUrl = tiffUrl;
-                  saveLayerToDatabase(layer);
-                }
-                toast(`Visualización subida a la nube: ${file.name}`, 'success');
+            const data = await res.json();
+            if (res.ok && data.success && data.results.length > 0) {
+              const tiffUrl = data.results.find(r => r.type === 'tiff')?.url;
+              if (tiffUrl) {
+                layer.storageUrl = tiffUrl;
+                saveLayerToDatabase(layer);
               }
-              listSupabaseFiles();
+              toast(`Visualización subida a la nube: ${file.name}`, 'success');
+            } else {
+              const errorStr = (data.errors || []).join(', ') || `Error HTTP ${res.status}`;
+              console.error('[loadTiff] Error uploading visualization:', errorStr);
+              toast(`Error al subir visualización: ${errorStr}`, 'error');
             }
+            listSupabaseFiles();
           } catch (e) {
             console.warn('[loadTiff] Error uploading visualization:', e);
+            toast(`Error al subir visualización: ${e.message}`, 'error');
           }
         }
 
@@ -6839,9 +7216,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   
                   addTileLayer(layer, savedAs);
 
-                  if (exceedsQuota) {
-                    uploadVisualization(savedAs);
-                  }
+                  uploadVisualization(savedAs);
                   
                   toast('Capa optimizada cargada con éxito', 'success');
                 } else if (statusData.status === 'failed') {
@@ -7307,12 +7682,46 @@ async function deleteFromCloud(fileName, url, storagePath) {
         dbId: opts.dbId || null,
         storageUrl: opts.storageUrl || null,
         isHeatmap: opts.isHeatmap || false,
-        maxIntensity: opts.maxIntensity || 1
+        maxIntensity: opts.maxIntensity || 1,
+        isPoints: opts.isPoints || false,
       };
 
 
       // Efficiently create the Leaflet layer once
       layer.mapLayer = await createVectorLeafletLayer(layer);
+      
+      // Auto-detect numbered points: if all features are Points with "numero" property, re-render with markers
+      if (layer.geoJson && layer.geoJson.features && layer.geoJson.features.length > 0) {
+        var f0 = layer.geoJson.features[0];
+        console.log('[Vector] addVectorLayer check:', layer.name, 'f0.type:', f0?.geometry?.type, 'props:', JSON.stringify(f0?.properties), 'features:', layer.geoJson.features.length);
+        var allNumPts = true;
+        for (var ai = 0; ai < layer.geoJson.features.length; ai++) {
+          var af = layer.geoJson.features[ai];
+          if (!af.geometry || af.geometry.type !== 'Point' || !af.properties || !af.properties.numero) {
+            allNumPts = false; break;
+          }
+        }
+        console.log('[Vector] allNumPts:', allNumPts);
+        if (allNumPts) {
+          layer.isPoints = true;
+          var c = layer.color || '#6366f1';
+          layer.mapLayer = L.geoJSON(layer.geoJson, {
+            pointToLayer: function(feature, latlng) {
+              var num = feature.properties.numero || '';
+              return L.marker(latlng, {
+                icon: L.divIcon({
+                  className: '',
+                  html: '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,' + c + ',#4f46e5);border:3px solid #fff;box-shadow:0 4px 15px rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.3);transform:scale(1);transition:transform 0.2s;">' + num + '</div>',
+                  iconSize: [36, 36],
+                  iconAnchor: [18, 18],
+                }),
+                zIndexOffset: 1000,
+              });
+            }
+          });
+          console.log('[Vector] Numbered points auto-detected in addVectorLayer:', layer.name);
+        }
+      }
       
       // Get bounds from the already created layer instead of creating a temporary one
       layer.bounds = layer.mapLayer.getBounds();
@@ -7343,7 +7752,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const compressedSize = (compressedBlob.size / 1024 / 1024).toFixed(2);
             console.log(`[Persist] Compressed: ${originalSize}MB -> ${compressedSize}MB`);
             
-            const baseName = layer.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '_');
+            const baseName = 'layer_' + Date.now() + '_' + (layer.id || idCounter) + '_' + String(layer.name).replace(/\s+/g, '_').slice(0, 40);
             const file = new File([compressedBlob], `${baseName}.json.gz`, { type: 'application/gzip' });
             const uploadRes = await uploadFileToSupabase(file);
             if (uploadRes && uploadRes.success) {
@@ -7364,6 +7773,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
 
       if (!opts.silent) toast(`Capa importada: ${name}`);
+      return layer;
     }
 
     async function saveLayerToDatabase(layer, projectId, userId) {
@@ -7405,7 +7815,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
              subLayerPath: layer.subLayerPath,
              isWMS: layer.isWMS,
              wmsUrl: layer.wmsUrl,
-             wmsLayerName: layer.wmsLayerName
+             wmsLayerName: layer.wmsLayerName,
+             isPoints: layer.isPoints
           }
         };
         
@@ -7496,9 +7907,37 @@ async function deleteFromCloud(fileName, url, storagePath) {
             await _yield();
         }
 
+        var isNumberedPoints = layer.isPoints;
+        if (isNumberedPoints) console.log('[Vector] Layer isPoints=true:', layer.name);
+        if (!isNumberedPoints && layer.geoJson && layer.geoJson.features) {
+            var allPointsWithNum = true;
+            for (var fi = 0; fi < layer.geoJson.features.length; fi++) {
+                var f = layer.geoJson.features[fi];
+                if (!f.geometry || f.geometry.type !== 'Point' || !f.properties || !f.properties.numero) {
+                    allPointsWithNum = false; break;
+                }
+            }
+            if (allPointsWithNum && layer.geoJson.features.length > 0) {
+                isNumberedPoints = true;
+                console.log('[Vector] Auto-detected numbered points:', layer.name, 'features:', layer.geoJson.features.length);
+            }
+        }
         return L.geoJSON(layer.geoJson, {
             interactive: true,
             pointToLayer: (feature, latlng) => {
+                if (isNumberedPoints) {
+                    var num = feature.properties.numero || '';
+                    var c = layer.color || '#6366f1';
+                    return L.marker(latlng, {
+                        icon: L.divIcon({
+                            className: '',
+                            html: '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,' + c + ',#4f46e5);border:3px solid #fff;box-shadow:0 4px 15px rgba(99,102,241,0.5);display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.3);">' + num + '</div>',
+                            iconSize: [36, 36],
+                            iconAnchor: [18, 18],
+                        }),
+                        zIndexOffset: 1000,
+                    });
+                }
                 return L.circleMarker(latlng, { radius: isExtremelyLarge ? 2 : 6 });
             },
             onEachFeature: (feature, l) => {
@@ -7901,7 +8340,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         </div>
         <div class="flex items-center gap-1">
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
-            onclick="updateLayersSidebar(); uploadFileToSupabase(state.layers.find(l => l.id === ${layer.id}).file || null); event.stopPropagation();" title="Subir a Supabase">
+            onclick="uploadLayerToCloud(${layer.id}); event.stopPropagation();" title="Subir a Supabase">
             <span class="material-symbols-outlined text-xs">cloud_upload</span>
           </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
@@ -9574,11 +10013,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function ctxUploadToCloud() {
-      const layer = state.layers.find(l => l.id === state.ctxLayerId);
-      if (layer && layer.file) {
-        uploadFileToSupabase(layer.file);
-      } else {
-        toast('No hay archivo original para subir.', 'error');
+      if (state.ctxLayerId) {
+        uploadLayerToCloud(state.ctxLayerId);
       }
     }
     // ══════════════════════════════════════════
@@ -9905,6 +10341,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function initDrawEvents() {
       state.map.on('click', async e => {
+        if (_net.picking) {
+            handleNetworkMapClick(e.latlng);
+            return;
+        }
         if (state.drawMode === 'select') {
           const lat = e.latlng.lat.toFixed(6);
           const lng = e.latlng.lng.toFixed(6);
@@ -9943,6 +10383,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
       });
 
       state.map.on('contextmenu', async e => {
+        if (_net.picking === 'facility') {
+            _net.picking = null;
+            toast('Seleccion de facilities finalizada. Usa "Encontrar Facility Más Cercana".', 'success');
+            return;
+        }
         if (state.drawMode === 'select') {
           L.DomEvent.stopPropagation(e);
           const lat = e.latlng.lat.toFixed(6);
@@ -11592,6 +12037,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
     // ══════════════════════════════════════════
     //  GEOPROCESSING LOGIC (Turf.js)
     // ══════════════════════════════════════════
+    function populateNetworkDropdowns() {
+        const $net = document.getElementById('networkLayerSelect');
+        const $fac = document.getElementById('networkFacilityLayer');
+        if (!$net) return;
+
+        const lineLayers = state.layers.filter(l => {
+            if (l.type !== 'vector' || !l.geoJson) return false;
+            const types = new Set();
+            for (const f of l.geoJson.features || []) {
+                if (f.geometry) types.add(f.geometry.type);
+            }
+            return types.has('LineString') || types.has('MultiLineString');
+        });
+        const opts = lineLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        $net.innerHTML = '<option value="">Seleccionar capa de red...</option>' + opts;
+        if ($fac) $fac.innerHTML = '<option value="">Capa de facilities...</option>' + opts;
+    }
+
     function updateGeoprocessingDropdowns() {
         const $source = document.getElementById('geoSourceLayer');
         const $target = document.getElementById('geoTargetLayer');
@@ -11603,6 +12066,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const placeholder = '<option value="">Selecciona Capa...</option>';
         $source.innerHTML = placeholder + options;
         $target.innerHTML = placeholder + options;
+        populateNetworkDropdowns();
     }
 
     async function applyBuffer() {
@@ -11678,20 +12142,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     async function openClipModal(mode) {
         _clipMode = mode;
-        if (!state.selectedLayerId) return toast('Selecciona una capa vectorial primero.', 'error');
-        const layerA = state.layers.find(l => l.id == state.selectedLayerId);
-        if (!layerA?.geoJson) return toast('La capa seleccionada no tiene datos vectoriales.', 'error');
         document.getElementById('clipModalSubtitle').textContent = mode === 'clip' ? 'Recortar capa' : 'Intersectar capas';
         document.getElementById('clipModalTitle').textContent = mode === 'clip' ? 'Clip' : 'Intersección';
-        document.getElementById('clipSourceLayer').textContent = layerA.name;
-        const sel = document.getElementById('clipTargetLayer');
-        sel.innerHTML = '<option value="">Cargando capas...</option>';
+        const selA = document.getElementById('clipSourceLayer');
+        const selB = document.getElementById('clipTargetLayer');
+        selA.innerHTML = '<option value="">Cargando capas...</option>';
+        selB.innerHTML = '<option value="">Cargando capas...</option>';
         document.getElementById('clipModal').style.display = 'flex';
 
         // Load local vector layers
-        let opts = state.layers.filter(l => l.id != state.selectedLayerId && l.geoJson).map(l =>
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        let opts = vectorLayers.map(l =>
             `<option value="local_${l.id}">${l.name}</option>`
         ).join('');
+
+        // Preselect current layer if any
+        const currentId = state.selectedLayerId;
+        selA.innerHTML = '<option value="">Seleccionar capa...</option>' + opts;
+        selB.innerHTML = '<option value="">Seleccionar capa...</option>' + opts;
+        if (currentId && vectorLayers.find(l => l.id == currentId)) selA.value = `local_${currentId}`;
 
         // Load cloud layers (from Supabase layers table)
         _cloudLayersForClip = [];
@@ -11702,13 +12171,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const cloudLayers = await res.json();
             if (Array.isArray(cloudLayers)) {
                 _cloudLayersForClip = cloudLayers.filter(L => L.storage_url && !state.layers.find(l => l.dbId === L.id));
-                opts += _cloudLayersForClip.map((L, i) =>
+                const cloudOpts = _cloudLayersForClip.map((L, i) =>
                     `<option value="cloud_${i}">☁️ ${L.name}</option>`
                 ).join('');
+                selA.innerHTML = '<option value="">Seleccionar capa...</option>' + opts + cloudOpts;
+                selB.innerHTML = '<option value="">Seleccionar capa...</option>' + opts + cloudOpts;
+                if (currentId && vectorLayers.find(l => l.id == currentId)) selA.value = `local_${currentId}`;
             }
         } catch(e) {}
-
-        sel.innerHTML = '<option value="">Seleccionar capa...</option>' + opts;
     }
 
     function closeClipModal() {
@@ -11716,18 +12186,49 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     async function executeClipModal() {
-        const val = document.getElementById('clipTargetLayer').value;
-        if (!val) return toast('Selecciona una capa de referencia.', 'error');
+        const valA = document.getElementById('clipSourceLayer').value;
+        const valB = document.getElementById('clipTargetLayer').value;
+        if (!valA) return toast('Selecciona la capa a procesar.', 'error');
+        if (!valB) return toast('Selecciona la capa de referencia.', 'error');
+        if (valA === valB) return toast('Selecciona capas diferentes.', 'error');
         closeClipModal();
 
-        let layerA = state.layers.find(l => l.id == state.selectedLayerId);
-        let layerB;
+        let layerA, layerB;
 
-        if (val.startsWith('local_')) {
-            const id = parseInt(val.replace('local_', ''));
-            layerB = state.layers.find(l => l.id === id);
-        } else if (val.startsWith('cloud_')) {
-            const idx = parseInt(val.replace('cloud_', ''));
+        function resolveLayer(val) {
+            if (val.startsWith('local_')) {
+                const id = parseInt(val.replace('local_', ''));
+                return state.layers.find(l => l.id === id);
+            }
+            return null;
+        }
+
+        layerA = resolveLayer(valA);
+        layerB = resolveLayer(valB);
+
+        if (!layerA && valA.startsWith('cloud_')) {
+            const idx = parseInt(valA.replace('cloud_', ''));
+            const cloudLayer = _cloudLayersForClip[idx];
+            if (cloudLayer) {
+                showProgress('Descargando capa A desde la nube...', 10);
+                try {
+                    const res = await fetch(cloudLayer.storage_url);
+                    if (!res.ok) throw new Error('Error de descarga');
+                    let blob = await res.blob();
+                    if (cloudLayer.storage_url.endsWith('.gz')) {
+                        blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob();
+                    }
+                    const text = await blob.text();
+                    const geoJson = JSON.parse(text);
+                    layerA = { geoJson, name: cloudLayer.name };
+                } catch(e) {
+                    return toast(`Error descargando capa A: ${e.message}`, 'error');
+                }
+            }
+        }
+
+        if (valB.startsWith('cloud_')) {
+            const idx = parseInt(valB.replace('cloud_', ''));
             const cloudLayer = _cloudLayersForClip[idx];
             if (!cloudLayer) return toast('Capa cloud no encontrada.', 'error');
             showProgress('Descargando capa desde la nube...', 20);
@@ -12832,6 +13333,607 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }, 100);
     }
 
+    // =========================================
+    //  NETWORK ANALYSIS
+    // =========================================
+    const _net = {
+        origin: null,
+        destination: null,
+        facilities: [],
+        picking: null,
+        pathLayer: null,
+        areaLayer: null,
+        facilityMarkers: [],
+        facilityLayer: null,
+        originMarker: null,
+        destMarker: null,
+        routeLayer: null,
+        waypoints: [],
+        waypointMarkers: [],
+    };
+
+    function getNetworkLayer() {
+        const id = document.getElementById('networkLayerSelect').value;
+        if (!id) { toast('Selecciona una capa de red.', 'warning'); return null; }
+        const l = state.layers.find(l => l.id == id);
+        if (!l) { toast('Capa de red no encontrada.', 'error'); return null; }
+        return l;
+    }
+
+    function getNetworkFeature() {
+        const id = document.getElementById('networkLayerSelect').value;
+        if (!id) return null;
+        const l = state.layers.find(l => l.id == id);
+        return l?.geoJson || null;
+    }
+
+    function haversineKm(c1, c2) {
+        var R = 6371;
+        var dLat = (c2.lat - c1.lat) * Math.PI / 180;
+        var dLng = (c2.lng - c1.lng) * Math.PI / 180;
+        var a = Math.sin(dLat/2)**2 + Math.cos(c1.lat*Math.PI/180) * Math.cos(c2.lat*Math.PI/180) * Math.sin(dLng/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function formatDuration(seconds) {
+        if (seconds < 60) return Math.round(seconds) + ' s';
+        var min = Math.round(seconds / 60);
+        if (min < 60) return min + ' min';
+        var h = Math.floor(min / 60);
+        var m = min % 60;
+        return h + 'h ' + (m > 0 ? m + 'min' : '');
+    }
+
+    function updateTravelTimes(origin, dest, routeDistKm) {
+        var panel = document.getElementById('travelTimePanel');
+        if (!origin || !dest) { panel.classList.add('hidden'); return; }
+        var distKm = routeDistKm || haversineKm(origin, dest);
+        var speeds = {
+            walk: { label: 'Caminando', speed: 5, el: 'travelTimeWalk' },
+            bike: { label: 'Bicicleta', speed: 15, el: 'travelTimeBike' },
+            car: { label: 'Automóvil', speed: 40, el: 'travelTimeCar' },
+        };
+        for (var k in speeds) {
+            var s = speeds[k];
+            var hours = distKm / s.speed;
+            var txt;
+            if (hours < 1) {
+                var min = Math.round(hours * 60);
+                txt = min + ' min';
+            } else if (hours < 24) {
+                var h = Math.floor(hours);
+                var m = Math.round((hours - h) * 60);
+                txt = h + 'h ' + (m > 0 ? m + 'min' : '');
+            } else {
+                txt = hours.toFixed(1) + ' h';
+            }
+            document.getElementById(s.el).textContent = txt;
+        }
+        panel.classList.remove('hidden');
+    }
+
+    async function fetchOsrmRoute(origin, dest) {
+        try {
+            var res = await fetch('/api/osrm/route?origin=' + origin.lng + ',' + origin.lat + '&dest=' + dest.lng + ',' + dest.lat);
+            var data = await res.json();
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                var route = data.routes[0];
+                var coords = route.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                var distKm = route.distance / 1000;
+                var durationSec = route.duration;
+                return { coords: coords, distanceKm: distKm, durationSec: durationSec };
+            }
+        } catch(e) {}
+        return null;
+    }
+
+        async function saveNumberedPoints(points, layerName) {
+        if (!points || !points.length) return;
+        var features = points.map(function(p, i) {
+            return {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+                properties: { numero: p.label || (i + 1), label: p.label || (i + 1) }
+            };
+        });
+        var fc = { type: 'FeatureCollection', features: features };
+        var layer = await addVectorLayer(fc, layerName, {
+            isPoints: true,
+            color: '#6366f1',
+            showLabels: false,
+            silent: true,
+        });
+        // Forzar subida si no se subió automáticamente
+        if (layer && !layer.storageUrl) {
+            try {
+                var jsonStr = JSON.stringify(layer.geoJson);
+                var blob = new Blob([jsonStr], { type: 'application/json' });
+                var compressedBlob = await compressGzip(blob);
+                var safeName = 'puntos_' + Date.now() + '_' + layer.id;
+                var file = new File([compressedBlob], safeName + '.json.gz', { type: 'application/gzip' });
+                var uploadRes = await uploadFileToSupabase(file);
+                if (uploadRes && uploadRes.success) {
+                    layer.storageUrl = uploadRes.url;
+                    console.log('[Puntos] Storage URL forzada:', layer.storageUrl);
+                    var uid = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
+                    var pid = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
+                    await saveLayerToDatabase(layer, pid, uid);
+                }
+            } catch(e) {
+                console.warn('[Puntos] Error en subida forzada:', e);
+            }
+        }
+        toast('Puntos guardados: ' + layerName, 'success');
+    }
+
+    var _pendingRoute = null;
+
+    function pickRouteColor(color) {
+        document.getElementById('routeDesignColor').value = color;
+    }
+
+    function pickRouteDash(dash, el) {
+        document.querySelectorAll('#routeDashOptions span').forEach(function(s) { s.classList.remove('selected-dash'); });
+        if (el) el.classList.add('selected-dash');
+        document.getElementById('routeDesignDash').value = dash;
+    }
+
+    async function saveRouteDesign() {
+        if (!_pendingRoute) return;
+        var p = _pendingRoute;
+        var name = document.getElementById('routeDesignName').value.trim() || p.suggestedName;
+        var color = document.getElementById('routeDesignColor').value;
+        var width = parseInt(document.getElementById('routeDesignWidth').value) || 3;
+        var opacity = parseInt(document.getElementById('routeDesignOpacity').value) / 100;
+        var dash = document.getElementById('routeDesignDash').value;
+        var dashArr = dash === 'none' ? null : dash.split(' ').map(Number);
+        await addVectorLayer(p.geoJson, name, {
+            strokeColor: color,
+            color: color,
+            strokeWidth: width,
+            strokeOpacity: opacity,
+            fillOpacity: p.isLine ? 0 : 0.3,
+            dashArray: dashArr,
+        });
+        if (p.points && p.points.length) {
+            await saveNumberedPoints(p.points, name + ' (puntos)');
+        }
+        toast('Capa guardada: ' + name, 'success');
+        cancelRouteDesign();
+    }
+
+    function cancelRouteDesign() {
+        document.getElementById('routeDesignPanel').style.display = 'none';
+        _pendingRoute = null;
+    }
+
+    async function askSaveAsLayer(geoJson, suggestedName, points) {
+        if (!geoJson) return;
+        var isLine = false;
+        if (geoJson.features) {
+            for (var i = 0; i < geoJson.features.length; i++) {
+                var t = geoJson.features[i].geometry && geoJson.features[i].geometry.type;
+                if (t === 'LineString' || t === 'MultiLineString') { isLine = true; break; }
+            }
+        }
+        _pendingRoute = { geoJson: geoJson, suggestedName: suggestedName, points: points, isLine: isLine };
+        document.getElementById('routeDesignName').value = suggestedName;
+        document.getElementById('routeDesignColor').value = '#6366f1';
+        document.getElementById('routeDesignWidth').value = isLine ? 3 : 1.5;
+        document.getElementById('routeDesignWidthVal').textContent = isLine ? '3' : '1.5';
+        document.getElementById('routeDesignOpacity').value = 90;
+        document.getElementById('routeDesignOpacityVal').textContent = '90';
+        document.getElementById('routeDesignDash').value = 'none';
+        document.querySelectorAll('#routeDashOptions span').forEach(function(s) { s.classList.remove('selected-dash'); });
+        var firstDash = document.querySelector('#routeDashOptions span:first-child');
+        if (firstDash) firstDash.classList.add('selected-dash');
+        document.getElementById('routeDesignPanel').style.display = 'block';
+    }
+
+    function clearNetworkResults() {
+        var m = state.map;
+        if (_net.pathLayer) { m.removeLayer(_net.pathLayer); _net.pathLayer = null; }
+        if (_net.areaLayer) { m.removeLayer(_net.areaLayer); _net.areaLayer = null; }
+        if (_net.routeLayer) { m.removeLayer(_net.routeLayer); _net.routeLayer = null; }
+        _net.facilityMarkers.forEach(function(mk) { m.removeLayer(mk); });
+        _net.facilityMarkers = [];
+        if (_net.facilityLayer) { m.removeLayer(_net.facilityLayer); _net.facilityLayer = null; }
+        _net.waypointMarkers.forEach(function(mk) { m.removeLayer(mk); });
+        _net.waypointMarkers = [];
+        _net.waypoints = [];
+        document.getElementById('networkResults').classList.add('hidden');
+        document.getElementById('travelTimePanel').classList.add('hidden');
+        document.getElementById('waypointList').classList.add('hidden');
+        document.getElementById('waypointList').innerHTML = '';
+        document.getElementById('btnCalcTrip').classList.add('hidden');
+    }
+
+    function startNetworkStopPick(type) {
+        clearNetworkResults();
+        _net.picking = type;
+        var m = state.map;
+        if (type === 'origin') {
+            _net.origin = null;
+            if (_net.originMarker) { m.removeLayer(_net.originMarker); _net.originMarker = null; }
+            document.getElementById('networkOriginLabel').textContent = 'Origen: —';
+        } else {
+            _net.destination = null;
+            if (_net.destMarker) { m.removeLayer(_net.destMarker); _net.destMarker = null; }
+            document.getElementById('networkDestLabel').textContent = 'Destino: —';
+        }
+        if (_net.routeLayer) { m.removeLayer(_net.routeLayer); _net.routeLayer = null; }
+        document.getElementById('networkStopInfo').classList.remove('hidden');
+        document.getElementById('map').style.cursor = type === 'origin' ? 'crosshair' : 'copy';
+        toast('Haz clic en el mapa para establecer el ' + (type === 'origin' ? 'ORIGEN' : 'DESTINO') + '.', 'info');
+    }
+
+    function startFacilityPick() {
+        clearNetworkResults();
+        _net.picking = 'facility';
+        _net.facilities = [];
+        toast('Haz clic en el mapa para anadir facilities (clic derecho para terminar).', 'info');
+    }
+
+    function handleNetworkMapClick(latlng) {
+        if (!_net.picking) return;
+        var m = state.map;
+        document.getElementById('map').style.cursor = '';
+        if (_net.picking === 'origin') {
+            _net.origin = latlng;
+            _net.picking = null;
+            if (_net.originMarker) m.removeLayer(_net.originMarker);
+            document.getElementById('networkOriginLabel').textContent = latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+            document.getElementById('networkStopInfo').classList.remove('hidden');
+            _net.originMarker = L.circleMarker(latlng, { radius: 8, color: '#e11d48', fillColor: '#e11d48', fillOpacity: 0.8, weight: 2 }).addTo(m)
+                .bindTooltip('Origen', { permanent: true, direction: 'top' }).openTooltip();
+            toast('Origen seleccionado. Ahora elige el destino.', 'success');
+        } else if (_net.picking === 'destination') {
+            _net.destination = latlng;
+            _net.picking = null;
+            if (_net.destMarker) m.removeLayer(_net.destMarker);
+            document.getElementById('networkDestLabel').textContent = latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+            _net.destMarker = L.circleMarker(latlng, { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8, weight: 2 }).addTo(m)
+                .bindTooltip('Destino', { permanent: true, direction: 'top' }).openTooltip();
+            if (_net.origin) {
+                if (_net.routeLayer) m.removeLayer(_net.routeLayer);
+                var line = L.polyline([_net.origin, latlng], { color: '#10b981', weight: 3, opacity: 0.8, dashArray: '8 4' });
+                _net.routeLayer = line.addTo(m);
+                updateTravelTimes(_net.origin, latlng);
+                toast('Buscando ruta por carretera...', 'info');
+                fetchOsrmRoute(_net.origin, latlng).then(function(result) {
+                    if (result) {
+                        m.removeLayer(line);
+                        _net.routeLayer = L.polyline(result.coords, { color: '#10b981', weight: 4, opacity: 0.9 }).addTo(m);
+                        m.fitBounds(_net.routeLayer.getBounds().pad(0.2));
+                        updateTravelTimes(_net.origin, latlng, result.distanceKm);
+                        document.getElementById('travelTimeCar').textContent = formatDuration(result.durationSec);
+                        toast('Ruta por carretera: ' + result.distanceKm.toFixed(1) + ' km', 'success');
+                        setTimeout(function() {
+                            var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }, { lat: latlng.lat, lng: latlng.lng, label: 'D' }];
+                            var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: result.coords.map(function(c) { return [c[1], c[0]]; }) }, properties: {} }] };
+                            askSaveAsLayer(routeGeo, 'Ruta ' + _net.origin.lat.toFixed(3) + '-' + latlng.lat.toFixed(3), pts);
+                        }, 500);
+                    }
+                });
+            } else {
+                toast('Destino seleccionado.', 'success');
+            }
+        } else if (_net.picking === 'waypoint') {
+            var wpIdx = _net.waypoints.length + 1;
+            _net.waypoints.push(latlng);
+            var mk = L.circleMarker(latlng, { radius: 7, color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.8, weight: 2 }).addTo(m)
+                .bindTooltip('Punto ' + wpIdx, { permanent: true, direction: 'top' }).openTooltip();
+            _net.waypointMarkers.push(mk);
+            updateWaypointList();
+            toast('Punto ' + wpIdx + ' agregado. Sigue añadiendo o presiona "Calcular Ruta".', 'success');
+        } else if (_net.picking === 'facility') {
+            _net.facilities.push(latlng);
+            var mkIdx = _net.facilities.length;
+            var mk = L.circleMarker(latlng, { radius: 6, color: '#0284c7', fillColor: '#0284c7', fillOpacity: 0.8, weight: 2 }).addTo(m)
+                .bindTooltip('Facility ' + mkIdx, { permanent: true, direction: 'top' }).openTooltip();
+            _net.facilityMarkers.push(mk);
+            toast('Facility ' + mkIdx + ' anadida. Sigue anadiendo o haz clic derecho para terminar.', 'success');
+        }
+    }
+
+    function startWaypointPick() {
+        clearWaypoints();
+        _net.picking = 'waypoint';
+        document.getElementById('map').style.cursor = 'crosshair';
+        toast('Haz clic en el mapa para agregar puntos de reparto. Al terminar, presiona "Calcular Ruta".', 'info');
+    }
+
+    function clearWaypoints() {
+        var m = state.map;
+        _net.waypointMarkers.forEach(function(mk) { m.removeLayer(mk); });
+        _net.waypointMarkers = [];
+        _net.waypoints = [];
+        document.getElementById('waypointList').classList.add('hidden');
+        document.getElementById('waypointList').innerHTML = '';
+        document.getElementById('btnCalcTrip').classList.add('hidden');
+        _net.picking = null;
+        document.getElementById('map').style.cursor = '';
+    }
+
+    function updateWaypointList() {
+        var el = document.getElementById('waypointList');
+        el.innerHTML = _net.waypoints.map(function(w, i) {
+            return '<div class="flex items-center gap-1"><span class="w-3.5 h-3.5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[6px] font-black">' + (i+1) + '</span> ' + w.lat.toFixed(4) + ', ' + w.lng.toFixed(4) + '</div>';
+        }).join('');
+        el.classList.remove('hidden');
+        el.scrollTop = el.scrollHeight;
+        document.getElementById('btnCalcTrip').classList.remove('hidden');
+    }
+
+    function nearestNeighborOrder(points) {
+        if (points.length < 3) return points.slice();
+        var ordered = [points[0]];
+        var remaining = points.slice(1);
+        var current = points[0];
+        while (remaining.length > 0) {
+            var best = 0;
+            var bestDist = Infinity;
+            for (var i = 0; i < remaining.length; i++) {
+                var d = Math.hypot(remaining[i].lat - current.lat, remaining[i].lng - current.lng);
+                if (d < bestDist) { bestDist = d; best = i; }
+            }
+            current = remaining[best];
+            ordered.push(remaining[best]);
+            remaining.splice(best, 1);
+        }
+        return ordered;
+    }
+
+    async function solveTripRoute() {
+        if (_net.waypoints.length < 2) {
+            toast('Agrega al menos 2 puntos de reparto.', 'warning');
+            return;
+        }
+        _net.picking = null;
+        document.getElementById('map').style.cursor = '';
+        var wp = nearestNeighborOrder(_net.waypoints);
+        var wpMarkers = _net.waypointMarkers.slice();
+
+        if (_net.pathLayer) { state.map.removeLayer(_net.pathLayer); _net.pathLayer = null; }
+        if (_net.areaLayer) { state.map.removeLayer(_net.areaLayer); _net.areaLayer = null; }
+        if (_net.routeLayer) { state.map.removeLayer(_net.routeLayer); _net.routeLayer = null; }
+        _net.facilityMarkers.forEach(function(mk) { state.map.removeLayer(mk); });
+        _net.facilityMarkers = [];
+        if (_net.facilityLayer) { state.map.removeLayer(_net.facilityLayer); _net.facilityLayer = null; }
+        document.getElementById('networkResults').classList.add('hidden');
+        document.getElementById('travelTimePanel').classList.add('hidden');
+
+        var coordsStr = wp.map(function(w) { return w.lng + ',' + w.lat; }).join(';');
+        console.log('[Trip] Orden optimizado:', coordsStr);
+        showProgress('Calculando ruta inteligente por carretera...', 30);
+        try {
+            var res = await fetch('/api/osrm/route?waypoints=' + encodeURIComponent(coordsStr));
+            var data = await res.json();
+            hideProgress();
+            if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
+                wpMarkers.forEach(function(mk) { mk.addTo(state.map); });
+                toast('OSRM: ' + (data.message || data.code || 'Error'), 'error');
+                return;
+            }
+            var route = data.routes[0];
+            var coords = route.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+            var m = state.map;
+            _net.routeLayer = L.polyline(coords, { color: '#6366f1', weight: 4, opacity: 0.9 }).addTo(m);
+            wpMarkers.forEach(function(mk) { mk.addTo(m); });
+            m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
+
+            var totalKm = (route.distance / 1000).toFixed(1);
+            var totalMin = Math.round(route.duration / 60);
+            var resEl = document.getElementById('networkResults');
+            resEl.innerHTML = '<div class="font-bold text-indigo-600 mb-1">Ruta de Reparto Inteligente</div>' +
+                '<div>Distancia: <strong>' + totalKm + ' km</strong></div>' +
+                '<div>Tiempo: <strong>' + totalMin + ' min</strong> (' + (totalMin / 60).toFixed(1) + ' h)</div>' +
+                '<div class="text-[8px] text-zinc-400">Paradas: ' + wp.length + ' · Orden optimizado</div>';
+            resEl.classList.remove('hidden');
+            toast('Ruta optimizada: ' + totalKm + ' km, ' + totalMin + ' min', 'success');
+            setTimeout(function() {
+                var pts = wp.map(function(w, i) { return { lat: w.lat, lng: w.lng, label: String(i + 1) }; });
+                var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { paradas: wp.length }, geometry: { type: 'LineString', coordinates: coords.map(function(c) { return [c[1], c[0]]; }) } }] };
+                askSaveAsLayer(routeGeo, 'Ruta reparto ' + totalKm + 'km', pts);
+            }, 500);
+        } catch (e) {
+            hideProgress();
+            console.warn('[Trip] Error OSRM, dibujando ruta lineal optimizada:', e.message);
+            // Fallback: dibujar líneas rectas entre puntos en orden óptimo
+            var m = state.map;
+            var linearCoords = wp.map(function(w) { return [w.lat, w.lng]; });
+            _net.routeLayer = L.polyline(linearCoords, { color: '#6366f1', weight: 4, opacity: 0.8, dashArray: '6 4' }).addTo(m);
+            wpMarkers.forEach(function(mk) { mk.addTo(m); });
+            m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
+            toast('Ruta lineal (OSRM no disponible). Verifica internet o reinicia el servidor.', 'warning');
+            setTimeout(function() {
+                var pts = wp.map(function(w, i) { return { lat: w.lat, lng: w.lng, label: String(i + 1) }; });
+                var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { paradas: wp.length }, geometry: { type: 'LineString', coordinates: linearCoords.map(function(c) { return [c[1], c[0]]; }) } }] };
+                askSaveAsLayer(routeGeo, 'Ruta reparto ' + wp.length + ' paradas', pts);
+            }, 500);
+        }
+    }
+
+    async function solveShortestPath() {
+        const network = getNetworkFeature();
+        if (!network) { toast('Selecciona una capa de red.', 'warning'); return; }
+        if (!_net.origin || !_net.destination) {
+            toast('Selecciona origen y destino en el mapa.', 'warning');
+            return;
+        }
+
+        clearNetworkResults();
+        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
+        var destPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.destination.lng, _net.destination.lat] } };
+
+        showProgress('Calculando ruta mas corta...', 20);
+        try {
+            var res = await fetch('/api/network/shortest-path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ network: network, origin: originPoint, destination: destPoint }),
+            });
+            var data = await res.json();
+            hideProgress();
+
+            if (!data.success) {
+                toast(data.error || 'Error al calcular ruta.', 'error');
+                return;
+            }
+
+            _net.pathLayer = L.geoJSON(data.path, {
+                style: { color: '#10b981', weight: 4, opacity: 0.9 },
+            }).addTo(state.map);
+            state.map.fitBounds(_net.pathLayer.getBounds().pad(0.1));
+
+            var resEl = document.getElementById('networkResults');
+            resEl.innerHTML = '<div class="font-bold text-emerald-600 mb-1">Ruta encontrada</div>' +
+                '<div>Distancia: <strong>' + data.distance_km + ' km</strong> (' + data.distance_meters.toLocaleString() + ' m)</div>' +
+                '<div class="text-[8px] text-zinc-400">Nodos recorridos: ' + data.nodes_visited + '</div>';
+            resEl.classList.remove('hidden');
+            toast('Ruta: ' + data.distance_km + ' km', 'success');
+            setTimeout(function() {
+                var pts = [
+                    { lat: originPoint.geometry.coordinates[1], lng: originPoint.geometry.coordinates[0], label: 'O' },
+                    { lat: destPoint.geometry.coordinates[1], lng: destPoint.geometry.coordinates[0], label: 'D' },
+                ];
+                askSaveAsLayer({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: data.path }] }, 'Ruta red ' + data.distance_km + 'km', pts);
+            }, 500);
+        } catch (e) {
+            hideProgress();
+            toast('Error de conexion: ' + e.message, 'error');
+        }
+    }
+
+    async function solveServiceArea() {
+        if (!getNetworkLayer()) return;
+        if (!_net.origin) { toast('Selecciona un origen en el mapa.', 'warning'); return; }
+        document.getElementById('networkServiceAreaOpts').classList.toggle('hidden');
+    }
+
+    async function solveServiceAreaExecute() {
+        const network = getNetworkFeature();
+        if (!network || !_net.origin) return;
+        var maxDist = parseFloat(document.getElementById('serviceAreaDist').value) || 1000;
+
+        clearNetworkResults();
+        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
+
+        showProgress('Calculando area de servicio...', 20);
+        try {
+            var res = await fetch('/api/network/service-area', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ network: network, origin: originPoint, max_distance_meters: maxDist }),
+            });
+            var data = await res.json();
+            hideProgress();
+
+            if (!data.success) { toast(data.error || 'Error.', 'error'); return; }
+
+            if (data.points && data.points.length > 2) {
+                try {
+                    var pts = data.points.map(function(p) { return { type: 'Feature', geometry: { type: 'Point', coordinates: p } }; });
+                    var hull = turf.convex(turf.featureCollection(pts));
+                    if (hull) {
+                        _net.areaLayer = L.geoJSON(hull, {
+                            style: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2, dashArray: '4 4' },
+                        }).addTo(state.map);
+                        state.map.fitBounds(_net.areaLayer.getBounds().pad(0.2));
+                    }
+                } catch(e) {}
+            }
+
+            var resEl = document.getElementById('networkResults');
+            resEl.innerHTML = '<div class="font-bold text-amber-600 mb-1">Area de Servicio</div>' +
+                '<div>Nodos alcanzados: <strong>' + (data.reachable_nodes?.length || 0) + '</strong></div>' +
+                '<div>Segmentos: ' + data.edge_count + '</div>' +
+                '<div>Distancia maxima: ' + maxDist.toLocaleString() + ' m</div>';
+            resEl.classList.remove('hidden');
+            toast('Area de servicio: ' + data.edge_count + ' segmentos', 'success');
+            setTimeout(function() {
+                if (_net.areaLayer) {
+                    var areaGeo = { type: 'FeatureCollection', features: [] };
+                    _net.areaLayer.eachLayer(function(l) {
+                        if (l.feature) areaGeo.features.push(l.feature);
+                    });
+                    var pts = _net.origin ? [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'Origen' }] : [];
+                    if (areaGeo.features.length) askSaveAsLayer(areaGeo, 'Area servicio ' + maxDist + 'm', pts);
+                }
+            }, 500);
+        } catch (e) {
+            hideProgress();
+            toast('Error: ' + e.message, 'error');
+        }
+    }
+
+    async function solveClosestFacility() {
+        const network = getNetworkFeature();
+        if (!network) return;
+        if (!_net.origin) {
+            toast('Selecciona un origen en el mapa.', 'warning');
+            return;
+        }
+        if (_net.facilities.length === 0) {
+            toast('Anade al menos una facility en el mapa.', 'warning');
+            return;
+        }
+
+        clearNetworkResults();
+        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
+        var facilities = {
+            type: 'FeatureCollection',
+            features: _net.facilities.map(function(f, i) { return {
+                type: 'Feature',
+                id: i,
+                geometry: { type: 'Point', coordinates: [f.lng, f.lat] },
+                properties: { name: 'Facility ' + (i + 1) },
+            }; }),
+        };
+
+        showProgress('Buscando facility mas cercana...', 20);
+        try {
+            var res = await fetch('/api/network/closest-facility', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ network: network, origin: originPoint, facilities: facilities }),
+            });
+            var data = await res.json();
+            hideProgress();
+
+            if (!data.success) { toast(data.error || 'Error.', 'error'); return; }
+
+            if (data.path) {
+                _net.pathLayer = L.geoJSON(data.path, {
+                    style: { color: '#0284c7', weight: 4, opacity: 0.9 },
+                }).addTo(state.map);
+                state.map.fitBounds(_net.pathLayer.getBounds().pad(0.2));
+            }
+
+            var resEl = document.getElementById('networkResults');
+            resEl.innerHTML = '<div class="font-bold text-sky-600 mb-1">Facility Mas Cercana</div>' +
+                '<div>Distancia: <strong>' + data.distance_km + ' km</strong> (' + data.distance_meters.toLocaleString() + ' m)</div>';
+            resEl.classList.remove('hidden');
+            toast('Facility mas cercana: ' + data.distance_km + ' km', 'success');
+            setTimeout(function() {
+                var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }];
+                _net.facilities.forEach(function(f, i) { pts.push({ lat: f.lat, lng: f.lng, label: 'F' + (i + 1) }); });
+                if (data.path) askSaveAsLayer({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: data.path }] }, 'Facility cercana ' + data.distance_km + 'km', pts);
+            }, 500);
+        } catch (e) {
+            hideProgress();
+            toast('Error: ' + e.message, 'error');
+        }
+    }
+
+    function toggleNetworkPanel() {
+        const body = document.getElementById('networkPanelBody');
+        const chevron = document.getElementById('networkChevron');
+        if (!body || !chevron) return;
+        const hidden = body.style.display === 'none';
+        body.style.display = hidden ? 'block' : 'none';
+        chevron.textContent = hidden ? 'expand_less' : 'expand_more';
+    }
 
 
     // 7. UTILS
@@ -14373,6 +15475,463 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     try { initSupabase(); } catch(e) { console.warn('[Init] Supabase init error:', e); }
     try { initSupabaseAuth(); } catch(e) { console.warn('[Init] Auth init error:', e); }
+
+    // ════════════════════════════════════════
+    // Model Builder (Herramientas Avanzadas)
+    // ════════════════════════════════════════
+    const MB = {
+      nodes: [],
+      connections: [],
+      nextId: 1,
+      connectingFrom: null,
+      dragNode: null,
+      dragOffX: 0,
+      dragOffY: 0,
+
+      tools: {
+        input: {
+          label: 'Capa Entrada', icon: 'layers', color: '#27272a',
+          inputs: [],
+          outputs: [{ id: 'out', label: 'Capa' }],
+          params: () => {
+            const layers = state.layers.filter(l => l.type === 'vector');
+            return `<select class="mb-param w-full bg-zinc-100 rounded-lg p-1.5 text-[9px] font-bold border border-zinc-200 outline-none" data-key="layerIdx">${layers.map((l,i) => `<option value="${i}">${l.name}</option>`).join('')}</select>`;
+          }
+        },
+        buffer: {
+          label: 'Buffer', icon: 'blur_on', color: '#2563eb',
+          inputs: [{ id: 'in', label: 'Capa' }],
+          outputs: [{ id: 'out', label: 'Buffer' }],
+          params: () => `<div class="flex items-center gap-1"><input class="mb-param w-16 bg-zinc-100 rounded-lg p-1 text-[9px] font-bold border border-zinc-200 outline-none text-center" data-key="dist" type="number" value="100" min="1" step="1"><span class="text-[8px] text-zinc-400">m</span></div>`
+        },
+        clip: {
+          label: 'Clip', icon: 'content_cut', color: '#7c3aed',
+          inputs: [{ id: 'inA', label: 'A recortar' }, { id: 'inB', label: 'Recorte' }],
+          outputs: [{ id: 'out', label: 'Clip' }],
+          params: () => {
+            const layers = state.layers.filter(l => l.type === 'vector');
+            return `<select class="mb-param w-full bg-zinc-100 rounded-lg p-1 text-[9px] font-bold border border-zinc-200 outline-none" data-key="layerB">
+              <option value="">Capa de recorte</option>
+              ${layers.map((l,i) => `<option value="${i}">${l.name}</option>`).join('')}
+            </select>`;
+          }
+        },
+        intersect: {
+          label: 'Intersección', icon: 'intersections', color: '#0d9488',
+          inputs: [{ id: 'inA', label: 'Capa A' }, { id: 'inB', label: 'Capa B' }],
+          outputs: [{ id: 'out', label: 'Intersección' }], params: null
+        },
+        dissolve: {
+          label: 'Disolver', icon: 'grid_view', color: '#059669',
+          inputs: [{ id: 'in', label: 'Capa' }],
+          outputs: [{ id: 'out', label: 'Disuelto' }],
+          params: () => {
+            const layers = state.layers.filter(l => l.type === 'vector');
+            const layer = layers[0];
+            if (!layer || !layer.geoJson) return '<span class="text-[8px] text-zinc-400">—</span>';
+            const props = layer.geoJson.features?.[0]?.properties || {};
+            const keys = Object.keys(props);
+            return `<select class="mb-param w-full bg-zinc-100 rounded-lg p-1 text-[9px] font-bold border border-zinc-200 outline-none" data-key="field"><option value="">Todo</option>${keys.map(k => `<option value="${k}">${k}</option>`).join('')}</select>`;
+          }
+        },
+        centroids: {
+          label: 'Centroides', icon: 'location_on', color: '#d97706',
+          inputs: [{ id: 'in', label: 'Capa' }],
+          outputs: [{ id: 'out', label: 'Centroides' }], params: null
+        },
+        spatialjoin: {
+          label: 'Unión Espacial', icon: 'join_inner', color: '#0d9488',
+          inputs: [{ id: 'inA', label: 'Destino' }, { id: 'inB', label: 'A unir' }],
+          outputs: [{ id: 'out', label: 'Unida' }], params: null
+        },
+        heatmap: {
+          label: 'Mapa Calor', icon: 'local_fire_department', color: '#ea580c',
+          inputs: [{ id: 'in', label: 'Capa' }],
+          outputs: [{ id: 'out', label: 'Heatmap' }],
+          params: () => `<div class="flex items-center gap-1"><input class="mb-param w-16 bg-zinc-100 rounded-lg p-1 text-[9px] font-bold border border-zinc-200 outline-none text-center" data-key="radius" type="number" value="40" min="1" step="1"><span class="text-[8px] text-zinc-400">px</span></div>`
+        }
+      },
+
+      addNode(type) {
+        const tool = MB.tools[type];
+        if (!tool) return;
+        const id = MB.nextId++;
+        const canvas = document.getElementById('mbCanvasWrap');
+        const cw = canvas?.clientWidth || 600;
+        const ch = canvas?.clientHeight || 400;
+        const node = {
+          id, type, label: tool.label, color: tool.color, icon: tool.icon,
+          x: 60 + (MB.nodes.length * 30) % (cw - 280),
+          y: 40 + Math.floor(MB.nodes.length * 0.7) * 20 % (ch - 200)
+        };
+        MB.nodes.push(node);
+        document.getElementById('mbEmpty').style.display = 'none';
+        MB.render();
+        document.getElementById('mbLogBar')?.classList.remove('hidden');
+      },
+
+      removeNode(id) {
+        MB.connections = MB.connections.filter(c => c.fromNode !== id && c.toNode !== id);
+        MB.nodes = MB.nodes.filter(n => n.id !== id);
+        if (MB.nodes.length === 0) {
+          document.getElementById('mbEmpty').style.display = 'flex';
+          document.getElementById('mbLogBar')?.classList.add('hidden');
+        }
+        MB.render();
+      },
+
+      getNode(id) { return MB.nodes.find(n => n.id === id); },
+
+      getConnectedInputs(nodeId) {
+        return MB.connections.filter(c => c.toNode === nodeId).map(c => ({
+          fromNode: c.fromNode, fromPort: c.fromPort, toPort: c.toPort
+        }));
+      },
+
+      render() {
+        const container = document.getElementById('mbNodes');
+        if (!container) return;
+        container.innerHTML = MB.nodes.map(node => {
+          const tool = MB.tools[node.type];
+          const conns = MB.getConnectedInputs(node.id);
+          const inputsHtml = tool.inputs.map(port => {
+            const conn = conns.find(c => c.toPort === port.id);
+            return `<div class="flex items-center gap-1.5 px-2 py-0.5">
+              <div class="mb-port-in${conn ? ' connected' : ''}" data-node="${node.id}" data-port="${port.id}"></div>
+              <span class="text-[8px] ${conn ? 'text-emerald-600 font-bold' : 'text-zinc-400'}">${port.label}</span>
+            </div>`;
+          }).join('');
+          const paramsHtml = tool.params ? `<div class="px-2 py-1 border-t border-zinc-100">${tool.params()}</div>` : '';
+          const outputsHtml = tool.outputs.map(port =>
+            `<div class="flex items-center gap-1 px-2 py-0.5">
+              <span class="text-[8px] text-zinc-400">${port.label}</span>
+              <div class="mb-port-out bg-zinc-400" data-node="${node.id}" data-port="${port.id}"></div>
+            </div>`
+          ).join('');
+
+          return `<div id="mb-node-${node.id}" class="mb-node absolute bg-white border border-zinc-200 rounded-xl shadow-md select-none" style="left:${node.x}px;top:${node.y}px;width:180px">
+            <div class="flex items-center justify-between px-2.5 py-2 rounded-t-xl" style="background:${node.color}">
+              <div class="flex items-center gap-1.5 text-white">
+                <span class="material-symbols-outlined text-sm">${tool.icon}</span>
+                <span class="text-[9px] font-bold uppercase tracking-wider">${tool.label}</span>
+              </div>
+              ${node.type !== 'input' ? `<button onclick="MB.removeNode(${node.id})" class="text-white/60 hover:text-white transition-colors"><span class="material-symbols-outlined text-[14px]">close</span></button>` : ''}
+            </div>
+            <div class="p-1.5 space-y-0.5 text-[10px]">
+              ${inputsHtml}
+              ${paramsHtml}
+            </div>
+            ${outputsHtml ? `<div class="border-t border-zinc-100 pt-0.5 pb-1">${outputsHtml}</div>` : ''}
+            <div class="absolute -bottom-1 left-0 right-0 flex justify-center">
+              <div class="w-16 h-1.5 bg-zinc-300 rounded-full cursor-grab active:cursor-grabbing opacity-0 hover:opacity-40 transition-opacity mb-node-drag" data-node="${node.id}"></div>
+            </div>
+          </div>`;
+        }).join('');
+
+        MB.renderConnections();
+        MB.attachPortListeners();
+        MB.attachDragListeners();
+      },
+
+      renderConnections() {
+        const svg = document.getElementById('mbConnections');
+        if (!svg) return;
+        svg.innerHTML = '';
+        const sRect = svg.getBoundingClientRect();
+        MB.connections.forEach(conn => {
+          const fromEl = document.querySelector(`.mb-port-out[data-node="${conn.fromNode}"][data-port="${conn.fromPort}"]`);
+          const toEl = document.querySelector(`.mb-port-in[data-node="${conn.toNode}"][data-port="${conn.toPort}"]`);
+          if (!fromEl || !toEl) return;
+          const f = fromEl.getBoundingClientRect();
+          const t = toEl.getBoundingClientRect();
+          const x1 = f.left - sRect.left + f.width / 2;
+          const y1 = f.top - sRect.top + f.height / 2;
+          const x2 = t.left - sRect.left + t.width / 2;
+          const y2 = t.top - sRect.top + t.height / 2;
+          const dy = Math.abs(y2 - y1) + 40;
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${y1+dy}, ${x2} ${y2-dy}, ${x2} ${y2}`);
+          path.setAttribute('stroke', '#22c55e');
+          path.setAttribute('stroke-width', '2.5');
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke-linecap', 'round');
+          path.setAttribute('class', 'mb-connection-path');
+          path.style.filter = 'drop-shadow(0 1px 3px rgba(34,197,94,0.3))';
+          svg.appendChild(path);
+        });
+      },
+
+      attachPortListeners() {
+        document.querySelectorAll('.mb-port-out').forEach(el => {
+          el.onclick = () => {
+            const node = parseInt(el.dataset.node);
+            const port = el.dataset.port;
+            if (MB.connectingFrom) {
+              document.querySelectorAll('.mb-port-highlight').forEach(h => h.classList.remove('mb-port-highlight'));
+              MB.connectingFrom = null;
+              return;
+            }
+            MB.connectingFrom = { node, port };
+            el.classList.add('mb-port-highlight');
+            document.querySelectorAll('.mb-port-in').forEach(h => h.classList.add('mb-port-ready'));
+          };
+        });
+        document.querySelectorAll('.mb-port-in').forEach(el => {
+          el.onclick = () => {
+            if (!MB.connectingFrom) return;
+            const toNode = parseInt(el.dataset.node);
+            const toPort = el.dataset.port;
+            const fromNode = MB.connectingFrom.node;
+            const fromPort = MB.connectingFrom.port;
+            if (fromNode === toNode) { MB.cancelConnection(); return; }
+            const existing = MB.connections.find(c => c.toNode === toNode && c.toPort === toPort);
+            if (existing) MB.connections = MB.connections.filter(c => c !== existing);
+            MB.connections.push({ fromNode, fromPort, toNode, toPort });
+            MB.cancelConnection();
+            MB.render();
+          };
+        });
+      },
+
+      attachDragListeners() {
+        let dragging = null, offX = 0, offY = 0, startX = 0, startY = 0;
+        const nodesEl = document.getElementById('mbNodes');
+
+        nodesEl.addEventListener('mousedown', (e) => {
+          const header = e.target.closest('.mb-node');
+          if (!header) return;
+          if (e.target.closest('button, .mb-port-in, .mb-port-out, select, input')) return;
+          const id = parseInt(header.id.replace('mb-node-', ''));
+          const node = MB.getNode(id);
+          if (!node) return;
+          startX = e.clientX; startY = e.clientY;
+          dragging = id;
+          const rect = header.getBoundingClientRect();
+          offX = e.clientX - rect.left;
+          offY = e.clientY - rect.top;
+          header.style.cursor = 'grabbing';
+          header.style.zIndex = '100';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (dragging === null) return;
+          const dx = Math.abs(e.clientX - startX);
+          const dy = Math.abs(e.clientY - startY);
+          if (dx < 3 && dy < 3) return; // threshold to avoid accidental drag
+          const node = MB.getNode(dragging);
+          if (!node) return;
+          const el = document.getElementById(`mb-node-${dragging}`);
+          const canvas = document.getElementById('mbCanvasWrap');
+          const cRect = canvas.getBoundingClientRect();
+          node.x = Math.max(0, Math.min(cRect.width - 180, e.clientX - cRect.left - offX));
+          node.y = Math.max(0, Math.min(cRect.height - 60, e.clientY - cRect.top - offY));
+          el.style.left = node.x + 'px';
+          el.style.top = node.y + 'px';
+          MB.renderConnections();
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (dragging !== null) {
+            const el = document.getElementById(`mb-node-${dragging}`);
+            if (el) { el.style.cursor = ''; el.style.zIndex = ''; }
+            dragging = null;
+          }
+        });
+      },
+
+      cancelConnection() {
+        document.querySelectorAll('.mb-port-highlight, .mb-port-ready').forEach(h => h.classList.remove('mb-port-highlight', 'mb-port-ready'));
+        MB.connectingFrom = null;
+      },
+
+      addLog(msg, type = 'info') {
+        const log = document.getElementById('mbLog');
+        if (!log) return;
+        const colors = { info: 'text-zinc-500', success: 'text-emerald-600', error: 'text-red-500', warn: 'text-amber-500' };
+        log.innerHTML += `<div class="${colors[type] || colors.info}">${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+      },
+
+      async runModel() {
+        const log = document.getElementById('mbLog');
+        const bar = document.getElementById('mbLogBar');
+        bar?.classList.remove('hidden');
+        log.innerHTML = '';
+        MB.addLog('▶ Iniciando ejecución del modelo...', 'info');
+
+        if (MB.nodes.length === 0) { MB.addLog('✗ No hay nodos en el modelo', 'error'); return; }
+
+        // Topological sort
+        const inDegrees = {};
+        MB.nodes.forEach(n => inDegrees[n.id] = 0);
+        MB.connections.forEach(c => inDegrees[c.toNode]++);
+        const queue = MB.nodes.filter(n => inDegrees[n.id] === 0).map(n => n.id);
+        const sorted = [];
+        while (queue.length > 0) {
+          const id = queue.shift();
+          sorted.push(id);
+          MB.connections.filter(c => c.fromNode === id).forEach(c => {
+            if (--inDegrees[c.toNode] === 0) queue.push(c.toNode);
+          });
+        }
+        if (sorted.length !== MB.nodes.length) { MB.addLog('✗ El modelo contiene ciclos', 'error'); return; }
+        MB.addLog(`  Orden: ${sorted.map(id => MB.getNode(id)?.label).join(' → ')}`, 'info');
+
+        const results = {};
+        for (const nodeId of sorted) {
+          const node = MB.getNode(nodeId);
+          if (!node) continue;
+          const tool = MB.tools[node.type];
+          MB.addLog(`  ▶ ${tool.label}...`, 'info');
+
+          try {
+            const inputs = {};
+            for (const port of tool.inputs) {
+              const conn = MB.connections.find(c => c.toNode === nodeId && c.toPort === port.id);
+              if (conn) inputs[port.id] = results[conn.fromNode];
+            }
+            const nodeEl = document.getElementById(`mb-node-${nodeId}`);
+            const params = {};
+            if (nodeEl) nodeEl.querySelectorAll('.mb-param').forEach(el => params[el.dataset.key] = el.value);
+
+            let result;
+            const exec = async (fn) => { result = await fn; results[nodeId] = result; if (result?.name) MB.addLog(`    ✓ ${result.name}`, 'success'); };
+
+            switch (node.type) {
+              case 'input': {
+                const idx = parseInt(params.layerIdx);
+                const layers = state.layers.filter(l => l.type === 'vector');
+                if (isNaN(idx) || !layers[idx]) throw new Error('Capa no válida');
+                result = layers[idx]; results[nodeId] = result;
+                MB.addLog(`    ✓ ${result.name}`, 'success');
+                break;
+              }
+              case 'buffer': await exec(applyBufferOnLayer(inputs.in || inputs.inA, parseFloat(params.dist) || 100)); break;
+              case 'clip': {
+                let a = inputs.inA;
+                let b = inputs.inB;
+                if (!a) throw new Error('Conecta la capa a recortar (entrada A)');
+                if (!b) {
+                  const layers = state.layers.filter(l => l.type === 'vector');
+                  b = layers[parseInt(params.layerB)];
+                  if (!b) throw new Error('Selecciona la capa de recorte en los parámetros o conéctala');
+                }
+                await exec(applyClipOnLayers(a, b));
+                break;
+              }
+              case 'intersect': await exec(applyIntersectOnLayers(inputs.inA, inputs.inB)); break;
+              case 'dissolve': await exec(applyDissolveOnLayer(inputs.in || inputs.inA, params.field || null)); break;
+              case 'centroids': await exec(Promise.resolve(applyCentroidsOnLayer(inputs.in || inputs.inA))); break;
+              case 'spatialjoin': await exec(applySpatialJoinOnLayers(inputs.inA, inputs.inB)); break;
+              case 'heatmap': await exec(applyHeatmapOnLayer(inputs.in || inputs.inA, parseInt(params.radius) || 40)); break;
+              default: throw new Error('Tipo desconocido');
+            }
+          } catch (e) {
+            MB.addLog(`    ✗ ${e.message}`, 'error');
+            MB.addLog('⚠ Ejecución detenida', 'warn');
+            return;
+          }
+        }
+        MB.addLog('✓ Modelo ejecutado exitosamente', 'success');
+      }
+    };
+
+    // Helper geoprocessing wrappers
+    async function applyBufferOnLayer(layer, dist) {
+      return new Promise((resolve, reject) => {
+        const buffered = turf.buffer(layer.geoJson, dist / 1000, { units: 'kilometers' });
+        if (!buffered || !buffered.features?.length) return reject(new Error('Buffer vacío'));
+        addVectorLayer(buffered, `${layer.name} - Buffer ${dist}m`, { color: '#3b82f6', fillOpacity: 0.3, strokeWidth: 1 }).then(resolve);
+      });
+    }
+    async function applyClipOnLayers(a, b) {
+      const fA = a.geoJson.features || [a.geoJson], fB = b.geoJson.features || [b.geoJson];
+      const r = [];
+      for (const fa of fA) for (const fb of fB) { try { const x = turf.intersect(turf.featureCollection([fa, fb])); if (x) { x.properties = { ...fa.properties }; r.push(x); } } catch(e) {} }
+      if (!r.length) throw new Error('Sin intersección');
+      return addVectorLayer({ type: 'FeatureCollection', features: r }, `${a.name} - Clip`, { color: '#dc2626', fillOpacity: 0.4, strokeWidth: 2 });
+    }
+    async function applyIntersectOnLayers(a, b) {
+      const fA = a.geoJson.features || [a.geoJson], fB = b.geoJson.features || [b.geoJson];
+      const r = [];
+      for (const fa of fA) for (const fb of fB) { try { const x = turf.intersect(turf.featureCollection([fa, fb])); if (x) { x.properties = { ...fa.properties, ...fb.properties }; r.push(x); } } catch(e) {} }
+      if (!r.length) throw new Error('Sin intersección');
+      return addVectorLayer({ type: 'FeatureCollection', features: r }, `${a.name} ∩ ${b.name}`, { color: '#f59e0b', fillOpacity: 0.5, strokeWidth: 2 });
+    }
+    async function applyDissolveOnLayer(layer, field) {
+      const d = field ? turf.dissolve(layer.geoJson, { propertyName: field }) : turf.dissolve(layer.geoJson);
+      if (!d) throw new Error('Error al disolver');
+      return addVectorLayer(d, `${layer.name} - Disuelto${field ? ` (${field})` : ''}`, { color: '#10b981', fillOpacity: 0.4, strokeWidth: 2 });
+    }
+    async function applyCentroidsOnLayer(layer) {
+      const c = layer.geoJson.features.map(f => { const ct = turf.centroid(f); ct.properties = { ...f.properties }; return ct; });
+      return addVectorLayer({ type: 'FeatureCollection', features: c }, `${layer.name} - Centroides`, { color: '#f59e0b', fillOpacity: 0.6, strokeWidth: 1 });
+    }
+    async function applySpatialJoinOnLayers(target, join) {
+      const jProps = join.geoJson.features?.[0]?.properties || {}, jKeys = Object.keys(jProps);
+      const results = (target.geoJson.features || []).map(fA => {
+        const p = { ...fA.properties };
+        for (const fB of (join.geoJson.features || [])) {
+          let m = false;
+          try {
+            const c = turf.centroid(fA);
+            m = fB.geometry?.type === 'Polygon' || fB.geometry?.type === 'MultiPolygon'
+              ? turf.booleanPointInPolygon(c, fB) : turf.booleanIntersects(fA, fB);
+          } catch(e) {}
+          if (m) { jKeys.forEach(k => p[`join_${k}`] = fB.properties?.[k]); break; }
+        }
+        return { ...fA, properties: p };
+      });
+      return addVectorLayer({ type: 'FeatureCollection', features: results }, `${target.name} - Unida`, { color: '#14b8a6', fillOpacity: 0.4, strokeWidth: 1 });
+    }
+    async function applyHeatmapOnLayer(layer, radius) {
+      const pts = layer.geoJson.features.filter(f => f.geometry?.type === 'Point');
+      if (!pts.length) throw new Error('Requiere capa de puntos');
+      const bbox = turf.bbox(layer.geoJson);
+      const cell = Math.max((bbox[2] - bbox[0]) / 20, (bbox[3] - bbox[1]) / 20);
+      const grid = turf.hexGrid([bbox[0], bbox[1], bbox[2], bbox[3]], cell, { units: 'degrees' });
+      const counts = turf.collect(grid, turf.featureCollection(pts), '', 'count');
+      return addVectorLayer(counts, `${layer.name} - Heatmap`, { color: '#ef4444', fillOpacity: 0.5, strokeWidth: 0 });
+    }
+
+    // Open / Close modal
+    function openModelBuilder() {
+      document.getElementById('modelBuilderModal').style.display = 'flex';
+      MB.render();
+      // Force flag to show log bar if there are nodes
+      if (MB.nodes.length > 0) document.getElementById('mbLogBar')?.classList.remove('hidden');
+    }
+    function closeModelBuilder() {
+      document.getElementById('modelBuilderModal').style.display = 'none';
+    }
+
+    function mbClearModel() {
+      MB.nodes = [];
+      MB.connections = [];
+      MB.nextId = 1;
+      document.getElementById('mbEmpty').style.display = 'flex';
+      document.getElementById('mbLogBar')?.classList.add('hidden');
+      MB.render();
+    }
+
+    function mbRunModel() { MB.runModel(); }
+
+    // Init: palette click listeners and Escape key
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#modelBuilderModal [data-tool]').forEach(btn => {
+        btn.addEventListener('click', () => MB.addNode(btn.dataset.tool));
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (MB.connectingFrom) { MB.cancelConnection(); return; }
+          const modal = document.getElementById('modelBuilderModal');
+          if (modal.style.display === 'flex') modal.style.display = 'none';
+        }
+      });
+      let rt;
+      const rerender = () => { clearTimeout(rt); rt = setTimeout(() => { if (document.getElementById('modelBuilderModal').style.display === 'flex') MB.renderConnections(); }, 100); };
+      window.addEventListener('resize', rerender);
+    });
   </script>
 
 </body>
