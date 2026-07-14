@@ -2366,22 +2366,31 @@
         const width = image.getWidth();
         const height = image.getHeight();
         const samples = image.getSamplesPerPixel();
-        const bbox = image.getBoundingBox(); // [minX, minY, maxX, maxY]
+        const bbox = image.getBoundingBox();
 
-        // Georeferencing
         const georef = extractGeoref(image, bbox);
         const latLngBounds = georef.bounds;
         const coordinateInfo = georef.info;
 
+        const MAX_PREVIEW_DIM = 4096;
+        let outW = width, outH = height;
+        if (width > MAX_PREVIEW_DIM || height > MAX_PREVIEW_DIM) {
+          const scale = Math.min(MAX_PREVIEW_DIM / width, MAX_PREVIEW_DIM / height);
+          outW = Math.floor(width * scale);
+          outH = Math.floor(height * scale);
+        }
+
         showProgress('Decodificando rasters...', 70);
-        const rasters = await image.readRasters({ interleave: false });
+        const rasters = await image.readRasters({
+          interleave: false,
+          width: outW,
+          height: outH,
+        });
 
         showProgress('Generando imagen...', 88);
-        const result = rastersToImageData(rasters, width, height, samples);
-        const canvas = result.canvas;
-        const thumb = generateThumb(canvas, width, height, 40, 40);
+        const canvas = rastersToImageData(rasters, outW, outH, samples).canvas;
+        const thumb = generateThumb(canvas, outW, outH, 40, 40);
 
-        // Efficient image storage using Blobs
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         const imageUrl = URL.createObjectURL(blob);
 
@@ -2390,14 +2399,16 @@
           name: file.name,
           type: 'raster',
           imageUrl: imageUrl,
-          width,
-          height,
+          width: outW,
+          height: outH,
           visible: true,
           opacity: 1,
           blendMode: 'normal',
           thumb,
           bands: samples,
-          rasters: rasters, // Save for on-the-fly rendering
+          rasters: null,
+          origWidth: width,
+          origHeight: height,
           renderer: samples >= 3 ? 'multiband' : 'single_gray',
           rendererParams: {
             bands: samples >= 3 ? [0, 1, 2] : [0],
@@ -2863,28 +2874,28 @@
         });
     }
 
-    // Improved normalization with contrast stretch
     function rastersToImageData(rasters, width, height, bands) {
+      const n = width * height;
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       const imgData = ctx.createImageData(width, height);
       const data = imgData.data;
-      const n = width * height;
 
       const selectBand = (idx) => rasters[Math.min(idx, rasters.length - 1)];
 
       const getStats = (band) => {
-        // Sample more pixels for better stats
         const step = Math.max(1, Math.floor(n / 10000));
-        let min = Infinity, max = -Infinity;
+        const sorted = [];
         for (let i = 0; i < n; i += step) {
-          const v = band[i];
-          if (v < min) min = v;
-          if (v > max) max = v;
+          sorted.push(band[i]);
         }
-        // Simple 2% clip approximation (min/max for now but robust)
+        sorted.sort((a, b) => a - b);
+        const lo = sorted[Math.floor(sorted.length * 0.02)];
+        const hi = sorted[Math.floor(sorted.length * 0.98)];
+        let min = lo, max = hi;
+        if (min === max) { min = sorted[0]; max = sorted[sorted.length - 1]; }
         return { min, max, range: max - min || 1 };
       };
 
@@ -2896,19 +2907,14 @@
         const rB = selectBand(0);
         const gB = selectBand(1);
         const bB = selectBand(2);
-        const aB = bands >= 4 ? rasters[3] : null;
-
         const rS = getStats(rB);
         const gS = getStats(gB);
         const bS = getStats(bB);
-
         for (let i = 0; i < n; i++) {
           const p = i * 4;
           data[p] = normalize(rB[i], rS);
           data[p + 1] = normalize(gB[i], gS);
           data[p + 2] = normalize(bB[i], bS);
-          // Ensure visibility: only use alpha if it's explicitly a 4-band image AND looks like alpha
-          // Otherwise default to 255. NIR bands (common in 4-band TIFFs) often cause transparency issues.
           data[p + 3] = 255;
         }
       } else {
@@ -5497,7 +5503,7 @@
 
       try {
         const rasters = [];
-        let width, height, bounds, coordInfo;
+        let width, height, bounds, coordInfo, outW, outH;
 
         for (let i = 0; i < bandsToLoad.length; i++) {
           const bId = bandsToLoad[i];
@@ -5518,27 +5524,38 @@
           width = bWidth;
           height = bHeight;
 
+          // Calculate target preview dimensions from the first band
+          if (!outW) {
+            const MAX_DIM = 4096;
+            outW = width;
+            outH = height;
+            if (width > MAX_DIM || height > MAX_DIM) {
+              const scale = Math.min(MAX_DIM / width, MAX_DIM / height);
+              outW = Math.floor(width * scale);
+              outH = Math.floor(height * scale);
+            }
+          }
+
           // Get georef from the first band
           if (!bounds) {
             const bbox = image.getBoundingBox();
-            const geoKeys = image.getGeoKeys();
-
-            // Use the existing georef logic (simplified here but call existing if refactored)
-            // For now, let's extract the core logic into a reusable function if possible
             const georef = extractGeoref(image, bbox);
             bounds = georef.bounds;
             coordInfo = georef.info;
           }
 
-          const bandRaster = await image.readRasters({ interleave: false });
+          const bandRaster = await image.readRasters({
+            interleave: false,
+            width: outW,
+            height: outH,
+          });
           rasters.push(bandRaster[0]); // Take first sample
         }
 
         showProgress('Componiendo imagen final...', 85);
 
-        const result = rastersToImageData(rasters, width, height, 3);
-        const canvas = result.canvas;
-        const thumb = generateThumb(canvas, width, height, 40, 40);
+        const canvas = rastersToImageData(rasters, outW, outH, 3).canvas;
+        const thumb = generateThumb(canvas, outW, outH, 40, 40);
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         const imageUrl = URL.createObjectURL(blob);
 
@@ -5547,8 +5564,8 @@
           name: `Compuesto RGB (${sat})`,
           type: 'raster',
           imageUrl: imageUrl,
-          width,
-          height,
+          width: outW,
+          height: outH,
           visible: true,
           opacity: 1,
           blendMode: 'normal',

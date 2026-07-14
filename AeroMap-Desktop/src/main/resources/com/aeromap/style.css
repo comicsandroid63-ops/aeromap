@@ -1,0 +1,266 @@
+.main-container {
+    -fx-background-color: #0c0c0c;
+}
+
+.top-nav {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+    -fx-padding: 10 25;
+    -fx-border-color: rgba(255, 255, 255, 0.05);
+    -fx-border-width: 0 0 1 0;
+}
+
+.logo {
+    -fx-text-fill: white;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-letter-spacing: -1px;
+}
+
+.sidebar {
+    -fx-background-color: #121212;
+    -fx-border-color: rgba(255, 255, 255, 0.05);
+    -fx-border-width: 0 1 0 0;
+}
+
+.sidebar-tabs {
+    -fx-tab-min-width: 50;
+    -fx-tab-max-width: 50;
+}
+
+.sidebar-tabs .tab-header-area {
+    -fx-background-color: #1a1a1a;
+}
+
+.sidebar-tabs .tab {
+    -fx-background-color: transparent;
+    -fx-padding: 15;
+}
+
+.sidebar-tabs .tab:selected {
+    -fx-background-color: #00a8ff;
+}
+
+.tab-content {
+    -fx-padding: 20;
+    -fx-background-color: #121212;
+}
+
+.section-header {
+    -fx-text-fill: #aaa;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 1px;
+}
+
+.tool-button {
+    -fx-background-color: #1a1a1a;
+    -fx-text-fill: #ddd;
+    -fx-padding: 12;
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.tool-button:hover {
+    -fx-background-color: #252525;
+    -fx-text-fill: white;
+}
+
+.button-primary {
+    -fx-background-color: #00a8ff;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10 20;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.status-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.8);
+    -fx-padding: 8 20;
+    -fx-spacing: 15;
+    -fx-background-radius: 0 12 0 0;
+}
+
+.status-overlay .label {
+    -fx-text-fill: #00a8ff;
+    -fx-font-family: "Monospaced";
+    -fx-font-size: 12px;
+}
+
+.version-label {
+    -fx-text-fill: #555 !important;
+}
+
+.layer-list {
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+}
+
+/* Floating Toolbar Design (Modern Glassmorphism) */
+.floating-toolbar {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+    -fx-background-radius: 20;
+    -fx-padding: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-width: 1;
+    -fx-border-radius: 20;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 20, 0, 0, 10);
+    -fx-max-width: 68;
+}
+
+.floating-tool-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 15;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+    -fx-min-width: 44;
+    -fx-min-height: 44;
+    -fx-max-width: 44;
+    -fx-max-height: 44;
+    -fx-alignment: CENTER;
+}
+
+.floating-tool-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.3);
+}
+
+.floating-tool-button .ikonli-font-icon {
+    -fx-icon-color: #eee;
+    -fx-icon-size: 18;
+}
+
+.floating-tool-button:selected {
+    -fx-background-color: white;
+}
+
+.floating-tool-button:selected .ikonli-font-icon {
+    -fx-icon-color: #000;
+}
+
+/* Specific button styles from Image 2 */
+.tool-nav-active {
+    -fx-background-color: #000 !important;
+    -fx-background-radius: 12;
+}
+.tool-nav-active .ikonli-font-icon {
+    -fx-icon-color: #fff !important;
+}
+
+.tool-notification {
+    -fx-background-color: white !important;
+    -fx-background-radius: 12;
+}
+.tool-notification .ikonli-font-icon {
+    -fx-icon-color: #222 !important;
+}
+
+.notification-dot {
+    -fx-fill: #ff3b30;
+}
+
+.magnet-button {
+    -fx-background-color: rgba(0, 255, 128, 0.15);
+    -fx-background-radius: 12;
+    -fx-border-color: rgba(0, 255, 128, 0.4);
+    -fx-border-width: 1.5;
+    -fx-border-radius: 12;
+}
+
+.magnet-label {
+    -fx-text-fill: #00e673;
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 13px;
+    -fx-font-weight: 900;
+    -fx-letter-spacing: 0.5px;
+    -fx-padding: 0 5 0 0;
+}
+
+.toolbar-separator {
+    -fx-background-color: rgba(0, 0, 0, 0.1);
+    -fx-pref-height: 1;
+    -fx-max-width: 30;
+    -fx-margin: 5 0;
+}
+
+/* 2D / 3D View Toggle */
+.view-toggle-box {
+    -fx-background-color: rgba(18, 18, 18, 0.85);
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 12, 0, 0, 4);
+    -fx-padding: 3;
+}
+
+.view-toggle-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #aaa;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 18;
+    -fx-cursor: hand;
+    -fx-background-radius: 8;
+    -fx-min-width: 52;
+    -fx-min-height: 30;
+}
+
+.view-toggle-left {
+    -fx-background-radius: 8 0 0 8;
+}
+
+.view-toggle-right {
+    -fx-background-radius: 0 8 8 0;
+}
+
+.view-toggle-button:hover {
+    -fx-text-fill: #ddd;
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+}
+
+.view-toggle-button:selected {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #00a8ff, #007acc);
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 168, 255, 0.4), 8, 0, 0, 2);
+}
+
+.view-toggle-button:selected:hover {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1ab8ff, #0088dd);
+}
+
+.sidebar-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.sidebar-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+.sidebar-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 6;
+}
+
+.sidebar-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-background-radius: 3;
+}
+
+.sidebar-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-scroll .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.sidebar-scroll .scroll-bar .increment-button, 
+.sidebar-scroll .scroll-bar .decrement-button {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+}
+

@@ -138,12 +138,10 @@ router.get('/:name/tiles/:level/:x_y', async (req, res) => {
     const lvl = parseInt(level);
     const { width, height, sourcePath, maxLevel, tileSize } = meta;
 
-    // Calculate level dimensions (level 0 = full res, higher = smaller thumbnails)
     const factor = Math.pow(2, lvl);
     const levelWidth = Math.max(1, Math.ceil(width / factor));
     const levelHeight = Math.max(1, Math.ceil(height / factor));
 
-    // Tile position within the level
     const tileX = x * tileSize;
     const tileY = y * tileSize;
     const tileW = Math.min(tileSize, levelWidth - tileX);
@@ -153,44 +151,80 @@ router.get('/:name/tiles/:level/:x_y', async (req, res) => {
       return res.status(404).json({ error: 'Tile fuera de rango' });
     }
 
-    // Check tile cache
+    // Check tile cache (validate size to avoid serving partial/corrupt files)
     const tileCachePath = path.join(TILE_CACHE, name, `${lvl}_${x}_${y}.jpg`);
     if (fs.existsSync(tileCachePath)) {
-      res.set('Content-Type', 'image/jpeg');
-      res.set('Cache-Control', 'public, max-age=86400');
-      return res.sendFile(tileCachePath);
+      const stat = fs.statSync(tileCachePath);
+      // Corrupt tile guard: if file is suspiciously small (< 500 bytes for a JPEG), regenerate
+      if (stat.size > 500) {
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(tileCachePath);
+      }
+      // Remove corrupt tile so it gets regenerated below
+      try { fs.unlinkSync(tileCachePath); } catch (e) {}
     }
 
-    // Check if level is cached as a resized image
+    // Check if level is cached as a resized image (validate size too)
     const levelCachePath = path.join(LEVEL_CACHE, name, `${lvl}.jpg`);
     let levelBuffer;
 
     if (fs.existsSync(levelCachePath)) {
-      levelBuffer = fs.readFileSync(levelCachePath);
-    } else {
-      // Resize source to level dimensions and cache it
+      const stat = fs.statSync(levelCachePath);
+      if (stat.size > 500) {
+        levelBuffer = fs.readFileSync(levelCachePath);
+      } else {
+        try { fs.unlinkSync(levelCachePath); } catch (e) {}
+      }
+    }
+
+    if (!levelBuffer) {
       console.log(`[DZI] Generating level ${lvl}/${maxLevel}: ${levelWidth}x${levelHeight}`);
       const levelDir = path.join(LEVEL_CACHE, name);
       if (!fs.existsSync(levelDir)) fs.mkdirSync(levelDir, { recursive: true });
 
+      // Clamp negative level dimensions to prevent OOM
+      const safeWidth = Math.min(levelWidth, width * 2);
+      const safeHeight = Math.min(levelHeight, height * 2);
+      const useWidth = Math.max(1, Math.min(levelWidth, safeWidth));
+      const useHeight = Math.max(1, Math.min(levelHeight, safeHeight));
+      console.log(`[DZI] Generating level ${lvl}/${maxLevel}: ${useWidth}x${useHeight} (clamped from ${levelWidth}x${levelHeight})`);
+
       levelBuffer = await sharp(sourcePath, { limitInputPixels: false })
-        .resize(levelWidth, levelHeight, { fit: 'fill' })
+        .resize(useWidth, useHeight, { fit: 'fill', withoutEnlargement: lvl >= 0 })
         .jpeg({ quality: 90 })
         .toBuffer();
 
-      fs.writeFileSync(levelCachePath, levelBuffer);
+      // Write to temp path first, then rename to avoid partial writes
+      const tmpPath = levelCachePath + '.tmp';
+      fs.writeFileSync(tmpPath, levelBuffer);
+      fs.renameSync(tmpPath, levelCachePath);
     }
 
-    // Extract tile from the level image
+    // Recalculate tile extraction params against actual level dimensions (sharp metadata)
+    const actualMeta = await sharp(levelBuffer).metadata();
+    const actualW = actualMeta.width || levelBuffer.width || Math.ceil(width / Math.pow(2, Math.max(0, lvl)));
+    const actualH = actualMeta.height || levelBuffer.height || Math.ceil(height / Math.pow(2, Math.max(0, lvl)));
+    const clampTileX = Math.min(tileX, Math.max(0, actualW - 1));
+    const clampTileY = Math.min(tileY, Math.max(0, actualH - 1));
+    const clampTileW = Math.min(tileW, actualW - clampTileX);
+    const clampTileH = Math.min(tileH, actualH - clampTileY);
+
+    if (clampTileW <= 0 || clampTileH <= 0) {
+      return res.status(404).json({ error: 'Tile fuera de rango' });
+    }
+
     const tileBuffer = await sharp(levelBuffer)
-      .extract({ left: tileX, top: tileY, width: tileW, height: tileH })
+      .extract({ left: clampTileX, top: clampTileY, width: clampTileW, height: clampTileH })
       .jpeg({ quality: 85 })
       .toBuffer();
 
-    // Save tile to cache
+    // Write to temp path first, then rename to avoid partial writes
     const tileDir = path.join(TILE_CACHE, name);
     if (!fs.existsSync(tileDir)) fs.mkdirSync(tileDir, { recursive: true });
-    fs.writeFileSync(tileCachePath, tileBuffer);
+    const tmpTilePath = tileCachePath + '.tmp';
+    fs.writeFileSync(tmpTilePath, tileBuffer);
+    fs.renameSync(tmpTilePath, tileCachePath);
 
     res.set('Content-Type', 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');

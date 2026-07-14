@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - AeroMap</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .navbar {
+      background: #1e293b;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #334155;
+    }
+    .navbar h1 { font-size: 20px; font-weight: 600; color: #f8fafc; }
+    .navbar .brand { display: flex; align-items: center; gap: 12px; }
+    .navbar .brand svg { width: 28px; height: 28px; }
+    .navbar a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 16px;
+      border-radius: 6px;
+      transition: all .2s;
+    }
+    .navbar a:hover { background: #334155; color: #f8fafc; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .header { margin-bottom: 32px; }
+    .header h2 { font-size: 24px; font-weight: 600; }
+    .header p { color: #94a3b8; margin-top: 4px; font-size: 14px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+    .stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+    .stat-card .value { font-size: 36px; font-weight: 700; margin-top: 8px; line-height: 1; }
+    .stat-card .sub { font-size: 13px; color: #64748b; margin-top: 6px; }
+    .stat-card .icon { float: right; opacity: .3; }
+    .stat-card.users .value { color: #60a5fa; }
+    .stat-card.projects .value { color: #a78bfa; }
+    .stat-card.layers .value { color: #34d399; }
+    .stat-card.files .value { color: #fbbf24; }
+    .stat-card.storage .value { color: #f472b6; }
+    .stat-card.active .value { color: #2dd4bf; }
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-card h3 { font-size: 14px; font-weight: 500; color: #94a3b8; margin-bottom: 16px; }
+    .chart-card canvas { max-height: 280px; }
+    .top-users {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .top-users h3 { font-size: 14px; font-weight: 500; color: #94a3b8; margin-bottom: 16px; }
+    .top-users table { width: 100%; border-collapse: collapse; }
+    .top-users th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #64748b;
+      padding: 8px 12px;
+      border-bottom: 1px solid #334155;
+    }
+    .top-users td {
+      padding: 10px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .top-users tr:hover td { background: #334155; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge.active { background: #065f46; color: #6ee7b7; }
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #64748b;
+    }
+    .loading .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #334155;
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-state {
+      text-align: center;
+      padding: 60px;
+      color: #f87171;
+    }
+    .refresh-btn {
+      background: #334155;
+      border: none;
+      color: #e2e8f0;
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background .2s;
+    }
+    .refresh-btn:hover { background: #475569; }
+    .last-updated { font-size: 12px; color: #64748b; }
+    .footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <h1>AeroMap</h1>
+    </div>
+    <div>
+      <a href="/">Volver al mapa</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="header">
+      <div class="footer-bar">
+        <div>
+          <h2>Dashboard de administración</h2>
+          <p>Resumen de usuarios, proyectos y almacenamiento en la nube</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="last-updated" id="lastUpdated">—</span>
+          <button class="refresh-btn" onclick="loadDashboard()">Actualizar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Cargando datos del dashboard...</p>
+    </div>
+
+    <div id="content" style="display:none">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Distribución general</h3>
+          <canvas id="distributionChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Actividad vs. total</h3>
+          <canvas id="activityChart"></canvas>
+        </div>
+      </div>
+      <div class="top-users" id="topUsersSection">
+        <h3>Usuarios con más capas</h3>
+        <table>
+          <thead><tr><th>Usuario</th><th>Capas</th><th>Archivos</th><th>Última actividad</th><th>Estado</th></tr></thead>
+          <tbody id="topUsersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="error" class="error-state" style="display:none">
+      <p>Error al cargar los datos del dashboard.</p>
+      <button class="refresh-btn" onclick="loadDashboard()" style="margin-top:12px">Reintentar</button>
+    </div>
+  </div>
+
+  <script>
+    let distChart = null;
+    let actChart = null;
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return '—';
+      const now = Date.now();
+      const d = new Date(dateStr).getTime();
+      const diff = now - d;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Ahora';
+      if (mins < 60) return mins + 'm';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h';
+      const days = Math.floor(hrs / 24);
+      if (days < 30) return days + 'd';
+      return new Date(dateStr).toLocaleDateString();
+    }
+
+    async function loadDashboard() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('content').style.display = 'none';
+      document.getElementById('error').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/dashboard');
+        if (!res.ok) throw new Error('Error HTTP ' + res.status);
+        const data = await res.json();
+        renderDashboard(data);
+        document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+      } catch (e) {
+        console.error('Dashboard error:', e);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      }
+    }
+
+    function renderDashboard(d) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      const stats = [
+        { cls: 'users', label: 'Usuarios registrados', value: d.totalUsers, sub: d.activeUsers + ' activos con proyectos', icon: '👥' },
+        { cls: 'projects', label: 'Proyectos', value: d.totalProjects, sub: d.recentProjects + ' en los últimos 7 días', icon: '📁' },
+        { cls: 'layers', label: 'Capas (Layers)', value: d.totalLayers, sub: 'en todos los proyectos', icon: '🗺️' },
+        { cls: 'files', label: 'Archivos en la nube', value: d.totalFiles, sub: 'en bucket ' + (d.totalFiles > 0 ? 'shapefiles' : '—'), icon: '☁️' },
+        { cls: 'storage', label: 'Almacenamiento', value: d.storageSizeMB >= 1000 ? (d.storageSizeMB / 1024).toFixed(2) + ' GB' : d.storageSizeMB + ' MB', sub: formatBytes(d.storageSizeBytes), icon: '💾' },
+        { cls: 'active', label: 'Usuarios activos', value: d.activeUsers, sub: 'con al menos 1 proyecto', icon: '⚡' },
+      ];
+
+      document.getElementById('statsGrid').innerHTML = stats.map(s => `
+        <div class="stat-card ${s.cls}">
+          <span class="icon">${s.icon}</span>
+          <div class="label">${s.label}</div>
+          <div class="value">${s.value}</div>
+          <div class="sub">${s.sub}</div>
+        </div>
+      `).join('');
+
+      // Distribution chart (Doughnut)
+      const distCtx = document.getElementById('distributionChart').getContext('2d');
+      if (distChart) distChart.destroy();
+      distChart = new Chart(distCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Usuarios', 'Proyectos', 'Capas', 'Archivos'],
+          datasets: [{
+            data: [d.totalUsers, d.totalProjects, d.totalLayers, d.totalFiles],
+            backgroundColor: ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24'],
+            borderColor: '#1e293b',
+            borderWidth: 3,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } }
+          }
+        }
+      });
+
+      // Activity chart (Bar)
+      const actCtx = document.getElementById('activityChart').getContext('2d');
+      if (actChart) actChart.destroy();
+      actChart = new Chart(actCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Usuarios activos', 'Proyectos recientes'],
+          datasets: [{
+            label: 'Con actividad (7 días)',
+            data: [d.activeUsers, d.recentProjects],
+            backgroundColor: ['#2dd4bf', '#a78bfa'],
+            borderRadius: 6,
+          }, {
+            label: 'Totales',
+            data: [d.totalUsers, d.totalProjects],
+            backgroundColor: ['#0f172a', '#0f172a'],
+            borderColor: ['#2dd4bf', '#a78bfa'],
+            borderWidth: 2,
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } }
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
+          }
+        }
+      });
+
+      // Top users table
+      const tbody = document.getElementById('topUsersBody');
+      if (d.topUsers && d.topUsers.length > 0) {
+        tbody.innerHTML = d.topUsers.map(u => `
+          <tr>
+            <td style="font-family:monospace;font-size:13px">${u.userId.length > 20 ? u.userId.slice(0, 20) + '...' : u.userId}</td>
+            <td>${u.layers}</td>
+            <td>${u.files}</td>
+            <td>${timeAgo(u.lastActive)}</td>
+            <td><span class="badge active">Activo</span></td>
+          </tr>
+        `).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">Sin datos de usuarios</td></tr>';
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

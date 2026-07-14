@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.canvas.Canvas?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" 
+            fx:controller="com.aeromap.controller.MainController"
+            styleClass="main-container" stylesheets="@style.css">
+    
+    <!-- Top Navigation Bar -->
+    <top>
+        <HBox styleClass="top-nav" alignment="CENTER_LEFT" spacing="20">
+            <Label text="AeroMap" styleClass="logo" />
+            <Region HBox.hgrow="ALWAYS" />
+            <HBox fx:id="topNavRight" spacing="10" alignment="CENTER_RIGHT">
+                <!-- View Toggle Buttons -->
+                <HBox spacing="0" styleClass="view-toggle-box">
+                    <ToggleButton fx:id="btn2DView" text="2D" selected="true" styleClass="view-toggle-button, view-toggle-left">
+                        <toggleGroup><ToggleGroup fx:id="viewToggleGroup" /></toggleGroup>
+                    </ToggleButton>
+                    <ToggleButton fx:id="btn3DView" text="3D" styleClass="view-toggle-button, view-toggle-right" toggleGroup="$viewToggleGroup" />
+                </HBox>
+                <Slider fx:id="exaggerationSlider3D" min="0.1" max="5.0" value="2.0" blockIncrement="0.1" showTickLabels="false" showTickMarks="false" visible="false" managed="false" prefWidth="100" />
+                <TextField fx:id="txtExaggeration3D" text="2.0" visible="false" managed="false" prefWidth="50" style="-fx-text-fill: white; -fx-font-weight: bold; -fx-background-color: #333; -fx-border-color: #555; -fx-alignment: center;" />
+                <Button fx:id="btnTiffToOBJ" text="TIFF→OBJ" visible="false" managed="false" styleClass="button-primary">
+                    <tooltip><Tooltip text="Importar GeoTIFF y exportar a OBJ con resolución nativa completa" /></tooltip>
+                </Button>
+                <Spinner fx:id="resolutionSpinner3D" editable="true" visible="false" managed="false" prefWidth="90" style="-fx-background-color: #333; -fx-text-fill: white;" />
+                <Button fx:id="btnExportOBJ" text="OBJ" visible="false" managed="false" styleClass="button-primary" />
+                <Button fx:id="btnImportOBJ" text="Import OBJ" visible="false" managed="false" styleClass="button-primary" />
+
+                <Button fx:id="btnSaveProject" text="Save Project" styleClass="button-primary">
+                    <graphic><FontIcon iconLiteral="fas-save" /></graphic>
+                </Button>
+                <Button text="Export Map" styleClass="button-primary">
+                    <graphic><FontIcon iconLiteral="fas-map" /></graphic>
+                </Button>
+                <Button styleClass="button-icon">
+                    <graphic><FontIcon iconLiteral="fas-user-circle" /></graphic>
+                </Button>
+            </HBox>
+        </HBox>
+    </top>
+    
+    <!-- Sidebar -->
+    <left>
+        <VBox prefWidth="320" styleClass="sidebar">
+            <TabPane side="LEFT" rotateGraphic="true" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="sidebar-tabs">
+                
+                <!-- Layers Tab -->
+                <Tab>
+                    <graphic><FontIcon iconLiteral="fas-layer-group" /></graphic>
+                    <VBox spacing="15" styleClass="tab-content">
+                        <Label text="Layers" styleClass="section-header" />
+                        
+                        <!-- Import Button at the top for visibility -->
+                        <Button text="Import GIS Data" fx:id="btnImport" maxWidth="Infinity" styleClass="button-primary">
+                            <graphic><FontIcon iconLiteral="fas-plus-circle" /></graphic>
+                        </Button>
+                        
+                        <ListView fx:id="layerList" VBox.vgrow="ALWAYS" styleClass="layer-list" />
+                    </VBox>
+                </Tab>
+                
+                <!-- Analysis Tab -->
+                <Tab>
+                    <graphic><FontIcon iconLiteral="fas-bolt" /></graphic>
+                    <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="sidebar-scroll">
+                        <VBox spacing="15" styleClass="tab-content">
+                            <Label text="Geoprocessing" styleClass="section-header" />
+                            <VBox spacing="5" styleClass="tool-group">
+                                <HBox spacing="5">
+                                    <Button fx:id="btnBuffer" text="Buffer" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-bullseye" /></graphic>
+                                    </Button>
+                                    <Button fx:id="btnClip" text="Clip" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-cut" /></graphic>
+                                    </Button>
+                                </HBox>
+                                <HBox spacing="5">
+                                    <Button fx:id="btnUnion" text="Union" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-layer-group" /></graphic>
+                                    </Button>
+                                    <Button fx:id="btnErase" text="Erase" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-eraser" /></graphic>
+                                    </Button>
+                                </HBox>
+                                <HBox spacing="5">
+                                    <Button fx:id="btnDissolve" text="Dissolve" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-object-group" /></graphic>
+                                    </Button>
+                                    <Button fx:id="btnSimplify" text="Simplify" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-compress-arrows-alt" /></graphic>
+                                    </Button>
+                                </HBox>
+                                <HBox spacing="5">
+                                    <Button fx:id="btnCentroids" text="Centroids" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-crosshairs" /></graphic>
+                                    </Button>
+                                    <Button fx:id="btnConvexHull" text="Convex Hull" maxWidth="Infinity" HBox.hgrow="ALWAYS" styleClass="tool-button">
+                                        <graphic><FontIcon iconLiteral="fas-draw-polygon" /></graphic>
+                                    </Button>
+                                </HBox>
+                                <Button fx:id="btnVoronoi" text="Voronoi Diagrams" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-project-diagram" /></graphic>
+                                </Button>
+                                <Button fx:id="btnHeatmap" text="Heatmap" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-fire" /></graphic>
+                                </Button>
+                            </VBox>
+                            
+                            <Separator />
+                            <Label text="Terrain Analysis" styleClass="section-header" />
+                            <VBox spacing="5" styleClass="tool-group">
+                                <Button text="Slope" fx:id="btnSlope" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-mountain" /></graphic>
+                                </Button>
+                                <Button text="Aspect" fx:id="btnAspect" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-compass" /></graphic>
+                                </Button>
+                                <Button text="Hillshade" fx:id="btnHillshade" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-sun" /></graphic>
+                                </Button>
+                                <Button text="Multi-Hillshade" fx:id="btnMultiHillshade" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-certificate" /></graphic>
+                                </Button>
+                                <Button text="Flow Direction" fx:id="btnHydrology" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-tint" /></graphic>
+                                </Button>
+                                <Button text="Flow Accumulation" fx:id="btnFlowAccum" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-stream" /></graphic>
+                                </Button>
+                                <Button text="Ruggedness (TRI)" fx:id="btnTRI" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-braille" /></graphic>
+                                </Button>
+                                <Button text="Curvature" fx:id="btnCurvature" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-wave-square" /></graphic>
+                                </Button>
+                                <Separator style="-fx-padding: 5 0 5 0;"/>
+                                <Button text="Contours" fx:id="btnContours" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-align-justify" /></graphic>
+                                </Button>
+                                <Button text="Viewshed" fx:id="btnViewshed" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-eye" /></graphic>
+                                </Button>
+                            </VBox>
+    
+                            <Separator />
+                            <Label text="3D Settings" styleClass="section-header" />
+                            <VBox spacing="5" styleClass="tool-group">
+                                <HBox spacing="10" alignment="CENTER_LEFT">
+                                    <Label text="Vertical Exaggeration" />
+                                    <Label fx:id="lblVerticalExaggeration" text="2.0x" style="-fx-font-weight: bold; -fx-min-width: 35px;" />
+                                </HBox>
+                                <Slider fx:id="verticalExaggerationSlider" min="0.1" max="5.0" value="2.0" blockIncrement="0.1" showTickLabels="true" showTickMarks="true" majorTickUnit="1" minorTickCount="4" />
+                            </VBox>
+                            <Separator />
+                            <Label text="Statistics" styleClass="section-header" />
+                            <VBox spacing="5" styleClass="tool-group">
+                                <Button text="Zonal Stats" maxWidth="Infinity" styleClass="tool-button">
+                                    <graphic><FontIcon iconLiteral="fas-chart-bar" /></graphic>
+                                </Button>
+                            </VBox>
+                        </VBox>
+                    </ScrollPane>
+                </Tab>
+                
+<!-- Network Tab -->
+                <Tab>
+                    <graphic><FontIcon iconLiteral="fas-directions" /></graphic>
+                    <VBox spacing="15" styleClass="tab-content">
+                        <Label text="Network Analysis" styleClass="section-header" />
+                        <Button text="Optimal Route" maxWidth="Infinity" styleClass="tool-button" />
+                        <Button text="Isochrones" maxWidth="Infinity" styleClass="tool-button" />
+                    </VBox>
+                </Tab>
+
+            </TabPane>
+        </VBox>
+    </left>
+    
+    <!-- Main Map View -->
+    <center>
+        <StackPane fx:id="mapContainer" styleClass="map-area" pickOnBounds="false">
+            <Canvas fx:id="mapCanvas" />
+            
+            <!-- Map Tools (Floating) -->
+            <VBox StackPane.alignment="TOP_LEFT" spacing="10" styleClass="map-controls" maxWidth="50">
+                <Button fx:id="btnZoomIn"><graphic><FontIcon iconLiteral="fas-plus" /></graphic></Button>
+                <Button fx:id="btnZoomOut"><graphic><FontIcon iconLiteral="fas-minus" /></graphic></Button>
+                <Button fx:id="btnCenter"><graphic><FontIcon iconLiteral="fas-crosshairs" /></graphic></Button>
+            </VBox>
+            
+            <!-- Bottom Status Bar -->
+            <HBox StackPane.alignment="BOTTOM_LEFT" styleClass="status-overlay" pickOnBounds="false" mouseTransparent="true" maxHeight="-Infinity">
+                <Label fx:id="lblCoords" text="0.0000, 0.0000" />
+                <Separator orientation="VERTICAL" />
+                <Label fx:id="lblZoom" text="Zoom: 1.0x" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Label text="AeroMap Core v3.0.1" styleClass="version-label" />
+            </HBox>
+        </StackPane>
+    </center>
+    
+</BorderPane>
