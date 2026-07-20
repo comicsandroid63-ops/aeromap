@@ -15,8 +15,10 @@
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "cleanup": "node cleanup.js",
-    "cleanup:dry": "node cleanup.js --dry-run"
+    "cleanup": "node scripts/cleanup.js",
+    "cleanup:dry": "node scripts/cleanup.js --dry-run",
+    "clean-duplicates": "node scripts/clean-duplicates.js",
+    "sync-cloud": "node scripts/sync-cloud.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.42.0",
@@ -26,6 +28,7 @@
     "georaster": "^1.6.0",
     "georaster-layer-for-leaflet": "^4.1.2",
     "maplibre-gl": "^4.7.1",
+    "mgrs": "^2.2.0",
     "multer": "^1.4.5-lts.1",
     "sharp": "^0.33.2",
     "uuid": "^9.0.1"

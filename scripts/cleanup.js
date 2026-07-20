@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
 const UPLOAD_DIR = path.join(PUBLIC, 'uploads');
 const COMPRESS_DIR = path.join(PUBLIC, 'compressed');

@@ -52,6 +52,17 @@ module.exports = async (req, res) => {
       .from(process.env.SUPABASE_BUCKET || 'shapefiles')
       .remove([filePath]);
     console.log('[Files] Delete result:', { error, data });
+
+    // También borrar la entrada de la tabla layers si existe
+    if (!error && fileStoragePath) {
+      const tableName = process.env.SUPABASE_LAYERS_TABLE || 'layers';
+      const { error: layerError } = await supabase
+        .from(tableName)
+        .delete()
+        .match({ storage_url: fileStoragePath });
+      if (layerError) console.warn('[Files] Error deleting layer entry:', layerError.message);
+    }
+
     if (error) {
       console.error('[Files] Delete error:', error);
       return res.status(500).json({ error: error.message });

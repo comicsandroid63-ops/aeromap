@@ -5803,8 +5803,13 @@ self.onmessage = async function(e) {
     }
 
     async function uploadLayerToCloud(layerId) {
+      console.log('[uploadLayerToCloud] Triggered for layer:', layerId);
       const layer = state.layers.find(l => l.id === layerId);
-      if (!layer) return;
+      if (!layer) {
+        console.warn('Layer not found in state!');
+        return;
+      }
+      console.log('[uploadLayerToCloud] Found layer:', layer.serverFilename);
 
       if (layer.type === 'vector') {
         try {
@@ -7497,6 +7502,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             } catch(_) {}
           }
           try {
+            const isRGB = layer.renderer === 'multiband' && layer.bands === 3;
+            if (isRGB) throw new Error('Force server tiles for RGB to preserve native resolution');
             if (layer._tiffSize > 20 * 1024 * 1024) throw new Error('File too large for client-side GeoTIFF');
             console.log('[Preview] Using advanced GeoTIFF tile engine:', tiffUrl);
             const geo = await loadGeotiffInBackground(tiffUrl);
@@ -7542,6 +7549,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
             }
           } catch(e) {
             console.warn('[Preview] Advanced tile engine failed, falling back:', e);
+            if ((layer.renderer === 'multiband' && layer.bands >= 3) || layer._tiffSize > 20 * 1024 * 1024) {
+              console.log('[Preview] Falling back to server tiles for RGB or large files');
+              addTileLayer(layer, savedAs);
+              return;
+            }
           }
         }
         
@@ -9140,82 +9152,49 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (mode === 'rgb') {
         const sels = document.querySelectorAll('.zip-band-sel');
         const selectedEntries = Array.from(sels).map(sel => entries[parseInt(sel.value)]);
-        showProgress('Extrayendo y subiendo bandas RGB...', 5);
+        showProgress('Procesando ZIP y creando RGB (rápido)...', 10);
         try {
-          // Extract and upload bands in parallel
-          showProgress('Subiendo 3 bandas en paralelo...', 10);
-          const savedFiles = await Promise.all(selectedEntries.map(async (entry) => {
-            const tiffBlob = await extractZipEntry(zipFile, entry);
-            const fd = new FormData();
-            fd.append('tiff', tiffBlob, entry.fileName);
-            const upRes = await fetch('/api/import-tiff?fast=true', { method: 'POST', body: fd });
-            if (!upRes.ok) throw new Error(`Error al subir ${entry.fileName}`);
-            const upData = await upRes.json();
-            return upData.savedAs || upData.id;
-          }));
+          const formData = new FormData();
+          formData.append('zip', zipFile);
+          formData.append('rName', selectedEntries[0].fileName);
+          formData.append('gName', selectedEntries[1].fileName);
+          formData.append('bName', selectedEntries[2].fileName);
+          formData.append('originalName', zipFile.name);
 
-          showProgress('Fusionando bandas RGB...', 35);
-          const res = await fetch('/api/merge-rgb', {
+          const mergeRes = await fetch('/api/zip-to-rgb', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              rFile: savedFiles[0],
-              gFile: savedFiles[1],
-              bFile: savedFiles[2],
-              originalName: zipFile.name,
-              maxSize: 4096,
-            }),
+            body: formData,
           });
-          if (!res.ok) throw new Error(await res.text());
-          const data = await res.json();
+          if (!mergeRes.ok) {
+            const errData = await mergeRes.json().catch(() => ({}));
+            throw new Error(errData.error || 'Error al procesar el ZIP');
+          }
+          const mergeData = await mergeRes.json();
+          const serverFilename = mergeData.savedAs;
+          const meta = mergeData.metadata;
+          const bbox = meta.bounds;
+          const bounds = bbox ? L.latLngBounds([bbox.south, bbox.west], [bbox.north, bbox.east]) : null;
 
-          showProgress('Cargando capa RGB...', 80);
-          const savedAs = data.savedAs;
-          const fileUrl = `/uploads/${encodeURIComponent(savedAs)}`;
           const layer = {
             id: ++idCounter,
             name: zipFile.name.replace(/\.zip$/i, '') + ' (RGB)',
             type: 'raster', visible: true, opacity: 1, blendMode: 'normal',
             mapLayer: null, _thumbOverlay: null,
-            serverFilename: savedAs,
+            serverFilename: serverFilename,
             storageUrl: null, dbId: null, thumb: null,
-            bounds: null,
-            width: data.metadata?.width, height: data.metadata?.height,
+            bounds: bounds,
+            width: meta.width, height: meta.height,
             bands: 3,
             renderer: 'multiband',
             rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
-            _geotiffFileUrl: fileUrl,
+            _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
+            _bandStats: mergeData.stats,
           };
-
-          let bounds = null;
-          if (data.metadata?.bounds) {
-            bounds = _metaToBounds(data.metadata.bounds);
-          }
-          if (!bounds && window.GeoTIFF) {
-            try {
-              const tiff = await GeoTIFF.fromUrl(fileUrl);
-              const img = await tiff.getImage();
-              const bbox = img.getBoundingBox();
-              if (bbox) {
-                let epsg = 4326;
-                try { const gk = img.getGeoKeys(); if (gk) epsg = gk.ProjectedCSTypeGeoKey || gk.GeographicTypeGeoKey || 4326; } catch(e) {}
-                if (epsg !== 4326 && typeof proj4 !== 'undefined') {
-                  const srcProj = proj4('EPSG:' + epsg);
-                  const sw = srcProj.inverse([bbox[0], bbox[1]]);
-                  const ne = srcProj.inverse([bbox[2], bbox[3]]);
-                  bounds = L.latLngBounds([sw[1], sw[0]], [ne[1], ne[0]]);
-                } else {
-                  bounds = L.latLngBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
-                }
-              }
-            } catch(e) { console.warn('[RGB] bounds:', e.message); }
-          }
-          layer.bounds = bounds;
-
+          
           state.layers.unshift(layer);
-          if (bounds && savedAs) addTileLayer(layer, savedAs);
-          updateLayersSidebar();
+          if (serverFilename) showPreviewOverlay(layer, serverFilename);
           saveLayerToDatabase(layer);
+          updateLayersSidebar();
           hideProgress();
           toast('RGB multiespectral creado correctamente', 'success');
         } catch (e) {
