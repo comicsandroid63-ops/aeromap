@@ -9196,7 +9196,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
           saveLayerToDatabase(layer);
           updateLayersSidebar();
           hideProgress();
-          toast('RGB multiespectral creado correctamente', 'success');
+          toast('RGB multiespectral creado correctamente. Iniciando subida a la nube...', 'success');
+            if (typeof uploadLayerToCloud === 'function') {
+                setTimeout(() => uploadLayerToCloud(layer.id), 500);
+            }
         } catch (e) {
           hideProgress();
           console.error('[RGB] Error:', e);
