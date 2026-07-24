@@ -787,30 +787,38 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
           return res.send(buf);
         }
 
-        const extractBand = async (idx) => {
-          const rawChannel = await sharp(filePath, sharpOpts)
-            .extract(extractOpts)
-            .extractChannel(idx)
-            .raw(is16Bit ? { depth: 'ushort' } : {})
-            .toBuffer();
+        const rawFullBuf = await sharp(filePath, sharpOpts)
+          .extract(extractOpts)
+          .raw(is16Bit ? { depth: 'ushort' } : {})
+          .toBuffer();
 
-          const rawOpts = { width: extractOpts.width, height: extractOpts.height, channels: 1 };
-          if (is16Bit) rawOpts.depth = 'ushort';
+        const TargetType = is16Bit ? Uint16Array : Uint8Array;
+        const pixelCountOrig = extractOpts.width * extractOpts.height;
+        const srcView = new TargetType(rawFullBuf.buffer, rawFullBuf.byteOffset, pixelCountOrig * channels);
+        const rgbArr = new TargetType(pixelCountOrig * 3);
 
-          const resized = await sharp(rawChannel, { raw: rawOpts })
-            .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
-            .toColorspace('b-w')
-            .raw(is16Bit ? { depth: 'ushort' } : {})
-            .toBuffer();
+        for (let i = 0; i < pixelCountOrig; i++) {
+          rgbArr[i * 3 + 0] = srcView[i * channels + rI];
+          rgbArr[i * 3 + 1] = srcView[i * channels + gI];
+          rgbArr[i * 3 + 2] = srcView[i * channels + bI];
+        }
 
-          const n = resizeW * resizeH;
-          return resized.byteLength >= n * 2 ? new Uint16Array(resized.buffer, resized.byteOffset, n) : new Uint8Array(resized.buffer, resized.byteOffset, n);
-        };
+        const rgbBuf = Buffer.from(rgbArr.buffer, rgbArr.byteOffset, rgbArr.byteLength);
+        const rawOpts = { width: extractOpts.width, height: extractOpts.height, channels: 3 };
+        if (is16Bit) rawOpts.depth = 'ushort';
 
-        const [rB, gB, bB] = await Promise.all([extractBand(rI), extractBand(gI), extractBand(bI)]);
+        const resizedRgbBuf = await sharp(rgbBuf, { raw: rawOpts })
+          .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
+          .toColorspace('srgb') // Keep 3 channels
+          .raw(is16Bit ? { depth: 'ushort' } : {})
+          .toBuffer();
+
         const pixelCount = resizeW * resizeH;
-        const out = Buffer.alloc(tileSize * tileSize * 4);
+        const resizedView = resizedRgbBuf.byteLength >= pixelCount * 3 * 2 
+          ? new Uint16Array(resizedRgbBuf.buffer, resizedRgbBuf.byteOffset, pixelCount * 3) 
+          : new Uint8Array(resizedRgbBuf.buffer, resizedRgbBuf.byteOffset, pixelCount * 3);
 
+        const out = Buffer.alloc(tileSize * tileSize * 4);
         const globalStats = await getGlobalStats(filePath);
         let rMinVal, rRngVal, rNodata, gMinVal, gRngVal, gNodata, bMinVal, bRngVal, bNodata;
 
@@ -821,7 +829,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         } else {
           let rMin = Infinity, rMax = -Infinity, gMin = Infinity, gMax = -Infinity, bMin = Infinity, bMax = -Infinity;
           for (let i = 0; i < pixelCount; i++) {
-            const r = rB[i], g = gB[i], b = bB[i];
+            const r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
             if (r < rMin) rMin = r; if (r > rMax) rMax = r;
             if (g < gMin) gMin = g; if (g > gMax) gMax = g;
             if (b < bMin) bMin = b; if (b > bMax) bMax = b;
@@ -834,7 +842,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         for (let y = 0; y < resizeH; y++) {
           for (let x = 0; x < resizeW; x++) {
             const i = y * resizeW + x;
-            const r = rB[i], g = gB[i], b = bB[i];
+            const r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
             if (r === rNodata && g === gNodata && b === bNodata) continue;
             
             const dstX = offX + x; const dstY = offY + y;

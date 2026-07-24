@@ -9218,9 +9218,18 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (mode === 'rgb') {
         const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
         const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
-        const R = getBest(/B0?4/i);
-        const G = getBest(/B0?3/i);
-        const B = getBest(/B0?2/i);
+        
+        const isL7 = selectedEntries.some(e => /L[ET]0[57]/i.test(e.fileName));
+        let R, G, B;
+        if (isL7) {
+            R = getBest(/B0?3/i); // Landsat 7/5 Red is Band 3
+            G = getBest(/B0?2/i); // Landsat 7/5 Green is Band 2
+            B = getBest(/B0?1/i); // Landsat 7/5 Blue is Band 1
+        } else {
+            R = getBest(/B0?4/i); // Sentinel-2 / Landsat 8+ Red is Band 4
+            G = getBest(/B0?3/i);
+            B = getBest(/B0?2/i);
+        }
         
         const renderBands = [R.idx, G.idx, B.idx];
         
