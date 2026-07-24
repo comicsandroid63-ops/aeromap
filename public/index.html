@@ -5666,7 +5666,7 @@ self.onmessage = async function(e) {
                         attribution: "Remote WMS"
                     });
                     const layerObj = {
-                        id: ++window.idCounter,
+                        id: ++idCounter,
                         dbId: L.id,
                         name: L.name,
                         type: 'raster',
@@ -5678,9 +5678,9 @@ self.onmessage = async function(e) {
                         wmsUrl: L.config.wmsUrl,
                         wmsLayerName: L.config.wmsLayerName
                     };
-                    window.state.layers.unshift(layerObj);
+                    state.layers.unshift(layerObj);
                     if (layerObj.visible) {
-                        try { layerObj.mapLayer.addTo(window.state.map); } catch(e){}
+                        try { layerObj.mapLayer.addTo(state.map); } catch(e){}
                     }
                     if (layerObj.opacity !== undefined) {
                         layerObj.mapLayer.setOpacity(layerObj.opacity);
@@ -5688,6 +5688,40 @@ self.onmessage = async function(e) {
                     continue;
                 }
                 
+                if (L.type === 'raster' && L.config?.serverFilename) {
+                    const layerObj = {
+                        id: ++idCounter,
+                        dbId: L.id,
+                        name: L.name,
+                        type: 'raster',
+                        visible: L.config.visible !== undefined ? L.config.visible : true,
+                        opacity: L.config.opacity ?? 1,
+                        blendMode: L.config.blendMode || 'normal',
+                        mapLayer: null,
+                        serverFilename: L.config.serverFilename,
+                        storageUrl: L.storage_url,
+                        bounds: L.config.bounds || null,
+                        width: L.config.width,
+                        height: L.config.height,
+                        bands: L.config.bands || 1,
+                        renderer: L.config.renderer || 'multiband',
+                        rendererParams: L.config.rendererParams,
+                        _geotiffFileUrl: `/uploads/${encodeURIComponent(L.config.serverFilename)}`
+                    };
+                    
+                    if (layerObj.bounds && layerObj.bounds._southWest) {
+                        layerObj.bounds = window.L.latLngBounds(layerObj.bounds._southWest, layerObj.bounds._northEast);
+                    }
+
+                    state.layers.unshift(layerObj);
+                    if (layerObj.visible && layerObj.bounds) {
+                        addTileLayer(layerObj, layerObj.serverFilename);
+                    } else if (layerObj.visible) {
+                        showPreviewOverlay(layerObj, layerObj.serverFilename);
+                    }
+                    continue;
+                }
+
                 if (!L.storage_url) {
                   console.warn(`[Zima] Skipping layer ${L.name} (no cloud URL)`);
                   continue;
@@ -7422,13 +7456,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
     }
 
-    function addTileLayer(layer, savedAs) {
-      if (layer._tileLayer) { try { state.map.removeLayer(layer._tileLayer); } catch(e) {} layer._tileLayer = null; }
-      if (layer._geotiffTileLayer) { try { state.map.removeLayer(layer._geotiffTileLayer); } catch(e) {} layer._geotiffTileLayer = null; }
-      if (layer._previewOverlay) { try { state.map.removeLayer(layer._previewOverlay); } catch(e) {} layer._previewOverlay = null; }
-      if (layer._thumbOverlay) { try { state.map.removeLayer(layer._thumbOverlay); } catch(e) {} layer._thumbOverlay = null; }
-      if (layer.mapLayer) { try { state.map.removeLayer(layer.mapLayer); } catch(e) {} layer.mapLayer = null; }
-      
+    function addTileLayer(layer, savedAs, skipFitBounds = false) {
       const params = new URLSearchParams();
       if (layer.renderer) params.set('renderer', layer.renderer);
       if (layer.rendererParams?.bands) params.set('bands', layer.rendererParams.bands.join(','));
@@ -7440,6 +7468,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const cls = layer.rendererParams.classes || 5;
         if (layer.renderer === 'pseudocolor') params.set('classes', cls);
       }
+      
+      // Cache-buster version to force redraw when symbology changes
+      params.set('_v', Date.now());
+
       if (layer.bounds) {
         if (layer.bounds._southWest) {
           params.set('bbox', `${layer.bounds._southWest.lng},${layer.bounds._southWest.lat},${layer.bounds._northEast.lng},${layer.bounds._northEast.lat}`);
@@ -7448,10 +7480,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
       }
       const queryString = params.toString() ? '?' + params.toString() : '';
-      
       const url = `/api/tiles/${encodeURIComponent(savedAs)}/{z}/{x}/{y}.png${queryString}`;
+      
       console.log(`[TileLayer] URL: ${url}`);
-      console.log(`[TileLayer] Layer symbology: renderer=${layer.renderer}, bands=${layer.rendererParams?.bands}, colormap=${layer.rendererParams?.colormap}, classes=${layer.rendererParams?.classes || 5}`);
+      
+      
+
+      if (layer._tileLayer) { try { state.map.removeLayer(layer._tileLayer); } catch(e) {} layer._tileLayer = null; }
+      if (layer._geotiffTileLayer) { try { state.map.removeLayer(layer._geotiffTileLayer); } catch(e) {} layer._geotiffTileLayer = null; }
+      if (layer._previewOverlay) { try { state.map.removeLayer(layer._previewOverlay); } catch(e) {} layer._previewOverlay = null; }
+      if (layer._thumbOverlay) { try { state.map.removeLayer(layer._thumbOverlay); } catch(e) {} layer._thumbOverlay = null; }
+      if (layer.mapLayer) { try { state.map.removeLayer(layer.mapLayer); } catch(e) {} layer.mapLayer = null; }
       
       const tileBounds = layer.bounds ? (typeof layer.bounds.pad === 'function' ? layer.bounds.pad(0.05) : layer.bounds) : null;
       const tileLayer = L.tileLayer(url, {
@@ -7465,10 +7504,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
       layer._tileLayer = tileLayer;
       layer.mapLayer = tileLayer;
       layer._tileSavedAs = savedAs;
-      if (layer.bounds && typeof layer.bounds === 'object' && layer.bounds._southWest) {
-        state.map.fitBounds(layer.bounds, { padding: [40, 40], maxZoom: 22, animate: false });
-      } else if (layer.bounds && layer.bounds.west != null) {
-        state.map.fitBounds([[layer.bounds.south, layer.bounds.west], [layer.bounds.north, layer.bounds.east]], { padding: [40, 40], maxZoom: 22, animate: false });
+      
+      if (!skipFitBounds) {
+          if (layer.bounds && typeof layer.bounds === 'object' && layer.bounds._southWest) {
+            state.map.fitBounds(layer.bounds, { padding: [40, 40], maxZoom: 22, animate: false });
+          } else if (layer.bounds && layer.bounds.west != null) {
+            state.map.fitBounds([[layer.bounds.south, layer.bounds.west], [layer.bounds.north, layer.bounds.east]], { padding: [40, 40], maxZoom: 22, animate: false });
+          }
       }
     }
 
@@ -9453,7 +9495,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
              isWMS: layer.isWMS,
              wmsUrl: layer.wmsUrl,
              wmsLayerName: layer.wmsLayerName,
-             isPoints: layer.isPoints
+             isPoints: layer.isPoints,
+             renderer: layer.renderer,
+             rendererParams: layer.rendererParams,
+             bands: layer.bands,
+             blendMode: layer.blendMode,
+             width: layer.width,
+             height: layer.height,
+             serverFilename: layer.serverFilename,
+             bounds: layer.bounds
           }
         };
         

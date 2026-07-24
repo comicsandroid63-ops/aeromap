@@ -390,6 +390,29 @@ const { execFile } = require('child_process');
 const util = require('util');
 const execGdal = util.promisify(execFile);
 
+class AsyncQueue {
+  constructor(concurrency) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+  async add(task) {
+    if (this.running >= this.concurrency) {
+      await new Promise(resolve => this.queue.push(resolve));
+    }
+    this.running++;
+    try {
+      return await task();
+    } finally {
+      this.running--;
+      if (this.queue.length > 0) {
+        this.queue.shift()();
+      }
+    }
+  }
+}
+const gdalTileQueue = new AsyncQueue(4); // Limitar GDAL a 4 procesos paralelos
+
 const fileStatsCache = new Map();
 const fileStatsPromises = new Map();
 
@@ -403,7 +426,7 @@ async function getGlobalStats(filePath) {
 
   const promise = (async () => {
     try {
-      const infoResult = await execGdal(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', filePath], { env: gdalEnv, timeout: 60000 });
+      const infoResult = await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', filePath], { env: gdalEnv, timeout: 60000 }));
       const info = JSON.parse(infoResult.stdout);
       const bandsStats = [];
       if (info.bands) {
@@ -478,7 +501,7 @@ async function tryGdalTile(filePath, z, x, y, renderer, bands, res) {
     }
 
     gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', filePath, outPath);
-    await execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 10000 });
+    await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 25000 }));
 
     const buf = fs.readFileSync(outPath);
     try { fs.unlinkSync(outPath); } catch (_) {}
@@ -524,7 +547,7 @@ async function tryGdalProjwinTile(filePath, tileWest, tileNorth, tileEast, tileS
     }
 
     gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', filePath, outPath);
-    await execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 15000 });
+    await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 25000 }));
 
     const buf = fs.readFileSync(outPath);
     try { fs.unlinkSync(outPath); } catch (_) {}
@@ -720,9 +743,9 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
       }
 
       if (renderer === 'multiband') {
-        const rI = Math.min(bands[0] || 0, channels - 1);
-        const gI = Math.min(bands[1] || (channels > 1 ? 1 : 0), channels - 1);
-        const bI = Math.min(bands[2] || (channels > 2 ? 2 : 0), channels - 1);
+        const rI = Math.min(bands[0] !== undefined ? bands[0] : 0, channels - 1);
+        const gI = Math.min(bands[1] !== undefined ? bands[1] : (channels > 1 ? 1 : 0), channels - 1);
+        const bI = Math.min(bands[2] !== undefined ? bands[2] : (channels > 2 ? 2 : 0), channels - 1);
 
         if (!is16Bit && channels >= 3 && rI === 0 && gI === 1 && bI === 2) {
           const buf = await sharp(filePath, sharpOpts)
