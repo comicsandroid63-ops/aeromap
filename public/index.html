@@ -9097,18 +9097,35 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const $list = document.getElementById('importList');
       const zipName = zipFile.name.replace(/\.zip$/i, '');
 
-      // Build band list with checkboxes and count
-      $list.innerHTML = entries.map((entry, idx) => `
-        <div class="flex items-center gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 hover:border-black/20 hover:bg-white transition-all cursor-pointer group" onclick="toggleZipBandCheck(${idx})">
+      // Group by resolution
+      const resGroups = {};
+      entries.forEach((e, idx) => {
+        // Find things like 10m, 20m, 60m anywhere in the name
+        const m = e.fileName.match(/([0-9]{1,3}m)/i);
+        const res = m ? m[1].toLowerCase() : 'Otras';
+        if (!resGroups[res]) resGroups[res] = [];
+        resGroups[res].push(idx);
+      });
+      _pendingTiffZip.resGroups = resGroups;
+
+      const resKeys = Object.keys(resGroups).sort((a,b) => {
+         const numA = parseInt(a) || 999;
+         const numB = parseInt(b) || 999;
+         return numA - numB;
+      });
+
+      // Build resolution list with checkboxes
+      $list.innerHTML = resKeys.map((res, idx) => `
+        <div class="flex items-center gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 hover:border-black/20 hover:bg-white transition-all cursor-pointer group" onclick="toggleZipResCheck('${res}')">
           <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined">map</span>
+            <span class="material-symbols-outlined">layers</span>
           </div>
           <div class="flex-1 flex flex-col min-w-0">
-            <span class="text-[11px] font-black uppercase tracking-tight text-zinc-900 truncate">${entry.fileName.replace(/\.(tiff?|jp2|img)$/i, '')}</span>
-            <span class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">${entry.fileName.match(/\.(\w+)$/)?.[1]?.toUpperCase() || 'TIFF'}</span>
+            <span class="text-[11px] font-black uppercase tracking-tight text-zinc-900 truncate">Resolución ${res}</span>
+            <span class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">${resGroups[res].length} bandas disponibles</span>
           </div>
           <div class="relative flex items-center">
-            <input type="checkbox" id="zip-band-chk-${idx}" checked class="w-5 h-5 accent-purple-500 rounded-lg border-zinc-300 focus:ring-0 pointer-events-none">
+            <input type="checkbox" id="zip-res-chk-${res}" checked class="w-5 h-5 accent-purple-500 rounded-lg border-zinc-300 focus:ring-0 pointer-events-none zip-res-chk" value="${res}">
           </div>
         </div>
       `).join('');
@@ -9119,40 +9136,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
           <div class="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-500 bg-purple-500/5 cursor-pointer" id="zipModeRgb">
             <input type="radio" name="zipTiffMode" value="rgb" checked onchange="onZipTiffModeChange()">
             <div class="flex flex-col flex-1">
-              <span class="text-[10px] font-black uppercase tracking-tight">Crear RGB multiespectral</span>
-              <span class="text-[8px] text-zinc-400">Selecciona 3 bandas para R, G, B</span>
+              <span class="text-[10px] font-black uppercase tracking-tight">Crear Capa Multibanda</span>
+              <span class="text-[8px] text-zinc-400">Combina TODAS las bandas de la resoluci&oacute;n seleccionada en un solo archivo</span>
             </div>
           </div>
-          <div id="zipRgbSelectors" class="grid grid-cols-3 gap-3 pl-8"></div>
-
           <div class="flex items-center gap-3 p-3 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50" id="zipModeIndividual">
             <input type="radio" name="zipTiffMode" value="individual" onchange="onZipTiffModeChange()">
             <div class="flex flex-col flex-1">
-              <span class="text-[10px] font-black uppercase tracking-tight">Capas individuales</span>
-              <span class="text-[8px] text-zinc-400">Importar bandas seleccionadas por separado</span>
+              <span class="text-[10px] font-black uppercase tracking-tight">Importar Capas Individuales</span>
+              <span class="text-[8px] text-zinc-400">Importar todas las bandas de las resoluciones seleccionadas</span>
             </div>
           </div>
         </div>`;
 
-      // Build RGB selectors with band names
-      const rgbContainer = document.getElementById('zipRgbSelectors');
-      const bandOptions = entries.map((e, i) => ({ name: e.fileName, idx: i }));
-      const defaults = {
-        R: bandOptions.find(b => /B0?4/i.test(b.name)) || bandOptions[0],
-        G: bandOptions.find(b => /B0?3/i.test(b.name)) || bandOptions[Math.min(1, bandOptions.length - 1)],
-        B: bandOptions.find(b => /B0?2/i.test(b.name)) || bandOptions[Math.min(2, bandOptions.length - 1)],
-      };
-      rgbContainer.innerHTML = ['R', 'G', 'B'].map(ch => `
-        <div class="flex flex-col gap-1">
-          <span class="text-[8px] font-black text-zinc-500 uppercase">${ch}</span>
-          <select class="zip-band-sel w-full bg-zinc-100 rounded-lg p-1.5 text-[9px] font-bold border border-zinc-200 outline-none" data-channel="${ch}">
-            ${bandOptions.map((b, i) =>
-              `<option value="${i}" ${defaults[ch]?.idx === i ? 'selected' : ''}>${b.name.replace(/\.(tiff?|jp2|img)$/i, '')}</option>`
-            ).join('')}
-          </select>
-        </div>`).join('');
-
-      // Update footer button to use ZIP confirm
       document.getElementById('importModalFooter').innerHTML = `
         <button onclick="closeImportModal()" class="flex-1 bg-white border border-zinc-200 text-zinc-400 text-[11px] font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-zinc-100 transition-colors">Cancelar</button>
         <button onclick="confirmTiffZipImport()" class="flex-[2] bg-purple-600 text-white text-[11px] font-black py-4 rounded-2xl uppercase tracking-widest hover:shadow-xl hover:translate-y-[-1px] transition-all active:scale-95 flex items-center justify-center gap-3">
@@ -9160,17 +9156,29 @@ async function deleteFromCloud(fileName, url, storagePath) {
           Importar
         </button>`;
 
-      document.getElementById('importModalTitle').textContent = `Seleccionar bandas — ${zipName}`;
-      document.getElementById('importModalInner').classList.remove('max-w-lg');
-      document.getElementById('importModalInner').classList.add('max-w-2xl');
+      document.getElementById('importModalTitle').textContent = `Seleccionar Resolución - ${zipName}`;
+      document.getElementById('importModalInner').classList.remove('max-w-lg', 'max-w-2xl');
+      document.getElementById('importModalInner').classList.add('max-w-lg');
       document.getElementById('importModal').style.display = 'flex';
+      
+      const rgbContainer = document.getElementById('zipRgbSelectors');
+      if (rgbContainer) rgbContainer.style.display = 'none';
     }
-
-    function toggleZipBandCheck(idx) {
-      const chk = document.getElementById(`zip-band-chk-${idx}`);
-      if (chk) chk.checked = !chk.checked;
+    function toggleZipResCheck(res) {
+      const chk = document.getElementById(`zip-res-chk-${res}`);
+      if (chk) {
+        chk.checked = !chk.checked;
+        const parent = chk.closest('.group');
+        if (chk.checked) {
+          parent.classList.add('bg-zinc-50', 'border-zinc-200');
+          parent.classList.remove('bg-white', 'border-zinc-100');
+        } else {
+          parent.classList.remove('bg-zinc-50', 'border-zinc-200');
+          parent.classList.add('bg-white', 'border-zinc-100');
+        }
+      }
     }
-
+    
     function onZipTiffModeChange() {
       const mode = document.querySelector('input[name="zipTiffMode"]:checked')?.value;
       document.getElementById('zipRgbSelectors').style.display = mode === 'rgb' ? 'grid' : 'none';
@@ -9186,21 +9194,41 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     async function confirmTiffZipImport() {
       if (!_pendingTiffZip) return;
-      const { entries, zipFile, opts } = _pendingTiffZip;
+      const { entries, zipFile, opts, resGroups } = _pendingTiffZip;
       const mode = document.querySelector('input[name="zipTiffMode"]:checked')?.value || 'rgb';
 
       closeImportModal();
 
+      const checkedRes = Array.from(document.querySelectorAll('.zip-res-chk'))
+                              .filter(chk => chk.checked)
+                              .map(chk => chk.value);
+                              
+      let selectedEntries = [];
+      checkedRes.forEach(res => {
+         if (resGroups && resGroups[res]) {
+            selectedEntries = selectedEntries.concat(resGroups[res].map(i => entries[i]));
+         }
+      });
+
+      if (selectedEntries.length === 0) {
+        toast('Selecciona al menos una resolución', 'warning');
+        return;
+      }
+
       if (mode === 'rgb') {
-        const sels = document.querySelectorAll('.zip-band-sel');
-        const selectedEntries = Array.from(sels).map(sel => entries[parseInt(sel.value)]);
-        showProgress('Procesando ZIP y creando RGB (rápido)...', 10);
+        const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
+        const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
+        const R = getBest(/B0?4/i);
+        const G = getBest(/B0?3/i);
+        const B = getBest(/B0?2/i);
+        
+        const renderBands = [R.idx, G.idx, B.idx];
+        
+        showProgress(`Procesando ZIP y creando capa multibanda (${selectedEntries.length} bandas)...`, 10);
         try {
           const formData = new FormData();
           formData.append('zip', zipFile);
-          formData.append('rName', selectedEntries[0].fileName);
-          formData.append('gName', selectedEntries[1].fileName);
-          formData.append('bName', selectedEntries[2].fileName);
+          formData.append('bands', JSON.stringify(selectedEntries.map(e => e.fileName)));
           formData.append('originalName', zipFile.name);
 
           const mergeRes = await fetch('/api/zip-to-rgb', {
@@ -9219,16 +9247,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
           const layer = {
             id: ++idCounter,
-            name: zipFile.name.replace(/\.zip$/i, '') + ' (RGB)',
+            name: zipFile.name.replace(/\.zip$/i, '') + ' (Multibanda)',
             type: 'raster', visible: true, opacity: 1, blendMode: 'normal',
             mapLayer: null, _thumbOverlay: null,
             serverFilename: serverFilename,
             storageUrl: null, dbId: null, thumb: null,
             bounds: bounds,
             width: meta.width, height: meta.height,
-            bands: 3,
+            bands: meta.bands || selectedEntries.length,
             renderer: 'multiband',
-            rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
+            rendererParams: { bands: renderBands, colormap: null, invert: false, classes: 5 },
             _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
             _bandStats: mergeData.stats,
           };
@@ -9248,11 +9276,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           toast(`Error creando RGB: ${e.message}`, 'error');
         }
       } else {
-        let selectedEntries = entries.filter((_, idx) => {
-          const chk = document.getElementById(`zip-band-chk-${idx}`);
-          return chk ? chk.checked : false;
-        });
-        if (selectedEntries.length === 0) { toast('Selecciona al menos una banda', 'warning'); return; }
+
 
         showProgress(`Extrayendo ${selectedEntries.length} banda(s)...`, 10);
         try {

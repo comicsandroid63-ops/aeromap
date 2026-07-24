@@ -63,8 +63,14 @@ app.post('/api/zip-to-rgb', (req, res) => {
   zipUpload(req, res, async (err) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'zip file required' });
-    const { rName, gName, bName, originalName } = req.body;
-    if (!rName || !gName || !bName) return res.status(400).json({ error: 'rName, gName, bName required' });
+    const { rName, gName, bName, originalName, bands } = req.body;
+    let bandNames = [];
+    if (bands) {
+      try { bandNames = JSON.parse(bands); } catch(e) {}
+    } else if (rName && gName && bName) {
+      bandNames = [rName, gName, bName];
+    }
+    if (bandNames.length === 0) return res.status(400).json({ error: 'bands or rName, gName, bName required' });
     let tmpDir;
     try {
       const zipPath = req.file.path;
@@ -80,14 +86,15 @@ app.post('/api/zip-to-rgb', (req, res) => {
       const exec = require('util').promisify(require('child_process').execFile);
       const vrtPath = path.join(tmpDir, 'merged.vrt');
 
-      const rVsizip = `${vsizip}/${rName.replace(/\\/g, '/')}`;
-      const gVsizip = `${vsizip}/${gName.replace(/\\/g, '/')}`;
-      const bVsizip = `${vsizip}/${bName.replace(/\\/g, '/')}`;
+      const vsizipPaths = bandNames.map(b => `${vsizip}/${b.replace(/\\/g, '/')}`);
+      await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsizipPaths], { env: gdalEnv, timeout: 120000 });
 
-      await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-separate', vrtPath, rVsizip, gVsizip, bVsizip], { env: gdalEnv, timeout: 120000 });
+      const warpedVrtPath = path.join(tmpDir, 'warped.vrt');
+      await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-of', 'VRT', '-t_srs', 'EPSG:4326', vrtPath, warpedVrtPath], { env: gdalEnv, timeout: 120000 });
 
       let scaleArgs = [];
       try {
+        // Read stats from unwarped VRT for performance
         const infoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-approx_stats', '-json', vrtPath], { env: gdalEnv, timeout: 30000 });
         const info = JSON.parse(infoResult.stdout);
         if (info.bands) {
@@ -95,14 +102,15 @@ app.post('/api/zip-to-rgb', (req, res) => {
           info.bands.forEach((b, i) => {
             let mean = b.mean || 0;
             let stdDev = b.stdDev || 1;
-            let minVal = Math.max(0, mean - 1.0 * stdDev);
-            let maxVal = mean + 1.2 * stdDev;
+            let minVal = b.minimum ?? (b.stats?.minimum ?? 0);
+            if (minVal === 0 && b.noDataValue === 0) minVal = 1;
+            let maxVal = mean + 2.0 * stdDev;
             if (b.type === 'Byte' || (b.maximum !== undefined && b.maximum <= 255)) { 
                minVal = 0; maxVal = 255; 
             } else {
                is16Bit = true;
             }
-            scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '0', '255');
+            scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '1', '255');
           });
           if (is16Bit) {
              scaleArgs.push('-exponent', '0.65');
@@ -113,7 +121,11 @@ app.post('/api/zip-to-rgb', (req, res) => {
         scaleArgs.push('-scale');
       }
 
-      await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), [vrtPath, mergedPath, ...scaleArgs, '-ot', 'Byte', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=YES', '-co', 'NUM_THREADS=ALL_CPUS', '-co', 'BIGTIFF=YES', '-co', 'RESAMPLING=AVERAGE'], { env: gdalEnv, timeout: 600000 });
+      let translateArgs = [warpedVrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=YES', '-co', 'NUM_THREADS=ALL_CPUS', '-co', 'BIGTIFF=YES', '-co', 'RESAMPLING=AVERAGE'];
+      if (bandNames.length !== 3) {
+        translateArgs.push('-colorinterp', Array(bandNames.length).fill('undefined').join(','));
+      }
+      await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 600000 });
 
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
       try { fs.unlinkSync(zipPath); } catch(_) {}
@@ -253,7 +265,7 @@ app.post('/api/merge-rgb', async (req, res) => {
 
     const vrtPath = path.join(tmpDir, 'merged.vrt');
     console.log('[merge-rgb] gdalbuildvrt...');
-    await exec(gdalBuildVrt, ['-separate', vrtPath, rPath, gPath, bPath], { env: gdalEnv, timeout: 120000 });
+    await exec(gdalBuildVrt, ['-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, rPath, gPath, bPath], { env: gdalEnv, timeout: 120000 });
 
     // Get source dimensions to calculate outsize
     let outsizeArgs = [];
@@ -287,7 +299,7 @@ app.post('/api/merge-rgb', async (req, res) => {
           if (b.type === 'Byte' || (b.maximum !== undefined && b.maximum <= 255)) { 
              minVal = 0; maxVal = 255; 
           }
-          scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '0', '255');
+          scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '1', '255');
         });
       }
     } catch(e) {
@@ -296,7 +308,7 @@ app.post('/api/merge-rgb', async (req, res) => {
     }
 
     console.log('[merge-rgb] gdal_translate (DEFLATE)...');
-    await exec(gdalTranslate, [vrtPath, mergedPath, ...scaleArgs, '-ot', 'Byte', '-co', 'TILED=YES', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'ZLEVEL=1', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
+    await exec(gdalTranslate, [vrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-co', 'TILED=YES', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'ZLEVEL=1', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
     console.log('[merge-rgb] Merged, size:', fs.statSync(mergedPath).size);
 
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
@@ -439,9 +451,15 @@ async function getGlobalStats(filePath) {
 
           const activeMin = (minVal === nodata) ? minVal + 1 : minVal;
 
-          // Estiramiento de desviación estándar (media +/- 1.5 * stddev para mayor brillo)
-          let minStretch = Math.max(activeMin, meanVal - 1.5 * stdDevVal);
-          let maxStretch = Math.min(maxVal, meanVal + 1.5 * stdDevVal);
+          const isByte = b.type === 'Byte' || (maxVal <= 255);
+          if (isByte) {
+            bandsStats.push({ min: 0, max: 255, range: 255, nodata });
+            continue;
+          }
+
+          // Estiramiento más suave: no aplastar las sombras (evitar parches negros/transparentes)
+          let minStretch = activeMin;
+          let maxStretch = Math.min(maxVal, meanVal + 2.0 * stdDevVal);
 
           if (minStretch >= maxStretch) {
             minStretch = activeMin;
@@ -613,8 +631,8 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
 
     const is16Bit = meta.depth === 'ushort';
     
-    // Use GDAL with geographic window for proper overview selection when extraction is too small, OR when it's 16-bit
-    if (((width < tileSize || height < tileSize) || is16Bit) && bbox && tileWest != null && renderer !== 'pseudocolor') {
+    // Use GDAL with geographic window for 16-bit stretching
+    if ((is16Bit) && bbox && tileWest != null && renderer !== 'pseudocolor') {
       const globalStats = await getGlobalStats(filePath);
       const gdalOk = await tryGdalProjwinTile(
         filePath, tileWest, tileNorth, tileEast, tileSouth,
@@ -674,6 +692,8 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
     const extractOpts = { left: scaledLeft, top: scaledTop, width: scaledWidth, height: scaledHeight };
     const sharpOpts = { page: pageIdx };
     
+    const resampleKernel = (width < tileSize || height < tileSize) ? 'nearest' : 'lanczos3';
+    
     const scaleX = tileSize / width;
     const scaleY = tileSize / height;
     const resizeW = Math.max(1, Math.round(validWidth * scaleX));
@@ -694,10 +714,18 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
     if (renderer === 'pseudocolor' || renderer === 'multiband') {
       if (renderer === 'pseudocolor') {
         const bandIdx = Math.min(bands[0], channels - 1);
-        const singleBuf = await sharp(filePath, sharpOpts)
+        const rawChannel = await sharp(filePath, sharpOpts)
           .extract(extractOpts)
           .extractChannel(bandIdx)
-          .resize(resizeW, resizeH, { fit: 'fill', kernel: 'lanczos3' })
+          .raw(is16Bit ? { depth: 'ushort' } : {})
+          .toBuffer();
+
+        const rawOpts = { width: extractOpts.width, height: extractOpts.height, channels: 1 };
+        if (is16Bit) rawOpts.depth = 'ushort';
+
+        const singleBuf = await sharp(rawChannel, { raw: rawOpts })
+          .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
+          .toColorspace('b-w')
           .raw(is16Bit ? { depth: 'ushort' } : {})
           .toBuffer();
 
@@ -760,14 +788,23 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         }
 
         const extractBand = async (idx) => {
-          const buf = await sharp(filePath, sharpOpts)
+          const rawChannel = await sharp(filePath, sharpOpts)
             .extract(extractOpts)
             .extractChannel(idx)
-            .resize(resizeW, resizeH, { fit: 'fill', kernel: 'lanczos3' })
             .raw(is16Bit ? { depth: 'ushort' } : {})
             .toBuffer();
+
+          const rawOpts = { width: extractOpts.width, height: extractOpts.height, channels: 1 };
+          if (is16Bit) rawOpts.depth = 'ushort';
+
+          const resized = await sharp(rawChannel, { raw: rawOpts })
+            .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
+            .toColorspace('b-w')
+            .raw(is16Bit ? { depth: 'ushort' } : {})
+            .toBuffer();
+
           const n = resizeW * resizeH;
-          return buf.byteLength >= n * 2 ? new Uint16Array(buf.buffer, buf.byteOffset, n) : new Uint8Array(buf.buffer, buf.byteOffset, n);
+          return resized.byteLength >= n * 2 ? new Uint16Array(resized.buffer, resized.byteOffset, n) : new Uint8Array(resized.buffer, resized.byteOffset, n);
         };
 
         const [rB, gB, bB] = await Promise.all([extractBand(rI), extractBand(gI), extractBand(bI)]);
@@ -820,7 +857,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
     const img = sharp(filePath, sharpOpts);
     const buf = await img
       .extract(extractOpts)
-      .resize(resizeW, resizeH, { fit: 'fill', kernel: 'lanczos3' })
+      .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
       .extend({ top: padTop, bottom: padBottom, left: padLeft, right: padRight, background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png({ compressionLevel: 1, adaptiveFiltering: false, force: true })
       .toBuffer();
