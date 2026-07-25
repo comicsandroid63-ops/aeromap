@@ -9137,7 +9137,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
             <input type="radio" name="zipTiffMode" value="rgb" checked onchange="onZipTiffModeChange()">
             <div class="flex flex-col flex-1">
               <span class="text-[10px] font-black uppercase tracking-tight">Crear Capa Multibanda</span>
-              <span class="text-[8px] text-zinc-400">Combina TODAS las bandas de la resoluci&oacute;n seleccionada en un solo archivo</span>
+              <span class="text-[8px] text-zinc-400">Combina TODAS las bandas de la resolución seleccionada en un solo archivo</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50" id="zipModeFastRGB">
+            <input type="radio" name="zipTiffMode" value="fast_rgb" onchange="onZipTiffModeChange()">
+            <div class="flex flex-col flex-1">
+              <span class="text-[10px] font-black uppercase tracking-tight text-emerald-600">Crear RGB Rápido</span>
+              <span class="text-[8px] text-zinc-400">Combina SOLO las 3 bandas de color real. ¡Muchísimo más rápido!</span>
             </div>
           </div>
           <div class="flex items-center gap-3 p-3 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50" id="zipModeIndividual">
@@ -9181,7 +9188,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     
     function onZipTiffModeChange() {
       const mode = document.querySelector('input[name="zipTiffMode"]:checked')?.value;
-      document.getElementById('zipRgbSelectors').style.display = mode === 'rgb' ? 'grid' : 'none';
+      document.getElementById('zipRgbSelectors').style.display = (mode === 'rgb' || mode === 'fast_rgb') ? 'grid' : 'none';
       document.querySelectorAll('[id^="zipMode"]').forEach(el => {
         const radio = el.querySelector('input[name="zipTiffMode"]');
         el.className = `flex items-center gap-3 p-3 rounded-xl cursor-pointer ${radio?.checked ? 'border-2 border-purple-500 bg-purple-500/5' : 'border border-zinc-200 hover:bg-zinc-50'}`;
@@ -9215,7 +9222,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         return;
       }
 
-      if (mode === 'rgb') {
+      if (mode === 'rgb' || mode === 'fast_rgb') {
         const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
         const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
         
@@ -9231,13 +9238,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
             B = getBest(/B0?2/i);
         }
         
-        const renderBands = [R.idx, G.idx, B.idx];
+        let finalEntries = selectedEntries;
+        let renderBands = [R.idx, G.idx, B.idx];
         
-        showProgress(`Procesando ZIP y creando capa multibanda (${selectedEntries.length} bandas)...`, 10);
+        if (mode === 'fast_rgb') {
+            finalEntries = [R, G, B].map(b => selectedEntries[b.idx]);
+            renderBands = [0, 1, 2];
+        }
+        
+        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas)...`, 10);
         try {
           const formData = new FormData();
           formData.append('zip', zipFile);
-          formData.append('bands', JSON.stringify(selectedEntries.map(e => e.fileName)));
+          formData.append('bands', JSON.stringify(finalEntries.map(e => e.fileName)));
           formData.append('originalName', zipFile.name);
 
           const mergeRes = await fetch('/api/zip-to-rgb', {
@@ -9263,7 +9276,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             storageUrl: null, dbId: null, thumb: null,
             bounds: bounds,
             width: meta.width, height: meta.height,
-            bands: meta.bands || selectedEntries.length,
+            bands: meta.bands || finalEntries.length,
             renderer: 'multiband',
             rendererParams: { bands: renderBands, colormap: null, invert: false, classes: 5 },
             _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,

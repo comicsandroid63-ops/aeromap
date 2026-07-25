@@ -775,7 +775,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         const gI = Math.min(bands[1] !== undefined ? bands[1] : (channels > 1 ? 1 : 0), channels - 1);
         const bI = Math.min(bands[2] !== undefined ? bands[2] : (channels > 2 ? 2 : 0), channels - 1);
 
-        if (!is16Bit && channels >= 3 && rI === 0 && gI === 1 && bI === 2) {
+        if (!is16Bit && (channels === 3 || channels === 4) && rI === 0 && gI === 1 && bI === 2) {
           const buf = await sharp(filePath, sharpOpts)
             .extract(extractOpts)
             .resize(resizeW, resizeH, { fit: 'fill', kernel: 'lanczos3' })
@@ -787,20 +787,21 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
           return res.send(buf);
         }
 
-        const rawFullBuf = await sharp(filePath, sharpOpts)
+        const { data: rawFullBuf, info: rawInfo } = await sharp(filePath, sharpOpts)
           .extract(extractOpts)
           .raw(is16Bit ? { depth: 'ushort' } : {})
-          .toBuffer();
+          .toBuffer({ resolveWithObject: true });
 
         const TargetType = is16Bit ? Uint16Array : Uint8Array;
         const pixelCountOrig = extractOpts.width * extractOpts.height;
-        const srcView = new TargetType(rawFullBuf.buffer, rawFullBuf.byteOffset, pixelCountOrig * channels);
+        const actualChannels = rawInfo.channels;
+        const srcView = new TargetType(rawFullBuf.buffer, rawFullBuf.byteOffset, pixelCountOrig * actualChannels);
         const rgbArr = new TargetType(pixelCountOrig * 3);
 
         for (let i = 0; i < pixelCountOrig; i++) {
-          rgbArr[i * 3 + 0] = srcView[i * channels + rI];
-          rgbArr[i * 3 + 1] = srcView[i * channels + gI];
-          rgbArr[i * 3 + 2] = srcView[i * channels + bI];
+          rgbArr[i * 3 + 0] = srcView[i * actualChannels + rI];
+          rgbArr[i * 3 + 1] = srcView[i * actualChannels + gI];
+          rgbArr[i * 3 + 2] = srcView[i * actualChannels + bI];
         }
 
         const rgbBuf = Buffer.from(rgbArr.buffer, rgbArr.byteOffset, rgbArr.byteLength);
@@ -822,7 +823,11 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         const globalStats = await getGlobalStats(filePath);
         let rMinVal, rRngVal, rNodata, gMinVal, gRngVal, gNodata, bMinVal, bRngVal, bNodata;
 
-        if (globalStats && globalStats[rI] && globalStats[gI] && globalStats[bI]) {
+        if (!is16Bit) {
+          rMinVal = 0; rRngVal = 255; rNodata = 0;
+          gMinVal = 0; gRngVal = 255; gNodata = 0;
+          bMinVal = 0; bRngVal = 255; bNodata = 0;
+        } else if (globalStats && globalStats[rI] && globalStats[gI] && globalStats[bI]) {
           rMinVal = globalStats[rI].min; rRngVal = globalStats[rI].range; rNodata = globalStats[rI].nodata;
           gMinVal = globalStats[gI].min; gRngVal = globalStats[gI].range; gNodata = globalStats[gI].nodata;
           bMinVal = globalStats[bI].min; bRngVal = globalStats[bI].range; bNodata = globalStats[bI].nodata;
@@ -830,10 +835,15 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
           let rMin = Infinity, rMax = -Infinity, gMin = Infinity, gMax = -Infinity, bMin = Infinity, bMax = -Infinity;
           for (let i = 0; i < pixelCount; i++) {
             const r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
+            if (r === 0 && g === 0 && b === 0) continue; // ignore nodata for local stats
             if (r < rMin) rMin = r; if (r > rMax) rMax = r;
             if (g < gMin) gMin = g; if (g > gMax) gMax = g;
             if (b < bMin) bMin = b; if (b > bMax) bMax = b;
           }
+          if (rMin === Infinity) rMin = 0; if (rMax === -Infinity) rMax = 1;
+          if (gMin === Infinity) gMin = 0; if (gMax === -Infinity) gMax = 1;
+          if (bMin === Infinity) bMin = 0; if (bMax === -Infinity) bMax = 1;
+          
           rMinVal = rMin; rRngVal = rMax - rMin || 1; rNodata = 0;
           gMinVal = gMin; gRngVal = gMax - gMin || 1; gNodata = 0;
           bMinVal = bMin; bRngVal = bMax - bMin || 1; bNodata = 0;
