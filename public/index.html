@@ -5888,6 +5888,7 @@ self.onmessage = async function(e) {
       console.log('[uploadLayerToCloud] Found layer:', layer.serverFilename);
 
       if (layer.type === 'vector') {
+        // ... (vector upload code stays same, but I need to make sure I don't delete anything, wait I will just replace the beginning)
         try {
           $cloudUploadStatus.textContent = `Preparando vector ${layer.name}...`;
           const jsonStr = JSON.stringify(layer.geoJson);
@@ -5908,6 +5909,10 @@ self.onmessage = async function(e) {
           toast('Error al subir capa: ' + e.message, 'error');
         }
       } else {
+        if (layer.storageUrl) {
+          toast('Esta capa ya fue subida a la nube', 'success');
+          return;
+        }
         if (layer.serverFilename) {
           try {
             $cloudUploadStatus.textContent = `Subiendo visualización optimizada...`;
@@ -7583,16 +7588,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
       
       // Cache-buster version to force redraw when symbology changes
       params.set('_v', Date.now());
+      
+      let url;
+      if (layer.storageUrl && layer.storageUrl.includes('{z}')) {
+        url = layer.storageUrl + (layer.storageUrl.includes('?') ? '&' : '?') + `_v=${Date.now()}`;
+      } else {
+        if (layer.storageUrl) params.set('storageUrl', layer.storageUrl);
 
-      if (layer.bounds) {
-        if (layer.bounds._southWest) {
-          params.set('bbox', `${layer.bounds._southWest.lng},${layer.bounds._southWest.lat},${layer.bounds._northEast.lng},${layer.bounds._northEast.lat}`);
-        } else if (layer.bounds.west != null) {
-          params.set('bbox', `${layer.bounds.west},${layer.bounds.south},${layer.bounds.east},${layer.bounds.north}`);
+        if (layer.bounds) {
+          if (layer.bounds._southWest) {
+            params.set('bbox', `${layer.bounds._southWest.lng},${layer.bounds._southWest.lat},${layer.bounds._northEast.lng},${layer.bounds._northEast.lat}`);
+          } else if (layer.bounds.west != null) {
+            params.set('bbox', `${layer.bounds.west},${layer.bounds.south},${layer.bounds.east},${layer.bounds.north}`);
+          }
         }
+        const queryString = params.toString() ? '?' + params.toString() : '';
+        url = `/api/tiles/${encodeURIComponent(savedAs)}/{z}/{x}/{y}.png${queryString}`;
       }
-      const queryString = params.toString() ? '?' + params.toString() : '';
-      const url = `/api/tiles/${encodeURIComponent(savedAs)}/{z}/{x}/{y}.png${queryString}`;
       
       console.log(`[TileLayer] URL: ${url}`);
       
@@ -8359,12 +8371,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   console.log('[loadTiff] Optimization completed! Switching to tile-based rendering:', savedAs);
                   
                   layer._geotiffFileUrl = optimizedUrl;
+                  if (optimizedUrl.startsWith('http')) {
+                    layer.storageUrl = optimizedUrl;
+                  }
                   
                   saveLayerToDatabase(layer);
                   
                   addTileLayer(layer, savedAs);
 
-                  uploadVisualization(savedAs);
+                  if (!layer.storageUrl) {
+                    uploadVisualization(savedAs);
+                  }
                   
                   toast('Capa optimizada cargada con éxito', 'success');
                 } else if (statusData.status === 'failed') {
@@ -18343,6 +18360,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   name: rr.name,
                   bounds: rr.bounds,
                   serverFilename: sf,
+                  storageUrl: rr.storageUrl
                 };
                 break;
               }
@@ -18438,7 +18456,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const execResult = MB.previewRunResult;
         if (execResult?._serverFilename) {
           const hasRenderParams = execResult.renderer && execResult.renderer !== 'single_gray';
-          mbPreviewRaster(execResult._serverFilename, execResult.renderer || 'single_gray', execResult.bands || [0], execResult.colormap || null, execResult.name, execResult.bounds, execResult.invert || false, execResult.classes || 5, execResult.customColors || null);
+          mbPreviewRaster(execResult._serverFilename, execResult.renderer || 'single_gray', execResult.bands || [0], execResult.colormap || null, execResult.name, execResult.bounds, execResult.invert || false, execResult.classes || 5, execResult.customColors || null, execResult.storageUrl);
         } else {
           // Show last result on preview
           const lastId = sorted[sorted.length - 1];
@@ -18446,7 +18464,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           console.log('[MB preview] Last result:', last ? Object.keys(last) : null, '_renderRaster:', last?._renderRaster, '_rasterClip:', last?._rasterClip, 'geoJson:', !!last?.geoJson, 'type:', last?.type);
           if (last?.geoJson) {
             mbUpdatePreview(last.geoJson, { color: last.strokeColor || last.color, strokeColor: last.strokeColor, fillColor: last.color, fillOpacity: last.fillOpacity, strokeWidth: last.strokeWidth, fillPattern: last.fillPattern });
-          } else           if (last?._renderRaster) {
+          } else if (last?._renderRaster) {
             const rrFile = last._serverFilename || last.serverFilename;
             const rrRenderer = last.renderer;
             const rrBands = last.bands;
@@ -18455,14 +18473,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const rrClasses = last.classes;
             const rrCustom = last.customColors;
             console.log('[MB preview] Calling mbPreviewRaster', rrFile, rrRenderer);
-            mbPreviewRaster(rrFile, rrRenderer, rrBands, rrColormap, last.name, last.bounds, rrInvert, rrClasses, rrCustom);
+            mbPreviewRaster(rrFile, rrRenderer, rrBands, rrColormap, last.name, last.bounds, rrInvert, rrClasses, rrCustom, last.storageUrl);
           } else if (last?.type === 'raster' && last?.serverFilename) {
             const rBands = last.rendererParams?.bands || (last.bands >= 3 ? [0, 1, 2] : [0]);
             const rColormap = last.rendererParams?.colormap || null;
             const rInvert = last.rendererParams?.invert || false;
             const rClasses = last.rendererParams?.classes || 5;
             const rCustom = last.rendererParams?.customColors || null;
-            mbPreviewRaster(last.serverFilename, last.renderer || 'single_gray', rBands, rColormap, last.name, last.bounds, rInvert, rClasses, rCustom);
+            mbPreviewRaster(last.serverFilename, last.renderer || 'single_gray', rBands, rColormap, last.name, last.bounds, rInvert, rClasses, rCustom, last.storageUrl);
           }
         }
         } finally { MB._previewRunning = false; if (MB._previewScheduled) MB.schedulePreview(); }
@@ -18911,8 +18929,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
       MB.previewMap.fitBounds(MB.previewLayer.getBounds(), { padding: [20, 20], maxZoom: 16 });
     }
 
-    function mbPreviewRaster(serverFilename, renderer, bands, colormap, name, bounds, invert, classes, customColors) {
-      console.log('[MB preview] mbPreviewRaster called', { serverFilename, renderer, bands, colormap, invert, classes, customColors, bounds });
+    function mbPreviewRaster(serverFilename, renderer, bands, colormap, name, bounds, invert, classes, customColors, storageUrl) {
+      console.log('[MB preview] mbPreviewRaster called', { serverFilename, renderer, bands, colormap, invert, classes, customColors, bounds, storageUrl });
       if (!MB.previewMap) initMbPreviewMap();
       const el = document.getElementById('mbPreviewEmpty');
       if (el) el.style.display = 'none';
@@ -18921,7 +18939,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       // Use tile server when rendering params are needed (pseudocolor, multiband, colormap, etc.)
       const needsRendering = renderer && (renderer !== 'single_gray' || colormap || customColors || invert);
       if (needsRendering || !bounds || !window.GeoTIFF) {
-        mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors);
+        mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors, storageUrl);
       } else {
         const tiffUrl = `/uploads/${encodeURIComponent(serverFilename)}`;
         loadGeotiffInBackground(tiffUrl).then(geo => {
@@ -18936,12 +18954,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
               MB.previewMap.fitBounds(geo.bounds, { padding: [10, 10], maxZoom: 16 });
             }
           } else {
-            mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors);
+            mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors, storageUrl);
           }
-        }).catch(() => mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors));
+        }).catch(() => mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors, storageUrl));
       }
     }
-    function mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors) {
+    function mbPreviewRasterFallback(serverFilename, bounds, renderer, bands, colormap, invert, classes, customColors, storageUrl) {
       const params = new URLSearchParams();
       if (renderer) params.set('renderer', renderer);
       if (bands && bands.length) params.set('bands', bands.join(','));
@@ -18952,6 +18970,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       } else if (renderer === 'pseudocolor') {
         params.set('classes', classes || 5);
       }
+      if (storageUrl) params.set('storageUrl', storageUrl);
       const qs = params.toString() ? '?' + params.toString() : '';
       const url = `/api/tiles/${encodeURIComponent(serverFilename)}/{z}/{x}/{y}.png${qs}`;
       console.log('[MB preview] Fallback URL:', url);

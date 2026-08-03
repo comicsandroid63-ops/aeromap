@@ -28,6 +28,7 @@ const UPLOADS_DIR = path.join(PUBLIC_DIR, 'uploads');
 const CHUNK_THRESHOLD = 25 * 1024 * 1024; // 25 MB
 
 router.post('/', async (req, res) => {
+  console.log('[UploadVisualization] Route hit! body:', req.body, 'query:', req.query);
   if (!supabaseAdmin) {
     return res.status(503).json({ success: false, errors: ['Supabase no configurado'] });
   }
@@ -43,8 +44,8 @@ router.post('/', async (req, res) => {
   const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
 
   try {
-    const uploadFileToCloud = async (filename, cloudName) => {
-      const buf = fs.readFileSync(path.join(UPLOADS_DIR, filename));
+    const uploadFileToCloud = async (absPath, cloudName) => {
+      const buf = fs.readFileSync(absPath);
       const mime = 'image/tiff';
       const { data, error } = await supabaseAdmin.storage.from(bucket).upload(cloudName, buf, {
         contentType: mime,
@@ -65,7 +66,7 @@ router.post('/', async (req, res) => {
         const chunk = parts.slice(i, i + concurrency);
         await Promise.all(chunk.map(async part => {
           const cloudName = `${cloudFolder}/${part}`;
-          await uploadFileToCloud(part, cloudName);
+          await uploadFileToCloud(path.join(UPLOADS_DIR, part), cloudName);
           const { data: publicData } = supabaseAdmin.storage.from(bucket).getPublicUrl(cloudName);
           lastUploadedUrl = publicData.publicUrl;
           
@@ -88,17 +89,34 @@ router.post('/', async (req, res) => {
     }
 
     // Si no hay parts, subida normal
-    const filePath = path.join(UPLOADS_DIR, savedAs);
+    let filePath = path.join(UPLOADS_DIR, savedAs);
+    const isTiff = savedAs.match(/\.(tiff?)$/i);
+    let optPath = null;
+    
+    if (isTiff) {
+      const optName = savedAs.replace(/\.(tiff?)$/i, '_opt.tif');
+      optPath = path.join(path.join(__dirname, '../public/compressed'), optName);
+      if (fs.existsSync(optPath)) {
+        filePath = optPath; // Use the optimized version
+        console.log(`[UploadVisualization] Uploading optimized version instead: ${optName}`);
+      } else {
+        // Enforce project rule: heavy TIFFs MUST be optimized before uploading to cloud
+        return res.status(400).json({ success: false, errors: ['El archivo TIFF debe ser optimizado localmente (botón Optimizar) antes de subirlo a la nube.'] });
+      }
+    }
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, errors: ['Archivo local no encontrado'] });
     }
 
     const cloudName = `${prefix}/${savedAs}`;
-    await uploadFileToCloud(savedAs, cloudName);
+    await uploadFileToCloud(filePath, cloudName);
     
     // Cleanup local file
     try {
-      fs.unlinkSync(filePath);
+      if (filePath !== optPath) {
+        fs.unlinkSync(filePath);
+      }
     } catch (e) {
       console.warn('[UploadVisualization] Failed to cleanup file:', savedAs, e.message);
     }
