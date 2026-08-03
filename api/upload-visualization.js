@@ -32,7 +32,7 @@ router.post('/', async (req, res) => {
     return res.status(503).json({ success: false, errors: ['Supabase no configurado'] });
   }
 
-  const { savedAs, originalName } = req.body;
+  const { savedAs, originalName, parts } = req.body;
   const { user_id, project_id } = req.query;
   
   if (!savedAs) {
@@ -41,69 +41,11 @@ router.post('/', async (req, res) => {
 
   const prefix = (user_id && project_id) ? `${user_id}/${project_id}` : 'guest';
   const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-  const filePath = path.join(UPLOADS_DIR, savedAs);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ success: false, errors: ['Archivo local no encontrado'] });
-  }
 
   try {
-    const stats = fs.statSync(filePath);
-    
-    // Si pesa menos de 25 MB, se sube directo
-    if (stats.size < CHUNK_THRESHOLD) {
-      const cloudName = `${prefix}/${savedAs}`;
-      const fileBuffer = fs.readFileSync(filePath);
-      const { data, error } = await supabaseAdmin.storage.from(bucket).upload(cloudName, fileBuffer, {
-        contentType: 'image/tiff',
-        cacheControl: '3600',
-        upsert: true
-      });
-      if (error) throw error;
-      const { data: publicData } = supabaseAdmin.storage.from(bucket).getPublicUrl(cloudName);
-      return res.json({ success: true, results: [{ type: 'tiff', url: publicData.publicUrl }] });
-    }
-
-    // Proceso de retile (Mosaic)
-    const baseFolderName = savedAs.replace(/\.[^.]+$/, '');
-    const tmpDir = path.join(UPLOADS_DIR, 'tmp_retile_' + Date.now());
-    fs.mkdirSync(tmpDir, { recursive: true });
-
-    // 1. gdal_retile.py
-    console.log(`[UploadVisualization] Retiling ${savedAs}...`);
-    await execFileAsync('python', [
-      path.join(GDAL_PATH, 'gdal_retile.py'),
-      '-v', '-r', 'near',
-      '-ps', '2048', '2048',
-      '-co', 'TILED=YES',
-      '-co', 'COMPRESS=DEFLATE',
-      '-co', 'ZLEVEL=1',
-      '-targetDir', tmpDir,
-      filePath
-    ], { env: GDAL_ENV, timeout: 600000 });
-
-    // 2. gdalbuildvrt
-    const vrtFile = 'index.vrt';
-    const vrtPath = path.join(tmpDir, vrtFile);
-    const tifFiles = fs.readdirSync(tmpDir).filter(f => f.endsWith('.tif'));
-    
-    console.log(`[UploadVisualization] Building VRT from ${tifFiles.length} tiles...`);
-    // Le pasamos los nombres relativos al gdalbuildvrt ejecutándolo desde tmpDir
-    await execFileAsync(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), [
-      vrtFile,
-      ...tifFiles
-    ], { env: GDAL_ENV, cwd: tmpDir, timeout: 60000 });
-
-    // 3. Subir todos los archivos a Supabase en paralelo (con límite de concurrencia)
-    const allFiles = [...tifFiles, vrtFile];
-    const cloudFolder = `${prefix}/${baseFolderName}`;
-    
-    console.log(`[UploadVisualization] Uploading ${allFiles.length} files to Supabase bucket: ${bucket} in folder: ${cloudFolder}`);
-    
-    const uploadFileToCloud = async (filename) => {
-      const buf = fs.readFileSync(path.join(tmpDir, filename));
-      const cloudName = `${cloudFolder}/${filename}`;
-      const mime = filename.endsWith('.vrt') ? 'application/xml' : 'image/tiff';
+    const uploadFileToCloud = async (filename, cloudName) => {
+      const buf = fs.readFileSync(path.join(UPLOADS_DIR, filename));
+      const mime = 'image/tiff';
       const { data, error } = await supabaseAdmin.storage.from(bucket).upload(cloudName, buf, {
         contentType: mime,
         cacheControl: '3600',
@@ -113,20 +55,55 @@ router.post('/', async (req, res) => {
       return cloudName;
     };
 
-    // Subir en bloques de 5 para no saturar la red o API
-    const concurrency = 5;
-    for (let i = 0; i < allFiles.length; i += concurrency) {
-      const chunk = allFiles.slice(i, i + concurrency);
-      await Promise.all(chunk.map(f => uploadFileToCloud(f)));
+    if (parts && parts.length > 0) {
+      console.log(`[UploadVisualization] Uploading ${parts.length} pre-chunked parts to Supabase...`);
+      const cloudFolder = `${prefix}/${savedAs.replace(/\.[^.]+$/, '')}`;
+      let lastUploadedUrl = null;
+
+      const concurrency = 5;
+      for (let i = 0; i < parts.length; i += concurrency) {
+        const chunk = parts.slice(i, i + concurrency);
+        await Promise.all(chunk.map(async part => {
+          const cloudName = `${cloudFolder}/${part}`;
+          await uploadFileToCloud(part, cloudName);
+          const { data: publicData } = supabaseAdmin.storage.from(bucket).getPublicUrl(cloudName);
+          lastUploadedUrl = publicData.publicUrl;
+          
+          // Cleanup local chunk
+          try {
+            fs.unlinkSync(path.join(UPLOADS_DIR, part));
+          } catch (e) {
+            console.warn('[UploadVisualization] Failed to cleanup chunk:', part, e.message);
+          }
+        }));
+      }
+
+      // Cleanup the original merged huge file as well if it exists locally
+      try {
+        fs.unlinkSync(path.join(UPLOADS_DIR, savedAs));
+      } catch (e) {}
+
+      // Return the base URL derived from one of the parts, so the frontend can infer the rest
+      return res.json({ success: true, results: [{ type: 'tiff', url: lastUploadedUrl }] });
     }
 
-    // 4. Obtener URL pública del VRT
-    const vrtCloudName = `${cloudFolder}/${vrtFile}`;
-    const { data: publicData } = supabaseAdmin.storage.from(bucket).getPublicUrl(vrtCloudName);
+    // Si no hay parts, subida normal
+    const filePath = path.join(UPLOADS_DIR, savedAs);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, errors: ['Archivo local no encontrado'] });
+    }
 
-    // Limpiar tmpDir
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) { console.warn(e); }
+    const cloudName = `${prefix}/${savedAs}`;
+    await uploadFileToCloud(savedAs, cloudName);
+    
+    // Cleanup local file
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.warn('[UploadVisualization] Failed to cleanup file:', savedAs, e.message);
+    }
 
+    const { data: publicData } = supabaseAdmin.storage.from(bucket).getPublicUrl(cloudName);
     return res.json({ success: true, results: [{ type: 'tiff', url: publicData.publicUrl }] });
 
   } catch (err) {

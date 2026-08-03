@@ -82,7 +82,7 @@ app.post('/api/zip-to-rgb', (req, res) => {
       fs.mkdirSync(tmpDir, { recursive: true });
 
       const GDAL_PATH = 'C:\\Program Files\\GDAL';
-      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_LIB: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
       const exec = require('util').promisify(require('child_process').execFile);
       const vrtPath = path.join(tmpDir, 'merged.vrt');
 
@@ -102,11 +102,16 @@ app.post('/api/zip-to-rgb', (req, res) => {
           info.bands.forEach((b, i) => {
             let mean = b.mean || 0;
             let stdDev = b.stdDev || 1;
-            let minVal = b.minimum ?? (b.stats?.minimum ?? 0);
-            if (minVal === 0 && b.noDataValue === 0) minVal = 1;
+            
+            // Use mean - 2*stddev as the robust minimum to remove atmospheric path radiance (haze)
+            let minVal = Math.max(1, Math.floor(mean - 2.0 * stdDev));
             let maxVal = mean + 2.0 * stdDev;
+            
             if (b.type === 'Byte' || (b.maximum !== undefined && b.maximum <= 255)) { 
-               minVal = 0; maxVal = 255; 
+               // If the image is already 8-bit, it might be pre-stretched, but we still want to apply DOS 
+               // if the minimum is high (haze).
+               if (minVal < 20) minVal = 0; 
+               maxVal = 255; 
             } else {
                is16Bit = true;
             }
@@ -126,6 +131,21 @@ app.post('/api/zip-to-rgb', (req, res) => {
         translateArgs.push('-colorinterp', Array(bandNames.length).fill('undefined').join(','));
       }
       await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 600000 });
+
+      // Check if it's Landsat 7 (LE07) and fill gaps using Python
+      if (originalName && originalName.includes('LE07')) {
+        console.log('[zip-to-rgb] Landsat 7 detected. Applying gap fill interpolation...');
+        const tempFilledPath = path.join(tmpDir, 'filled.tif');
+        try {
+          const { stdout, stderr } = await exec('python', ['patch_landsat_gaps.py', mergedPath, tempFilledPath], { timeout: 300000 });
+          console.log('[zip-to-rgb] Gap fill output:', stdout);
+          fs.copyFileSync(tempFilledPath, mergedPath);
+          console.log('[zip-to-rgb] Restoring overviews...');
+          await exec(path.join(GDAL_PATH, 'gdaladdo.exe'), ['-r', 'average', mergedPath, '2', '4', '8', '16', '32', '64', '128'], { env: gdalEnv, timeout: 120000 });
+        } catch (err) {
+          console.error('[zip-to-rgb] Gap fill failed:', err.message);
+        }
+      }
 
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
       try { fs.unlinkSync(zipPath); } catch(_) {}
@@ -147,12 +167,174 @@ app.post('/api/zip-to-rgb', (req, res) => {
         }
       } catch(e) { console.warn('[zip-to-rgb] bounds:', e.message); }
 
+      let parts = null;
+      let cloudUrl = null;
+      
+      try {
+        const stats = fs.statSync(mergedPath);
+        if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
+          console.log(`[zip-to-rgb] Using 100% Cloud Static Tiles Engine (XYZ PNG)...`);
+          
+          const warpedPath = mergedPath.replace(/\.tif$/i, '_3857.tif');
+          console.log(`[zip-to-rgb] Warping to EPSG:3857 for precise tile alignment...`);
+          await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-t_srs', 'EPSG:3857', '-r', 'near', '-co', 'COMPRESS=LZW', '-co', 'TILED=YES', mergedPath, warpedPath], { env: gdalEnv, timeout: 120000 });
+          
+          const sharp = require('sharp');
+          const meta = await sharp(warpedPath).metadata();
+          const w = meta.width;
+          const h = meta.height;
+          
+          const warpInfoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', warpedPath], { env: gdalEnv, timeout: 30000 });
+          const warpInfo = JSON.parse(warpInfoResult.stdout);
+          
+          let imgWest, imgSouth, imgEast, imgNorth;
+          if (warpInfo.cornerCoordinates) {
+             imgWest = warpInfo.cornerCoordinates.upperLeft[0];
+             imgNorth = warpInfo.cornerCoordinates.upperLeft[1];
+             imgEast = warpInfo.cornerCoordinates.lowerRight[0];
+             imgSouth = warpInfo.cornerCoordinates.lowerRight[1];
+          } else {
+             throw new Error('Could not get cornerCoordinates of warped image in EPSG:3857');
+          }
+          
+          // We also need WGS84 bounds to determine which tiles intersect
+          let wWest, wSouth, wEast, wNorth;
+          if (warpInfo.wgs84Extent?.coordinates?.[0]?.length >= 4) {
+            const coords = warpInfo.wgs84Extent.coordinates[0];
+            wWest = Math.min(...coords.map(c => c[0])); wSouth = Math.min(...coords.map(c => c[1]));
+            wEast = Math.max(...coords.map(c => c[0])); wNorth = Math.max(...coords.map(c => c[1]));
+          } else {
+             throw new Error('Could not get wgs84Extent of warped image');
+          }
+          
+          const minZ = 10, maxZ = 14;
+          const tileSize = 256;
+          let tilesQueue = [];
+          
+          for (let z = minZ; z <= maxZ; z++) {
+            const tx_w = Math.floor((wWest + 180) / 360 * Math.pow(2, z));
+            const tx_e = Math.floor((wEast + 180) / 360 * Math.pow(2, z));
+            const ty_n = Math.floor((1 - Math.log(Math.tan(wNorth * Math.PI / 180) + 1 / Math.cos(wNorth * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+            const ty_s = Math.floor((1 - Math.log(Math.tan(wSouth * Math.PI / 180) + 1 / Math.cos(wSouth * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+            
+            for (let x = tx_w; x <= tx_e; x++) {
+              for (let y = Math.min(ty_n, ty_s); y <= Math.max(ty_n, ty_s); y++) {
+                tilesQueue.push({ z, x, y });
+              }
+            }
+          }
+          
+          console.log(`[zip-to-rgb] Generating and uploading ${tilesQueue.length} static PNG tiles to Supabase...`);
+          
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+          const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
+          
+          const BATCH_SIZE = 50;
+          let allSuccess = true;
+          
+          for (let i = 0; i < tilesQueue.length; i += BATCH_SIZE) {
+            const batch = tilesQueue.slice(i, i + BATCH_SIZE);
+            const uploadPromises = batch.map(async (tile) => {
+              try {
+                const { z, x, y } = tile;
+                const n = Math.pow(2, z);
+                
+                // EPSG:3857 World Radius
+                const R = 20037508.342789244;
+                const tileSizeMeters = (2 * R) / n;
+                
+                // Tile bounds in EPSG:3857 meters
+                const tileWest = -R + x * tileSizeMeters;
+                const tileEast = -R + (x + 1) * tileSizeMeters;
+                const tileNorth = R - y * tileSizeMeters;
+                const tileSouth = R - (y + 1) * tileSizeMeters;
+                
+                // Perfect linear mapping of meters to image pixels (since image is warped to EPSG:3857)
+                const left = Math.floor((tileWest - imgWest) / (imgEast - imgWest) * w);
+                const top = Math.floor((imgNorth - tileNorth) / (imgNorth - imgSouth) * h);
+                const width = Math.max(1, Math.ceil((tileEast - tileWest) / (imgEast - imgWest) * w));
+                const height = Math.max(1, Math.ceil((tileNorth - tileSouth) / (imgNorth - imgSouth) * h));
+                
+                if (left >= w || top >= h || left + width <= 0 || top + height <= 0) return;
+                
+                const cLeft = Math.max(0, left);
+                const cTop = Math.max(0, top);
+                const cWidth = Math.min(w - cLeft, left + width - cLeft);
+                const cHeight = Math.min(h - cTop, top + height - cTop);
+                if (cWidth <= 0 || cHeight <= 0) return;
+                
+                const scaleW = cWidth / tileSize;
+                const scaleH = cHeight / tileSize;
+                const scale = Math.min(scaleW, scaleH);
+                let pageIdx = 0;
+                if (meta.pages > 1) {
+                   if (scale > 2) pageIdx = 1;
+                   if (scale > 4) pageIdx = 2;
+                   if (scale > 8) pageIdx = 3;
+                   if (scale > 16) pageIdx = 4;
+                   if (pageIdx >= meta.pages) pageIdx = meta.pages - 1;
+                }
+                
+                const scaleFactor = Math.pow(2, pageIdx);
+                const region = {
+                  left: Math.floor(cLeft / scaleFactor),
+                  top: Math.floor(cTop / scaleFactor),
+                  width: Math.max(1, Math.floor(cWidth / scaleFactor)),
+                  height: Math.max(1, Math.floor(cHeight / scaleFactor))
+                };
+                
+                const scaleX = 256 / width;
+                const scaleY = 256 / height;
+                const resizedWidth = Math.max(1, Math.round(cWidth * scaleX));
+                const resizedHeight = Math.max(1, Math.round(cHeight * scaleY));
+                const offsetX = Math.round((cLeft - left) * scaleX);
+                const offsetY = Math.round((cTop - top) * scaleY);
+                
+                const extracted = await sharp(warpedPath, { page: pageIdx })
+                   .extract(region)
+                   .resize(resizedWidth, resizedHeight, { fit: 'fill' })
+                   .png()
+                   .toBuffer();
+                   
+                const buffer = await sharp({ create: { width: 256, height: 256, channels: 4, background: { r:0,g:0,b:0,alpha:0 } } })
+                   .composite([{ input: extracted, left: offsetX, top: offsetY }])
+                   .png()
+                   .toBuffer();
+                   
+                const outName = `tiles/${savedAs}/${z}/${x}/${y}.png`;
+                const { error } = await supabase.storage.from(bucket).upload(outName, buffer, { contentType: 'image/png', upsert: true });
+                if (error) throw error;
+              } catch (err) {
+                allSuccess = false;
+              }
+            });
+            await Promise.all(uploadPromises);
+            console.log(`[zip-to-rgb] Uploaded ${Math.min(i + BATCH_SIZE, tilesQueue.length)} / ${tilesQueue.length} tiles...`);
+          }
+          
+          if (allSuccess) {
+             const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(`tiles/${savedAs}/{z}/{x}/{y}.png`);
+             cloudUrl = decodeURI(publicData.publicUrl); // Ensure {z}/{x}/{y} are not URL encoded as %7B...
+             parts = []; // signal frontend to NOT use Geotiff.js fallback since we have native cloudUrl
+          }
+          try { fs.unlinkSync(warpedPath); } catch(_) {}
+        }
+      } catch(e) {
+        console.warn('[zip-to-rgb] Error during tile generation:', e.message);
+      }
+
       // Background stats
       exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', mergedPath], { env: gdalEnv, timeout: 60000 }).then(r => {
         try { const info = JSON.parse(r.stdout); if (info.bands) fileStatsCache.set(mergedPath, info.bands.map(b => { const mn=b.minimum??b.stats?.minimum??0,mx=b.maximum??b.stats?.maximum??255,mean=b.mean??b.stats?.mean??((mn+mx)/2),std=b.stdDev??b.stats?.stddev??((mx-mn)/4),aMn=(mn===(b.noDataValue??0))?mn+1:mn,mnS=Math.max(aMn,mean-3*std),mxS=Math.min(mx,mean+3*std);return{min:mnS<mxS?mnS:aMn,max:mxS>mnS?mxS:mx,range:(Math.max(mxS>mnS?mxS:mx,mnS<mxS?mnS:aMn)-(mnS<mxS?mnS:aMn))||1,nodata:b.noDataValue??0};})); } catch(e) {}
       }).catch(() => {});
-      // Overviews are automatically generated by the COG driver during gdal_translate.
-      res.json({ id: savedAs, savedAs, status: 'completed', metadata, thumbnailUrl: null });
+
+      // Cleanup local full-res merged path if we successfully uploaded tiles to force 100% cloud
+      if (cloudUrl) {
+          try { if (mergedPath && fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch(_) {}
+      }
+      
+      res.json({ id: savedAs, savedAs, cloudUrl, parts, status: 'completed', metadata, thumbnailUrl: null });
     } catch (e) {
       console.error('[zip-to-rgb] Error:', e);
       try { if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); } catch(_) {}
@@ -162,7 +344,106 @@ app.post('/api/zip-to-rgb', (req, res) => {
   });
 });
 
-// ─── /api/import-tiff — upload & register TIFF ───
+// ☁️ /api/import-stac - direct cloud import from Planetary Computer to Supabase ☁️
+app.post('/api/import-stac', async (req, res) => {
+  try {
+    const { scene_id } = req.body;
+    if (!scene_id) return res.status(400).json({ error: 'Falta scene_id' });
+    
+    const isLandsat = scene_id.startsWith('LC09') || scene_id.startsWith('LC08') || scene_id.startsWith('LE07');
+    if (!isLandsat) return res.status(400).json({ error: 'Solo Landsat 7, 8, 9 soportados actualmente' });
+    
+    // 1. Fetch STAC item
+    console.log(`[import-stac] Fetching STAC item ${scene_id}...`);
+    const itemUrl = `https://planetarycomputer.microsoft.com/api/stac/v1/collections/landsat-c2-l2/items/${scene_id}`;
+    const itemRes = await fetch(itemUrl);
+    if (!itemRes.ok) throw new Error(`Escena no encontrada en Planetary Computer: ${itemRes.statusText}`);
+    const item = await itemRes.json();
+    
+    // 2. Fetch SAS Token
+    console.log(`[import-stac] Fetching SAS Token...`);
+    const tokenUrl = "https://planetarycomputer.microsoft.com/api/sas/v1/token/landsat-c2-l2";
+    const tokenRes = await fetch(tokenUrl);
+    if (!tokenRes.ok) throw new Error(`Fallo al obtener token SAS`);
+    const { token } = await tokenRes.json();
+    
+    // 3. Select Bands (Landsat defaults)
+    const bandKeys = ['blue', 'green', 'red', 'nir08', 'swir16', 'swir22'];
+    const vsicurlPaths = bandKeys.map(key => {
+      const asset = item.assets[key];
+      if (!asset) throw new Error(`Banda ${key} no encontrada`);
+      return `/vsicurl/${asset.href}?${token}`;
+    });
+    
+    const GDAL_PATH = 'C:\\Program Files\\GDAL';
+    const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+    const exec = require('util').promisify(require('child_process').execFile);
+    
+    const tmpDir = path.join(UPLOADS, 'stac_' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const vrtPath = path.join(tmpDir, 'merged.vrt');
+    const warpedVrtPath = path.join(tmpDir, 'warped.vrt');
+    const outTiff = path.join(tmpDir, `${scene_id}.tif`);
+    
+    console.log(`[import-stac] Building VRT from cloud...`);
+    await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsicurlPaths], { env: gdalEnv, timeout: 120000 });
+    
+    console.log(`[import-stac] Warping to EPSG:4326...`);
+    await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-of', 'VRT', '-t_srs', 'EPSG:4326', vrtPath, warpedVrtPath], { env: gdalEnv, timeout: 120000 });
+    
+    console.log(`[import-stac] Translating to COG...`);
+    const args = [
+      '-co', 'COMPRESS=DEFLATE',
+      '-co', 'PREDICTOR=2',
+      '-co', 'ZLEVEL=9',
+      '-co', 'TILED=YES',
+      '-co', 'BIGTIFF=YES',
+      warpedVrtPath, outTiff
+    ];
+    await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), args, { env: gdalEnv, timeout: 900000 }); // 15 mins timeout for cloud stream
+    
+    console.log(`[import-stac] Reading metadata...`);
+    const infoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', outTiff], { env: gdalEnv, timeout: 30000 });
+    const info = JSON.parse(infoResult.stdout);
+    let metadata = { width: info.size?.[0] || 0, height: info.size?.[1] || 0, bands: bandKeys.length, bounds: null };
+    if (info.wgs84Extent?.coordinates?.[0]?.length >= 4) {
+      const coords = info.wgs84Extent.coordinates[0];
+      metadata.bounds = { west: Math.min(...coords.map(c => c[0])), south: Math.min(...coords.map(c => c[1])), east: Math.max(...coords.map(c => c[0])), north: Math.max(...coords.map(c => c[1])) };
+    } else if (info.cornerCoordinates) {
+      metadata.bounds = { west: info.cornerCoordinates.upperLeft[0], south: info.cornerCoordinates.lowerRight[1], east: info.cornerCoordinates.lowerRight[0], north: info.cornerCoordinates.upperLeft[1] };
+    }
+    
+    console.log(`[import-stac] Uploading to Supabase...`);
+    let cloudUrl = null;
+    if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
+      const fileBuffer = fs.readFileSync(outTiff);
+      const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
+      const outName = `${Date.now()}_${scene_id}.tif`;
+      const { data, error } = await supabase.storage.from(bucket).upload(outName, fileBuffer, { contentType: 'image/tiff', upsert: true });
+      if (!error) {
+        const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
+        cloudUrl = publicData.publicUrl;
+      } else {
+        throw new Error('Supabase upload failed: ' + error.message);
+      }
+    } else {
+      throw new Error('Supabase credentials missing');
+    }
+    
+    console.log(`[import-stac] Cleaning up...`);
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+    
+    res.json({ id: scene_id, savedAs: scene_id, cloudUrl, metadata, status: 'completed' });
+    
+  } catch (err) {
+    console.error('[import-stac] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 📥 /api/import-tiff - upload & register TIFF 📥
 app.post('/api/import-tiff', (req, res) => {
   tiffUpload(req, res, async (err) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -193,16 +474,36 @@ app.post('/api/import-tiff', (req, res) => {
     // Extract georeferenced bounds via gdalinfo
     try {
       const GDAL_PATH = 'C:\\Program Files\\GDAL';
-      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_LIB: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
       const { execFile } = require('child_process');
       const infoResult = await require('util').promisify(execFile)(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', destPath], { env: gdalEnv, timeout: 30000 });
       const gdalInfo = JSON.parse(infoResult.stdout);
-      const coords = gdalInfo.cornerCoordinates;
-      if (coords) {
-        const ll = coords.lowerLeft || null;
-        const ur = coords.upperRight || null;
-        if (ll && ur) {
-          metadata.bounds = { west: ll[0], south: ll[1], east: ur[0], north: ur[1] };
+      if (gdalInfo.size) {
+        metadata.width = gdalInfo.size[0];
+        metadata.height = gdalInfo.size[1];
+      }
+      if (gdalInfo.bands && Array.isArray(gdalInfo.bands) && gdalInfo.bands.length > 0) {
+        metadata.bands = gdalInfo.bands.length;
+      }
+      // Prefer wgs84Extent (always in lat/lng) over cornerCoordinates (which may be projected/UTM)
+      if (gdalInfo.wgs84Extent && gdalInfo.wgs84Extent.coordinates) {
+        const ring = gdalInfo.wgs84Extent.coordinates[0]; // array of [lng, lat] pairs
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        for (const pt of ring) {
+          if (pt[0] < minLng) minLng = pt[0];
+          if (pt[0] > maxLng) maxLng = pt[0];
+          if (pt[1] < minLat) minLat = pt[1];
+          if (pt[1] > maxLat) maxLat = pt[1];
+        }
+        metadata.bounds = { west: minLng, south: minLat, east: maxLng, north: maxLat };
+      } else {
+        const coords = gdalInfo.cornerCoordinates;
+        if (coords) {
+          const ll = coords.lowerLeft || null;
+          const ur = coords.upperRight || null;
+          if (ll && ur) {
+            metadata.bounds = { west: ll[0], south: ll[1], east: ur[0], north: ur[1] };
+          }
         }
       }
     } catch (e) {
@@ -211,24 +512,99 @@ app.post('/api/import-tiff', (req, res) => {
 
     // Generate internal overviews for efficient tile rendering
     if (metadata.width > 1024 || metadata.height > 1024) {
-      console.log('[import-tiff] Generating overviews...');
-      await execGdal(path.join(GDAL_PATH, 'gdaladdo.exe'), [
-        '-r', 'average',
-        destPath,
-        '2', '4', '8', '16', '32', '64', '128'
-      ], { env: gdalEnv, timeout: 120000 }).then(() => {
-        console.log('[import-tiff] Overviews generated for', savedAs);
-      }).catch(e => {
-        console.warn('[import-tiff] Overview generation failed:', e.message.substring(0, 100));
-      });
+      // Check if it's Landsat 7 (LE07) and fill gaps using Python
+      if (req.file.originalname && req.file.originalname.includes('LE07')) {
+        console.log('[import-tiff] Landsat 7 detected. Applying gap fill interpolation...');
+        const tempFilledPath = destPath + '.tmp.tif';
+        try {
+          const { stdout, stderr } = await execGdal('python', ['patch_landsat_gaps.py', destPath, tempFilledPath], { timeout: 300000 });
+          console.log('[import-tiff] Gap fill output:', stdout);
+          fs.copyFileSync(tempFilledPath, destPath);
+          fs.unlinkSync(tempFilledPath);
+        } catch (err) {
+          console.error('[import-tiff] Gap fill failed:', err.message);
+        }
+      }
+
+      console.log('[import-tiff] Overviews will be generated by the COG driver during compression.');
+    }
+
+    let cloudUrl = null;
+    let outName = savedAs;
+    try {
+      outName = savedAs.replace(/\.(tiff?)$/i, '_opt.tif');
+      const optimizedPath = path.join(COMPRESSED, outName);
+      fs.mkdirSync(COMPRESSED, { recursive: true });
+      
+      // Actual compression using GDAL
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execPromise = util.promisify(exec);
+      const GDAL_PATH = 'C:\\Program Files\\GDAL';
+      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+      
+      let outsizeArgs = [];
+      // DISABLED DOWNSCALING: keep original pixels
+      // if (metadata.width > 2048 || metadata.height > 2048) {
+      //   const scale = Math.min(2048 / metadata.width, 2048 / metadata.height);
+      //   outsizeArgs = ['-outsize', String(Math.floor(metadata.width * scale)), String(Math.floor(metadata.height * scale))];
+      // }
+      
+      const compressMethod = (metadata.bands === 3) ? 'JPEG' : 'DEFLATE';
+      const extraArgs = (metadata.bands === 3) ? ['-co', 'JPEG_QUALITY=60', '-co', 'PHOTOMETRIC=YCBCR'] : ['-co', 'PREDICTOR=2', '-co', 'ZLEVEL=9'];
+      
+      try {
+        console.log('[import-tiff] Compressing TIFF to bypass 20MB limit...');
+        await execPromise(`"${path.join(GDAL_PATH, 'gdal_translate.exe')}" -of COG -co COMPRESS=${compressMethod} -co RESAMPLING=NEAREST -co OVERVIEW_RESAMPLING=NEAREST -co BLOCKSIZE=256 ${extraArgs.join(' ')} ${outsizeArgs.join(' ')} "${destPath}" "${optimizedPath}"`, { env: gdalEnv, timeout: 120000 });
+      } catch (e) {
+        console.warn('[import-tiff] Compression failed, falling back to copy:', e.message);
+        fs.copyFileSync(destPath, optimizedPath);
+      }
+
+      if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+        );
+        const fileBuffer = fs.readFileSync(optimizedPath);
+        const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
+        
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .upload(outName, fileBuffer, {
+            contentType: 'image/tiff',
+            upsert: true
+          });
+        
+        if (!error) {
+          const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
+          cloudUrl = publicData.publicUrl;
+        } else {
+          console.error('[import-tiff] Supabase upload error:', error.message);
+          throw new Error('Supabase upload failed: ' + error.message);
+        }
+      }
+
+      // Limpieza local de archivos para no saturar disco
+      try { fs.unlinkSync(destPath); } catch (e) {}
+      try { fs.unlinkSync(optimizedPath); } catch (e) {}
+      
+    } catch (err) {
+      console.error('[import-tiff] Cloud sync error:', err.message);
+      // Clean up on failure too
+      try { fs.unlinkSync(destPath); } catch (e) {}
+      try { fs.unlinkSync(path.join(COMPRESSED, outName)); } catch (e) {}
+      return res.status(500).json({ error: err.message });
     }
 
     res.json({
       id: savedAs,
       savedAs,
       status: 'completed',
-      optimizedSavedAs: savedAs,
+      optimizedSavedAs: outName,
       metadata,
+      cloudUrl: cloudUrl,
       thumbnailUrl: null,
     });
   });
@@ -256,7 +632,7 @@ app.post('/api/merge-rgb', async (req, res) => {
     fs.mkdirSync(tmpDir, { recursive: true });
 
     const GDAL_PATH = 'C:\\Program Files\\GDAL';
-    const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_LIB: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+    const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
     const { execFile } = require('child_process');
     const util = require('util');
     const exec = util.promisify(execFile);
@@ -277,11 +653,12 @@ app.post('/api/merge-rgb', async (req, res) => {
         const info = JSON.parse(infoResult.stdout);
         const srcW = info.size?.x || info.size?.width || 0;
         const srcH = info.size?.y || info.size?.height || 0;
-        if (srcW > maxSize || srcH > maxSize) {
-          const scale = Math.min(maxSize / srcW, maxSize / srcH);
-          outsizeArgs = ['-outsize', String(Math.floor(srcW * scale)), String(Math.floor(srcH * scale))];
-          console.log('[merge-rgb] Downsampling to', outsizeArgs[1], 'x', outsizeArgs[2]);
-        }
+        // DISABLED DOWNSCALING: keep original pixels
+        // if (srcW > maxSize || srcH > maxSize) {
+        //   const scale = Math.min(maxSize / srcW, maxSize / srcH);
+        //   outsizeArgs = ['-outsize', String(Math.floor(srcW * scale)), String(Math.floor(srcH * scale))];
+        //   console.log('[merge-rgb] Downsampling to', outsizeArgs[1], 'x', outsizeArgs[2]);
+        // }
       } catch (e) { console.warn('[merge-rgb] gdalinfo failed, using full res:', e.message); }
     }
 
@@ -307,9 +684,9 @@ app.post('/api/merge-rgb', async (req, res) => {
       scaleArgs.push('-scale');
     }
 
-    console.log('[merge-rgb] gdal_translate (DEFLATE)...');
-    await exec(gdalTranslate, [vrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-co', 'TILED=YES', '-co', 'BLOCKXSIZE=256', '-co', 'BLOCKYSIZE=256', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'ZLEVEL=1', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
-    console.log('[merge-rgb] Merged, size:', fs.statSync(mergedPath).size);
+    console.log('[merge-rgb] gdal_translate (COG Lossless)...');
+    await exec(gdalTranslate, [vrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'ZLEVEL=1', '-co', 'RESAMPLING=NEAREST', '-co', 'OVERVIEW_RESAMPLING=NEAREST', '-co', 'BLOCKSIZE=256', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
+    console.log('[merge-rgb] Merged (COG), size:', fs.statSync(mergedPath).size);
 
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
 
@@ -361,7 +738,7 @@ app.post('/api/merge-rgb', async (req, res) => {
 });
 
 // ─── /api/compress-tiff — stub ───
-app.post('/api/compress-tiff', (req, res) => {
+app.post('/api/compress-tiff', async (req, res) => {
   const { filename } = req.body;
   if (!filename) return res.status(400).json({ error: 'filename required' });
   const src = path.join(UPLOADS, filename);
@@ -371,7 +748,43 @@ app.post('/api/compress-tiff', (req, res) => {
   try {
     fs.mkdirSync(COMPRESSED, { recursive: true });
     fs.copyFileSync(src, dst);
-    res.json({ success: true, output: outName, fileUrl: `/compressed/${encodeURIComponent(outName)}` });
+
+    let cloudUrl = null;
+    if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+      );
+      const fileBuffer = fs.readFileSync(dst);
+      const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(outName, fileBuffer, {
+          contentType: 'image/tiff',
+          upsert: true
+        });
+      
+      if (!error) {
+        const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
+        cloudUrl = publicData.publicUrl;
+      } else {
+        console.error('[compress-tiff] Supabase upload error:', error.message);
+      }
+    }
+
+    const origStat = fs.statSync(src);
+    const compStat = fs.statSync(dst);
+
+    res.json({ 
+      success: true, 
+      output: outName,
+      filename: outName,
+      origSize: origStat.size,
+      compressedSize: compStat.size,
+      fileUrl: `/compressed/${encodeURIComponent(outName)}`,
+      cloudUrl
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -397,7 +810,7 @@ app.get('/api/import-status/:id', (req, res) => {
 const { COLOR_MAPS, interpolateColor, parseCustomColors } = require('./server/lib/color-ramps');
 
 const GDAL_PATH = 'C:\\Program Files\\GDAL';
-const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_LIB: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
 const { execFile } = require('child_process');
 const util = require('util');
 const execGdal = util.promisify(execFile);
@@ -427,16 +840,14 @@ const gdalTileQueue = new AsyncQueue(4); // Limitar GDAL a 4 procesos paralelos
 
 const fileStatsCache = new Map();
 const fileStatsPromises = new Map();
+const globalStatsCache = new Map();
 
 async function getGlobalStats(filePath) {
-  if (fileStatsCache.has(filePath)) {
-    return fileStatsCache.get(filePath);
-  }
-  if (fileStatsPromises.has(filePath)) {
-    return fileStatsPromises.get(filePath);
+  if (globalStatsCache.has(filePath)) {
+    return await globalStatsCache.get(filePath);
   }
 
-  const promise = (async () => {
+  const statPromise = (async () => {
     try {
       const infoResult = await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', filePath], { env: gdalEnv, timeout: 60000 }));
       const info = JSON.parse(infoResult.stdout);
@@ -518,7 +929,7 @@ async function tryGdalTile(filePath, z, x, y, renderer, bands, res) {
       gdalArgs.push('-scale');
     }
 
-    gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', filePath, outPath);
+    gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', '-a_nodata', '0', filePath, outPath);
     await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 25000 }));
 
     const buf = fs.readFileSync(outPath);
@@ -536,7 +947,7 @@ async function tryGdalTile(filePath, z, x, y, renderer, bands, res) {
 // ─── GDAL tile renderer using geographic window (-projwin) for proper overview selection ───
 async function tryGdalProjwinTile(filePath, tileWest, tileNorth, tileEast, tileSouth, renderer, bands, res, globalStats = null) {
   const tileSize = 256;
-  const outPath = path.join(UPLOADS, '__gdal_projwin_' + Date.now() + '.png');
+  const outPath = path.join(UPLOADS, '__gdal_projwin_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.png');
   try {
     const gdalArgs = [
       '-projwin', String(tileWest), String(tileNorth), String(tileEast), String(tileSouth),
@@ -564,7 +975,7 @@ async function tryGdalProjwinTile(filePath, tileWest, tileNorth, tileEast, tileS
       }
     }
 
-    gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', filePath, outPath);
+    gdalArgs.push('-r', 'near', '-of', 'PNG', '-ot', 'Byte', '-a_nodata', '0', filePath, outPath);
     await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdal_translate.exe'), gdalArgs, { env: gdalEnv, timeout: 25000 }));
 
     const buf = fs.readFileSync(outPath);
@@ -606,33 +1017,61 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
 
     const bbox = req.query.bbox;
     let left, top, width, height;
-    let tileWest, tileNorth, tileEast, tileSouth; // geographic bounds for GDAL projwin
-    if (bbox) {
-      const [bwest, bsouth, beast, bnorth] = bbox.split(',').map(Number);
-      const tileDegLon = 360 / n;
-      tileWest = tx / n * 360 - 180;
-      tileEast = (tx + 1) / n * 360 - 180;
-      tileNorth = Math.atan(Math.sinh(Math.PI * (1 - 2 * ty / n))) * 180 / Math.PI;
-      tileSouth = Math.atan(Math.sinh(Math.PI * (1 - 2 * (ty + 1) / n))) * 180 / Math.PI;
-      left = Math.floor((tileWest - bwest) / (beast - bwest) * w);
-      top = Math.floor((bnorth - tileNorth) / (bnorth - bsouth) * h);
-      width = Math.max(1, Math.ceil((tileEast - tileWest) / (beast - bwest) * w));
-      height = Math.max(1, Math.ceil((tileNorth - tileSouth) / (bnorth - bsouth) * h));
+    let tileWest, tileNorth, tileEast, tileSouth;
+    
+    // EPSG:3857 World Radius
+    const R = 20037508.342789244;
+    const tileSizeMeters = (2 * R) / n;
+    
+    const tileWestMeters = -R + tx * tileSizeMeters;
+    const tileEastMeters = -R + (tx + 1) * tileSizeMeters;
+    const tileNorthMeters = R - ty * tileSizeMeters;
+    const tileSouthMeters = R - (ty + 1) * tileSizeMeters;
+    
+    tileWest = tx / n * 360 - 180;
+    tileEast = (tx + 1) / n * 360 - 180;
+    tileNorth = Math.atan(Math.sinh(Math.PI * (1 - 2 * ty / n))) * 180 / Math.PI;
+    tileSouth = Math.atan(Math.sinh(Math.PI * (1 - 2 * (ty + 1) / n))) * 180 / Math.PI;
+
+    const infoResult = await require('util').promisify(require('child_process').execFile)(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', filePath], { env: gdalEnv, timeout: 30000 });
+    const info = JSON.parse(infoResult.stdout);
+    
+    const isWarped3857 = filePath.endsWith('_3857.tif') || (info.coordinateSystem && info.coordinateSystem.wkt && info.coordinateSystem.wkt.includes('3857'));
+    
+    if (isWarped3857 && info.cornerCoordinates) {
+        const imgWest = info.cornerCoordinates.upperLeft[0];
+        const imgNorth = info.cornerCoordinates.upperLeft[1];
+        const imgEast = info.cornerCoordinates.lowerRight[0];
+        const imgSouth = info.cornerCoordinates.lowerRight[1];
+        
+        left = Math.floor((tileWestMeters - imgWest) / (imgEast - imgWest) * w);
+        top = Math.floor((imgNorth - tileNorthMeters) / (imgNorth - imgSouth) * h);
+        width = Math.max(1, Math.ceil((tileEastMeters - tileWestMeters) / (imgEast - imgWest) * w));
+        height = Math.max(1, Math.ceil((tileNorthMeters - tileSouthMeters) / (imgNorth - imgSouth) * h));
+    } else if (bbox) {
+        const [bwest, bsouth, beast, bnorth] = bbox.split(',').map(Number);
+        left = Math.floor((tileWest - bwest) / (beast - bwest) * w);
+        top = Math.floor((bnorth - tileNorth) / (bnorth - bsouth) * h);
+        width = Math.max(1, Math.ceil((tileEast - tileWest) / (beast - bwest) * w));
+        height = Math.max(1, Math.ceil((tileNorth - tileSouth) / (bnorth - bsouth) * h));
     } else {
-      const px = Math.floor((tx / n) * w);
-      const py = Math.floor((ty / n) * h);
-      const pw = Math.max(1, Math.floor(w / n));
-      const ph = Math.max(1, Math.floor(h / n));
-      left = Math.min(px, w - 1);
-      top = Math.min(py, h - 1);
-      width = Math.min(pw, w - left);
-      height = Math.min(ph, h - top);
+        const px = Math.floor((tx / n) * w);
+        const py = Math.floor((ty / n) * h);
+        const pw = Math.max(1, Math.floor(w / n));
+        const ph = Math.max(1, Math.floor(h / n));
+        left = Math.min(px, w - 1);
+        top = Math.min(py, h - 1);
+        width = Math.min(pw, w - left);
+        height = Math.min(ph, h - top);
     }
 
-    const is16Bit = meta.depth === 'ushort';
+    const maxRequestedBand = Math.max(...bands, 0);
+    const isMultiBand = (meta.channels > 3) || maxRequestedBand >= (meta.channels || 1);
+    const is16Bit = meta.depth === 'ushort' || meta.depth === 'short' || meta.depth === 'float';
     
-    // Use GDAL with geographic window for 16-bit stretching
-    if ((is16Bit) && bbox && tileWest != null && renderer !== 'pseudocolor') {
+    // Use GDAL with geographic window ONLY if we strictly need to (16-bit or >3 bands).
+    // For Sentinel 8-bit RGB imported images, use sharp for native blazing fast tile extraction.
+    if ((is16Bit || isMultiBand) && bbox && tileWest != null && renderer !== 'pseudocolor') {
       const globalStats = await getGlobalStats(filePath);
       const gdalOk = await tryGdalProjwinTile(
         filePath, tileWest, tileNorth, tileEast, tileSouth,
@@ -775,17 +1214,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
         const gI = Math.min(bands[1] !== undefined ? bands[1] : (channels > 1 ? 1 : 0), channels - 1);
         const bI = Math.min(bands[2] !== undefined ? bands[2] : (channels > 2 ? 2 : 0), channels - 1);
 
-        if (!is16Bit && (channels === 3 || channels === 4) && rI === 0 && gI === 1 && bI === 2) {
-          const buf = await sharp(filePath, sharpOpts)
-            .extract(extractOpts)
-            .resize(resizeW, resizeH, { fit: 'fill', kernel: 'lanczos3' })
-            .extend({ top: padTop, bottom: padBottom, left: padLeft, right: padRight, background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .png({ compressionLevel: 1, adaptiveFiltering: false, force: true })
-            .toBuffer();
-          res.set('Content-Type', 'image/png');
-          res.set('Cache-Control', 'public, max-age=86400');
-          return res.send(buf);
-        }
+        // Fast path removed to ensure correct transparency handling for NoData collars in 8-bit images
 
         const { data: rawFullBuf, info: rawInfo } = await sharp(filePath, sharpOpts)
           .extract(extractOpts)
@@ -849,26 +1278,50 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
           bMinVal = bMin; bRngVal = bMax - bMin || 1; bNodata = 0;
         }
 
-        for (let y = 0; y < resizeH; y++) {
-          for (let x = 0; x < resizeW; x++) {
-            const i = y * resizeW + x;
-            const r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
-            if (r === rNodata && g === gNodata && b === bNodata) continue;
-            
-            const dstX = offX + x; const dstY = offY + y;
-            if (dstX < 0 || dstX >= tileSize || dstY < 0 || dstY >= tileSize) continue;
-            const dstIdx = (dstY * tileSize + dstX) * 4;
-
-            out[dstIdx] = Math.max(0, Math.min(255, Math.round((r - rMinVal) / rRngVal * 255)));
-            out[dstIdx + 1] = Math.max(0, Math.min(255, Math.round((g - gMinVal) / gRngVal * 255)));
-            out[dstIdx + 2] = Math.max(0, Math.min(255, Math.round((b - bMinVal) / bRngVal * 255)));
-            out[dstIdx + 3] = 255;
+        if (!is16Bit) {
+          for (let y = 0; y < resizeH; y++) {
+            let dstY = offY + y;
+            if (dstY < 0 || dstY >= tileSize) continue;
+            let dstRow = dstY * tileSize;
+            let srcRow = y * resizeW;
+            for (let x = 0; x < resizeW; x++) {
+              let dstX = offX + x;
+              if (dstX < 0 || dstX >= tileSize) continue;
+              let i = srcRow + x;
+              let r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
+              if (r === rNodata && g === gNodata && b === bNodata) continue;
+              let dstIdx = (dstRow + dstX) * 4;
+              out[dstIdx] = r; out[dstIdx+1] = g; out[dstIdx+2] = b; out[dstIdx+3] = 255;
+            }
+          }
+        } else {
+          for (let y = 0; y < resizeH; y++) {
+            let dstY = offY + y;
+            if (dstY < 0 || dstY >= tileSize) continue;
+            let dstRow = dstY * tileSize;
+            let srcRow = y * resizeW;
+            for (let x = 0; x < resizeW; x++) {
+              let dstX = offX + x;
+              if (dstX < 0 || dstX >= tileSize) continue;
+              let i = srcRow + x;
+              let r = resizedView[i * 3 + 0], g = resizedView[i * 3 + 1], b = resizedView[i * 3 + 2];
+              if (r === rNodata && g === gNodata && b === bNodata) continue;
+              let dstIdx = (dstRow + dstX) * 4;
+              out[dstIdx] = Math.max(0, Math.min(255, ((r - rMinVal) / rRngVal * 255) | 0));
+              out[dstIdx + 1] = Math.max(0, Math.min(255, ((g - gMinVal) / gRngVal * 255) | 0));
+              out[dstIdx + 2] = Math.max(0, Math.min(255, ((b - bMinVal) / bRngVal * 255) | 0));
+              out[dstIdx + 3] = 255;
+            }
           }
         }
-        const png = await sharp(out, { raw: { width: tileSize, height: tileSize, channels: 4 } }).png({ compressionLevel: 1, adaptiveFiltering: false, force: true }).toBuffer();
-        res.set('Content-Type', 'image/png');
+        
+        // Use WebP Lossless for ultimate speed and 100% pixel fidelity
+        const webp = await sharp(out, { raw: { width: tileSize, height: tileSize, channels: 4 } })
+          .webp({ lossless: true, effort: 1 })
+          .toBuffer();
+        res.set('Content-Type', 'image/webp');
         res.set('Cache-Control', 'public, max-age=86400');
-        return res.send(png);
+        return res.send(webp);
       }
     }
 
@@ -913,10 +1366,17 @@ app.get('/api/metadata/:filename', async (req, res) => {
     const result = { width: meta.width, height: meta.height, bands: meta.channels || 1, bounds: null };
 
     const GDAL_PATH = 'C:\\Program Files\\GDAL';
-    const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_LIB: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+    const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
     const { execFile } = require('child_process');
     const infoResult = await require('util').promisify(execFile)(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', filePath], { env: gdalEnv, timeout: 30000 });
     const gdalInfo = JSON.parse(infoResult.stdout);
+    if (gdalInfo.size) {
+      result.width = gdalInfo.size[0];
+      result.height = gdalInfo.size[1];
+    }
+    if (gdalInfo.bands && Array.isArray(gdalInfo.bands) && gdalInfo.bands.length > 0) {
+      result.bands = gdalInfo.bands.length;
+    }
     const coords = gdalInfo.cornerCoordinates;
     if (coords) {
       const ll = coords.lowerLeft || null;
@@ -966,6 +1426,16 @@ app.get('/api/stats/:filename', async (req, res) => {
   const stats = await getGlobalStats(filePath);
   if (!stats) return res.status(500).json({ error: 'Failed to compute stats' });
   res.json(stats);
+});
+// ─── /api/file-exists/:filename — check if a file exists on disk ───
+app.head('/api/file-exists/:filename', (req, res) => {
+  const { filename } = req.params;
+  const uploadPath = path.join(UPLOADS, filename);
+  const compressedPath = path.join(COMPRESSED, filename);
+  if (fs.existsSync(uploadPath) || fs.existsSync(compressedPath)) {
+    return res.status(200).end();
+  }
+  return res.status(404).end();
 });
 
 // ─── Static files ───

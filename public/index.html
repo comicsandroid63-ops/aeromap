@@ -1533,6 +1533,12 @@
         <p class="text-[10px] font-bold text-zinc-900 uppercase tracking-tight mt-1">Cargar TIFF / Shapefile (ZIP)</p>
       </div>
 
+      <!-- STAC Import -->
+      <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center hover:bg-emerald-100 transition-all cursor-pointer flex flex-col items-center justify-center" onclick="document.getElementById('stacModal').style.display='flex'">
+        <span class="material-symbols-outlined text-xl text-emerald-500 mb-1">cloud_download</span>
+        <p class="text-[10px] font-bold text-emerald-900 uppercase tracking-tight">Landsat (Nube)</p>
+      </div>
+
       <!-- Remote Services WMS/WFS -->
       <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-center hover:bg-indigo-100 transition-all cursor-pointer flex flex-col items-center justify-center" onclick="document.getElementById('wmsModal').style.display='flex'">
         <span class="material-symbols-outlined text-xl text-indigo-500 mb-1">public</span>
@@ -2540,6 +2546,37 @@
       <div class="p-6 bg-zinc-50 border-t border-zinc-100 flex gap-3">
         <button onclick="closeExcelModal()" class="flex-1 py-3 text-[11px] font-bold uppercase text-zinc-500 hover:bg-zinc-200 rounded-xl transition-colors">Cancelar</button>
         <button onclick="confirmExcelImport()" class="flex-[2] py-3 bg-black text-white text-[11px] font-bold uppercase rounded-xl hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10">Importar Capa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAC Import Modal -->
+  <div id="stacModal" class="fixed inset-0 bg-black/50 z-[200] hidden items-center justify-center backdrop-blur-sm" style="display: none;">
+    <div class="bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+      <div class="p-6">
+        <div class="flex justify-between items-start mb-6">
+          <div class="flex flex-col">
+            <span class="text-[9px] font-black uppercase tracking-widest text-emerald-500">Planetary Computer API</span>
+            <h3 class="font-bold text-xl text-zinc-900">Importar Landsat (Nube)</h3>
+          </div>
+          <button onclick="document.getElementById('stacModal').style.display='none'" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
+            <span class="material-symbols-outlined text-zinc-400">close</span>
+          </button>
+        </div>
+        
+        <div class="space-y-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">ID de Escena (Scene ID)</label>
+            <input type="text" id="stacSceneId" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Ej: LC09_L2SP_008053_20260227_02_T1">
+            <p class="text-[9px] text-zinc-400 mt-1">Soporta Landsat 7, 8 y 9.</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-6 bg-zinc-50 border-t border-zinc-100 flex gap-3">
+        <button onclick="document.getElementById('stacModal').style.display='none'" class="flex-1 py-3 text-[11px] font-bold uppercase text-zinc-500 hover:bg-zinc-200 rounded-xl transition-colors">Cancelar</button>
+        <button onclick="importFromStac()" class="flex-[2] py-3 bg-emerald-600 text-white text-[11px] font-bold uppercase rounded-xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">cloud_download</span> Importar Directo
+        </button>
       </div>
     </div>
   </div>
@@ -5688,7 +5725,8 @@ self.onmessage = async function(e) {
                     continue;
                 }
                 
-                if (L.type === 'raster' && L.config?.serverFilename) {
+                if (L.type === 'raster' && (L.storage_url || L.config?.serverFilename)) {
+                    // 100% Cloud Architecture: Directly use the storage_url from Supabase
                     const layerObj = {
                         id: ++idCounter,
                         dbId: L.id,
@@ -5698,7 +5736,7 @@ self.onmessage = async function(e) {
                         opacity: L.config.opacity ?? 1,
                         blendMode: L.config.blendMode || 'normal',
                         mapLayer: null,
-                        serverFilename: L.config.serverFilename,
+                        serverFilename: L.config?.serverFilename,
                         storageUrl: L.storage_url,
                         bounds: L.config.bounds || null,
                         width: L.config.width,
@@ -5706,7 +5744,7 @@ self.onmessage = async function(e) {
                         bands: L.config.bands || 1,
                         renderer: L.config.renderer || 'multiband',
                         rendererParams: L.config.rendererParams,
-                        _geotiffFileUrl: `/uploads/${encodeURIComponent(L.config.serverFilename)}`
+                        _geotiffFileUrl: L.storage_url || (L.config?.serverFilename ? `/uploads/${encodeURIComponent(L.config.serverFilename)}` : null)
                     };
                     
                     if (layerObj.bounds && layerObj.bounds._southWest) {
@@ -5714,10 +5752,14 @@ self.onmessage = async function(e) {
                     }
 
                     state.layers.unshift(layerObj);
-                    if (layerObj.visible && layerObj.bounds) {
-                        addTileLayer(layerObj, layerObj.serverFilename);
-                    } else if (layerObj.visible) {
-                        showPreviewOverlay(layerObj, layerObj.serverFilename);
+                    if (layerObj.visible) {
+                        if (layerObj.storageUrl) {
+                            // Directly stream from cloud via GeoTIFF engine
+                            showPreviewOverlay(layerObj, layerObj.serverFilename);
+                        } else {
+                            // Use ultra-fast local backend COG tile server for massive layers
+                            addTileLayer(layerObj, layerObj.serverFilename);
+                        }
                     }
                     continue;
                 }
@@ -5874,7 +5916,7 @@ self.onmessage = async function(e) {
             const res = await fetch(`/api/upload-visualization?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ savedAs: layer.serverFilename, originalName: layer.name }),
+              body: JSON.stringify({ savedAs: layer.serverFilename, originalName: layer.name, parts: layer.parts }),
             });
             if (res.ok) {
               const data = await res.json();
@@ -5884,6 +5926,11 @@ self.onmessage = async function(e) {
                   layer.storageUrl = tiffUrl;
                   await saveLayerToDatabase(layer);
                   toast('Capa guardada y registrada en la nube', 'success');
+                  
+                  // Reload the layer using the cloud URL to prevent fetching deleted local files
+                  if (typeof showPreviewOverlay === 'function') {
+                    showPreviewOverlay(layer, layer.serverFilename, { skipFit: true }).catch(console.warn);
+                  }
                 } else {
                   toast('No se encontró la URL del archivo subido.', 'error');
                 }
@@ -5933,8 +5980,29 @@ self.onmessage = async function(e) {
           return;
         }
 
-        $cloudList.innerHTML = files.map((f, i) => {
-          const displayName = f.name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/, '');
+        // Group parts
+        const groupedFiles = [];
+        const baseMap = new Map();
+        
+        for (const f of files) {
+          const match = f.name.match(/^(.*?)_part\d+\.tif(\?.*)?$/i);
+          if (match) {
+             const baseName = match[1] + '.tif';
+             if (!baseMap.has(baseName)) {
+                 baseMap.set(baseName, { ...f, name: baseName, isGroup: true, parts: [f] });
+                 groupedFiles.push(baseMap.get(baseName));
+             } else {
+                 baseMap.get(baseName).parts.push(f);
+             }
+          } else {
+             groupedFiles.push(f);
+          }
+        }
+
+        $cloudList.innerHTML = groupedFiles.map((f, i) => {
+          const displayNameBase = f.name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/, '');
+          const displayName = f.isGroup ? `${displayNameBase} (${f.parts.length} Partes)` : displayNameBase;
+          
           let icon = 'description';
           if (f.type?.includes('image/tiff')) icon = 'photo_size_select_actual';
           else if (f.type?.includes('zip')) icon = 'folder_zip';
@@ -5960,12 +6028,42 @@ self.onmessage = async function(e) {
         
         $cloudList.querySelectorAll('li[data-file-index]').forEach(li => {
           const idx = parseInt(li.dataset.fileIndex);
-          const f = files[idx];
-          li.querySelector('.cloud-load-btn').addEventListener('click', () => loadFromCloud(f.url, f.name));
-          li.querySelector('.cloud-delete-btn').addEventListener('click', () => deleteFromCloud(f.name, f.url, f.storagePath));
+          const f = groupedFiles[idx];
+          
+          li.querySelector('.cloud-load-btn').addEventListener('click', async () => {
+             if (f.isGroup) {
+                // If it's a group, we might want to load it as a single layer with parts
+                // but loadFromCloud normally downloads and imports. 
+                // Wait! If they load from cloud, we just pass the URL of the first part, 
+                // but wait, loadFromCloud downloads it locally. If it's 4 parts, it needs to download all 4!
+                for (const part of f.parts) {
+                    await loadFromCloud(part.url, part.name);
+                }
+             } else {
+                await loadFromCloud(f.url, f.name);
+             }
+          });
+          
+          li.querySelector('.cloud-delete-btn').addEventListener('click', async () => {
+             if (f.isGroup) {
+                 if (!confirm(`¿Estás seguro de que deseas eliminar las ${f.parts.length} partes de "${f.name}"?`)) return;
+                 for (const part of f.parts) {
+                     // Silently delete parts, only refresh at the end
+                     await fetch(`/api/files?action=delete`, {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ name: part.name, storagePath: part.storagePath })
+                     });
+                 }
+                 toast('Partes eliminadas de la nube');
+                 await listSupabaseFiles();
+             } else {
+                 await deleteFromCloud(f.name, f.url, f.storagePath);
+             }
+          });
         });
         
-        $cloudUploadStatus.textContent = `Nube: ${files.length} elementos detectados`;
+        $cloudUploadStatus.textContent = `Nube: ${groupedFiles.length} elementos detectados`;
     } catch (err) {
         console.error('List error:', err);
         $cloudList.innerHTML = `<li class="text-error text-[8px] break-all">Error: ${err.message}</li>`;
@@ -6045,8 +6143,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
         
         // Construir nombre con extensión correcta
+        const nameExtMatch = name.match(/\.[^.]+$/);
+        const defaultExt = nameExtMatch ? nameExtMatch[0] : '.tif';
+        const finalExt = ext || defaultExt;
         const displayName = name.replace(/\.[^.]+$/, '');
-        const fileName = displayName + ext;
+        const fileName = displayName.endsWith(finalExt) ? displayName : (displayName + finalExt);
         const file = new File([blob], fileName, { type: blob.type });
         
         _cloudFileCache.set(url, file);
@@ -7149,7 +7250,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
         maxNativeZoom: 24,
         maxZoom: 28,
         opacity: 1,
-        bounds: null
+        bounds: null,
+        bands: null
+      },
+      
+      setBands: function(bands) {
+        this.options.bands = bands;
+        this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        this.redraw();
       },
       
       initialize: function(geoData, options) {
@@ -7229,7 +7337,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
           try {
             const baseImage = this.pyramid.levels[0];
             const nSamples = baseImage.getSamplesPerPixel ? baseImage.getSamplesPerPixel() : 3;
-            const rgb = nSamples >= 3;
+            const fileHasRgb = nSamples >= 3;
+            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+            const isRgbRender = bandsToUse.length >= 3;
             const baseW = fullWindowW;
             const baseH = fullWindowH;
             const bL = Math.max(0, Math.floor(fullWndL));
@@ -7241,7 +7351,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             if (rw <= 0 || rh <= 0) return;
             const raw = await baseImage.readRasters({
               window: [bL, bT, bL + rw, bT + rh],
-              samples: rgb ? [0, 1, 2] : [0],
+              samples: bandsToUse,
               interleave: false
             });
             const firstBand = Array.isArray(raw) ? raw[0] : raw;
@@ -7262,7 +7372,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sy = Math.min(y * stride, rh - 1);
                 const idx = sy * rw + sx;
                 const pi = (y * sw + x) * 4;
-                if (rgb) {
+                if (isRgbRender) {
                   const rB = Array.isArray(raw) ? raw[0] : raw;
                   const gB = Array.isArray(raw) ? raw[1] : raw;
                   const bB = Array.isArray(raw) ? raw[2] : raw;
@@ -7366,12 +7476,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
       
       async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
         const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : 3;
-        const rgb = nSamples >= 3;
+        const fileHasRgb = nSamples >= 3;
+        const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+        const isRgbRender = bandsToUse.length >= 3;
         
         const raw = await level.readRasters({
           window: [wndL, wndT, wndL + windowW, wndT + windowH],
-          samples: rgb ? [0, 1, 2] : [0],
-          interleave: rgb
+          samples: bandsToUse,
+          interleave: isRgbRender
         });
         
         const isArrayOfBands = Array.isArray(raw);
@@ -7379,7 +7491,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
         
         const pixels = await processPixelsAsync(
-          raw, windowW, windowH, rgb, isByte, isArrayOfBands, noDataValue
+          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue
         );
         
         return pixels;
@@ -7532,22 +7644,82 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (layer._thumbOverlay) { try { state.map.removeLayer(layer._thumbOverlay); } catch(e) {} layer._thumbOverlay = null; }
         if (layer._geotiffTileLayer) { try { state.map.removeLayer(layer._geotiffTileLayer); } catch(e) {} layer._geotiffTileLayer = null; }
         
-        const tiffUrl = layer._geotiffFileUrl || (layer.serverFilename ? `/uploads/${encodeURIComponent(layer.serverFilename)}` : null);
+        // Use storageUrl (cloud) if available, otherwise local file
+        const tiffUrl = layer.storageUrl || layer._geotiffFileUrl || (layer.serverFilename ? `/uploads/${encodeURIComponent(layer.serverFilename)}` : null);
         
-        if (tiffUrl && maxSize === 0 && window.GeoTIFF) {
-          // Skip GeoTIFF engine for files > 20MB — server tiles are faster
-          if (!layer._tiffSize && tiffUrl.startsWith('/uploads/')) {
-            try {
-              const head = await fetch(tiffUrl, { method: 'HEAD' });
-              const len = parseInt(head.headers.get('Content-Length') || '0');
-              if (len > 0) layer._tiffSize = len;
-            } catch(_) {}
-          }
+        // 1. New Static Cloud Tiles Engine (XYZ PNG)
+        if (layer.storageUrl && layer.storageUrl.includes('{z}/{x}/{y}')) {
+          console.log(`[Preview] Using 100% Static Cloud Tiles Engine for instantaneous lossless rendering.`);
+          layer._tileSavedAs = layer.serverFilename;
+          const tileLayer = L.tileLayer(layer.storageUrl, {
+            maxZoom: 28, maxNativeZoom: 14,
+            opacity: layer.opacity ?? 1, bounds: bounds,
+            tms: false
+          });
+          tileLayer.addTo(state.map);
+          layer._geotiffTileLayer = tileLayer;
+          layer.mapLayer = tileLayer;
+          return;
+        }
+        
+        // 2. Local Fallback (GeoTIFF Chunking / Single File via Geotiff.js)
+        if (layer.parts && layer.parts.length > 0 && maxSize === 0 && window.GeoTIFF) {
           try {
-            const isRGB = layer.renderer === 'multiband' && layer.bands === 3;
-            if (isRGB) throw new Error('Force server tiles for RGB to preserve native resolution');
-            if (layer._tiffSize > 20 * 1024 * 1024) throw new Error('File too large for client-side GeoTIFF');
-            console.log('[Preview] Using advanced GeoTIFF tile engine:', tiffUrl);
+            console.log(`[Preview] Using GeoTIFF engine for ${layer.parts.length} parts`);
+            const group = L.layerGroup();
+            let globalBounds = null;
+            
+            for (const part of layer.parts) {
+               let partUrl = null;
+               if (layer.storageUrl && !layer.storageUrl.includes('{z}/{x}/{y}')) {
+                 const baseUrl = layer.storageUrl.substring(0, layer.storageUrl.lastIndexOf('/') + 1);
+                 partUrl = baseUrl + encodeURIComponent(part);
+               } else {
+                 partUrl = `/uploads/${encodeURIComponent(part)}`;
+               }
+               
+               const geo = await loadGeotiffInBackground(partUrl);
+               if (geo && geo.image) {
+                 const tileLayer = L.geoTIFFTileLayer(geo, {
+                   tileSize: 256, maxNativeZoom: 24, maxZoom: 28,
+                   opacity: layer.opacity ?? 1, bounds: geo.bounds,
+                   bands: layer.rendererParams?.bands
+                 });
+                 tileLayer.addTo(group);
+                 
+                 if (!globalBounds) globalBounds = L.latLngBounds(geo.bounds.getSouthWest(), geo.bounds.getNorthEast());
+                 else globalBounds.extend(geo.bounds);
+                 
+                 if (!layer.width) {
+                   layer.width = geo.image.getWidth() * 2;
+                   layer.height = geo.image.getHeight() * 2;
+                   layer.bands = geo.image.getSamplesPerPixel();
+                 }
+               }
+            }
+            
+            group.addTo(state.map);
+            layer._geotiffTileLayer = group;
+            layer.mapLayer = group;
+            layer.bounds = globalBounds;
+            
+            if (globalBounds && globalBounds.isValid && globalBounds.isValid() && !opts.skipFit) {
+               state.map.fitBounds(globalBounds, { padding: [40, 40], animate: false });
+            }
+            
+            if (!layer.visible) {
+               group.remove();
+               layer._geotiffTileLayer = null;
+               layer.mapLayer = null;
+            }
+            console.log('[Preview] Cloud tile engine for parts initialized successfully');
+            return;
+          } catch(e) {
+            console.warn('[Preview] Cloud tile engine for parts failed:', e);
+          }
+        } else if (tiffUrl && maxSize === 0 && window.GeoTIFF) {
+          try {
+            console.log('[Preview] Using 100% Cloud GeoTIFF tile engine:', tiffUrl);
             const geo = await loadGeotiffInBackground(tiffUrl);
             
             if (geo && geo.image) {
@@ -7556,7 +7728,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 maxNativeZoom: 24,
                 maxZoom: 28,
                 opacity: layer.opacity ?? 1,
-                bounds: geo.bounds
+                bounds: geo.bounds,
+                bands: layer.rendererParams?.bands
               });
               
               tileLayer.addTo(state.map);
@@ -7586,16 +7759,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 console.log('[Preview] Layer was hidden during init, removed');
                 return;
               }
-              console.log('[Preview] Advanced tile engine initialized successfully');
+              console.log('[Preview] Cloud tile engine initialized successfully');
               return;
             }
           } catch(e) {
-            console.warn('[Preview] Advanced tile engine failed, falling back:', e);
-            if ((layer.renderer === 'multiband' && layer.bands >= 3) || layer._tiffSize > 20 * 1024 * 1024) {
-              console.log('[Preview] Falling back to server tiles for RGB or large files');
-              addTileLayer(layer, savedAs);
-              return;
-            }
+            console.warn('[Preview] Cloud tile engine failed:', e);
+            // No local fallback anymore, we rely on the cloud COG.
           }
         }
         
@@ -8080,7 +8249,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (!savedAs) throw new Error('El servidor no devolvió un ID');
         const serverFilename = savedAs;
 
-        const fileUrl = `/uploads/${encodeURIComponent(serverFilename)}`;
+        const fileUrl = upData.cloudUrl || `/uploads/${encodeURIComponent(serverFilename)}`;
 
         // Use bounds from server (gdalinfo) or fallback to client GeoTIFF
         let bounds = _metaToBounds(upData.metadata?.bounds);
@@ -8151,10 +8320,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (!opts.isRestored && !layer.dbId) {
           if (upData.status === 'completed') {
             const optSavedAs = upData.optimizedSavedAs || serverFilename;
-            const optimizedUrl = `/compressed/${encodeURIComponent(optSavedAs)}`;
+            const optimizedUrl = upData.cloudUrl || `/compressed/${encodeURIComponent(optSavedAs)}`;
             layer._geotiffFileUrl = optimizedUrl;
-            console.log(`[loadTiff] ${file.name} ya está optimizado — subiendo visualización`);
-            uploadVisualization(optSavedAs);
+            if (upData.cloudUrl) {
+                layer.storageUrl = upData.cloudUrl;
+                saveLayerToDatabase(layer);
+                console.log(`[loadTiff] ${file.name} subido automáticamente a la nube y limpiado localmente`);
+                if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+            } else {
+                console.log(`[loadTiff] ${file.name} ya está optimizado — subiendo visualización`);
+                uploadVisualization(optSavedAs);
+            }
           }
           // Si la optimización está en proceso, se subirá automáticamente en el polling loop al terminar.
         }
@@ -9012,6 +9188,63 @@ async function deleteFromCloud(fileName, url, storagePath) {
       });
     }
 
+    async function importFromStac() {
+      const sceneId = document.getElementById('stacSceneId').value.trim();
+      if (!sceneId) return toast('Ingresa un ID de escena', 'warning');
+      
+      document.getElementById('stacModal').style.display = 'none';
+      showProgress('Importando Landsat directamente desde Planetary Computer a Supabase...', 0);
+      
+      try {
+        const res = await fetch('/api/import-stac', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scene_id: sceneId })
+        });
+        
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Error en import-stac');
+        }
+        
+        const data = await res.json();
+        
+        // Add layer logic similar to Zip and Tiff imports
+        const layer = {
+          id: Date.now(),
+          name: sceneId,
+          type: 'raster',
+          serverFilename: data.savedAs,
+          storageUrl: data.cloudUrl,
+          parts: [],
+          bounds: data.metadata?.bounds ? [[data.metadata.bounds.south, data.metadata.bounds.west], [data.metadata.bounds.north, data.metadata.bounds.east]] : null,
+          width: data.metadata?.width || 0,
+          height: data.metadata?.height || 0,
+          bands: data.metadata?.bands || 6,
+          visible: true,
+          opacity: 1,
+          createdAt: new Date().toISOString()
+        };
+        
+        state.layers.unshift(layer);
+        syncLayerOrder();
+        await saveLayerToDatabase(layer);
+        
+        toast('Capa STAC importada correctamente', 'success');
+        
+        if (layer.bounds) {
+          state.map.fitBounds(layer.bounds, { padding: [50, 50], duration: 1.5 });
+        }
+        
+      } catch (e) {
+        console.error('STAC import error:', e);
+        toast('Error: ' + e.message, 'error');
+      } finally {
+        hideProgress();
+        renderLayers();
+      }
+    }
+
     async function confirmTiffImport() {
       if (!_pendingTiffImport) return;
       const { serverFilename, metadata, file, bounds } = _pendingTiffImport;
@@ -9102,7 +9335,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
       entries.forEach((e, idx) => {
         // Find things like 10m, 20m, 60m anywhere in the name
         const m = e.fileName.match(/([0-9]{1,3}m)/i);
-        const res = m ? m[1].toLowerCase() : 'Otras';
+        let res = m ? m[1].toLowerCase() : 'Otras';
+        
+        // Sentinel-2 Element84 heuristic
+        if (res === 'Otras' && /S2[A-C]/i.test(zipFile.name)) {
+            if (/(rededge|swir|B0?5|B0?6|B0?7|B8A|B11|B12|scl)/i.test(e.fileName)) res = '20m';
+            else if (/(coastal|aerosol|water|vapor|B0?1|B0?9|B10)/i.test(e.fileName)) res = '60m';
+            else if (/(blue|green|red|nir|B0?2|B0?3|B0?4|B0?8)/i.test(e.fileName)) res = '10m';
+        }
+
         if (!resGroups[res]) resGroups[res] = [];
         resGroups[res].push(idx);
       });
@@ -9225,18 +9466,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (mode === 'rgb' || mode === 'fast_rgb') {
         const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
         const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
-        
-        const isL7 = selectedEntries.some(e => /L[ET]0[57]/i.test(e.fileName));
-        let R, G, B;
-        if (isL7) {
-            R = getBest(/B0?3/i); // Landsat 7/5 Red is Band 3
-            G = getBest(/B0?2/i); // Landsat 7/5 Green is Band 2
-            B = getBest(/B0?1/i); // Landsat 7/5 Blue is Band 1
-        } else {
-            R = getBest(/B0?4/i); // Sentinel-2 / Landsat 8+ Red is Band 4
-            G = getBest(/B0?3/i);
-            B = getBest(/B0?2/i);
-        }
+        const isL7 = selectedEntries.some(e => /L[ET]07/i.test(e.fileName)) || /L[ET]07/i.test(zipFile?.name || '');
+        let R = getBest(isL7 ? /B0?3/i : /(B0?4|red)/i); // Red
+        let G = getBest(isL7 ? /B0?2/i : /(B0?3|green)/i); // Green
+        let B = getBest(isL7 ? /B0?1/i : /(B0?2|blue)/i); // Blue
         
         let finalEntries = selectedEntries;
         let renderBands = [R.idx, G.idx, B.idx];
@@ -9246,7 +9479,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             renderBands = [0, 1, 2];
         }
         
-        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas)...`, 10);
+        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas). Esto puede tardar 1-2 minutos...`, 10);
         try {
           const formData = new FormData();
           formData.append('zip', zipFile);
@@ -9273,7 +9506,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             type: 'raster', visible: true, opacity: 1, blendMode: 'normal',
             mapLayer: null, _thumbOverlay: null,
             serverFilename: serverFilename,
-            storageUrl: null, dbId: null, thumb: null,
+            parts: mergeData.parts || null,
+            storageUrl: mergeData.cloudUrl || null, dbId: null, thumb: null,
             bounds: bounds,
             width: meta.width, height: meta.height,
             bands: meta.bands || finalEntries.length,
@@ -9284,7 +9518,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           };
           
           state.layers.unshift(layer);
-          if (serverFilename) showPreviewOverlay(layer, serverFilename);
+          if (serverFilename) addTileLayer(layer, serverFilename);
           saveLayerToDatabase(layer);
           updateLayersSidebar();
           hideProgress();
@@ -10842,7 +11076,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           else if (name.endsWith('.geojson') || name.endsWith('.json') || name.endsWith('.kml') || name.endsWith('.gpx')) {
               await loadGenericVector(file, currentOpts);
           }
-          else if (/\.(tiff?|img)$/i.test(name)) {
+          else if (/\.(tiff?|img|vrt)$/i.test(name)) {
               await loadTiff(file, currentOpts);
           }
           else if (/\.(xlsx|xls|csv)$/i.test(name)) {
@@ -11137,7 +11371,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
         rebuildTileLayer(layer);
         return;
       }
-      if (!layer.rasters) return;
+      if (!layer.rasters) {
+        if (layer._geotiffTileLayer && layer._geotiffTileLayer.setBands) {
+          layer._geotiffTileLayer.setBands(layer.rendererParams?.bands);
+        }
+        return;
+      }
       const res = rastersToStylizedImageData(layer.rasters, layer.width, layer.height, layer.bands, layer.renderer, layer.rendererParams);
       const blob = await new Promise(r => res.canvas.toBlob(r, 'image/png'));
       if (layer.imageUrl) URL.revokeObjectURL(layer.imageUrl);
@@ -16686,6 +16925,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             _lastCompressedFilename = compData.filename;
             closeCompressDialog();
+            
+            // Refrescar lista de nube para mostrar el archivo optimizado
+            if (typeof listSupabaseFiles === 'function') {
+                listSupabaseFiles();
+            }
+
             document.getElementById('compressProgressBar').style.width = '90%';
             document.getElementById('compressStatusText').textContent = 'Agregando capa al mapa...';
 
@@ -17171,11 +17416,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
       scene.add(globeGroup);
 
       const textureLoader = new THREE.TextureLoader();
-      const earthMap = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
-      const earthSpecularMap = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-specular.jpg');
-      const earthNormalMap = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+      const earthMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg');
+      const earthSpecularMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-specular.jpg');
+      const earthNormalMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png');
 
-      const heightMap = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+      const heightMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png');
 
       const earthMat = new THREE.MeshPhongMaterial({
         map: earthMap,
