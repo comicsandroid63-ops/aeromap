@@ -19590,7 +19590,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     })();
     } catch(e) { console.warn('[Globe] Three.js error:', e); }
 
-    // Restore session
+    // Restore session — si hay sesión válida ir directo al dashboard (sin pasar por landing)
     (function restoreSession() {
       try {
         const saved = localStorage.getItem('aeromap_user') || sessionStorage.getItem('aeromap_user');
@@ -19600,10 +19600,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
             _currentUser = user;
             try { localStorage.setItem('aeromap_user', saved); } catch(_) {}
             setAuthNav();
-            // Si el usuario ya está autenticado, limpiar flag de invite pendiente
-            // para que no muestre login obligatorio en cargas normales
-            // (el invite se procesará en initCollabFromURL si aún existe)
-            window.__hasPendingInvite = window.__hasPendingInvite || false;
+            // Si hay invite pendiente en la URL, dejar que initCollabFromURL lo maneje
+            // Si no hay invite, ir directo al dashboard de proyectos
+            if (!window.__hasPendingInvite) {
+              // Limpiar cualquier _pendingSharedProject sobrante de sesiones anteriores
+              try { sessionStorage.removeItem('_pendingSharedProject'); } catch(_) {}
+              _pendingSharedProject = null;
+              // Auto-redirigir al dashboard sin necesidad de hacer clic
+              const landingEl = document.getElementById('landingPage');
+              const loginEl   = document.getElementById('loginDashboard');
+              const dashEl    = document.getElementById('projectDashboard');
+              const emailEl   = document.getElementById('userEmailDisplay');
+              if (landingEl) landingEl.classList.add('hidden');
+              if (loginEl)   loginEl.classList.add('hidden');
+              if (dashEl)    dashEl.classList.remove('hidden');
+              if (emailEl)   emailEl.textContent = user.email || '';
+              // Diferir loadProjects para asegurar que esté definida al momento de ejecutar
+              setTimeout(() => { if (typeof loadProjects === 'function') loadProjects(); }, 0);
+            }
           } else {
             _currentUser = null;
           }
