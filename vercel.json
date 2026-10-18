@@ -20,8 +20,8 @@
       "dest": "/api/auth.js"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "src": "/api/([^/]+)(?:/(.*))?",
+      "dest": "/api/$1.js"
     },
     {
       "src": "/(.*)",
