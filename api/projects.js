@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
       if (currentUid && currentUid !== 'guest' && currentUid !== row.user_id) {
         try {
           await db.execute({
-            sql: `INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, 'collaborator')`,
+            sql: "INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, 'collaborator')",
             args: [id, currentUid]
           });
         } catch (_) {}
@@ -97,23 +97,28 @@ module.exports = async (req, res) => {
     let rows = [];
 
     if (user_id && user_id !== 'guest') {
-      // Proyectos creados por el usuario O proyectos compartidos donde es miembro
-      const query = `
-        SELECT p.*, 
-          CASE WHEN p.user_id = ? THEN 'owner' ELSE 'member' END as access_role
-        FROM projects p
-        WHERE p.user_id = ?
-           OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)
-        ORDER BY p.updated_at DESC
-      `;
-      const result = await db.execute({ sql: query, args: [user_id, user_id, user_id] });
-      rows = result.rows || [];
+      try {
+        const query = `
+          SELECT p.*, 
+            CASE WHEN p.user_id = ? THEN 'owner' ELSE 'member' END as access_role
+          FROM projects p
+          WHERE p.user_id = ?
+             OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)
+          ORDER BY p.updated_at DESC
+        `;
+        const result = await db.execute({ sql: query, args: [user_id, user_id, user_id] });
+        rows = result.rows || [];
+      } catch (err) {
+        console.warn('[Projects] Fallback query:', err.message);
+        const result = await db.execute({ sql: "SELECT *, 'owner' as access_role FROM projects WHERE user_id = ? ORDER BY updated_at DESC", args: [user_id] });
+        rows = result.rows || [];
+      }
     } else if (user_id === 'guest') {
-      const query = 'SELECT *, \'owner\' as access_role FROM projects WHERE user_id = ? ORDER BY updated_at DESC';
+      const query = "SELECT *, 'owner' as access_role FROM projects WHERE user_id = ? ORDER BY updated_at DESC";
       const result = await db.execute({ sql: query, args: ['guest'] });
       rows = result.rows || [];
     } else {
-      const query = 'SELECT *, \'owner\' as access_role FROM projects ORDER BY updated_at DESC';
+      const query = "SELECT *, 'owner' as access_role FROM projects ORDER BY updated_at DESC";
       const result = await db.execute({ sql: query, args: [] });
       rows = result.rows || [];
     }
