@@ -18570,8 +18570,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const pid = _currentProject.id;
       const uid = _currentUser?.id || 'guest';
       try {
-        const postBody = { user_id: uid, session_id: _collabSessionId, name: collabMyName(), color: collabMyColor() };
-        await fetch('/api/presence', {
+        const postBody = { user_id: uid, session_id: _collabSessionId, name: collabMyName(), color: collabMyColor(), project_id: pid };
+        await fetch("/api/presence?project_id=${encodeURIComponent(pid)}", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postBody)
@@ -18666,6 +18666,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
     let _thumbEraser = null;
 
     function collabWSConnect() {
+      // WebSocket no disponible en Vercel serverless — solo polling
+      if (location.hostname.includes('vercel.app') || location.hostname.includes('aeromap-zeta')) { return; }
       if (_collabWs || !_currentProject) return;
       _collabWsState = 'connecting';
       try {
