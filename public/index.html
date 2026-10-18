@@ -1032,7 +1032,8 @@
       transform: translateY(30px);
       transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .reveal.visible {
+    .reveal.visible,
+    #hero.reveal {
       opacity: 1;
       transform: translateY(0);
     }
@@ -1103,9 +1104,21 @@
     <main class="flex-grow pt-24 pb-16 flex flex-col items-center">
       <!-- Hero -->
       <section id="hero" class="reveal w-full pt-16 pb-20 md:pt-24 md:pb-28 flex flex-col items-center text-center relative" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;">
+        <!-- Hero Background Grid & Architectural Minimal Watermark -->
         <div class="hero-bg"></div>
         <div class="hero-glow-a"></div>
         <div class="hero-glow-b"></div>
+
+        <!-- Minimalist Watermark 'Z' in empty hero space -->
+        <div class="pointer-events-none select-none absolute top-12 left-1/2 -translate-x-1/2 flex items-center justify-center z-0 overflow-hidden" style="width:100%;max-width:960px;height:520px;opacity:0.045;">
+          <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.2" class="w-[380px] h-[380px] md:w-[480px] md:h-[480px] text-white">
+            <path d="M 22 24 L 78 24 L 22 76 L 78 76" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="22" cy="24" r="2.5" fill="currentColor" stroke="none" />
+            <circle cx="78" cy="24" r="2.5" fill="currentColor" stroke="none" />
+            <circle cx="22" cy="76" r="2.5" fill="currentColor" stroke="none" />
+            <circle cx="78" cy="76" r="2.5" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
 
         <!-- Floating Telemetry Badges -->
         <div class="hero-chip" style="top:18%;left:4%;animation-delay:0s;">
@@ -19446,14 +19459,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       // Parallax effect on hero
       const hero = document.querySelector('#landingPage .status-badge');
       if (hero) {
-        window.addEventListener('scroll', () => {
-          const scrolled = window.scrollY;
-          const heroSection = document.querySelector('#landingPage section');
-          if (heroSection && scrolled < window.innerHeight) {
-            heroSection.style.transform = `translateY(${scrolled * 0.15}px)`;
-            heroSection.style.opacity = Math.max(0, 1 - scrolled / (window.innerHeight * 0.6));
-          }
-        }, { passive: true });
+        // Keeps hero stable and visible at all times
       }
     })();
 
