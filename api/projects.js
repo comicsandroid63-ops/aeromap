@@ -68,7 +68,7 @@ module.exports = async (req, res) => {
     }
 
     // Endpoint de colaboración: abrir proyecto ajeno por id (dueño o compartido)
-    const { id } = req.query;
+    const { id, user_id: currentUid } = req.query;
     if (id) {
       const { rows } = await db.execute({
         sql: 'SELECT * FROM projects WHERE id = ?',
@@ -76,6 +76,17 @@ module.exports = async (req, res) => {
       });
       if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
       const row = rows[0];
+
+      // Si se pasa user_id y es un invitado, agregarlo a project_members
+      if (currentUid && currentUid !== 'guest' && currentUid !== row.user_id) {
+        try {
+          await db.execute({
+            sql: `INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, 'collaborator')`,
+            args: [id, currentUid]
+          });
+        } catch (_) {}
+      }
+
       return res.status(200).json({
         ...row,
         config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config
@@ -83,17 +94,29 @@ module.exports = async (req, res) => {
     }
 
     const { user_id } = req.query;
-    let query = 'SELECT * FROM projects';
-    const args = [];
+    let rows = [];
 
-    if (user_id) {
-      query += ' WHERE user_id = ?';
-      args.push(user_id);
+    if (user_id && user_id !== 'guest') {
+      // Proyectos creados por el usuario O proyectos compartidos donde es miembro
+      const query = `
+        SELECT p.*, 
+          CASE WHEN p.user_id = ? THEN 'owner' ELSE 'member' END as access_role
+        FROM projects p
+        WHERE p.user_id = ?
+           OR p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)
+        ORDER BY p.updated_at DESC
+      `;
+      const result = await db.execute({ sql: query, args: [user_id, user_id, user_id] });
+      rows = result.rows || [];
+    } else if (user_id === 'guest') {
+      const query = 'SELECT *, \'owner\' as access_role FROM projects WHERE user_id = ? ORDER BY updated_at DESC';
+      const result = await db.execute({ sql: query, args: ['guest'] });
+      rows = result.rows || [];
+    } else {
+      const query = 'SELECT *, \'owner\' as access_role FROM projects ORDER BY updated_at DESC';
+      const result = await db.execute({ sql: query, args: [] });
+      rows = result.rows || [];
     }
-
-    query += ' ORDER BY updated_at DESC';
-
-    const { rows } = await db.execute({ sql: query, args });
 
     const data = rows.map(row => ({
       ...row,
@@ -157,6 +180,13 @@ module.exports = async (req, res) => {
       sql: 'DELETE FROM projects WHERE id = ?',
       args: [id]
     });
+
+    try {
+      await db.execute({
+        sql: 'DELETE FROM project_members WHERE project_id = ?',
+        args: [id]
+      });
+    } catch (_) {}
     
     return res.status(200).json({ success: true });
   }

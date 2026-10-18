@@ -18282,11 +18282,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function initAuth() {
       try {
-        const cached = sessionStorage.getItem('aeromap_user');
+        const cached = localStorage.getItem('aeromap_user') || sessionStorage.getItem('aeromap_user');
         if (cached) {
           const user = JSON.parse(cached);
           if (user.token) {
             _currentUser = user;
+            // Asegurar persistencia en ambos
+            try { localStorage.setItem('aeromap_user', cached); } catch(_) {}
             setAuthNav();
             return;
           }
@@ -18341,7 +18343,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (!res.ok) throw new Error(data.error || 'Error');
 
         _currentUser = { id: data.id, email: data.email, name: data.name, token: data.token };
-        sessionStorage.setItem('aeromap_user', JSON.stringify(_currentUser));
+        const userStr = JSON.stringify(_currentUser);
+        localStorage.setItem('aeromap_user', userStr);
+        sessionStorage.setItem('aeromap_user', userStr);
         document.getElementById('loginDashboard').classList.add('hidden');
         setAuthNav();
         if (_pendingSharedProject) {
@@ -18369,7 +18373,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
       } catch(e) {}
       _currentUser = null;
-      try { sessionStorage.removeItem('aeromap_user'); } catch(e) {}
+      try { 
+        localStorage.removeItem('aeromap_user');
+        sessionStorage.removeItem('aeromap_user'); 
+      } catch(e) {}
       stopCollab();
       document.getElementById('projectDashboard').classList.add('hidden');
       document.getElementById('workspace').classList.add('hidden');
@@ -18424,8 +18431,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 ${thumbData ? '' : '<div style="position:absolute;right:10%;top:30%;width:20%;height:20%;border-radius:50%;border:2px solid rgba(255,255,255,0.1);"></div>'}
                 <div class="absolute bottom-0 left-0 right-0 p-3" style="background:linear-gradient(to top, rgba(0,0,0,0.5), transparent);">
                   <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-white" style="font-size:14px;">layers</span>
-                    <span class="text-[11px] text-white font-medium">GIS Project</span>
+                    <span class="material-symbols-outlined text-white" style="font-size:14px;">${p.access_role === 'member' ? 'group' : 'layers'}</span>
+                    <span class="text-[11px] text-white font-medium">${p.access_role === 'member' ? 'Compartido conmigo' : 'GIS Project'}</span>
                   </div>
                 </div>
                 <button onclick="event.stopPropagation(); openShareModal('${p.id}')" title="Compartir proyecto (colaboración)" class="absolute top-2 right-10 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all" style="background:rgba(0,0,0,0.4);">
@@ -19014,7 +19021,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     async function openSharedProjectById(projectId) {
       try {
-        const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}`);
+        const uid = _currentUser?.id || 'guest';
+        const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(uid)}`);
         const project = await res.json();
         if (!res.ok || project.error) throw new Error(project.error || 'Proyecto no encontrado');
         _currentProject = project;
@@ -19480,12 +19488,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
     })();
     } catch(e) { console.warn('[Globe] Three.js error:', e); }
 
-    // Restore guest session
+    // Restore session
     (function restoreSession() {
       try {
-        const saved = sessionStorage.getItem('aeromap_user');
+        const saved = localStorage.getItem('aeromap_user') || sessionStorage.getItem('aeromap_user');
         if (saved) {
           _currentUser = JSON.parse(saved);
+          try { localStorage.setItem('aeromap_user', saved); } catch(_) {}
           setAuthNav();
         }
       } catch(e) {}
