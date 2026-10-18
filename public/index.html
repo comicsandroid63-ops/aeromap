@@ -70,8 +70,9 @@
 
 
   <link href="/output.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
-    rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Playfair+Display:wght@400;700&family=Lato:wght@400;700&family=Oswald:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
@@ -364,203 +365,7 @@
     .ctx-item span { font-size: 16px; }
     .ctx-item.text-red-500:hover { background: #fee2e2; }
 
-    /* ═══ LANDING PAGE STYLES ═══ */
-    #landingPage {
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      background-color: #f9f9fe;
-      color: #1a1c1f;
-      -webkit-font-smoothing: antialiased;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-    #landingPage.hidden { display: none !important; }
-    #landingPage .landing-nav {
-      background: rgba(249,249,254,0.8);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid #c6c6c6;
-    }
-    #landingPage .feature-card {
-      background: #ffffff;
-      border: 1px solid #e2e2e7;
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-      transition: box-shadow 0.2s, border-color 0.2s;
-    }
-    #landingPage .feature-card:hover { border-color: #005bc1; box-shadow: 0 4px 20px rgba(0,91,193,0.08); }
-    #landingPage .feature-icon {
-      width: 3rem; height: 3rem;
-      background: #f3f3f8;
-      border: 1px solid #e2e2e7;
-      border-radius: 0.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      transition: border-color 0.2s;
-    }
-    #landingPage .feature-card:hover .feature-icon { border-color: #005bc1; }
-    #landingPage .btn-primary {
-      background: #000000;
-      color: #ffffff;
-      padding: 0.75rem 2rem;
-      font-size: 11px;
-      line-height: 16px;
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      text-transform: uppercase;
-      border-radius: 0.5rem;
-      transition: opacity 0.2s, transform 0.2s;
-      cursor: pointer;
-      border: none;
-    }
-    #landingPage .btn-primary:hover { opacity: 0.85; }
-    #landingPage .btn-primary:active { transform: scale(0.95); }
-    #landingPage .btn-secondary {
-      border: 1px solid #c6c6c6;
-      background: #ffffff;
-      color: #1a1c1f;
-      padding: 0.75rem 2rem;
-      font-size: 11px;
-      line-height: 16px;
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      text-transform: uppercase;
-      border-radius: 0.5rem;
-      transition: border-color 0.2s, transform 0.2s;
-      cursor: pointer;
-    }
-    #landingPage .btn-secondary:hover { border-color: #005bc1; color: #005bc1; }
-    #landingPage .btn-secondary:active { transform: scale(0.95); }
-    #landingPage .btn-ghost {
-      background: none;
-      border: none;
-      color: #474747;
-      cursor: pointer;
-      transition: color 0.2s;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    #landingPage .btn-ghost:hover { color: #000000; }
-    #landingPage .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      border: 1px solid #c6c6c6;
-      background: #f3f3f8;
-      font-size: 11px;
-      line-height: 16px;
-      letter-spacing: 0.05em;
-      font-weight: 500;
-      color: #474747;
-    }
-    .reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1); }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-    .gradient-text { background: linear-gradient(135deg, #00397e, #005bc1, #4a90d9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .stat-card {
-      background: #ffffff; border: 1px solid #e2e2e7; border-radius: 1rem; padding: 2rem 1.5rem; text-align: center;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
-    .stat-number { display: block; font-size: 42px; font-weight: 800; color: #00397e; line-height: 1; margin-bottom: 0.5rem; }
-    .stat-label { font-size: 13px; font-weight: 500; color: #474747; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tech-tag {
-      display: inline-block; padding: 3px 10px; border-radius: 9999px;
-      background: #f3f3f8; border: 1px solid #e2e2e7;
-      font-size: 10px; font-weight: 600; color: #474747; letter-spacing: 0.03em; text-transform: uppercase;
-    }
-    .step-card {
-      background: #ffffff; border: 1px solid #e2e2e7; border-radius: 1rem; padding: 2rem;
-      text-align: center; position: relative;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .step-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
-    .step-number {
-      width: 40px; height: 40px; border-radius: 50%; background: #00397e; color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; font-weight: 700; margin: 0 auto 1rem;
-    }
-    .step-icon { margin-bottom: 1rem; }
-    .map-showcase-card {
-      background: #ffffff; border: 1px solid #e2e2e7; border-radius: 1rem; overflow: hidden;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .map-showcase-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
-    .map-preview {
-      position: relative; width: 100%; height: 200px; overflow: hidden;
-    }
-    .map-satellite {
-      background: linear-gradient(135deg, #2d5a27 0%, #4a8c3f 20%, #6ab04c 40%, #3d7a2e 60%, #1e4d1a 80%, #2d6b2a 100%);
-    }
-    .map-satellite::before {
-      content: ''; position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 70% 40%, rgba(0,100,200,0.3) 0%, transparent 50%),
-                  radial-gradient(ellipse at 30% 60%, rgba(0,80,160,0.2) 0%, transparent 40%);
-    }
-    .map-thematic {
-      background: linear-gradient(135deg, #2c3e50 0%, #e74c3c 25%, #f39c12 45%, #27ae60 65%, #2980b9 85%, #8e44ad 100%);
-    }
-    .map-thematic::before {
-      content: ''; position: absolute; inset: 0;
-      background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.05) 20px, rgba(255,255,255,0.05) 21px);
-    }
-    .map-simple {
-      background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 30%, #95a5a6 60%, #7f8c8d 100%);
-    }
-    .map-simple::before {
-      content: ''; position: absolute; inset: 0;
-      background: repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(255,255,255,0.3) 30px, rgba(255,255,255,0.3) 31px),
-                  repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.3) 30px, rgba(255,255,255,0.3) 31px);
-    }
-    .map-label {
-      position: absolute; bottom: 8px; left: 8px;
-      background: rgba(0,0,0,0.6); color: #fff; padding: 2px 10px; border-radius: 4px;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
-    }
-    .map-coords {
-      position: absolute; top: 8px; right: 8px;
-      background: rgba(0,0,0,0.5); color: #fff; padding: 2px 10px; border-radius: 4px;
-      font-size: 9px; font-family: 'JetBrains Mono', monospace;
-    }
-    .map-dot {
-      position: absolute; width: 8px; height: 8px; border-radius: 50%;
-      background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8);
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 8px rgba(255,255,255,0.2);
-    }
-    .design-card {
-      background: #ffffff; border: 1px solid #e2e2e7; border-radius: 0.75rem; overflow: hidden;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .design-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
-    .design-preview {
-      position: relative; width: 100%; height: 160px; overflow: hidden;
-    }
-    .design-overlay {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.1);
-    }
-    .design-tag {
-      display: inline-block; padding: 2px 8px; border-radius: 4px;
-      background: rgba(0,0,0,0.4); color: #fff;
-      font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
-    }
-    .upload-card {
-      max-width: 500px; margin: 0 auto;
-      background: #ffffff; border: 2px dashed #c6c6c6; border-radius: 1rem; padding: 3rem 2rem;
-      transition: border-color 0.3s, transform 0.3s;
-    }
-    .upload-card:hover { border-color: #005bc1; transform: translateY(-2px); }
-    .upload-icon {
-      width: 64px; height: 64px; border-radius: 50%; background: #f3f3f8;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 1.5rem; border: 1px solid #e2e2e7;
-    }
+
     .template-card {
       background:#fff; border-radius:0.75rem; overflow:hidden; cursor:pointer;
       transition:transform 0.2s, box-shadow 0.2s; border:1px solid #e8e8e0;
@@ -625,72 +430,113 @@
       box-shadow: 0 20px 60px rgba(0,0,0,0.04);
     }
 
-    /* ═══ LANDING V3 — REDISEÑO ESTÉTICO PROFESIONAL GIS ═══ */
+    /* ═══ LANDING PAGE — VERCEL MINIMALIST DESIGN SYSTEM ═══ */
     #landingPage {
       position: fixed;
       inset: 0;
       z-index: 99999;
-      background-color: #070b14;
-      color: #e2e8f0;
+      background-color: #000000;
+      color: #ededed;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow-y: auto;
       overflow-x: hidden;
       scroll-behavior: smooth;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      letter-spacing: -0.011em;
     }
     #landingPage.hidden { display: none !important; }
 
-    /* Navigation */
+    /* Vercel subtle grid background */
+    #landingPage .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background-color: #000000;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 64px 64px, 64px 64px;
+      -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 20%, #000 30%, transparent 85%);
+      mask-image: radial-gradient(ellipse 90% 80% at 50% 20%, #000 30%, transparent 85%);
+      pointer-events: none;
+    }
+    #landingPage .hero-glow-a,
+    #landingPage .hero-glow-b {
+      display: none;
+    }
+
+    /* Minimal Top Navigation */
     #landingPage .landing-nav {
-      background: transparent;
-      border-bottom: none;
-      padding: 0 1rem;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0;
+      height: 64px;
     }
     #landingPage .landing-nav-inner {
-      margin-top: 14px;
       height: 64px;
-      padding: 0 1.25rem;
-      background: rgba(11, 18, 32, 0.78);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 9999px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      max-width: 1240px;
-      margin-left: auto;
-      margin-right: auto;
-      transition: all 0.3s ease;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
     }
     #landingPage .landing-nav-inner:hover {
-      border-color: rgba(56, 189, 248, 0.3);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(14, 165, 233, 0.15);
+      box-shadow: none;
+      border-color: transparent;
     }
     #landingPage .nav-link {
-      color: #94a3b8;
-      font-size: 13.5px;
-      font-weight: 500;
+      color: #888888;
+      font-size: 14px;
+      font-weight: 400;
       text-decoration: none;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      transition: all 0.2s;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: color 0.15s ease;
     }
     #landingPage .nav-link:hover {
       color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
+      background: transparent;
     }
 
-    /* Buttons */
-    #landingPage .btn-primary {
-      background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4f46e5 100%);
-      color: #ffffff;
-      padding: 0.75rem 1.75rem;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
+    /* Vercel Pill / Capsule */
+    #landingPage .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 4px 12px;
       border-radius: 9999px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+      font-weight: 400;
+      color: #a1a1a1;
+      letter-spacing: -0.01em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    #landingPage .status-badge:hover {
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #ededed;
+    }
+
+    /* Buttons: Vercel Signature High-Contrast */
+    #landingPage .btn-primary {
+      background: #ffffff;
+      color: #000000;
+      padding: 0 16px;
+      height: 40px;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 6px;
+      border: 1px solid #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      transition: all 0.15s ease;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -698,25 +544,32 @@
       gap: 8px;
     }
     #landingPage .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 18px 35px -5px rgba(37, 99, 235, 0.7), 0 0 25px rgba(6, 182, 212, 0.4);
-      filter: brightness(1.1);
+      background: #e6e6e6;
+      border-color: #e6e6e6;
+      color: #000000;
+      transform: none;
+      filter: none;
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
     }
-    #landingPage .btn-primary:active { transform: scale(0.97); }
+    #landingPage .btn-primary:active {
+      transform: scale(0.98);
+      background: #cccccc;
+    }
 
     #landingPage .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      color: #e2e8f0;
-      padding: 0.75rem 1.75rem;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      border-radius: 9999px;
+      background: transparent;
+      color: #ededed;
+      padding: 0 16px;
+      height: 40px;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 6px;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      transition: all 0.15s ease;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -724,514 +577,445 @@
       gap: 8px;
     }
     #landingPage .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(56, 189, 248, 0.5);
-      color: #38bdf8;
-      transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.2);
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+      transform: none;
+      box-shadow: none;
     }
-    #landingPage .btn-secondary:active { transform: scale(0.97); }
+    #landingPage .btn-secondary:active {
+      transform: scale(0.98);
+      background: rgba(255, 255, 255, 0.09);
+    }
 
     #landingPage .btn-ghost {
       background: transparent;
       border: none;
-      color: #94a3b8;
-      font-size: 13.5px;
-      font-weight: 500;
-      padding: 0.5rem 1rem;
-      border-radius: 9999px;
+      color: #888888;
+      font-size: 14px;
+      font-weight: 400;
+      padding: 0 12px;
+      height: 40px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: color 0.15s ease;
       display: inline-flex;
       align-items: center;
       gap: 6px;
     }
     #landingPage .btn-ghost:hover {
       color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
+      background: transparent;
     }
 
-    /* Hero Background & Glows */
-    #landingPage .hero-bg {
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background: radial-gradient(circle at 50% -10%, #0d1e40 0%, #070b14 75%);
-    }
-    #landingPage .hero-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
-      background-size: 60px 60px;
-      -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 30%, black 20%, transparent 80%);
-      mask-image: radial-gradient(ellipse 85% 70% at 50% 30%, black 20%, transparent 80%);
-      pointer-events: none;
-    }
-    #landingPage .hero-glow-a {
-      position: absolute;
-      top: -150px;
-      left: 10%;
-      width: 600px;
-      height: 600px;
-      z-index: -1;
-      border-radius: 50%;
-      background: radial-gradient(closest-side, rgba(37, 99, 235, 0.25), transparent 70%);
-      filter: blur(40px);
-      pointer-events: none;
-      animation: pulseGlowA 9s ease-in-out infinite alternate;
-    }
-    #landingPage .hero-glow-b {
-      position: absolute;
-      top: -100px;
-      right: 8%;
-      width: 550px;
-      height: 550px;
-      z-index: -1;
-      border-radius: 50%;
-      background: radial-gradient(closest-side, rgba(6, 182, 212, 0.22), transparent 70%);
-      filter: blur(40px);
-      pointer-events: none;
-      animation: pulseGlowB 8s ease-in-out infinite alternate;
-    }
-    @keyframes pulseGlowA { 0% { transform: scale(1) translate(0, 0); opacity: 0.7; } 100% { transform: scale(1.15) translate(30px, 20px); opacity: 1; } }
-    @keyframes pulseGlowB { 0% { transform: scale(1) translate(0, 0); opacity: 0.6; } 100% { transform: scale(1.2) translate(-30px, 25px); opacity: 0.95; } }
-
-    /* Chips */
-    .hero-chip {
-      position: absolute;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      background: rgba(13, 22, 41, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 140, 255, 0.1);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      color: #cbd5e1;
-      animation: chipFloat 7s ease-in-out infinite;
-      z-index: 10;
-    }
-    .hero-chip .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      box-shadow: 0 0 10px currentColor;
-    }
-    @keyframes chipFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-    @media (max-width: 1024px) { .hero-chip { display: none; } }
-
-    /* Status Badge */
-    #landingPage .status-badge {
+    /* Minimal Eyebrow */
+    #landingPage .eyebrow {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
-      padding: 0.4rem 1.1rem;
+      gap: 6px;
+      margin-bottom: 0.75rem;
+      padding: 2px 10px;
       border-radius: 9999px;
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      background: rgba(8, 28, 58, 0.65);
-      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       font-size: 12px;
       font-weight: 500;
-      color: #7dd3fc;
-      box-shadow: 0 0 25px rgba(56, 189, 248, 0.18);
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #a1a1a1;
+      box-shadow: none;
+    }
+    #landingPage .eyebrow::before {
+      display: none;
     }
 
+    /* Hero Gradient Text: Vercel White-to-Muted-Gray */
     .hero-gradient-text {
-      background: linear-gradient(135deg, #ffffff 10%, #7dd3fc 45%, #38bdf8 70%, #818cf8 100%);
+      background: linear-gradient(180deg, #ffffff 0%, #a1a1a1 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
       display: inline-block;
     }
 
-    /* Section Eyebrow */
-    #landingPage .eyebrow {
-      display: inline-flex;
+    /* Floating telemetry chips: minimalist monospaced tag */
+    .hero-chip {
+      position: absolute;
+      display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 1rem;
-      padding: 6px 16px;
-      border-radius: 9999px;
-      background: rgba(14, 165, 233, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: rgba(10, 10, 10, 0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      font-family: 'Geist Mono', monospace;
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #38bdf8;
-      box-shadow: 0 0 15px rgba(56, 189, 248, 0.12);
+      letter-spacing: -0.02em;
+      color: #888888;
+      z-index: 10;
     }
-    #landingPage .eyebrow::before {
-      content: '';
+    .hero-chip .dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #38bdf8;
-      box-shadow: 0 0 8px #38bdf8;
+      background: #555555 !important;
+      box-shadow: none !important;
     }
+    @media (max-width: 1024px) { .hero-chip { display: none; } }
 
-    /* Hero App Mockup Frame */
+    /* App Mockup: Crisp Vercel Dashboard Frame */
     .hero-mockup-wrap {
       width: 100%;
-      max-width: 1180px;
+      max-width: 1200px;
       margin: 3.5rem auto 0;
-      perspective: 1200px;
       position: relative;
     }
     .hero-mockup {
-      background: #090e1a;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 1.25rem;
-      box-shadow: 0 35px 80px -15px rgba(0, 0, 0, 0.8), 0 0 60px rgba(14, 165, 233, 0.2);
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
       overflow: hidden;
-      transform: rotateX(2.5deg);
-      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+      transform: none;
+      transition: border-color 0.2s ease;
     }
     .hero-mockup:hover {
-      transform: rotateX(0deg) translateY(-8px);
-      box-shadow: 0 45px 100px -20px rgba(0, 0, 0, 0.9), 0 0 80px rgba(14, 165, 233, 0.3);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: none;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
     .mockup-topbar {
-      background: #0d1527;
-      padding: 10px 18px;
+      background: #0a0a0a;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .mockup-dots { display: flex; gap: 7px; }
-    .mockup-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .mockup-dots { display: flex; gap: 6px; }
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #262626 !important;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
 
-    /* Stats Cards */
+    /* Stats: Clean Minimal Numbers */
     #landingPage .stats-container {
-      background: rgba(13, 20, 36, 0.65);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 1.5rem;
-      padding: 2.25rem;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
     #landingPage .stat-card {
       background: transparent;
       border: none;
-      border-left: 2px solid rgba(56, 189, 248, 0.25);
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 0;
       text-align: left;
-      padding: 0.5rem 0 0.5rem 1.25rem;
-      transition: all 0.3s;
+      padding: 0 0 0 1.5rem;
+      transition: border-color 0.2s;
     }
     #landingPage .stat-card:hover {
-      border-left-color: #38bdf8;
-      transform: translateX(4px);
+      border-left-color: #ffffff;
+      transform: none;
     }
     #landingPage .stat-number {
-      font-size: 42px;
-      font-weight: 800;
-      background: linear-gradient(135deg, #ffffff 20%, #38bdf8 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1.1;
-      margin-bottom: 4px;
+      font-size: 38px;
+      font-weight: 700;
+      font-family: 'Geist', sans-serif;
+      color: #ffffff;
+      background: none;
+      -webkit-background-clip: unset;
+      background-clip: unset;
+      -webkit-text-fill-color: initial;
+      line-height: 1;
+      margin-bottom: 6px;
+      letter-spacing: -0.03em;
     }
     #landingPage .stat-label {
       font-size: 13px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-weight: 500;
+      color: #ededed;
+      text-transform: none;
+      letter-spacing: -0.01em;
     }
     #landingPage .stat-sub {
-      font-size: 11.5px;
-      color: #64748b;
-      margin-top: 3px;
+      font-size: 12px;
+      color: #888888;
+      margin-top: 4px;
+      font-family: 'Geist', sans-serif;
     }
 
-    /* Feature Cards */
+    /* Feature Cards: Vercel Border Cards */
     #landingPage .feature-card {
-      background: linear-gradient(180deg, rgba(16, 24, 44, 0.85) 0%, rgba(10, 16, 30, 0.9) 100%);
+      background: #0a0a0a;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 1.25rem;
+      border-radius: 12px;
       padding: 1.75rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: none;
+      transition: all 0.2s ease;
       position: relative;
       overflow: hidden;
     }
-    #landingPage .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
+    #landingPage .feature-card::before { display: none; }
     #landingPage .feature-card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(56, 189, 248, 0.35);
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(14, 165, 233, 0.15);
+      border-color: rgba(255, 255, 255, 0.24);
+      background: #111111;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
     }
-    #landingPage .feature-card:hover::before { opacity: 1; }
     #landingPage .feature-icon {
-      width: 3.25rem;
-      height: 3.25rem;
-      border-radius: 0.875rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 1.25rem;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.2));
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      box-shadow: 0 8px 20px rgba(0, 100, 255, 0.15);
-      transition: all 0.3s;
-    }
-    #landingPage .feature-card:hover .feature-icon {
-      transform: scale(1.08);
-      box-shadow: 0 10px 25px rgba(56, 189, 248, 0.35);
-      border-color: rgba(56, 189, 248, 0.6);
-    }
-    #landingPage .tech-tag {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
+      box-shadow: none;
+      color: #ffffff;
+      transition: all 0.2s ease;
+    }
+    #landingPage .feature-card:hover .feature-icon {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: none;
+      box-shadow: none;
+    }
+    #landingPage .feature-icon span {
+      color: #ffffff !important;
+    }
+    #landingPage .tech-tag {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #888888;
+      font-family: 'Geist Mono', monospace;
       font-size: 11px;
-      font-weight: 500;
-      padding: 3px 10px;
-      border-radius: 9999px;
-      letter-spacing: 0.02em;
-      transition: all 0.2s;
+      font-weight: 400;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: -0.01em;
+      transition: all 0.15s ease;
     }
     #landingPage .feature-card:hover .tech-tag {
-      background: rgba(56, 189, 248, 0.1);
-      border-color: rgba(56, 189, 248, 0.25);
-      color: #7dd3fc;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #ededed;
     }
 
-    /* Workflow Pipeline */
+    /* Workflow Pipeline: Grid Steps */
     #landingPage .workflow-section {
-      background: radial-gradient(circle at 50% 50%, #0d1a38 0%, #060913 100%);
+      background: #000000;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       position: relative;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      overflow: hidden;
     }
     #landingPage .workflow-section::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
-      background-size: 48px 48px;
-      -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 75%);
-      mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 75%);
-      pointer-events: none;
+      display: none;
     }
     #landingPage .step-card {
-      background: rgba(14, 22, 39, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: #0a0a0a;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 1.25rem;
-      padding: 2.25rem 1.75rem;
+      border-radius: 12px;
+      padding: 2rem;
       text-align: left;
       position: relative;
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s ease;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
     #landingPage .step-card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(56, 189, 248, 0.35);
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.12);
+      border-color: rgba(255, 255, 255, 0.22);
+      background: #111111;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     }
     #landingPage .step-badge {
-      width: 44px;
-      height: 44px;
-      border-radius: 0.75rem;
-      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-      color: #ffffff;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #000000;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 15px;
-      font-weight: 800;
-      box-shadow: 0 10px 25px rgba(2, 132, 199, 0.4);
-      margin-bottom: 1.5rem;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Geist Mono', monospace;
+      box-shadow: none;
+      margin-bottom: 1.25rem;
     }
 
-    /* Showcase & Design Cards */
+    /* Map Showcase & Community Cards */
     .map-showcase-card, .design-card {
-      background: rgba(14, 22, 39, 0.75);
+      background: #0a0a0a;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 1.25rem;
+      border-radius: 12px;
       overflow: hidden;
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s ease;
     }
     .map-showcase-card:hover, .design-card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(56, 189, 248, 0.35);
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.15);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     }
     .map-preview {
       position: relative;
       width: 100%;
-      height: 210px;
+      height: 200px;
       overflow: hidden;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     .map-label, .map-coords {
       position: absolute;
-      border-radius: 9999px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      background: rgba(8, 14, 26, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: #f1f5f9;
-      padding: 4px 12px;
-      font-size: 10.5px;
-      letter-spacing: 0.04em;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ededed;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-family: 'Geist Mono', monospace;
+      letter-spacing: -0.01em;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
     }
-    .map-label { bottom: 10px; left: 10px; font-weight: 600; text-transform: uppercase; }
-    .map-coords { top: 10px; right: 10px; font-family: 'JetBrains Mono', monospace; }
+    .map-label { bottom: 10px; left: 10px; font-weight: 500; text-transform: none; }
+    .map-coords { top: 10px; right: 10px; }
 
     .design-preview {
       position: relative;
       width: 100%;
       height: 180px;
       overflow: hidden;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     .design-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.2);
-      transition: background 0.3s;
+      background: rgba(0, 0, 0, 0.25);
     }
-    .design-card:hover .design-overlay { background: rgba(0, 0, 0, 0.05); }
     .design-tag {
       display: inline-block;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: rgba(8, 14, 26, 0.8);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #e2e8f0;
-      font-size: 9.5px;
-      font-weight: 600;
-      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ededed;
+      font-size: 10px;
+      font-family: 'Geist Mono', monospace;
+      font-weight: 500;
     }
 
-    /* Upload Community Card */
+    /* Upload Card: Clean Dashed Box */
     .upload-card {
-      max-width: 580px;
+      max-width: 600px;
       margin: 0 auto;
-      background: rgba(14, 22, 39, 0.6);
-      backdrop-filter: blur(16px);
-      border: 2px dashed rgba(56, 189, 248, 0.3);
-      border-radius: 1.5rem;
+      background: #0a0a0a;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
       padding: 3rem 2rem;
-      transition: all 0.3s;
+      transition: all 0.2s ease;
     }
     .upload-card:hover {
-      border-color: #38bdf8;
-      background: rgba(14, 22, 39, 0.85);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.15);
-      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.4);
+      background: #111111;
+      transform: none;
+      box-shadow: none;
     }
     .upload-icon {
-      width: 68px;
-      height: 68px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.2));
-      border: 1px solid rgba(56, 189, 248, 0.3);
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 1.5rem;
+      margin: 0 auto 1.25rem;
+      color: #ffffff;
+    }
+    .upload-icon span {
+      color: #ffffff !important;
     }
 
-    /* Final CTA */
+    /* Final CTA: Minimalist Black Box with Subtle Glow */
     #landingPage .glass-cta {
       position: relative;
       overflow: hidden;
-      padding: 4.5rem 2.5rem;
-      background: linear-gradient(135deg, #0a1530 0%, #0d224d 40%, #153e7e 80%, #1e5cb3 100%);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 2rem;
-      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 60px rgba(37, 99, 235, 0.25);
+      padding: 4.5rem 2rem;
+      background: #0a0a0a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     }
     #landingPage .glass-cta::before {
       content: '';
       position: absolute;
-      width: 700px;
-      height: 700px;
-      border-radius: 50%;
-      top: -350px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
-      background: radial-gradient(closest-side, rgba(56, 189, 248, 0.3), transparent 72%);
+      width: 500px;
+      height: 200px;
+      background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
       pointer-events: none;
     }
     #landingPage .glass-cta::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-      background-size: 40px 40px;
-      -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 100%, black 20%, transparent 80%);
-      mask-image: radial-gradient(ellipse 70% 70% at 50% 100%, black 20%, transparent 80%);
-      pointer-events: none;
+      display: none;
     }
 
-    /* Footer */
+    /* Minimalist Footer */
     #landingPage .landing-footer {
-      background: #050811;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: #000000;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
     #landingPage .landing-footer a {
-      color: #94a3b8;
+      color: #888888;
       text-decoration: none;
-      transition: color 0.2s;
+      transition: color 0.15s ease;
     }
-    #landingPage .landing-footer a:hover { color: #38bdf8; }
+    #landingPage .landing-footer a:hover {
+      color: #ffffff;
+    }
 
-    /* Floating Globe */
+    /* Floating 3D Earth Globe: Subtle Vercel Floating Orb */
     #globeContainer {
       position: fixed;
       bottom: 24px;
       right: 24px;
-      width: 220px;
-      height: 220px;
+      width: 180px;
+      height: 180px;
       z-index: 50;
       cursor: grab;
       border-radius: 50%;
       overflow: hidden;
-      filter: drop-shadow(0 0 30px rgba(14, 165, 233, 0.35));
-      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s;
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       transform-origin: bottom right;
-      background: radial-gradient(circle at 35% 35%, rgba(14, 165, 233, 0.15), transparent 70%);
-      border: 1px solid rgba(255, 255, 255, 0.12);
     }
     #globeContainer:hover {
-      transform: scale(1.08);
-      filter: drop-shadow(0 0 40px rgba(14, 165, 233, 0.5));
+      transform: scale(1.05);
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.9);
     }
     #globeContainer canvas {
       width: 100% !important;
       height: 100% !important;
     }
     #globeContainer.expanded {
-      transform: scale(1.8);
-      box-shadow: 0 0 80px rgba(14, 165, 233, 0.5);
+      transform: scale(1.6);
     }
     @media (max-width: 768px) {
       #globeContainer {
@@ -1285,13 +1069,15 @@
     <nav class="landing-nav fixed top-0 left-0 w-full z-50">
       <div class="landing-nav-inner flex justify-between items-center w-full">
         <div class="flex items-center gap-6 md:gap-8">
-          <a href="#" class="flex items-center gap-2.5 text-decoration-none group">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/25 border border-sky-400/30 group-hover:scale-105 transition-transform">
-              <span class="material-symbols-outlined text-white" style="font-size:20px;">satellite_alt</span>
+          <a href="#" class="flex items-center gap-3 text-decoration-none group">
+            <div class="w-7 h-7 rounded-md bg-white text-black flex items-center justify-center transition-opacity group-hover:opacity-80">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 22h20L12 2z"/>
+              </svg>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-xl font-bold tracking-tight text-white">Zima</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 uppercase tracking-wider">GIS PRO</span>
+              <span class="text-base font-semibold tracking-tight text-white">Zima</span>
+              <span class="text-[11px] font-mono px-1.5 py-0.5 rounded border border-white/15 bg-white/5 text-zinc-400">PRO</span>
             </div>
           </a>
           <div class="hidden lg:flex items-center gap-1">
@@ -1302,14 +1088,12 @@
             <a class="nav-link" href="#community">Estilos</a>
           </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div id="landingNavAuth" class="flex items-center gap-2">
           <button class="btn-ghost hidden sm:inline-flex" onclick="goToProjects()" title="Acceso directo al visor">
-            <span class="material-symbols-outlined" style="font-size:18px;">travel_explore</span>
-            <span>Demo Rápida</span>
+            <span>Demo</span>
           </button>
           <button class="btn-ghost" onclick="showLogin()">Iniciar Sesión</button>
           <button class="btn-primary" onclick="if(typeof _currentUser !== 'undefined' && _currentUser){goToProjects()}else{showLogin()}">
-            <span class="material-symbols-outlined" style="font-size:18px;">rocket_launch</span>
             <span>Comenzar</span>
           </button>
         </div>
@@ -1343,52 +1127,51 @@
 
         <!-- Status Capsule -->
         <div class="status-badge mb-8">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399] animate-pulse"></span>
-          <span>Zima GIS v3.0 · Motor Geoespacial Cloud-Native · En Vivo</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Zima v3.0 · Motor Geoespacial Cloud-Native</span>
         </div>
 
         <!-- Main Title -->
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight max-w-5xl mb-6 text-white leading-tight">
-          Visualización Geoespacial de <br/>
-          <span class="hero-gradient-text">Máxima Precisión</span>
+        <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight max-w-5xl mb-6 text-white leading-[1.08]" style="letter-spacing:-0.035em;">
+          Sistemas Geoespaciales <br/>
+          <span class="hero-gradient-text">a Escala Global.</span>
         </h1>
 
-        <p class="text-base sm:text-lg text-slate-300 max-w-2xl mb-10 leading-relaxed font-normal">
-          Análisis multiespectral en tiempo real, gestión de capas raster y vectoriales en streaming sin pérdida, y modelado 3D profesional directamente en tu navegador.
+        <p class="text-base sm:text-lg text-zinc-400 max-w-2xl mb-10 leading-relaxed font-normal" style="letter-spacing:-0.01em;">
+          Análisis multiespectral en streaming, capas vectoriales topológicas y renderizado 3D de alta fidelidad directamente en el navegador. Sin servidores pesados.
         </p>
 
         <!-- CTA Buttons -->
-        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
+        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
           <button class="btn-primary" onclick="if(typeof _currentUser !== 'undefined' && _currentUser){goToProjects()}else{showLogin()}">
-            <span class="material-symbols-outlined" style="font-size:19px;">play_arrow</span>
             <span>Comenzar Ahora</span>
+            <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
           </button>
           <button class="btn-secondary" onclick="goToProjects()">
-            <span class="material-symbols-outlined" style="font-size:19px;">map</span>
-            <span>Explorar Demo en Vivo</span>
+            <span>Explorar Demo</span>
           </button>
         </div>
 
         <!-- Micro Feature Badges -->
-        <div class="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-slate-400">
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-zinc-500 font-mono">
           <div class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-emerald-400" style="font-size:16px;">check_circle</span>
-            <span>Sin instalación requerida</span>
+            <span class="text-zinc-400">✓</span>
+            <span>Cloud COG &amp; GeoTIFF</span>
           </div>
-          <span class="text-slate-600 hidden sm:inline">·</span>
+          <span class="text-zinc-700 hidden sm:inline">/</span>
           <div class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-sky-400" style="font-size:16px;">check_circle</span>
-            <span>Soporte GeoTIFF / Cloud COG</span>
-          </div>
-          <span class="text-slate-600 hidden sm:inline">·</span>
-          <div class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-indigo-400" style="font-size:16px;">check_circle</span>
+            <span class="text-zinc-400">✓</span>
             <span>Shapefile &amp; GeoPackage</span>
           </div>
-          <span class="text-slate-600 hidden sm:inline">·</span>
+          <span class="text-zinc-700 hidden sm:inline">/</span>
           <div class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-cyan-400" style="font-size:16px;">check_circle</span>
-            <span>100% Tiles Lossless</span>
+            <span class="text-zinc-400">✓</span>
+            <span>WebGL 3D Engine</span>
+          </div>
+          <span class="text-zinc-700 hidden sm:inline">/</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-zinc-400">✓</span>
+            <span>SQLite Turso Edge</span>
           </div>
         </div>
 
@@ -1561,8 +1344,8 @@
       <section id="features" class="reveal w-full py-20" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;">
         <div class="text-center mb-16">
           <div><span class="eyebrow">Capacidades</span></div>
-          <h2 class="text-3xl sm:text-4xl font-bold mb-4 text-white">Herramientas Geoespaciales Profesionales</h2>
-          <p class="text-base text-slate-400 max-w-2xl mx-auto">Todo el poder de una estación de trabajo SIG de escritorio tradicional, ejecutándose nativamente con aceleración GPU en la web.</p>
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 text-white tracking-tight" style="letter-spacing:-0.03em;">Herramientas Geoespaciales Profesionales</h2>
+          <p class="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto leading-relaxed">Todo el poder de una estación de trabajo SIG tradicional, ejecutándose nativamente con aceleración WebGL en el navegador.</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div class="feature-card flex flex-col">
@@ -1641,24 +1424,24 @@
         <div class="w-full relative" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;margin:0 auto;">
           <div class="text-center mb-16">
             <div><span class="eyebrow">Método</span></div>
-            <h2 class="text-3xl sm:text-4xl font-bold mb-4 text-white">Flujo de Trabajo Sin Fricción</h2>
-            <p class="text-base text-slate-400 max-w-xl mx-auto">Tres pasos directos para pasar de datos crudos a análisis de nivel profesional</p>
+            <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 text-white tracking-tight" style="letter-spacing:-0.03em;">Flujo de Trabajo Directo</h2>
+            <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">Tres pasos para pasar de datos crudos a análisis de nivel profesional.</p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="step-card">
               <div class="step-badge">01</div>
-              <h3 class="text-xl font-bold mb-2 text-white">Importa Datos</h3>
-              <p class="text-slate-300 text-sm leading-relaxed">Arrastra y suelta GeoTIFFs, Shapefiles, GeoPackage o conecta vía servicios WMS/WFS/STAC. Carga local o streaming desde la nube sin saturar tu equipo.</p>
+              <h3 class="text-lg font-semibold mb-2 text-white">Importa Datos</h3>
+              <p class="text-zinc-400 text-sm leading-relaxed">Arrastra y suelta GeoTIFFs, Shapefiles, GeoPackage o conecta vía WMS/WFS. Carga local o streaming en la nube.</p>
             </div>
             <div class="step-card">
               <div class="step-badge">02</div>
-              <h3 class="text-xl font-bold mb-2 text-white">Procesa &amp; Analiza</h3>
-              <p class="text-slate-300 text-sm leading-relaxed">Aplica combinaciones de bandas RGB, índices biofísicos, geoprocesos vectoriales interactivos y cálculos automáticos con Model Builder visual.</p>
+              <h3 class="text-lg font-semibold mb-2 text-white">Procesa &amp; Analiza</h3>
+              <p class="text-zinc-400 text-sm leading-relaxed">Aplica combinaciones RGB, índices biofísicos, geoprocesos vectoriales interactivos y cálculos automáticos.</p>
             </div>
             <div class="step-card">
               <div class="step-badge">03</div>
-              <h3 class="text-xl font-bold mb-2 text-white">Exporta &amp; Comparte</h3>
-              <p class="text-slate-300 text-sm leading-relaxed">Genera ortomapas de alta resolución, capas en GeoPackage, reportes ejecutivos o comparte sesiones colaborativas en vivo con tu equipo.</p>
+              <h3 class="text-lg font-semibold mb-2 text-white">Exporta &amp; Comparte</h3>
+              <p class="text-zinc-400 text-sm leading-relaxed">Genera ortomapas de alta resolución, capas en GeoPackage o comparte sesiones colaborativas en tiempo real.</p>
             </div>
           </div>
         </div>
@@ -1668,8 +1451,8 @@
       <section id="showcase" class="reveal w-full py-20" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;">
         <div class="text-center mb-16">
           <div><span class="eyebrow">Showcase</span></div>
-          <h2 class="text-3xl sm:text-4xl font-bold mb-4 text-white">Galería de Visualización</h2>
-          <p class="text-base text-slate-400 max-w-xl mx-auto">Renderizado de alta definición para cualquier tipo de dato geoespacial</p>
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 text-white tracking-tight" style="letter-spacing:-0.03em;">Galería de Visualización</h2>
+          <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">Renderizado de alta definición para cualquier tipo de dato geoespacial.</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="map-showcase-card">
@@ -1721,8 +1504,8 @@
       <section id="community" class="reveal w-full py-20" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;">
         <div class="text-center mb-16">
           <div><span class="eyebrow">Comunidad</span></div>
-          <h2 class="text-3xl sm:text-4xl font-bold mb-4 text-white">Galería de Estilos Cartográficos</h2>
-          <p class="text-base text-slate-400 max-w-xl mx-auto">Diseños y paletas cartográficas profesionales listos para aplicar</p>
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 text-white tracking-tight" style="letter-spacing:-0.03em;">Galería de Estilos Cartográficos</h2>
+          <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">Diseños y paletas cartográficas profesionales listos para aplicar.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -1887,16 +1670,15 @@
 
       <!-- CTA -->
       <section class="reveal w-full py-24" style="max-width:1440px;padding-left:1.5rem;padding-right:1.5rem;">
-        <div class="glass-cta text-center px-8 py-16 relative">
-          <h2 class="text-3xl md:text-5xl font-bold mb-4 relative text-white tracking-tight">¿Listo para transformar tu análisis geoespacial?</h2>
-          <p class="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-8 relative font-normal leading-relaxed">Cartografía profesional, análisis multiespectral y colaboración en tiempo real — todo directamente en tu navegador.</p>
-          <div class="flex flex-col sm:flex-row gap-4 justify-center relative">
+        <div class="glass-cta text-center px-8 py-20 relative">
+          <h2 class="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 relative text-white tracking-tight" style="letter-spacing:-0.03em;">Comienza a construir con Zima.</h2>
+          <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto mb-8 relative font-normal leading-relaxed">Cartografía profesional, análisis multiespectral y colaboración en tiempo real — directamente en tu navegador.</p>
+          <div class="flex flex-col sm:flex-row gap-3 justify-center relative">
             <button class="btn-primary" onclick="if(typeof _currentUser !== 'undefined' && _currentUser){goToProjects()}else{showLogin()}">
-              <span class="material-symbols-outlined" style="font-size:19px;">rocket_launch</span>
-              <span>Comenzar Ahora Gratis</span>
+              <span>Comenzar Gratis</span>
+              <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
             </button>
             <button class="btn-secondary" onclick="goToProjects()">
-              <span class="material-symbols-outlined" style="font-size:19px;">travel_explore</span>
               <span>Explorar Demo</span>
             </button>
           </div>
@@ -1909,25 +1691,27 @@
 
     <!-- Footer -->
     <footer class="w-full landing-footer">
-      <div class="flex flex-col md:flex-row justify-between items-center px-6 py-10 gap-6 md:gap-0" style="max-width:1440px;margin:0 auto;">
+      <div class="flex flex-col md:flex-row justify-between items-center px-6 py-12 gap-6 md:gap-0" style="max-width:1280px;margin:0 auto;">
         <div class="flex items-center gap-3">
-          <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center">
-            <span class="material-symbols-outlined text-white" style="font-size:16px;">satellite_alt</span>
+          <div class="w-6 h-6 rounded bg-white text-black flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 22h20L12 2z"/>
+            </svg>
           </div>
-          <span class="text-base font-bold text-white tracking-tight">Zima</span>
-          <span class="text-slate-500 text-xs">· Geospatial Intelligence</span>
+          <span class="text-sm font-semibold text-white tracking-tight">Zima</span>
+          <span class="text-zinc-600 text-xs">/ Geospatial Intelligence</span>
         </div>
-        <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Todos los sistemas operativos</span>
+        <div class="flex items-center gap-2 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 text-xs font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Sistemas Operativos 100%</span>
         </div>
-        <div class="flex flex-wrap justify-center gap-6 text-xs text-slate-400">
-          <a href="#" class="hover:text-white transition-colors">Documentación API</a>
-          <a href="#" class="hover:text-white transition-colors">Términos del Servicio</a>
+        <div class="flex flex-wrap justify-center gap-6 text-xs text-zinc-500 font-sans">
+          <a href="#" class="hover:text-white transition-colors">Documentación</a>
+          <a href="#" class="hover:text-white transition-colors">Términos</a>
           <a href="#" class="hover:text-white transition-colors">Privacidad</a>
           <a href="#" class="hover:text-white transition-colors">Soporte</a>
         </div>
-        <div class="text-slate-500 text-xs">© 2024-2026 Zima Geographic Systems.</div>
+        <div class="text-zinc-600 text-xs font-mono">© 2026 Zima Systems.</div>
       </div>
     </footer>
   </div>
@@ -19312,15 +19096,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function setAuthNav() {
-      const nav = document.querySelector('#landingPage .landing-nav .flex.items-center.gap-4');
+      const nav = document.getElementById('landingNavAuth') || document.querySelector('#landingPage .landing-nav-inner > div:last-child');
       if (!nav) return;
-      if (_currentUser) {
+      if (_currentUser && _currentUser.token) {
         nav.innerHTML = `
           <button class="btn-ghost" onclick="goToProjects()">Mis Proyectos</button>
-          <button class="btn-primary" onclick="goToProjects()">Ir al Editor</button>
+          <button class="btn-primary" onclick="goToProjects()">Editor</button>
         `;
       } else {
         nav.innerHTML = `
+          <button class="btn-ghost hidden sm:inline-flex" onclick="goToProjects()">Demo</button>
           <button class="btn-ghost" onclick="showLogin()">Iniciar Sesión</button>
           <button class="btn-primary" onclick="showLogin()">Comenzar</button>
         `;
