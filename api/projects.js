@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { getDb } = require('../lib/db');
 
 module.exports = async (req, res) => {
@@ -14,9 +15,37 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // Parse body safely
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (_) {
+      body = {};
+    }
+  } else if (!body && req.method === 'POST') {
+    try {
+      const buffers = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      const raw = Buffer.concat(buffers).toString('utf8');
+      body = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      body = {};
+    }
+  }
+  body = body || {};
+
+  // Extract path info robustly for both Express and Vercel serverless
+  const rawUrl = req.url || '';
+  const urlPath = (req.path || rawUrl.split('?')[0] || '').replace(/\/+$/, '');
+  const isShareVerify = urlPath.endsWith('/share/verify');
+  const isShare = !isShareVerify && urlPath.endsWith('/share');
+
   if (req.method === 'GET') {
     // Endpoint de colaboración: verificar token de compartir
-    if (req.path === '/share/verify') {
+    if (isShareVerify) {
       const { token } = req.query;
       if (!token) return res.status(400).json({ error: 'token required' });
       try {
@@ -74,8 +103,8 @@ module.exports = async (req, res) => {
     return res.status(200).json(data);
   }
 
-  if (req.method === 'POST' && req.path === '/share') {
-    const { id } = req.body || {};
+  if (req.method === 'POST' && isShare) {
+    const { id } = body;
     if (!id) return res.status(400).json({ error: 'id required' });
     const { rows } = await db.execute({
       sql: 'SELECT * FROM projects WHERE id = ?',
@@ -96,7 +125,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    const { user_id, name, description, config } = req.body;
+    const { user_id, name, description, config } = body;
     if (!user_id || !name) return res.status(400).json({ error: 'user_id and name required' });
     
     const id = crypto.randomUUID();
