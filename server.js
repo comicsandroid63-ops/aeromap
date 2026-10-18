@@ -6,7 +6,7 @@ const fs = require('fs');
 const multer = require('multer');
 
 const { optimizeMultispectral, fmtBytes, uploadToCloud } = require('./server/lib/multispectral-optimizer');
-const { initDatabase } = require('./api/db');
+const { initDatabase } = require('./lib/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

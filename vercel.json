@@ -12,20 +12,12 @@
   ],
   "routes": [
     {
-      "src": "/api/auth/login",
-      "dest": "/api/auth/login.js"
+      "src": "/api/auth/(.*)",
+      "dest": "/api/auth.js?action=$1"
     },
     {
-      "src": "/api/auth/register",
-      "dest": "/api/auth/register.js"
-    },
-    {
-      "src": "/api/auth/verify",
-      "dest": "/api/auth/verify.js"
-    },
-    {
-      "src": "/api/auth/logout",
-      "dest": "/api/auth/logout.js"
+      "src": "/api/auth",
+      "dest": "/api/auth.js"
     },
     {
       "src": "/api/(.*)",

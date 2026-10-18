@@ -1,7 +1,7 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { getDb } = require('./db');
+const { getDb } = require('../lib/db');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
 
