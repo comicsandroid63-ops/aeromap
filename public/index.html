@@ -18344,7 +18344,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
         sessionStorage.setItem('aeromap_user', JSON.stringify(_currentUser));
         document.getElementById('loginDashboard').classList.add('hidden');
         setAuthNav();
-        goToProjects();
+        if (_pendingSharedProject) {
+          executePendingSharedProject();
+        } else {
+          goToProjects();
+        }
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.classList.remove('hidden');
@@ -19033,6 +19037,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
     }
 
+    let _pendingSharedProject = null;
+
     function initCollabFromURL() {
       try {
         const params = new URLSearchParams(location.search);
@@ -19040,14 +19046,33 @@ async function deleteFromCloud(fileName, url, storagePath) {
         let token = params.get('t');
         if (!pid) return;
         history.replaceState({}, '', location.pathname);
-        if (token) {
-          openSharedProjectByToken(token);
-        } else {
-          // Verificar que el proyecto exista y sea abrible (por enlace recién generado)
-          openSharedProjectById(pid);
+
+        // Guardar referencia del proyecto pendiente
+        _pendingSharedProject = { pid, token };
+
+        // Si el usuario no ha iniciado sesión, forzar login/registro antes de abrir el proyecto
+        if (!_currentUser || !_currentUser.token) {
+          toast('Por favor inicia sesión o crea una cuenta para acceder al proyecto compartido', 'info');
+          const title = document.getElementById('authFormTitle');
+          if (title) title.textContent = 'Acceso a Proyecto Compartido';
+          showLogin();
+          return;
         }
+
+        executePendingSharedProject();
       } catch (e) {
         console.warn('[Collab] URL join failed:', e);
+      }
+    }
+
+    function executePendingSharedProject() {
+      if (!_pendingSharedProject) return;
+      const { pid, token } = _pendingSharedProject;
+      _pendingSharedProject = null;
+      if (token) {
+        openSharedProjectByToken(token);
+      } else {
+        openSharedProjectById(pid);
       }
     }
 
