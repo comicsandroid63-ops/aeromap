@@ -1,32 +1,29 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { getDb } = require('../lib/db');
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// En Vercel / serverless usar /tmp si public/uploads no es escribible
+function getUploadsDir() {
+  const localDir = path.join(__dirname, '..', 'public', 'uploads');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    return localDir;
+  } catch (e) {
+    const tmpDir = path.join('/tmp', 'uploads');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (_) {}
+    }
+    return tmpDir;
+  }
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const { user_id, project_id } = req.query;
-    const prefix = (user_id && project_id) ? `${user_id}/${project_id}` : '';
-    const dest = prefix ? path.join(UPLOADS_DIR, prefix) : UPLOADS_DIR;
-    
-    if (!fs.existsSync(dest)) {
-      fs.mkdirSync(dest, { recursive: true });
-    }
-    
-    cb(null, dest);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  }
-});
-
-const upload = multer({ storage }).single('file');
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }
+}).single('file');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -43,7 +40,7 @@ module.exports = async (req, res) => {
 
   upload(req, res, async (err) => {
     if (err) {
-      return res.status(500).json({ error: 'Error processing file' });
+      return res.status(500).json({ error: 'Error processing file: ' + err.message });
     }
 
     if (!req.file) {
@@ -55,9 +52,21 @@ module.exports = async (req, res) => {
     const prefix = (user_id && project_id) ? `${user_id}/${project_id}` : '';
     const storagePath = prefix ? `${prefix}/${file.originalname}` : file.originalname;
 
+    try {
+      const targetDir = getUploadsDir();
+      const fullDir = prefix ? path.join(targetDir, prefix) : targetDir;
+      if (!fs.existsSync(fullDir)) {
+        fs.mkdirSync(fullDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(fullDir, file.originalname), file.buffer);
+    } catch (saveErr) {
+      // Ignorar fallo de escritura a disco si el filesystem es de solo lectura (serverless)
+      console.warn('[Upload] Failed to persist file on server disk:', saveErr.message);
+    }
+
     const url = `/uploads/${storagePath}`;
 
-    res.status(200).json({ 
+    return res.status(200).json({ 
       success: true, 
       url, 
       name: file.originalname,

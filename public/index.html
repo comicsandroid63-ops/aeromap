@@ -6606,6 +6606,11 @@ self.onmessage = async function(e) {
                     continue;
                 }
 
+                if (L.type === 'vector' && L.config && L.config.geoJson) {
+                    await addVectorLayer(L.config.geoJson, L.name, { isRestored: true, dbId: L.id, ...L.config });
+                    continue;
+                }
+
                 if (!L.storage_url) {
                   console.warn(`[Zima] Skipping layer ${L.name} (no cloud URL)`);
                   continue;
@@ -10869,6 +10874,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           user_id: usrId,
           storage_url: layer.storageUrl || (layer.isWMS ? (layer.wmsUrl + '#' + layer.wmsLayerName) : layer.wmsUrl),
           config: {
+             geoJson: (layer.type === 'vector' && layer.geoJson) ? layer.geoJson : undefined,
              visible: layer.visible, // Persistence of visibility
              color: layer.color,
              strokeColor: layer.strokeColor,
@@ -18571,7 +18577,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const uid = _currentUser?.id || 'guest';
       try {
         const postBody = { user_id: uid, session_id: _collabSessionId, name: collabMyName(), color: collabMyColor(), project_id: pid };
-        await fetch("/api/presence?project_id=${encodeURIComponent(pid)}", {
+        await fetch(`/api/presence?project_id=${encodeURIComponent(pid)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postBody)
@@ -18637,16 +18643,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
         _collabKnownIds.delete(id);
       });
 
-      // Importar nuevas (una por tick para no saturar la entrada)
-      if (toImport.length > 0 && !_collabFirstTick) {
-        const L = toImport[0];
-        _collabKnownIds.add(L.id);
-        const actor = collabActorName(L.user_id);
-        importSharedLayerRow(L).then(() => {
-          toast(`${actor} añadió la capa "${L.name}"`, 'info');
-        });
-      } else if (_collabFirstTick && toImport.length > 0) {
-        toImport.forEach(L => _collabKnownIds.add(L.id));
+      // Importar todas las nuevas capas añadidas
+      if (toImport.length > 0) {
+        for (const L of toImport) {
+          _collabKnownIds.add(L.id);
+          const actor = collabActorName(L.user_id);
+          importSharedLayerRow(L).then(() => {
+            if (!_collabFirstTick) toast(actor + ' añadió la capa "' + L.name + '"', 'info');
+          });
+        }
       }
 
       fetchedIds.forEach(id => _collabKnownIds.add(id));
@@ -18929,6 +18934,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const tileSavedAs = layerObj.serverFilename || (layerObj.storageUrl ? layerObj.storageUrl.split('/').pop() : 'raster.tif');
             addTileLayer(layerObj, tileSavedAs, true);
           }
+        } else if (L.type === 'vector' && cfg.geoJson) {
+          await addVectorLayer(cfg.geoJson, L.name, { isRestored: true, dbId: L.id, ...cfg });
         } else if (L.storage_url) {
           await loadFromCloud(L.storage_url, L.name, {
             isRestored: true, ...cfg, visible: cfg.visible !== undefined ? cfg.visible : true,
