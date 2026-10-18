@@ -33,13 +33,24 @@
   <script>
     window.__APP_VERSION = Date.now();
     window.__TILE_CACHE_BUST = 'v=' + Date.now();
-    // Clean localStorage layer backups on every page load to prevent stale tile references
+    // Clean localStorage layer backups ONLY — do NOT touch aeromap_user (session)
     try {
       const keys = Object.keys(localStorage);
       for (const key of keys) {
-        if (key.startsWith('layer_backup_') || key.startsWith('aeromap_')) {
+        if (key.startsWith('layer_backup_')) {
           localStorage.removeItem(key);
         }
+      }
+    } catch(e) {}
+    // Detect invite URL params IMMEDIATELY before page renders (fixes race vs initCollabFromURL)
+    try {
+      const _urlParams = new URLSearchParams(location.search);
+      const _invPid = _urlParams.get('project');
+      if (_invPid) {
+        const _invToken = _urlParams.get('t') || null;
+        sessionStorage.setItem('_pendingSharedProject', JSON.stringify({ pid: _invPid, token: _invToken }));
+        history.replaceState({}, '', location.pathname);
+        window.__hasPendingInvite = true;
       }
     } catch(e) {}
   </script>
@@ -18287,13 +18298,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const cached = localStorage.getItem('aeromap_user') || sessionStorage.getItem('aeromap_user');
         if (cached) {
           const user = JSON.parse(cached);
-          if (user.token) {
+          if (user && user.token) {
             _currentUser = user;
             // Asegurar persistencia en ambos
             try { localStorage.setItem('aeromap_user', cached); } catch(_) {}
             setAuthNav();
             return;
           }
+        }
+        // Si hay invite pendiente y NO hay sesión válida → login obligatorio inmediato
+        if (window.__hasPendingInvite || sessionStorage.getItem('_pendingSharedProject')) {
+          setTimeout(() => { showLogin({ mandatory: true }); }, 0);
         }
       } catch(e) {}
     }
@@ -19312,6 +19327,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function goToProjects() {
+      // Bloquear si hay invite pendiente y el usuario NO está autenticado
+      if (sessionStorage.getItem('_pendingSharedProject') && (!_currentUser || !_currentUser.token)) {
+        showLogin({ mandatory: true });
+        return;
+      }
       document.getElementById('landingPage').classList.add('hidden');
       document.getElementById('loginDashboard').classList.add('hidden');
       showWorkspace();
