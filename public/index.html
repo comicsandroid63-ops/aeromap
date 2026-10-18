@@ -18303,6 +18303,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
             // Asegurar persistencia en ambos
             try { localStorage.setItem('aeromap_user', cached); } catch(_) {}
             setAuthNav();
+            // Si NO hay invite activo en la URL, borrar cualquier _pendingSharedProject
+            // sobrante para evitar falsos logins obligatorios en visitas normales
+            if (!window.__hasPendingInvite) {
+              try { sessionStorage.removeItem('_pendingSharedProject'); } catch(_) {}
+              _pendingSharedProject = null;
+            }
             return;
           }
         }
@@ -19087,11 +19093,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
           try {
             const saved = sessionStorage.getItem('_pendingSharedProject');
             if (saved) {
-              _pendingSharedProject = JSON.parse(saved);
+              const pending = JSON.parse(saved);
               if (_currentUser && _currentUser.token) {
+                // Usuario ya autenticado → ejecutar el proyecto pendiente
+                _pendingSharedProject = pending;
                 sessionStorage.removeItem('_pendingSharedProject');
+                window.__hasPendingInvite = false;
                 executePendingSharedProject();
               } else {
+                // No autenticado → pedir login obligatorio
+                _pendingSharedProject = pending;
                 toast('Debes iniciar sesión para acceder a este proyecto', 'info');
                 document.getElementById('landingPage')?.classList.remove('hidden');
                 document.getElementById('workspace')?.classList.add('hidden');
@@ -19589,6 +19600,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             _currentUser = user;
             try { localStorage.setItem('aeromap_user', saved); } catch(_) {}
             setAuthNav();
+            // Si el usuario ya está autenticado, limpiar flag de invite pendiente
+            // para que no muestre login obligatorio en cargas normales
+            // (el invite se procesará en initCollabFromURL si aún existe)
+            window.__hasPendingInvite = window.__hasPendingInvite || false;
           } else {
             _currentUser = null;
           }
