@@ -23,7 +23,8 @@
   <script
     src="https://cdn.jsdelivr.net/npm/geotiff-geokeys-to-proj4@2.1.1/dist-browser/geotiff-geokeys-to-proj4.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
-  <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+  <script src="https://unpkg.com/shpjs@3.6.3/dist/shp.js"></script>
+  <script src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js"></script>
   <!-- html2canvas for map snapshots -->
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <!-- Supabase client for cloud upload -->
@@ -5204,7 +5205,7 @@
             const workerBlob = new Blob([`
                 const deps = [
                     'https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js',
-                    'https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js',
+                    'https://unpkg.com/shpjs@3.6.3/dist/shp.js',
                     'https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js'
                 ];
 
@@ -9657,6 +9658,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const shpBuffer = await shpFile.arrayBuffer();
             const dbfBuffer = dbfFile ? await dbfFile.arrayBuffer() : null;
             const prjText = prjFile ? await prjFile.text() : null;
+            const layerName = shpFile.name.replace(/\.shp$/i, '');
+
+            // 1. Ejecución directa en hilo principal con shpjs si está disponible
+            if (typeof window.shp !== 'undefined' && typeof window.shp.combine === 'function' && typeof window.shp.parseShp === 'function') {
+                showProgress('Procesando geometrías...', 60, 'Importador Shapefile');
+                let geojson = await window.shp.combine([
+                    window.shp.parseShp(shpBuffer),
+                    dbfBuffer ? window.shp.parseDbf(dbfBuffer) : null
+                ]);
+                if (prjText) {
+                    geojson = await reprojectGeoJSON(geojson, prjText);
+                }
+                await addVectorLayer(geojson, layerName, opts);
+                hideProgress();
+                toast(`Shapefile cargado: ${layerName}`, 'success');
+                return;
+            }
             
             // Usar un listener temporal para no interferir con otros procesos
             const onMsg = async (e) => {
@@ -10630,6 +10648,30 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
 
       _pendingTiffZip = null;
+    }
+
+    
+    async function fallbackParseZip(file, selected, opts) {
+        showProgress('Extrayendo capas con procesador directo...', 35, 'Shapefile ZIP');
+        try {
+            const buf = await file.arrayBuffer();
+            if (typeof window.shp !== 'function') throw new Error("Librería de Shapefile no disponible");
+            const res = await window.shp(buf);
+            const layers = Array.isArray(res) ? res : [res];
+            let count = 0;
+            for (const item of layers) {
+                const layerTitle = item.fileName || (selected && selected[count] ? selected[count].name : file.name.replace(/\.zip$/i, ''));
+                const geo = await reprojectGeoJSON(item);
+                await addVectorLayer(geo, layerTitle, { ...opts, subLayerPath: item.fileName });
+                count++;
+            }
+            hideProgress();
+            toast(`Importadas ${count} capa(s) con éxito`, 'success');
+        } catch (e) {
+            console.error('[Fallback ZIP]', e);
+            hideProgress();
+            toast(`Error al importar Shapefile: ${e.message}`, 'error');
+        }
     }
 
     function runImportWithWorker(selected, opts) {
@@ -12228,6 +12270,40 @@ async function deleteFromCloud(fileName, url, storagePath) {
     async function loadGeoPackage(file, opts = {}) {
         showProgress(`Procesando GeoPackage: ${file.name}`, 10);
         await _yield();
+
+        // 1. Soporte en cliente con GeoPackage.js (100% independiente de GDAL y sin límite de upload)
+        if (typeof window.GeoPackage !== 'undefined' && typeof window.GeoPackage.open === 'function') {
+            try {
+                showProgress(`Analizando capas de ${file.name}...`, 25);
+                await _yield();
+                const arrayBuffer = await file.arrayBuffer();
+                const gpkg = await window.GeoPackage.open(new Uint8Array(arrayBuffer));
+                const tables = gpkg.getFeatureTables();
+                if (tables && tables.length > 0) {
+                    let totalFeatures = 0;
+                    for (let i = 0; i < tables.length; i++) {
+                        const tableName = tables[i];
+                        showProgress(`Extrayendo capa ${tableName}...`, 40 + Math.round((i / tables.length) * 45));
+                        await _yield();
+                        const fc = gpkg.queryForGeoJSON(tableName);
+                        if (fc && fc.features && fc.features.length > 0) {
+                            const reprojected = await reprojectGeoJSON(fc);
+                            const layerTitle = tables.length === 1 ? file.name : `${file.name} - ${tableName}`;
+                            await addVectorLayer(reprojected, layerTitle, opts);
+                            totalFeatures += fc.features.length;
+                        }
+                    }
+                    if (totalFeatures > 0) {
+                        toast(`GeoPackage cargado: ${file.name} (${totalFeatures} entidades)`, 'success');
+                        hideProgress();
+                        if (typeof listSupabaseFiles === 'function') await listSupabaseFiles();
+                        return;
+                    }
+                }
+            } catch (clientErr) {
+                console.warn('[GPKG Client] Error, intentando backend:', clientErr.message);
+            }
+        }
         try {
             const uid = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
             const pid = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : '';
