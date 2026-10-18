@@ -18348,6 +18348,18 @@ async function deleteFromCloud(fileName, url, storagePath) {
         sessionStorage.setItem('aeromap_user', userStr);
         document.getElementById('loginDashboard').classList.add('hidden');
         setAuthNav();
+
+        // Recuperar proyecto compartido pendiente desde sessionStorage si no está en memoria
+        if (!_pendingSharedProject) {
+          try {
+            const saved = sessionStorage.getItem('_pendingSharedProject');
+            if (saved) {
+              _pendingSharedProject = JSON.parse(saved);
+              sessionStorage.removeItem('_pendingSharedProject');
+            }
+          } catch (_) {}
+        }
+
         if (_pendingSharedProject) {
           executePendingSharedProject();
         } else {
@@ -19052,11 +19064,32 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const params = new URLSearchParams(location.search);
         const pid = params.get('project');
         let token = params.get('t');
-        if (!pid) return;
+
+        // Recuperar proyecto pendiente de sessionStorage si existe (sobrevive recargas)
+        if (!pid) {
+          try {
+            const saved = sessionStorage.getItem('_pendingSharedProject');
+            if (saved) {
+              _pendingSharedProject = JSON.parse(saved);
+              sessionStorage.removeItem('_pendingSharedProject');
+              if (_currentUser && _currentUser.token) {
+                executePendingSharedProject();
+              } else {
+                toast('Por favor inicia sesión para acceder al proyecto compartido', 'info');
+                const title = document.getElementById('authFormTitle');
+                if (title) title.textContent = 'Acceso a Proyecto Compartido';
+                showLogin();
+              }
+            }
+          } catch (_) {}
+          return;
+        }
+
         history.replaceState({}, '', location.pathname);
 
-        // Guardar referencia del proyecto pendiente
+        // Guardar referencia del proyecto pendiente en memoria y en sessionStorage
         _pendingSharedProject = { pid, token };
+        try { sessionStorage.setItem('_pendingSharedProject', JSON.stringify({ pid, token })); } catch (_) {}
 
         // Si el usuario no ha iniciado sesión, forzar login/registro antes de abrir el proyecto
         if (!_currentUser || !_currentUser.token) {
@@ -19067,6 +19100,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
           return;
         }
 
+        // Ya autenticado: ejecutar directamente
+        sessionStorage.removeItem('_pendingSharedProject');
         executePendingSharedProject();
       } catch (e) {
         console.warn('[Collab] URL join failed:', e);
@@ -19223,9 +19258,18 @@ async function deleteFromCloud(fileName, url, storagePath) {
       stopCollab();
       if (typeof window.__globeShow === 'function') window.__globeShow();
       document.getElementById('workspace').classList.add('hidden');
-      document.getElementById('landingPage').classList.remove('hidden');
       document.getElementById('loginDashboard').classList.add('hidden');
-      setAuthNav();
+      // Si el usuario está autenticado ir directamente al panel y refrescar proyectos
+      if (_currentUser && _currentUser.token) {
+        document.getElementById('landingPage').classList.add('hidden');
+        document.getElementById('projectDashboard').classList.remove('hidden');
+        const emailEl = document.getElementById('userEmailDisplay');
+        if (emailEl) emailEl.textContent = _currentUser.email || '';
+        loadProjects(); // Refrescar para mostrar proyectos compartidos
+      } else {
+        document.getElementById('landingPage').classList.remove('hidden');
+        setAuthNav();
+      }
     }
 
     async function signInWithGoogle() {}
