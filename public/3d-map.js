@@ -1,5 +1,5 @@
 let maplibreMap = null;
-let current3DBasemap = 'dark';
+let current3DBasemap = 'satellite';
 let active3DLayers = {};
 
 const basemapDefs = {

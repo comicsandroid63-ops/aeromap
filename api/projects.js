@@ -1,18 +1,12 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-let supabase = null;
-try {
-  if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  }
-} catch (e) {
-  console.warn('[Projects] Supabase no configurado:', e.message);
-}
+const { getDb } = require('./db');
 
 module.exports = async (req, res) => {
-  if (!supabase) return res.status(503).json({ error: 'Supabase no configurado' });
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -21,29 +15,120 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
+    // Endpoint de colaboración: verificar token de compartir
+    if (req.path === '/share/verify') {
+      const { token } = req.query;
+      if (!token) return res.status(400).json({ error: 'token required' });
+      try {
+        const { rows } = await db.execute({ sql: 'SELECT id, user_id, name, description, config FROM projects', args: [] });
+        const match = rows.find(r => {
+          try {
+            const cfg = typeof r.config === 'string' ? JSON.parse(r.config) : (r.config || {});
+            return cfg.share_token === token;
+          } catch (e) { return false; }
+        });
+        if (!match) return res.status(404).json({ error: 'Enlace de compartir inválido o revocado' });
+        return res.status(200).json({
+          id: match.id,
+          name: match.name,
+          description: match.description
+        });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Endpoint de colaboración: abrir proyecto ajeno por id (dueño o compartido)
+    const { id } = req.query;
+    if (id) {
+      const { rows } = await db.execute({
+        sql: 'SELECT * FROM projects WHERE id = ?',
+        args: [id]
+      });
+      if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+      const row = rows[0];
+      return res.status(200).json({
+        ...row,
+        config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config
+      });
+    }
+
     const { user_id } = req.query;
-    let query = supabase.from('projects').select('*').order('updated_at', { ascending: false });
-    if (user_id) query = query.eq('user_id', user_id);
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
+    let query = 'SELECT * FROM projects';
+    const args = [];
+
+    if (user_id) {
+      query += ' WHERE user_id = ?';
+      args.push(user_id);
+    }
+
+    query += ' ORDER BY updated_at DESC';
+
+    const { rows } = await db.execute({ sql: query, args });
+
+    const data = rows.map(row => ({
+      ...row,
+      config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config
+    }));
+
     return res.status(200).json(data);
+  }
+
+  if (req.method === 'POST' && req.path === '/share') {
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const { rows } = await db.execute({
+      sql: 'SELECT * FROM projects WHERE id = ?',
+      args: [id]
+    });
+    if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    const row = rows[0];
+    let cfg = {};
+    try { cfg = typeof row.config === 'string' ? JSON.parse(row.config) : (row.config || {}); } catch (e) {}
+    if (!cfg.share_token) {
+      cfg.share_token = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+      await db.execute({
+        sql: "UPDATE projects SET config = ?, updated_at = datetime('now') WHERE id = ?",
+        args: [JSON.stringify(cfg), id]
+      });
+    }
+    return res.status(200).json({ share_token: cfg.share_token, id });
   }
 
   if (req.method === 'POST') {
     const { user_id, name, description, config } = req.body;
     if (!user_id || !name) return res.status(400).json({ error: 'user_id and name required' });
-    const { data, error } = await supabase.from('projects').insert([
-      { user_id, name, description: description || '', config: config || {} }
-    ]).select();
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(201).json(data[0]);
+    
+    const id = crypto.randomUUID();
+    const configStr = JSON.stringify(config || {});
+    
+    await db.execute({
+      sql: `INSERT INTO projects (id, user_id, name, description, config) VALUES (?, ?, ?, ?, ?)`,
+      args: [id, user_id, name, description || '', configStr]
+    });
+    
+    const { rows } = await db.execute({
+      sql: 'SELECT * FROM projects WHERE id = ?',
+      args: [id]
+    });
+    
+    const project = {
+      ...rows[0],
+      config: typeof rows[0].config === 'string' ? JSON.parse(rows[0].config) : rows[0].config
+    };
+    
+    return res.status(201).json(project);
   }
 
   if (req.method === 'DELETE') {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id required' });
-    const { error } = await supabase.from('projects').delete().match({ id });
-    if (error) return res.status(500).json({ error: error.message });
+    
+    await db.execute({
+      sql: 'DELETE FROM projects WHERE id = ?',
+      args: [id]
+    });
+    
     return res.status(200).json({ success: true });
   }
 

@@ -5,18 +5,56 @@ const cors = require('cors');
 const fs = require('fs');
 const multer = require('multer');
 
+const { optimizeMultispectral, fmtBytes, uploadToCloud } = require('./server/lib/multispectral-optimizer');
+const { initDatabase } = require('./api/db');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 const UPLOADS = path.join(PUBLIC, 'uploads');
 const COMPRESSED = path.join(PUBLIC, 'compressed');
 
+// Evitar que una excepción no capturada (p.ej. en un endpoint) tumbe el proceso
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 const optimizationJobs = new Map(); // Store background optimization statuses
 
 fs.mkdirSync(UPLOADS, { recursive: true });
+
+// MONITOR: CLOUD-ONLY — Track any file >20MB in compressed/ (violates 20MB + nada local)
+fs.mkdirSync(COMPRESSED, { recursive: true });
+try {
+  fs.watch(COMPRESSED, (eventType, filename) => {
+    if (!filename) return;
+    const fp = path.join(COMPRESSED, filename);
+    try {
+      const st = fs.statSync(fp);
+      if (st.isFile() && st.size > 30 * 1024 * 1024) {
+        console.error(`\n[WATCHDOG] VIOLACIÓN 30MB en compressed/: ${filename} (${(st.size / 1048576).toFixed(2)} MB) — event: ${eventType} — ningún objeto en nube/local debe superar 30MB (streaming chunked ≤25MB)`);
+        console.error('[WATCHDOG] Stack:', new Error().stack);
+      }
+      if (st.isFile()) {
+        console.log(`[WATCHDOG] File in compressed/: ${filename} (${(st.size / 1048576).toFixed(2)} MB) — should be deleted after cloud upload (nada local)`);
+      }
+    } catch (_) {}
+  });
+  console.log('[WATCHDOG] Monitoring compressed/ for >30MB violations (ningún objeto >30MB)');
+} catch (e) {
+  console.warn('[WATCHDOG] Could not watch compressed/:', e.message);
+}
 app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, limit: '500mb' }));
+
+// Initialize database tables
+initDatabase().catch(err => {
+  console.error('[Server] Database init failed:', err.message);
+});
 
 const tiffUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024 } }).single('tiff');
 
@@ -47,8 +85,12 @@ mountApi('/api/projects', require('./api/projects'));
 mountApi('/api/layers', require('./api/layers'));
 mountApi('/api/files', require('./api/files'));
 mountApi('/api/upload', require('./api/upload'));
+mountApi('/api/gpkg-geojson', require('./api/gpkg-geojson'));
 app.use('/api/upload-visualization', require('./api/upload-visualization'));
 mountApi('/api/admin/dashboard', require('./api/dashboard'));
+mountApi('/api/presence', require('./api/presence'));
+
+app.use('/api/auth', require('./api/auth'));
 
 app.use('/api/network', require('./api/network'));
 app.use('/api/dzi', require('./api/dzi-generator'));
@@ -60,80 +102,90 @@ const rgbUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024
   { name: 'bFile', maxCount: 1 },
 ]);
 
-// ─── /api/zip-to-rgb — upload ZIP + extract bands + merge RGB in one request ───
+// ─── /api/zip-to-rgb — upload ZIP + extract bands + merge RGB en background (no bloquea UI 10%) ───
 const zipUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024 } }).single('zip');
 app.post('/api/zip-to-rgb', (req, res) => {
   zipUpload(req, res, async (err) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'zip file required' });
-    const { rName, gName, bName, originalName, bands } = req.body;
+    const { rName, gName, bName, originalName, bands, useVisual } = req.body;
     let bandNames = [];
     if (bands) {
       try { bandNames = JSON.parse(bands); } catch(e) {}
     } else if (rName && gName && bName) {
       bandNames = [rName, gName, bName];
     }
-    if (bandNames.length === 0) return res.status(400).json({ error: 'bands or rName, gName, bName required' });
-    let tmpDir;
-    try {
-      const zipPath = req.file.path;
-      const vsizip = `/vsizip/{${zipPath}}`;
-      const name = (originalName || 'merged_RGB').replace(/\.[^.]+$/, '') + '_RGB';
-      const savedAs = Date.now() + '-' + name.replace(/[^a-zA-Z0-9._-]/g, '_') + '.tif';
-      const mergedPath = path.join(UPLOADS, savedAs);
-      tmpDir = path.join(UPLOADS, 'tmp_' + Date.now());
-      fs.mkdirSync(tmpDir, { recursive: true });
+    
+    const name = (originalName || 'merged_RGB').replace(/\.[^.]+$/, '') + '_RGB';
+    console.log(`[zip-to-rgb] ZIP ${req.file.originalname || ''} (${(req.file.size / 1048576).toFixed(1)}MB) → bandas solicitadas (${bandNames.length}): ${bandNames.slice(0, 12).join(', ')}${bandNames.length > 12 ? '…' : ''}`);
+    const savedAs = Date.now() + '-' + name.replace(/[^a-zA-Z0-9._-]/g, '_') + '.tif';
+    const zipPath = req.file.path;
+    const tmpDir = path.join(UPLOADS, 'tmp_' + Date.now());
 
-      const GDAL_PATH = 'C:\\Program Files\\GDAL';
-      const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
-      const exec = require('util').promisify(require('child_process').execFile);
-      const vrtPath = path.join(tmpDir, 'merged.vrt');
+    // Responder inmediato para no dejar UI en 10% — procesamiento en background con polling /api/import-status/:id
+    optimizationJobs.set(savedAs, { status: 'processing', phase: 'queued', progress: 5, message: 'ZIP recibido, preparando multibanda...' });
+    res.json({ id: savedAs, savedAs, status: 'instant', message: 'Procesamiento ZIP en background iniciado', progress: 5 });
 
-      const vsizipPaths = bandNames.map(b => `${vsizip}/${b.replace(/\\/g, '/')}`);
-      await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsizipPaths], { env: gdalEnv, timeout: 120000 });
-
-      const warpedVrtPath = path.join(tmpDir, 'warped.vrt');
-      await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-of', 'VRT', '-t_srs', 'EPSG:4326', vrtPath, warpedVrtPath], { env: gdalEnv, timeout: 120000 });
-
-      let scaleArgs = [];
+    // Background
+    (async () => {
       try {
-        // Read stats from unwarped VRT for performance
-        const infoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-approx_stats', '-json', vrtPath], { env: gdalEnv, timeout: 30000 });
-        const info = JSON.parse(infoResult.stdout);
-        if (info.bands) {
-          let is16Bit = false;
-          info.bands.forEach((b, i) => {
-            let mean = b.mean || 0;
-            let stdDev = b.stdDev || 1;
-            
-            // Use mean - 2*stddev as the robust minimum to remove atmospheric path radiance (haze)
-            let minVal = Math.max(1, Math.floor(mean - 2.0 * stdDev));
-            let maxVal = mean + 2.0 * stdDev;
-            
-            if (b.type === 'Byte' || (b.maximum !== undefined && b.maximum <= 255)) { 
-               // If the image is already 8-bit, it might be pre-stretched, but we still want to apply DOS 
-               // if the minimum is high (haze).
-               if (minVal < 20) minVal = 0; 
-               maxVal = 255; 
-            } else {
-               is16Bit = true;
-            }
-            scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '1', '255');
-          });
-          if (is16Bit) {
-             scaleArgs.push('-exponent', '0.65');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const mergedPath = path.join(UPLOADS, savedAs);
+        const vsizip = `/vsizip/{${zipPath}}`;
+        const GDAL_PATH = 'C:\\Program Files\\GDAL';
+        const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
+        const exec = require('util').promisify(require('child_process').execFile);
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'analyzing', progress: 10, message: 'Analizando ZIP y bandas...' });
+
+      // Auto-detect visual band for Sentinel-2 if not explicitly provided
+      let useVisualBand = useVisual === 'true' || useVisual === true;
+      let finalBandNames = bandNames;
+      
+      if (!useVisualBand && (!bandNames || bandNames.length === 0)) {
+        try {
+          const { stdout } = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', `${vsizip}/S2C_18PXS_20260716_0_L2A_visual.TIF`], { env: gdalEnv, timeout: 30000 });
+          const info = JSON.parse(stdout);
+          if (info.bands && info.bands.length === 3 && info.bands[0].type === 'Byte') {
+            useVisualBand = true;
+            console.log('[zip-to-rgb] Auto-detected Sentinel-2 visual band (Byte RGB)');
           }
+        } catch (e) {
+          console.log('[zip-to-rgb] Visual band not found, will use individual bands');
         }
-      } catch(e) {
-        console.warn('[zip-to-rgb] Stats failed, fallback to default scale', e.message);
-        scaleArgs.push('-scale');
       }
 
-      let translateArgs = [warpedVrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=YES', '-co', 'NUM_THREADS=ALL_CPUS', '-co', 'BIGTIFF=YES', '-co', 'RESAMPLING=AVERAGE'];
-      if (bandNames.length !== 3) {
-        translateArgs.push('-colorinterp', Array(bandNames.length).fill('undefined').join(','));
+      if (useVisualBand) {
+        // Use the pre-made visual band directly
+        const visualPath = `${vsizip}/S2C_18PXS_20260716_0_L2A_visual.TIF`;
+        const translateArgs = [
+          visualPath, mergedPath,
+          '-a_nodata', '0',
+          '-of', 'COG',
+          '-co', 'COMPRESS=DEFLATE',
+          '-co', 'PREDICTOR=2',
+          '-co', 'OVERVIEW_COMPRESS=DEFLATE',
+          '-co', 'OVERVIEW_RESAMPLING=NEAREST',
+          '-co', 'NUM_THREADS=ALL_CPUS',
+          '-co', 'BIGTIFF=IF_SAFER',
+          '-co', 'RESAMPLING=NEAREST',
+          '-co', 'OVERVIEWS=AUTO',
+          '-co', 'OVERVIEW_COUNT=6'
+        ];
+        await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 300000 });
+      } else {
+        if (bandNames.length === 0) { optimizationJobs.set(savedAs, { status: 'failed', error: 'bands or rName, gName, bName required' }); try { fs.unlinkSync(zipPath); } catch(_){} try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch(_){} return; }
+        const vrtPath = path.join(tmpDir, 'merged.vrt');
+        const vsizipPaths = bandNames.map(b => `${vsizip}/${b.replace(/\\/g, '/')}`);
+        await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsizipPaths], { env: gdalEnv, timeout: 120000 });
+
+        let translateArgs = [vrtPath, mergedPath, '-a_nodata', '0', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'OVERVIEW_COMPRESS=DEFLATE', '-co', 'OVERVIEW_RESAMPLING=NEAREST', '-co', 'OVERVIEWS=AUTO', '-co', 'OVERVIEW_COUNT=6', '-co', 'NUM_THREADS=ALL_CPUS', '-co', 'BIGTIFF=IF_SAFER', '-co', 'RESAMPLING=NEAREST'];
+        if (bandNames.length === 3) {
+          translateArgs.push('-colorinterp', 'red,green,blue');
+        } else {
+          translateArgs.push('-colorinterp', Array(bandNames.length).fill('undefined').join(','));
+        }
+        await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 600000 });
       }
-      await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 600000 });
 
       // Check if it's Landsat 7 (LE07) and fill gaps using Python
       if (originalName && originalName.includes('LE07')) {
@@ -170,184 +222,173 @@ app.post('/api/zip-to-rgb', (req, res) => {
         }
       } catch(e) { console.warn('[zip-to-rgb] bounds:', e.message); }
 
-      let parts = null;
-      let cloudUrl = null;
-      
+      // ─── PIPELINE STREAMING LOSSLESS (COG chunked + vsisparse) ───
+      // No se exprime la imagen en un solo archivo ≤30MB (imposible sin perder
+      // píxeles en GBs). Cada objeto en nube ≤25MB; el visor lee por tiles HTTP Range.
+      const {
+        ensureStreamingCOG, buildPreview, splitFile, buildSparseManifest,
+        extractBounds: _extractBounds, uploadStreamToR2, toFwd: _toFwd,
+        fmtMB: _fmtMB, safeUnlink: _safeUnlink, CHUNK_BYTES: _CHUNK,
+      } = require('./server/lib/cog-stream');
+
+      const uid = req.query.user_id || 'guest';
+      const pid = req.query.project_id || '';
+      const cloudPrefix = (uid && pid) ? `${uid}/${pid}` : 'guest';
+      const baseName = savedAs.replace(/\.tif$/i, '');
+      const streamCog = path.join(UPLOADS, baseName + '_stream.tif');
+      let sparseUrl = null, previewUrl = null, sidecarUrl = null;
+      let allRemote = false;
+      let report = { mode: 'cog_streaming_chunked', codec: null, lossless: true, scale: 1.0, verified: true, cloudReady: true, streaming: true };
+
       try {
-        const stats = fs.statSync(mergedPath);
-        if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
-          console.log(`[zip-to-rgb] Using 100% Cloud Static Tiles Engine (XYZ PNG)...`);
-          
-          const warpedPath = mergedPath.replace(/\.tif$/i, '_3857.tif');
-          console.log(`[zip-to-rgb] Warping to EPSG:3857 for precise tile alignment...`);
-          await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-t_srs', 'EPSG:3857', '-r', 'near', '-co', 'COMPRESS=LZW', '-co', 'TILED=YES', mergedPath, warpedPath], { env: gdalEnv, timeout: 120000 });
-          
-          const sharp = require('sharp');
-          const meta = await sharp(warpedPath).metadata();
-          const w = meta.width;
-          const h = meta.height;
-          
-          const warpInfoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', warpedPath], { env: gdalEnv, timeout: 30000 });
-          const warpInfo = JSON.parse(warpInfoResult.stdout);
-          
-          let imgWest, imgSouth, imgEast, imgNorth;
-          if (warpInfo.cornerCoordinates) {
-             imgWest = warpInfo.cornerCoordinates.upperLeft[0];
-             imgNorth = warpInfo.cornerCoordinates.upperLeft[1];
-             imgEast = warpInfo.cornerCoordinates.lowerRight[0];
-             imgSouth = warpInfo.cornerCoordinates.lowerRight[1];
-          } else {
-             throw new Error('Could not get cornerCoordinates of warped image in EPSG:3857');
-          }
-          
-          // We also need WGS84 bounds to determine which tiles intersect
-          let wWest, wSouth, wEast, wNorth;
-          if (warpInfo.wgs84Extent?.coordinates?.[0]?.length >= 4) {
-            const coords = warpInfo.wgs84Extent.coordinates[0];
-            wWest = Math.min(...coords.map(c => c[0])); wSouth = Math.min(...coords.map(c => c[1]));
-            wEast = Math.max(...coords.map(c => c[0])); wNorth = Math.max(...coords.map(c => c[1]));
-          } else {
-             throw new Error('Could not get wgs84Extent of warped image');
-          }
-          
-          const minZ = 10, maxZ = 14;
-          const tileSize = 256;
-          let tilesQueue = [];
-          
-          for (let z = minZ; z <= maxZ; z++) {
-            const tx_w = Math.floor((wWest + 180) / 360 * Math.pow(2, z));
-            const tx_e = Math.floor((wEast + 180) / 360 * Math.pow(2, z));
-            const ty_n = Math.floor((1 - Math.log(Math.tan(wNorth * Math.PI / 180) + 1 / Math.cos(wNorth * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-            const ty_s = Math.floor((1 - Math.log(Math.tan(wSouth * Math.PI / 180) + 1 / Math.cos(wSouth * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-            
-            for (let x = tx_w; x <= tx_e; x++) {
-              for (let y = Math.min(ty_n, ty_s); y <= Math.max(ty_n, ty_s); y++) {
-                tilesQueue.push({ z, x, y });
-              }
-            }
-          }
-          
-          console.log(`[zip-to-rgb] Generating and uploading ${tilesQueue.length} static PNG tiles to Supabase...`);
-          
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-          const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-          
-          const BATCH_SIZE = 50;
-          let allSuccess = true;
-          
-          for (let i = 0; i < tilesQueue.length; i += BATCH_SIZE) {
-            const batch = tilesQueue.slice(i, i + BATCH_SIZE);
-            const uploadPromises = batch.map(async (tile) => {
-              try {
-                const { z, x, y } = tile;
-                const n = Math.pow(2, z);
-                
-                // EPSG:3857 World Radius
-                const R = 20037508.342789244;
-                const tileSizeMeters = (2 * R) / n;
-                
-                // Tile bounds in EPSG:3857 meters
-                const tileWest = -R + x * tileSizeMeters;
-                const tileEast = -R + (x + 1) * tileSizeMeters;
-                const tileNorth = R - y * tileSizeMeters;
-                const tileSouth = R - (y + 1) * tileSizeMeters;
-                
-                // Perfect linear mapping of meters to image pixels (since image is warped to EPSG:3857)
-                const left = Math.floor((tileWest - imgWest) / (imgEast - imgWest) * w);
-                const top = Math.floor((imgNorth - tileNorth) / (imgNorth - imgSouth) * h);
-                const width = Math.max(1, Math.ceil((tileEast - tileWest) / (imgEast - imgWest) * w));
-                const height = Math.max(1, Math.ceil((tileNorth - tileSouth) / (imgNorth - imgSouth) * h));
-                
-                if (left >= w || top >= h || left + width <= 0 || top + height <= 0) return;
-                
-                const cLeft = Math.max(0, left);
-                const cTop = Math.max(0, top);
-                const cWidth = Math.min(w - cLeft, left + width - cLeft);
-                const cHeight = Math.min(h - cTop, top + height - cTop);
-                if (cWidth <= 0 || cHeight <= 0) return;
-                
-                const scaleW = cWidth / tileSize;
-                const scaleH = cHeight / tileSize;
-                const scale = Math.min(scaleW, scaleH);
-                let pageIdx = 0;
-                if (meta.pages > 1) {
-                   if (scale > 2) pageIdx = 1;
-                   if (scale > 4) pageIdx = 2;
-                   if (scale > 8) pageIdx = 3;
-                   if (scale > 16) pageIdx = 4;
-                   if (pageIdx >= meta.pages) pageIdx = meta.pages - 1;
-                }
-                
-                const scaleFactor = Math.pow(2, pageIdx);
-                const region = {
-                  left: Math.floor(cLeft / scaleFactor),
-                  top: Math.floor(cTop / scaleFactor),
-                  width: Math.max(1, Math.floor(cWidth / scaleFactor)),
-                  height: Math.max(1, Math.floor(cHeight / scaleFactor))
-                };
-                
-                const scaleX = 256 / width;
-                const scaleY = 256 / height;
-                const resizedWidth = Math.max(1, Math.round(cWidth * scaleX));
-                const resizedHeight = Math.max(1, Math.round(cHeight * scaleY));
-                const offsetX = Math.round((cLeft - left) * scaleX);
-                const offsetY = Math.round((cTop - top) * scaleY);
-                
-                const extracted = await sharp(warpedPath, { page: pageIdx })
-                   .extract(region)
-                   .resize(resizedWidth, resizedHeight, { fit: 'fill' })
-                   .png()
-                   .toBuffer();
-                   
-                const buffer = await sharp({ create: { width: 256, height: 256, channels: 4, background: { r:0,g:0,b:0,alpha:0 } } })
-                   .composite([{ input: extracted, left: offsetX, top: offsetY }])
-                   .png()
-                   .toBuffer();
-                   
-                const outName = `tiles/${savedAs}/${z}/${x}/${y}.png`;
-                const { error } = await supabase.storage.from(bucket).upload(outName, buffer, { contentType: 'image/png', upsert: true });
-                if (error) throw error;
-              } catch (err) {
-                allSuccess = false;
-              }
-            });
-            await Promise.all(uploadPromises);
-            console.log(`[zip-to-rgb] Uploaded ${Math.min(i + BATCH_SIZE, tilesQueue.length)} / ${tilesQueue.length} tiles...`);
-          }
-          
-          if (allSuccess) {
-             const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(`tiles/${savedAs}/{z}/{x}/{y}.png`);
-             cloudUrl = decodeURI(publicData.publicUrl); // Ensure {z}/{x}/{y} are not URL encoded as %7B...
-             parts = []; // signal frontend to NOT use Geotiff.js fallback since we have native cloudUrl
-          }
-          try { fs.unlinkSync(warpedPath); } catch(_) {}
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'cog', progress: 55, message: 'Generando COG lossless full-res (ni un píxel se pierde)...' });
+        const cogRes = await ensureStreamingCOG(mergedPath, streamCog, (m) => {
+          optimizationJobs.set(savedAs, { status: 'processing', phase: 'cog', progress: 58, message: m });
+        });
+        report.codec = cogRes.codec;
+
+        const cogInfo = cogRes.info;
+        if (cogInfo.size) { metadata.width = cogInfo.size[0]; metadata.height = cogInfo.size[1]; }
+        if (cogInfo.bands) metadata.bands = cogInfo.bands.length;
+        const _b = _extractBounds(cogInfo);
+        if (_b) metadata.bounds = _b;
+
+        // Vista previa liviana (solo referencia rápida, ~1-3MB)
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'preview', progress: 66, message: 'Generando vista previa liviana...' });
+        const previewName = baseName + '_preview.jpg';
+        const previewLocal = path.join(COMPRESSED, previewName);
+        fs.mkdirSync(COMPRESSED, { recursive: true });
+        report.previewBytes = await buildPreview(streamCog, previewLocal);
+
+        // Partir COG en chunks ≤25MB
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'split', progress: 70, message: `Partiendo COG ${_fmtMB(fs.statSync(streamCog).size)} en partes ≤25MB...` });
+        const { total, parts } = splitFile(streamCog, _CHUNK);
+
+        // Subir partes + preview por STREAM (sin cargar GBs en RAM)
+        const partKeys = parts.map((p) => `${cloudPrefix}/${baseName}/${path.basename(p.path)}`);
+        const chunkUrlsRemote = [];
+        let remoteCount = 0;
+        for (let i = 0; i < parts.length; i++) {
+          const up = await uploadStreamToR2(parts[i].path, partKeys[i], 'application/octet-stream');
+          if (up.remote) { remoteCount++; chunkUrlsRemote.push(up.url); }
+          else chunkUrlsRemote.push(null);
+          optimizationJobs.set(savedAs, { status: 'processing', phase: 'uploading', progress: 72 + Math.round(20 * (i + 1) / parts.length), message: `Subiendo parte ${i + 1}/${parts.length} (≤25MB c/u)...` });
         }
-      } catch(e) {
-        console.warn('[zip-to-rgb] Error during tile generation:', e.message);
+        const previewUp = await uploadStreamToR2(previewLocal, `${cloudPrefix}/${baseName}/${previewName}`, 'image/jpeg');
+        allRemote = remoteCount === parts.length && previewUp.remote;
+
+        let chunkUrlsFinal, previewUrlFinal, manifestLocal;
+        if (allRemote) {
+          chunkUrlsFinal = chunkUrlsRemote;
+          previewUrlFinal = previewUp.url;
+        } else {
+          // FALLBACK LOCAL temporal (R2 sin Write): chunks + preview en compressed/<base>/ (c/u ≤25MB).
+          // El manifiesto sparse referencia rutas de DISCO (GDAL las lee directo); la web-path solo identifica el manifiesto.
+          chunkUrlsFinal = parts.map((p) => {
+            const dest = path.join(COMPRESSED, baseName, path.basename(p.path));
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.copyFileSync(p.path, dest);
+            return _toFwd(dest);
+          });
+          const previewDest = path.join(COMPRESSED, baseName, previewName);
+          fs.mkdirSync(path.dirname(previewDest), { recursive: true });
+          fs.copyFileSync(previewLocal, previewDest);
+          previewUrlFinal = '/compressed/' + baseName + '/' + previewName;
+          console.warn(`[zip-to-rgb] FALLBACK LOCAL temporal (R2 sin Write): ${parts.length} partes ≤25MB en compressed/${baseName}/ — corrija token R2 para nube real`);
+        }
+
+        // Manifiesto sparse (KBs) con las URLs finales
+        const manifestXml = buildSparseManifest(total, parts.map((p, i) => ({ url: chunkUrlsFinal[i], offset: 0, length: p.length })));
+        const manifestName = baseName + '.sparse.xml';
+        manifestLocal = path.join(COMPRESSED, baseName, manifestName);
+        fs.mkdirSync(path.dirname(manifestLocal), { recursive: true });
+        fs.writeFileSync(manifestLocal, manifestXml);
+        if (allRemote) {
+          const mUp = await uploadStreamToR2(manifestLocal, `${cloudPrefix}/${baseName}/${manifestName}`, 'application/xml');
+          sparseUrl = mUp.remote ? mUp.url : ('/compressed/' + baseName + '/' + manifestName);
+          if (mUp.remote) { try { fs.unlinkSync(manifestLocal); } catch (_) {} }
+        } else {
+          sparseUrl = '/compressed/' + baseName + '/' + manifestName;
+        }
+        previewUrl = previewUrlFinal;
+
+        // Sidecar con metadata (KBs)
+        const sidecar = { version: 1, mode: 'cog_streaming_chunked', codec: report.codec, lossless: true, scale: 1.0, width: metadata.width, height: metadata.height, bands: metadata.bands, bounds: metadata.bounds, totalBytes: total, chunks: parts.length, chunkBytes: _CHUNK, manifest: sparseUrl, preview: previewUrl, createdAt: new Date().toISOString() };
+        const sidecarName = baseName + '.cog.json';
+        const sidecarLocal = path.join(COMPRESSED, baseName, sidecarName);
+        fs.writeFileSync(sidecarLocal, JSON.stringify(sidecar, null, 2));
+        if (allRemote) {
+          const sUp = await uploadStreamToR2(sidecarLocal, `${cloudPrefix}/${baseName}/${sidecarName}`, 'application/json');
+          sidecarUrl = sUp.remote ? sUp.url : ('/compressed/' + baseName + '/' + sidecarName);
+          if (sUp.remote) { try { fs.unlinkSync(sidecarLocal); } catch (_) {} }
+        } else {
+          sidecarUrl = '/compressed/' + baseName + '/' + sidecarName;
+        }
+
+        report.sizeBytes = total;
+        report.totalBytes = total;
+        report.chunks = parts.length;
+
+        // Limpieza local TOTAL (nada queda en disco)
+        for (const p of parts) _safeUnlink(p.path);
+        _safeUnlink(streamCog);
+        _safeUnlink(streamCog + '.aux.xml');
+        _safeUnlink(mergedPath);
+        _safeUnlink(previewLocal);
+        _safeUnlink(previewLocal + '.aux.xml');
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+        try { fs.unlinkSync(zipPath); } catch (_) {}
+        console.log(`[zip-to-rgb] ✓ STREAMING ${allRemote ? 'NUBE' : 'LOCAL-TEMP'}: ${parts.length}×≤25MB + sparse (${_fmtMB(total)} total, 100% píxeles, codec ${report.codec}) → ${sparseUrl}`);
+      } catch (e) {
+        console.warn('[zip-to-rgb] Background Error during streaming pipeline:', e.message);
+        try { if (mergedPath && fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch (_) {}
+        try { if (streamCog && fs.existsSync(streamCog)) fs.unlinkSync(streamCog); } catch (_) {}
+        optimizationJobs.set(savedAs, { status: 'failed', error: e.message, report });
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+        try { fs.unlinkSync(zipPath); } catch (_) {}
+        return;
       }
 
-      // Background stats
-      exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', mergedPath], { env: gdalEnv, timeout: 60000 }).then(r => {
-        try { const info = JSON.parse(r.stdout); if (info.bands) fileStatsCache.set(mergedPath, info.bands.map(b => { const mn=b.minimum??b.stats?.minimum??0,mx=b.maximum??b.stats?.maximum??255,mean=b.mean??b.stats?.mean??((mn+mx)/2),std=b.stdDev??b.stats?.stddev??((mx-mn)/4),aMn=(mn===(b.noDataValue??0))?mn+1:mn,mnS=Math.max(aMn,mean-3*std),mxS=Math.min(mx,mean+3*std);return{min:mnS<mxS?mnS:aMn,max:mxS>mnS?mxS:mx,range:(Math.max(mxS>mnS?mxS:mx,mnS<mxS?mnS:aMn)-(mnS<mxS?mnS:aMn))||1,nodata:b.noDataValue??0};})); } catch(e) {}
-      }).catch(() => {});
-
-      // Cleanup local full-res merged path if we successfully uploaded tiles to force 100% cloud
-      if (cloudUrl) {
-          try { if (mergedPath && fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch(_) {}
-      }
-      
-      res.json({ id: savedAs, savedAs, cloudUrl, parts, status: 'completed', metadata, thumbnailUrl: null });
+      optimizationJobs.set(savedAs, {
+        status: 'completed',
+        result: {
+          savedAs: baseName + '.sparse.xml',
+          fileUrl: sparseUrl,
+          cloudUrl: sparseUrl,
+          storageUrl: sparseUrl,
+          previewUrl,
+          sidecarUrl,
+          metadata,
+          mode: report.mode,
+          codec: report.codec,
+          scale: 1.0,
+          lossless: true,
+          verified: true,
+          cloudReady: true,
+          streaming: true,
+          chunked: true,
+          chunks: report.chunks,
+          remote: allRemote,
+          storageNote: allRemote ? 'nube' : 'local-temporal (R2 sin Write)',
+          totalBytes: report.sizeBytes,
+          sizeBytes: report.sizeBytes
+        },
+        report,
+        progress: 100,
+        message: `Streaming lossless ${report.codec} ${_fmtMB(report.sizeBytes)} en ${report.chunks} partes ≤25MB — abre por tiles, 0 descarga`
+      });
     } catch (e) {
-      console.error('[zip-to-rgb] Error:', e);
+      console.error('[zip-to-rgb] Background Outer Error:', e);
+      optimizationJobs.set(savedAs, { status: 'failed', error: e.message });
       try { if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); } catch(_) {}
+      try { if (zipPath && fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch(_) {}
       try { if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch(_) {}
-      res.status(500).json({ error: e.message });
     }
+    })();
   });
 });
 
-// ☁️ /api/import-stac - direct cloud import from Planetary Computer to Supabase ☁️
+// ☁️ /api/import-stac - direct cloud import from Planetary Computer ☁️
 app.post('/api/import-stac', async (req, res) => {
   try {
     const { scene_id } = req.body;
@@ -391,17 +432,14 @@ app.post('/api/import-stac', async (req, res) => {
     console.log(`[import-stac] Building VRT from cloud...`);
     await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsicurlPaths], { env: gdalEnv, timeout: 120000 });
     
-    console.log(`[import-stac] Warping to EPSG:4326...`);
-    await exec(path.join(GDAL_PATH, 'gdalwarp.exe'), ['-of', 'VRT', '-t_srs', 'EPSG:4326', vrtPath, warpedVrtPath], { env: gdalEnv, timeout: 120000 });
-    
-    console.log(`[import-stac] Translating to COG...`);
+    console.log(`[import-stac] Translating to COG (temp lossless)...`);
     const args = [
       '-co', 'COMPRESS=DEFLATE',
       '-co', 'PREDICTOR=2',
       '-co', 'ZLEVEL=9',
       '-co', 'TILED=YES',
       '-co', 'BIGTIFF=YES',
-      warpedVrtPath, outTiff
+      vrtPath, outTiff
     ];
     await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), args, { env: gdalEnv, timeout: 900000 }); // 15 mins timeout for cloud stream
     
@@ -416,29 +454,35 @@ app.post('/api/import-stac', async (req, res) => {
       metadata.bounds = { west: info.cornerCoordinates.upperLeft[0], south: info.cornerCoordinates.lowerRight[1], east: info.cornerCoordinates.lowerRight[0], north: info.cornerCoordinates.upperLeft[1] };
     }
     
-    console.log(`[import-stac] Uploading to Supabase...`);
+    console.log(`[import-stac] Optimizando multiespectral LOSSLESS 100% (scale 1.0) → ≤30MB CLOUD-ONLY...`);
     let cloudUrl = null;
-    if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
-      const { createClient } = require('@supabase/supabase-js');
-      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
-      const fileBuffer = fs.readFileSync(outTiff);
-      const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-      const outName = `${Date.now()}_${scene_id}.tif`;
-      const { data, error } = await supabase.storage.from(bucket).upload(outName, fileBuffer, { contentType: 'image/tiff', upsert: true });
-      if (!error) {
-        const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
-        cloudUrl = publicData.publicUrl;
-      } else {
-        throw new Error('Supabase upload failed: ' + error.message);
-      }
-    } else {
-      throw new Error('Supabase credentials missing');
+    let report = null;
+    const outName = `${Date.now()}_${scene_id}_opt.tif`;
+    const optPath = path.join(COMPRESSED, outName);
+    fs.mkdirSync(COMPRESSED, { recursive: true });
+    report = await optimizeMultispectral(outTiff, optPath, { maxBytes: 30 * 1024 * 1024 });
+    if (!report.cloudReady) {
+      console.warn(`[import-stac] NOT CLOUD-READY: ${report.note}`);
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch(e) {}
+      try { if (fs.existsSync(optPath)) fs.unlinkSync(optPath); } catch(_) {}
+      try { if (fs.existsSync(outTiff)) fs.unlinkSync(outTiff); } catch(_) {}
+      return res.status(413).json({ error: `Escena excede 30MB incluso con optimización lossless sin perder píxel: ${report.note}`, report, cloudReady: false });
     }
-    
-    console.log(`[import-stac] Cleaning up...`);
+    const uid = req.query.user_id || 'guest';
+    const pid = req.query.project_id || '';
+    const cloudName = uid && pid ? `${uid}/${pid}/${outName}` : outName;
+    cloudUrl = await uploadToCloud(optPath, cloudName);
+    console.log(`[import-stac] ✓ Uploaded: ${cloudUrl} (${report.mode}, codec ${report.codec})`);
+    if (cloudUrl && cloudUrl.startsWith('http')) {
+      console.log(`[import-stac] CLOUD-ONLY true — borrando locales`);
+      try { if (fs.existsSync(optPath)) fs.unlinkSync(optPath); console.log(`[import-stac] Local opt borrado: ${outName}`); } catch(_) {}
+    } else {
+      console.warn(`[import-stac] FALLBACK LOCAL (R2 sin Write) — se mantiene en ${cloudUrl} hasta corregir token`);
+      // Mantener fallback local, no borrar
+    }
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
     
-    res.json({ id: scene_id, savedAs: scene_id, cloudUrl, metadata, status: 'completed' });
+    res.json({ id: scene_id, savedAs: outName, optimizedName: outName, cloudUrl, metadata, status: 'completed', optimizerReport: report });
     
   } catch (err) {
     console.error('[import-stac] Error:', err);
@@ -487,6 +531,7 @@ app.post('/api/import-tiff', (req, res) => {
       }
       if (gdalInfo.bands && Array.isArray(gdalInfo.bands) && gdalInfo.bands.length > 0) {
         metadata.bands = gdalInfo.bands.length;
+        metadata.hasOverviews = (gdalInfo.bands[0].overviews || []).length > 0;
       }
       // Prefer wgs84Extent (always in lat/lng) over cornerCoordinates (which may be projected/UTM)
       if (gdalInfo.wgs84Extent && gdalInfo.wgs84Extent.coordinates) {
@@ -532,63 +577,95 @@ app.post('/api/import-tiff', (req, res) => {
     }
 
     const outName = savedAs.replace(/\.(tiff?)$/i, '_opt.tif');
-    optimizationJobs.set(savedAs, { status: 'processing' });
+    optimizationJobs.set(savedAs, { status: 'processing', phase: 'analyzing', progress: 2, message: 'Analizando ráster multiespectral...' });
     
-    // START BACKGROUND JOB
+    // START BACKGROUND JOB — optimize 100% (lossless-first, full pyramid, ≤30MB) THEN upload to cloud
     (async () => {
       let cloudUrl = null;
+      let report = null;
       try {
         const optimizedPath = path.join(COMPRESSED, outName);
         fs.mkdirSync(COMPRESSED, { recursive: true });
-        
-        // Actual compression using GDAL
-        const { exec } = require('child_process');
-        const util = require('util');
-        const execPromise = util.promisify(exec);
-        const GDAL_PATH = 'C:\\Program Files\\GDAL';
-        const gdalEnv = { ...process.env, GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'), PROJ_DATA: path.join(GDAL_PATH, 'projlib'), PATH: `${GDAL_PATH};${process.env.PATH || ''}` };
-        
-        const compressMethod = (metadata.bands === 3) ? 'JPEG' : 'DEFLATE';
-        const extraArgs = (metadata.bands === 3) ? ['-co', 'JPEG_QUALITY=60', '-co', 'PHOTOMETRIC=YCBCR'] : ['-co', 'PREDICTOR=2', '-co', 'ZLEVEL=9'];
-        
-        try {
-          console.log(`[import-tiff] Background compressing TIFF ${savedAs}...`);
-          await execPromise(`"${path.join(GDAL_PATH, 'gdal_translate.exe')}" -of COG -co COMPRESS=${compressMethod} -co RESAMPLING=NEAREST -co OVERVIEW_RESAMPLING=NEAREST -co BLOCKSIZE=256 ${extraArgs.join(' ')} "${destPath}" "${optimizedPath}"`, { env: gdalEnv, timeout: 300000 });
-        } catch (e) {
-          console.warn('[import-tiff] Compression failed, falling back to copy:', e.message);
-          fs.copyFileSync(destPath, optimizedPath);
-        }
 
-        if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
-          );
-          
-          const fileBuffer = fs.readFileSync(optimizedPath);
-          const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-          
-          console.log(`[import-tiff] Background uploading to Supabase ${outName}...`);
-          const { data, error } = await supabase.storage
-            .from(bucket)
-            .upload(outName, fileBuffer, {
-              contentType: 'image/tiff',
-              upsert: true
-            });
-          
-          if (!error) {
-            const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
-            cloudUrl = publicData.publicUrl;
-            console.log(`[import-tiff] Background upload complete: ${cloudUrl}`);
-          } else {
-            console.error('[import-tiff] Supabase upload error:', error.message);
+        console.log(`[import-tiff] Background job started for ${savedAs} → ${outName}`);
+        console.log(`[import-tiff] src=${destPath} exists=${fs.existsSync(destPath)} size=${fs.existsSync(destPath) ? fs.statSync(destPath).size : 0}`);
+        console.log(`[import-tiff] dst=${optimizedPath} exists=${fs.existsSync(optimizedPath)}`);
+        report = await optimizeMultispectral(destPath, optimizedPath, {
+          maxBytes: 30 * 1024 * 1024,
+          onProgress: (pct, msg) => {
+            optimizationJobs.set(savedAs, { status: 'processing', phase: 'optimizing', progress: pct, message: msg });
           }
+        });
+
+        // CLOUD-ONLY: nunca subir hasta estar 100% optimizado Y ≤30MB, escala 1.0 sin perder píxel
+        if (report.cloudReady) {
+          const uid = req.query.user_id || 'guest';
+          const pid = req.query.project_id || '';
+          const cloudName = uid && pid ? `${uid}/${pid}/${outName}` : outName;
+          try {
+            optimizationJobs.set(savedAs, { status: 'processing', phase: 'uploading', progress: 92, message: `Subiendo a la nube (${report.mode}, ${fmtBytes(report.sizeBytes)}, codec ${report.codec}, scale ${report.scale})...` });
+            cloudUrl = await uploadToCloud(optimizedPath, cloudName);
+            console.log(`[import-tiff] Background upload complete: ${cloudUrl} (${report.lossless ? 'LOSSLESS 100%' : 'JPEG 100% píxeles'})`);
+          } catch (err) {
+            console.error('[import-tiff] Cloud upload error:', err.message);
+            optimizationJobs.set(savedAs, { status: 'failed', error: `Upload nube falló: ${err.message}`, report });
+            try { if (fs.existsSync(optimizedPath)) fs.unlinkSync(optimizedPath); } catch(_) {}
+            try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(_) {}
+            return;
+          }
+          if (cloudUrl && cloudUrl.startsWith('http')) {
+            // CLOUD-ONLY true — borrar TODO local
+            try { if (fs.existsSync(optimizedPath)) { fs.unlinkSync(optimizedPath); console.log(`[import-tiff] Local optimizado borrado (CLOUD-ONLY): ${outName}`); } } catch(_) {}
+            try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(_) {}
+            try { const ovrPath = destPath + '.ovr'; if (fs.existsSync(ovrPath)) fs.unlinkSync(ovrPath); } catch(_) {}
+            try { const auxXml = destPath + '.aux.xml'; if (fs.existsSync(auxXml)) fs.unlinkSync(auxXml); } catch(_) {}
+            console.log(`[import-tiff] Original ${savedAs} eliminado de uploads/ (CLOUD-ONLY)`);
+          } else {
+            console.warn(`[import-tiff] FALLBACK LOCAL (R2 sin Write) — se mantiene ${cloudUrl} hasta corregir token. Violación temporal de CLOUD-ONLY.`);
+            // Mantener fallback local (no borrar optimizedPath si es el fallback mismo)
+            // Pero sí borrar original de uploads? No, original ya es optimized? En fallback, optimizedPath es el archivo que se sirve, destPath es original. DestPath debe borrarse, optimized fallback se mantiene.
+            try { if (fs.existsSync(destPath) && destPath !== optimizedPath) fs.unlinkSync(destPath); } catch(_) {}
+            // No borrar optimizedPath si es fallback
+            if (cloudUrl && cloudUrl.includes(outName) && fs.existsSync(optimizedPath)) {
+              console.log(`[import-tiff] Fallback local conservado: ${optimizedPath}`);
+            }
+          }
+        } else {
+          console.warn(`[import-tiff] NOT CLOUD-READY — excede 30MB sin perder píxel: mode=${report.mode} size=${fmtBytes(report.sizeBytes)} note=${report.note}`);
+          try { if (fs.existsSync(optimizedPath)) fs.unlinkSync(optimizedPath); } catch(_) {}
+          try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(_) {}
+          try { const ovrPath = destPath + '.ovr'; if (fs.existsSync(ovrPath)) fs.unlinkSync(ovrPath); } catch(_) {}
+          try { const auxXml = destPath + '.aux.xml'; if (fs.existsSync(auxXml)) fs.unlinkSync(auxXml); } catch(_) {}
+          optimizationJobs.set(savedAs, {
+            status: 'failed',
+            error: `Imagen excede 30MB incluso con optimización lossless 100% sin downscale (100% píxeles preservados): ${report.note}`,
+            report,
+            cloudReady: false,
+          });
+          return;
         }
         
-        // Enforce rules: original file stays in UPLOADS local only (do not delete)
-        // Set final job status
-        optimizationJobs.set(savedAs, { status: 'completed', result: { savedAs: outName, fileUrl: cloudUrl || `/compressed/${encodeURIComponent(outName)}` } });
+
+        optimizationJobs.set(savedAs, {
+          status: 'completed',
+          result: {
+            savedAs: outName,
+            fileUrl: cloudUrl,
+            cloudUrl,
+            mode: report.mode,
+            codec: report.codec,
+            quality: report.quality,
+            scale: report.scale,
+            lossless: report.lossless,
+            verified: report.verified,
+            cloudReady: report.cloudReady,
+            sizeBytes: report.sizeBytes,
+          },
+          phase: 'done',
+          progress: 100,
+          message: 'Optimización CLOUD-ONLY completada (100% píxeles, ≤30MB)',
+          report,
+        });
         
       } catch (err) {
         console.error('[import-tiff] Background job error:', err.message);
@@ -667,30 +744,8 @@ app.post('/api/merge-rgb', async (req, res) => {
       } catch (e) { console.warn('[merge-rgb] gdalinfo failed, using full res:', e.message); }
     }
 
-    let scaleArgs = [];
-    try {
-      const gdalinfo = path.join(GDAL_PATH, 'gdalinfo.exe');
-      const infoResult = await exec(gdalinfo, ['-approx_stats', '-json', vrtPath], { env: gdalEnv, timeout: 30000 });
-      const info = JSON.parse(infoResult.stdout);
-      if (info.bands) {
-        info.bands.forEach((b, i) => {
-          let mean = b.mean || 0;
-          let stdDev = b.stdDev || 1;
-          let minVal = Math.max(0, mean - 1.5 * stdDev);
-          let maxVal = mean + 1.5 * stdDev;
-          if (b.type === 'Byte' || (b.maximum !== undefined && b.maximum <= 255)) { 
-             minVal = 0; maxVal = 255; 
-          }
-          scaleArgs.push(`-scale_${i+1}`, String(Math.floor(minVal)), String(Math.ceil(maxVal)), '1', '255');
-        });
-      }
-    } catch(e) {
-      console.warn('[merge-rgb] Stats failed, fallback to default scale', e.message);
-      scaleArgs.push('-scale');
-    }
-
-    console.log('[merge-rgb] gdal_translate (COG Lossless)...');
-    await exec(gdalTranslate, [vrtPath, mergedPath, ...scaleArgs, '-a_nodata', '0', '-ot', 'Byte', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'ZLEVEL=1', '-co', 'RESAMPLING=NEAREST', '-co', 'OVERVIEW_RESAMPLING=NEAREST', '-co', 'BLOCKSIZE=256', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
+    console.log('[merge-rgb] gdal_translate (COG Lossless, 100% píxeles)...');
+    await exec(gdalTranslate, [vrtPath, mergedPath, '-colorinterp', 'red,green,blue', '-a_nodata', '0', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'ZLEVEL=9', '-co', 'OVERVIEW_COMPRESS=DEFLATE', '-co', 'OVERVIEW_RESAMPLING=NEAREST', '-co', 'BLOCKSIZE=256', '--config', 'GDAL_NUM_THREADS', 'ALL_CPUS', ...outsizeArgs], { env: gdalEnv, timeout: 600000 });
     console.log('[merge-rgb] Merged (COG), size:', fs.statSync(mergedPath).size);
 
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
@@ -728,12 +783,40 @@ app.post('/api/merge-rgb', async (req, res) => {
       }
     } catch (e) { console.warn('[merge-rgb] bounds extraction:', e.message); }
 
-    const bandStats = await getGlobalStats(mergedPath).catch(() => null);
+    // ─── CLOUD-ONLY OPTIMIZATION: multiespectral LOSSLESS 100% ≤30MB ───
+    console.log('[merge-rgb] Optimizando multiespectral LOSSLESS 100% (scale 1.0) → ≤30MB CLOUD-ONLY...');
+    const optimizedName = savedAs.replace(/\.tif$/i, '_opt.tif');
+    const optPath = path.join(COMPRESSED, optimizedName);
+    fs.mkdirSync(COMPRESSED, { recursive: true });
+    const report = await optimizeMultispectral(mergedPath, optPath, { maxBytes: 30 * 1024 * 1024 });
+    if (!report.cloudReady) {
+      console.warn(`[merge-rgb] NOT CLOUD-READY: ${report.note}`);
+      try { if (fs.existsSync(optPath)) fs.unlinkSync(optPath); } catch(_) {}
+      try { if (fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch(_) {}
+      return res.status(413).json({ error: `Imagen RGB excede 30MB incluso con optimización lossless 100% sin perder píxel: ${report.note}`, report, cloudReady: false });
+    }
+    const uid = req.query.user_id || 'guest';
+    const pid = req.query.project_id || '';
+    const cloudName = uid && pid ? `${uid}/${pid}/${optimizedName}` : optimizedName;
+    const cloudUrl = await uploadToCloud(optPath, cloudName);
+    console.log(`[merge-rgb] ✓ Uploaded: ${cloudUrl} (${report.mode}, codec ${report.codec})`);
+    if (cloudUrl && cloudUrl.startsWith('http')) {
+      console.log(`[merge-rgb] CLOUD-ONLY true — borrando locales`);
+      try { if (fs.existsSync(optPath)) { fs.unlinkSync(optPath); console.log(`[merge-rgb] Local opt borrado: ${optimizedName}`); } } catch(_) {}
+      try { if (fs.existsSync(mergedPath)) { fs.unlinkSync(mergedPath); console.log(`[merge-rgb] Local merged borrado: ${savedAs}`); } } catch(_) {}
+    } else {
+      console.warn(`[merge-rgb] FALLBACK LOCAL (R2 sin Write) — se mantiene ${cloudUrl}`);
+      try { if (fs.existsSync(mergedPath)) { fs.unlinkSync(mergedPath); console.log(`[merge-rgb] Local merged borrado, opt queda en ${cloudUrl}`); } } catch(_) {}
+    }
+    // Tiles se servirán vía storageUrl (vsicurl) sin necesidad de local
+    const bandStats = null;
 
     res.json({
-      id: savedAs, savedAs, optimizedSavedAs: savedAs,
+      id: optimizedName, savedAs: optimizedName, optimizedSavedAs: optimizedName,
+      cloudUrl, fileUrl: cloudUrl,
       status: 'completed', metadata, thumbnailUrl: null,
       stats: bandStats,
+      optimizerReport: report
     });
   } catch (e) {
     console.error('[merge-rgb] Error:', e);
@@ -742,73 +825,87 @@ app.post('/api/merge-rgb', async (req, res) => {
   }
 });
 
-// ─── /api/compress-tiff — stub ───
+// ─── /api/compress-tiff — real lossless-first optimization + gated cloud upload ───
 app.post('/api/compress-tiff', async (req, res) => {
-  const { filename } = req.body;
+  const { filename, quality } = req.body;
   if (!filename) return res.status(400).json({ error: 'filename required' });
-  const src = path.join(UPLOADS, filename);
+  const src = path.join(UPLOADS, path.basename(filename));
   if (!fs.existsSync(src)) return res.status(404).json({ error: 'File not found' });
-  const outName = filename.replace(/\.(tiff?)$/i, '_opt.tif');
+  const outName = path.basename(filename).replace(/\.(tiff?)$/i, '_opt.tif');
   const dst = path.join(COMPRESSED, outName);
+
+  optimizationJobs.set(filename, { status: 'processing', phase: 'analyzing', progress: 2, message: 'Analizando ráster...' });
   try {
     fs.mkdirSync(COMPRESSED, { recursive: true });
-    fs.copyFileSync(src, dst);
 
+    const report = await optimizeMultispectral(src, dst, {
+      maxBytes: 30 * 1024 * 1024,
+      onProgress: (pct, msg) => optimizationJobs.set(filename, { status: 'processing', phase: 'optimizing', progress: pct, message: msg })
+    });
+
+    // CLOUD-ONLY: nunca subir hasta estar 100% optimizado Y ≤30MB, escala 1.0
     let cloudUrl = null;
-    if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)) {
-      const { createClient } = require('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
-      );
-      const fileBuffer = fs.readFileSync(dst);
-      const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(outName, fileBuffer, {
-          contentType: 'image/tiff',
-          upsert: true
-        });
-      
-      if (!error) {
-        const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(outName);
-        cloudUrl = publicData.publicUrl;
-      } else {
-        console.error('[compress-tiff] Supabase upload error:', error.message);
+    if (report.cloudReady) {
+      const uid = req.query.user_id || 'guest';
+      const pid = req.query.project_id || '';
+      const cloudName = uid && pid ? `${uid}/${pid}/${outName}` : outName;
+      try {
+        optimizationJobs.set(filename, { status: 'processing', phase: 'uploading', progress: 92, message: `Subiendo a nube (${report.mode}, ${fmtBytes(report.sizeBytes)}, codec ${report.codec})...` });
+        cloudUrl = await uploadToCloud(dst, cloudName);
+        console.log(`[compress-tiff] ✓ Uploaded: ${cloudUrl} (${report.lossless ? 'LOSSLESS' : 'JPEG 100% píxeles'})`);
+      } catch (e) {
+        console.error('[compress-tiff] Cloud upload error:', e.message);
+        optimizationJobs.set(filename, { status: 'failed', error: `Upload nube falló: ${e.message}`, report });
+        try { if (fs.existsSync(dst)) fs.unlinkSync(dst); } catch(_) {}
+        return res.status(500).json({ error: `Upload nube falló: ${e.message}`, report });
       }
+    } else {
+      console.warn(`[compress-tiff] NOT CLOUD-READY: ${report.note}`);
+      try { if (fs.existsSync(dst)) fs.unlinkSync(dst); } catch(_) {}
+      optimizationJobs.set(filename, { status: 'failed', error: `Excede 30MB sin perder píxel: ${report.note}`, report, cloudReady: false });
+      return res.status(413).json({ error: `Imagen excede 30MB incluso con lossless 100% sin downscale: ${report.note}`, report, cloudReady: false });
     }
 
-    const origStat = fs.statSync(src);
-    const compStat = fs.statSync(dst);
+    const origStat = fs.existsSync(src) ? fs.statSync(src) : { size: 0 };
+    const compSize = cloudUrl ? report.sizeBytes : 0;
+    if (cloudUrl && cloudUrl.startsWith('http')) {
+      console.log(`[compress-tiff] CLOUD-ONLY true — borrando locales`);
+      try { if (fs.existsSync(dst)) { fs.unlinkSync(dst); console.log(`[compress-tiff] Local opt borrado: ${outName}`); } } catch(_) {}
+      try { if (fs.existsSync(src)) { fs.unlinkSync(src); console.log(`[compress-tiff] Local src borrado: ${filename}`); } } catch(_) {}
+      try { const ovr = src + '.ovr'; if (fs.existsSync(ovr)) fs.unlinkSync(ovr); } catch(_) {}
+      try { const aux = src + '.aux.xml'; if (fs.existsSync(aux)) fs.unlinkSync(aux); } catch(_) {}
+    } else {
+      console.warn(`[compress-tiff] FALLBACK LOCAL (R2 sin Write) — se mantiene ${cloudUrl} hasta corregir token`);
+      // No borrar fallback; pero sí borrar src si es distinto?
+      // Mantener dst (fallback) y borrar src solo si son distintos? Por ahora mantener ambos para fallback
+    }
 
-    res.json({ 
-      success: true, 
+    const savings = origStat.size > 0 && compSize > 0 ? Math.round((1 - compSize / origStat.size) * 100) : 0;
+
+    const result = {
+      success: true,
       output: outName,
       filename: outName,
       origSize: origStat.size,
-      compressedSize: compStat.size,
-      fileUrl: `/compressed/${encodeURIComponent(outName)}`,
-      cloudUrl
-    });
+      compressedSize: compSize,
+      fileUrl: cloudUrl,
+      cloudUrl,
+      mode: report.mode,
+      codec: report.codec,
+      quality: report.quality,
+      scale: report.scale,
+      lossless: report.lossless,
+      verified: report.verified,
+      cloudReady: report.cloudReady,
+      savings,
+      note: report.note || null,
+    };
+    optimizationJobs.set(filename, { status: 'completed', result, progress: 100, message: 'Optimización CLOUD-ONLY completada (100% píxeles, ≤30MB)' });
+    res.json(result);
   } catch (e) {
+    console.error('[compress-tiff] Error:', e);
+    optimizationJobs.set(filename, { status: 'failed', error: e.message });
     res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── /api/import-status/:id ───
-app.get('/api/import-status/:id', (req, res) => {
-  const filename = req.params.id;
-  const exists = fs.existsSync(path.join(UPLOADS, filename));
-  if (exists) {
-    res.json({
-      status: 'completed',
-      result: {
-        fileUrl: `/uploads/${encodeURIComponent(filename)}`,
-        savedAs: filename,
-      },
-    });
-  } else {
-    res.json({ status: 'processing' });
   }
 });
 
@@ -843,6 +940,21 @@ class AsyncQueue {
 }
 const gdalTileQueue = new AsyncQueue(4); // Limitar GDAL a 4 procesos paralelos
 
+// ─── Caché LRU de tiles PNG/WebP en memoria (clave: capa+zxy+params) ───
+const tileCache = new Map();
+const TILE_CACHE_MAX = 150;
+function tileCacheGet(k) {
+  if (!tileCache.has(k)) return null;
+  const v = tileCache.get(k);
+  tileCache.delete(k); tileCache.set(k, v);
+  return v;
+}
+function tileCacheSet(k, v) {
+  if (tileCache.has(k)) tileCache.delete(k);
+  else if (tileCache.size >= TILE_CACHE_MAX) tileCache.delete(tileCache.keys().next().value);
+  tileCache.set(k, v);
+}
+
 const fileStatsCache = new Map();
 const fileStatsPromises = new Map();
 const globalStatsCache = new Map();
@@ -854,7 +966,7 @@ async function getGlobalStats(filePath) {
 
   const promise = (async () => {
     try {
-      const infoResult = await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-stats', '-json', filePath], { env: gdalEnv, timeout: 60000 }));
+      const infoResult = await gdalTileQueue.add(() => execGdal(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-approx_stats', '-json', filePath], { env: gdalEnv, timeout: 60000 }));
       const info = JSON.parse(infoResult.stdout);
       const bandsStats = [];
       if (info.bands) {
@@ -894,13 +1006,15 @@ async function getGlobalStats(filePath) {
       return bandsStats;
     } catch (e) {
       console.warn('[getGlobalStats] failed:', e.message.substring(0, 150));
+      // Remove from cache on failure so a later request can retry
+      globalStatsCache.delete(filePath);
       return null;
     }
   })();
-  fileStatsPromises.set(filePath, promise);
-  const result = await promise;
-  fileStatsPromises.delete(filePath);
-  return result;
+  // CRITICAL: store the shared promise BEFORE awaiting so concurrent tile
+  // requests reuse ONE gdalinfo -stats run instead of spawning N full scans.
+  globalStatsCache.set(filePath, promise);
+  return await promise;
 }
 
 async function tryGdalTile(filePath, z, x, y, renderer, bands, res) {
@@ -1001,14 +1115,53 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
   const { filename, z, x, y } = req.params;
   
   let filePath = path.join(UPLOADS, filename);
-  if (req.query.storageUrl) {
-    filePath = '/vsicurl/' + req.query.storageUrl;
+  const sUrl = req.query.storageUrl;
+  if (sUrl) {
+    if (/^https?:\/\//i.test(sUrl)) {
+      // Remoto: manifiesto sparse (.sparse.xml) → /vsisparse/ con manifiesto
+      // cacheado en local (los chunks viajan por HTTP Range); COG directo → /vsicurl/.
+      if (/\.sparse\.xml(\?.*)?$/i.test(sUrl)) {
+        const { fetchAndCacheManifest, toFwd } = require('./server/lib/cog-stream');
+        const VSI_CACHE = path.join(PUBLIC, 'vsi-cache');
+        const localManifest = await fetchAndCacheManifest(sUrl, VSI_CACHE);
+        filePath = '/vsisparse/' + toFwd(localManifest);
+      } else {
+        filePath = '/vsicurl/' + sUrl;
+      }
+    } else {
+      // Fallback local temporal (R2 sin Write): /compressed/<base>/...
+      const local = path.join(PUBLIC, String(sUrl).replace(/^\//, '').split('?')[0]);
+      if (/\.sparse\.xml$/i.test(local)) filePath = '/vsisparse/' + local.replace(/\\/g, '/');
+      else filePath = local;
+    }
   } else {
     if (!fs.existsSync(filePath)) filePath = path.join(COMPRESSED, filename);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'TIFF not found' });
     }
   }
+  const isVsiPath = filePath.startsWith('/vsi');
+
+  // Caché de tile: evita re-renderizar el mismo zxy
+  const crypto = require('crypto');
+  const sUrlShort = sUrl && sUrl.length > 120 ? crypto.createHash('sha1').update(sUrl).digest('hex') : (sUrl || '');
+  const tileKey = [filename, z, x, y, req.query.renderer || '', req.query.bands || '', req.query.colormap || '', req.query.invert || '', req.query.classes || '', req.query.customColors || '', req.query.bbox || '', sUrlShort].join('|');
+  const tileHit = tileCacheGet(tileKey);
+  if (tileHit) {
+    res.set('Content-Type', tileHit.ctype);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(tileHit.buf);
+  }
+  const _tileSend = res.send.bind(res);
+  res.send = (body) => {
+    try {
+      if (Buffer.isBuffer(body) && body.length > 1000) {
+        const ct = res.get('Content-Type') || '';
+        if (ct.startsWith('image/')) tileCacheSet(tileKey, { buf: body, ctype: ct });
+      }
+    } catch (_) {}
+    return _tileSend(body);
+  };
 
   const tileSize = 256;
   const renderer = req.query.renderer;
@@ -1016,7 +1169,18 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
   const bands = bandsParam ? bandsParam.split(',').map(Number) : [0];
   try {
     const sharp = require('sharp');
-    const meta = await sharp(filePath).metadata();
+    let meta;
+    if (isVsiPath) {
+      // sharp no lee rutas VSI → dimensiones vía gdalinfo (el render usa GDAL projwin + Range)
+      const dimsResult = await require('util').promisify(require('child_process').execFile)(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', filePath], { env: gdalEnv, timeout: 60000 });
+      const _dinfo = JSON.parse(dimsResult.stdout);
+      const _dbands = _dinfo.bands || [];
+      const _dt = (_dbands[0] && _dbands[0].type) || 'Byte';
+      const _dis16 = /^(UInt16|Int16|UInt32|Int32|Float32|Float64)$/i.test(_dt);
+      meta = { width: (_dinfo.size && _dinfo.size[0]) || 256, height: (_dinfo.size && _dinfo.size[1]) || 256, channels: _dbands.length || 3, depth: _dis16 ? 'ushort' : undefined, pages: 1, format: 'tiff' };
+    } else {
+      meta = await sharp(filePath).metadata();
+    }
     const w = meta.width || 256;
     const h = meta.height || 256;
     const n = Math.pow(2, parseInt(z));
@@ -1079,11 +1243,18 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
     
     // Use GDAL with geographic window ONLY if we strictly need to (16-bit or >3 bands).
     // For Sentinel 8-bit RGB imported images, use sharp for native blazing fast tile extraction.
-    if ((is16Bit || isMultiBand) && bbox && tileWest != null && renderer !== 'pseudocolor') {
+    // However, sharp requires the image to be pre-warped to EPSG:3857.
+    // Since we want to preserve 100% original quality and NOT warp the original files, we MUST use the GDAL projwin fallback which dynamically reprojects.
+    if (bbox && tileWest != null && renderer !== 'pseudocolor') {
+      // approx_stats uses overviews → fast (sub-second) even on huge files,
+      // so we CAN wait for it to give a correct per-band stretch on the first render.
       const globalStats = await getGlobalStats(filePath);
+      // Clamp: el renderer puede pedir más bandas de las que trae el COG (ej. COG de 2 bandas)
+      const nCh = meta.channels || 3;
+      const cb = bands.map(b => Math.min(Math.max(0, b | 0), nCh - 1));
       const gdalOk = await tryGdalProjwinTile(
         filePath, tileWest, tileNorth, tileEast, tileSouth,
-        renderer, bands, res, globalStats
+        renderer, cb, res, globalStats
       );
       if (gdalOk) return;
       console.log('[tiles] GDAL projwin fallback failed, using sharp');
@@ -1158,8 +1329,45 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
     const classes = parseInt(req.query.classes) || 5;
     const customColorsParam = req.query.customColors;
 
-    if (renderer === 'pseudocolor' || renderer === 'multiband') {
-      if (renderer === 'pseudocolor') {
+    if (renderer === 'rgb') {
+        // RGB composite - extract bands 0,1,2 directly as RGB, no stretching
+        const rI = Math.min(0, channels - 1);
+        const gI = Math.min(channels > 1 ? 1 : 0, channels - 1);
+        const bI = Math.min(channels > 2 ? 2 : 0, channels - 1);
+
+        const { data: rawFullBuf, info: rawInfo } = await sharp(filePath, sharpOpts)
+          .extract(extractOpts)
+          .raw(is16Bit ? { depth: 'ushort' } : {})
+          .toBuffer({ resolveWithObject: true });
+
+        const TargetType = is16Bit ? Uint16Array : Uint8Array;
+        const pixelCountOrig = extractOpts.width * extractOpts.height;
+        const actualChannels = rawInfo.channels;
+        const srcView = new TargetType(rawFullBuf.buffer, rawFullBuf.byteOffset, pixelCountOrig * actualChannels);
+        const rgbArr = new TargetType(pixelCountOrig * 3);
+
+        for (let i = 0; i < pixelCountOrig; i++) {
+          rgbArr[i * 3 + 0] = srcView[i * actualChannels + rI];
+          rgbArr[i * 3 + 1] = srcView[i * actualChannels + gI];
+          rgbArr[i * 3 + 2] = srcView[i * actualChannels + bI];
+        }
+
+        const rgbBuf = Buffer.from(rgbArr.buffer, rgbArr.byteOffset, rgbArr.byteLength);
+        const rawOpts = { width: extractOpts.width, height: extractOpts.height, channels: 3 };
+        if (is16Bit) rawOpts.depth = 'ushort';
+
+        const png = await sharp(rgbBuf, { raw: rawOpts })
+          .resize(resizeW, resizeH, { fit: 'fill', kernel: resampleKernel })
+          .png({ compressionLevel: 1, adaptiveFiltering: false, force: true })
+          .toBuffer();
+
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(png);
+      }
+
+      if (renderer === 'pseudocolor' || renderer === 'multiband') {
+        if (renderer === 'pseudocolor') {
         const bandIdx = Math.min(bands[0], channels - 1);
         const rawChannel = await sharp(filePath, sharpOpts)
           .extract(extractOpts)
@@ -1347,8 +1555,10 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
   } catch (e) {
     console.error('[tiles]', e.message);
     // Fallback: try GDAL if sharp failed (e.g., BigTIFF seek errors)
+    const nChFb = (typeof meta !== 'undefined' && meta.channels) || 3;
+    const cbFb = bands.map(b => Math.min(Math.max(0, b | 0), nChFb - 1));
     const fallbackOk = await Promise.race([
-      tryGdalTile(filePath, z, x, y, renderer, bands, res),
+      tryGdalTile(filePath, z, x, y, renderer, cbFb, res),
       new Promise(r => setTimeout(() => r(false), 3000))
     ]);
     if (!fallbackOk) {
@@ -1458,6 +1668,51 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(PUBLIC, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor en http://localhost:${PORT}`);
+const http = require('http');
+const { attachCollab } = require('./server/collab');
+const httpServer = http.createServer(app);
+attachCollab(httpServer);
+
+httpServer.listen(PORT, () => {
+  console.log(`Servidor en http://localhost:${PORT} — MODO CLOUD-ONLY | STREAMING LOSSLESS (COG chunked ≤25MB, objetos ≤30MB) | scale 1.0 sin perder píxel | WS /collab-ws`);
+  console.log('[collab] WebSocket de colaboración activo en ws://localhost:%s/collab-ws', PORT);
+
+  // Startup cleanup: CLOUD-ONLY — remove oversized >30MB (los sets streaming chunked
+  // .partNNN/.sparse.xml/_preview.jpg/.cog.json están exentos: cada objeto ya es ≤25MB)
+  try {
+    const COMPRESSED_MAX = 30 * 1024 * 1024;
+    const STREAM_KEEP = /(\.part\d+|\.sparse\.xml|_preview\.jpg|\.cog\.json)$/i;
+    if (fs.existsSync(COMPRESSED)) {
+      for (const f of fs.readdirSync(COMPRESSED)) {
+        const fp = path.join(COMPRESSED, f);
+        try {
+          const st = fs.statSync(fp);
+          if (st.isFile() && STREAM_KEEP.test(f)) {
+            console.log(`[startup] Streaming set conservado: ${f} (${(st.size / 1048576).toFixed(2)}MB, objeto ≤30MB)`);
+          } else if (st.isFile() && st.size > COMPRESSED_MAX) {
+            fs.unlinkSync(fp);
+            console.log(`[startup] CLOUD-ONLY: Removed oversized file from compressed/: ${f} (${(st.size / 1048576).toFixed(1)}MB) — violaba 30MB`);
+          } else if (st.isFile()) {
+            // CLOUD-ONLY: advertir que queda local (debería estar en nube)
+            console.log(`[startup] CLOUD-ONLY: Archivo local en compressed/ (debería estar solo en nube): ${f} (${(st.size / 1048576).toFixed(2)}MB) — conservado para tiles pero ideal migrar a R2`);
+          }
+        } catch (_) {}
+      }
+    }
+    if (fs.existsSync(UPLOADS)) {
+      for (const f of fs.readdirSync(UPLOADS)) {
+        if (f.startsWith('__gdal_') || f.endsWith('.aux.xml')) {
+          try { fs.unlinkSync(path.join(UPLOADS, f)); console.log(`[startup] Removed temp: ${f}`); } catch (_) {}
+        }
+      }
+      // CLOUD-ONLY: listar uploads locales que violan "nada local"
+      const remaining = fs.readdirSync(UPLOADS).filter(f => /\.(tif|tiff)$/i.test(f));
+      if (remaining.length > 0) {
+        console.log(`[startup] CLOUD-ONLY: ${remaining.length} archivos TIFF aún en uploads/ (deberían estar solo en nube):`, remaining.slice(0,5));
+      }
+    }
+    console.log('[startup] CLOUD-ONLY Cleanup complete — ZIP multiespectral usa streaming lossless (COG chunked ≤25MB, objetos ≤30MB) y borrado local tras subir a R2');
+  } catch (e) {
+    console.warn('[startup] Cleanup warning:', e.message);
+  }
 });

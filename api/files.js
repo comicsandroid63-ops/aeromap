@@ -1,27 +1,27 @@
-const { createClient } = require('@supabase/supabase-js');
+const { getDb } = require('./db');
+const fs = require('fs');
+const path = require('path');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-let supabase = null;
-let supabaseAdmin = null;
-try {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  }
-} catch (e) {
-  console.warn('[Files] Supabase no configurado:', e.message);
+const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
+
+const GUEST_UUID = '00000000-0000-0000-0000-000000000000';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toValidUuid(val, fallback = null) {
+  if (!val) return fallback;
+  if (val === 'guest') return GUEST_UUID;
+  if (UUID_REGEX.test(val)) return val;
+  return fallback;
 }
 
 module.exports = async (req, res) => {
-  if (!supabase) {
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
     return res.status(200).json([]);
   }
 
-  // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -31,42 +31,34 @@ module.exports = async (req, res) => {
   }
 
   const { user_id, project_id } = req.query;
-  const storagePath = (user_id && project_id) ? `${user_id}/${project_id}` : '';
 
   if (req.method === 'DELETE' || (req.method === 'POST' && req.query.action === 'delete')) {
-    let name, fileStoragePath;
+    let name, storagePath;
     if (req.method === 'DELETE') {
       name = req.query.name;
-      fileStoragePath = req.query.storagePath;
+      storagePath = req.query.storagePath;
     } else {
       const body = req.body || {};
       name = body.name || req.query.name;
-      fileStoragePath = body.storagePath || req.query.storagePath;
+      storagePath = body.storagePath || req.query.storagePath;
     }
-    console.log('[Files] Delete request:', { name, fileStoragePath });
+    
     if (!name) return res.status(400).json({ error: 'name is required' });
-    const client = supabaseAdmin || supabase;
-    const filePath = fileStoragePath || (storagePath ? `${storagePath}/${name}` : name);
-    console.log(`[Files] Deleting path: "${filePath}" from bucket: "${process.env.SUPABASE_BUCKET || 'shapefiles'}"`);
-    const { error, data } = await client.storage
-      .from(process.env.SUPABASE_BUCKET || 'shapefiles')
-      .remove([filePath]);
-    console.log('[Files] Delete result:', { error, data });
-
-    // También borrar la entrada de la tabla layers si existe
-    if (!error && fileStoragePath) {
-      const tableName = process.env.SUPABASE_LAYERS_TABLE || 'layers';
-      const { error: layerError } = await supabase
-        .from(tableName)
-        .delete()
-        .match({ storage_url: fileStoragePath });
-      if (layerError) console.warn('[Files] Error deleting layer entry:', layerError.message);
+    
+    const filePath = storagePath || name;
+    const fullPath = path.join(UPLOADS_DIR, filePath);
+    
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
     }
 
-    if (error) {
-      console.error('[Files] Delete error:', error);
-      return res.status(500).json({ error: error.message });
+    if (storagePath) {
+      await db.execute({
+        sql: 'DELETE FROM layers WHERE storage_url = ?',
+        args: [storagePath]
+      });
     }
+
     return res.status(200).json({ success: true });
   }
 
@@ -74,55 +66,48 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Obtener capas activas de la tabla layers
-  const tableName = process.env.SUPABASE_LAYERS_TABLE || 'layers';
-  let layerQuery = supabase.from(tableName).select('*');
-  if (project_id) {
-    layerQuery = layerQuery.eq('project_id', project_id);
-  }
-  if (user_id) layerQuery = layerQuery.eq('user_id', user_id);
+  let query = 'SELECT * FROM layers';
+  const conditions = [];
+  const args = [];
   
-  const { data: layersData, error: layersError } = await layerQuery.order('created_at', { ascending: false });
-
-  if (layersError) {
-    console.error('[Files] Error querying layers:', layersError);
-    return res.status(500).json({ error: layersError.message });
+  if (project_id) {
+    // Proyecto compartido: se listan TODOS los archivos del proyecto (invitados incluidos)
+    const validPid = toValidUuid(project_id, null);
+    if (validPid) {
+      conditions.push('project_id = ?');
+      args.push(validPid);
+    } else {
+      conditions.push('project_id IS NULL');
+    }
+  } else if (user_id) {
+    conditions.push('user_id = ?');
+    args.push(toValidUuid(user_id, GUEST_UUID));
   }
+  
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  query += ' ORDER BY created_at DESC';
 
-  console.log('[Files] Query params:', { user_id, project_id });
-  console.log('[Files] Layers found:', layersData?.length || 0);
-  console.log('[Files] Layers with storage_url:', layersData?.filter(l => l.storage_url).length || 0);
+  const { rows: layersData } = await db.execute({ sql: query, args });
 
-  // Filtrar solo capas con storage_url
   const layersWithStorage = (layersData || []).filter(l => l.storage_url);
 
-  // Obtener archivos del bucket para verificar existencia
-  const listPath = storagePath ? `${storagePath}/` : '';
-  const { data: bucketFiles, error: bucketError } = await supabase.storage
-    .from(process.env.SUPABASE_BUCKET || 'shapefiles')
-    .list(listPath, { limit: 100 });
-
-  if (bucketError) {
-    console.warn('[Files] Bucket list error:', bucketError);
-  }
-
-  const bucketFileNames = new Set((bucketFiles || []).map(f => f.name));
-
-  // Mapear capas a formato de archivos
   const filesWithStatus = layersWithStorage.map(layer => {
-    const fileName = layer.storage_url.split('/').pop();
-    const fileExists = bucketFileNames.has(fileName) || bucketFiles?.some(f => layer.storage_url.includes(f.name));
+    const fileName = layer.storage_url;
+    const fullPath = path.join(UPLOADS_DIR, fileName);
+    const fileExists = fs.existsSync(fullPath);
     
     return {
-      name: fileName,
-      url: layer.storage_url,
-      storagePath: layer.storage_url,
-      type: layer.type === 'vector' ? 'application/json' : 'image/tiff',
-      isActive: true,
+      name: path.basename(fileName),
+      url: `/uploads/${fileName}`,
+      storagePath: fileName,
+      type: /\.gpkg$/i.test(fileName) ? 'application/geopackage' : (layer.type === 'vector' ? 'application/json' : 'image/tiff'),
+      isActive: layer.visible === 1,
       exists: fileExists
     };
   });
 
-  console.log('[Files] Returning files:', filesWithStatus.length);
   res.status(200).json(filesWithStatus);
 };

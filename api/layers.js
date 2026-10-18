@@ -1,69 +1,149 @@
-const { createClient } = require('@supabase/supabase-js');
+const { getDb } = require('./db');
+const fs = require('fs');
+const path = require('path');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-let supabase = null;
-let supabaseAdmin = null;
-try {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const GUEST_UUID = '00000000-0000-0000-0000-000000000000';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toValidUuid(val, fallback = null) {
+  if (!val) return fallback;
+  if (val === 'guest') return GUEST_UUID;
+  if (UUID_REGEX.test(val)) return val;
+  return fallback;
+}
+
+function normalizeLayerData(data) {
+  const normalized = { ...data };
+  if (normalized.config && !normalized.metadata) {
+    normalized.metadata = normalized.config;
   }
-  if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  }
-} catch (e) {
-  console.warn('[Layers] Supabase no configurado:', e.message);
+  delete normalized.config;
+  normalized.user_id = toValidUuid(normalized.user_id, GUEST_UUID);
+  normalized.project_id = toValidUuid(normalized.project_id, null);
+  return normalized;
 }
 
 module.exports = async (req, res) => {
-  if (!supabase) {
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
     return res.status(200).json([]);
   }
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, POST');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const tableName = process.env.SUPABASE_LAYERS_TABLE || 'layers';
+  const tableName = 'layers';
 
   if (req.method === 'GET') {
     const { project_id, user_id } = req.query;
-    let query = supabase.from(tableName).select('*');
+    let query = 'SELECT * FROM layers';
+    const conditions = [];
+    const args = [];
+    
     if (project_id !== undefined) {
-      if (project_id) {
-        query = query.eq('project_id', project_id);
+      // Proyecto compartido: se devuelven TODAS las capas del proyecto (invitados incluidos)
+      const validPid = toValidUuid(project_id, null);
+      if (validPid) {
+        conditions.push('project_id = ?');
+        args.push(validPid);
       } else {
-        query = query.is('project_id', null);
+        conditions.push('project_id IS NULL');
       }
+    } else if (user_id !== undefined && user_id !== '') {
+      const validUid = toValidUuid(user_id, GUEST_UUID);
+      conditions.push('user_id = ?');
+      args.push(validUid);
     }
-    if (user_id) query = query.eq('user_id', user_id);
-    const { data, error } = await query.order('created_at', { ascending: false });
 
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json(data);
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    query += ' ORDER BY created_at DESC';
+
+    const { rows } = await db.execute({ sql: query, args });
+    
+    const mapped = (rows || []).map(row => {
+      const metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+      return {
+        ...row,
+        config: metadata,
+        metadata
+      };
+    });
+    return res.status(200).json(mapped);
   }
 
   if (req.method === 'POST') {
-    const layerData = req.body;
-    const { data, error } = await supabase
-      .from(tableName)
-      .insert([layerData])
-      .select();
+    const layerData = normalizeLayerData(req.body);
+    const id = crypto.randomUUID();
+    const metadataStr = JSON.stringify(layerData.metadata || {});
+    
+    await db.execute({
+      sql: `INSERT INTO layers (id, user_id, project_id, name, type, storage_url, metadata, visible, opacity) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        id,
+        layerData.user_id || GUEST_UUID,
+        layerData.project_id || null,
+        layerData.name || '',
+        layerData.type || 'raster',
+        layerData.storage_url || null,
+        metadataStr,
+        layerData.visible !== false ? 1 : 0,
+        layerData.opacity || 1.0
+      ]
+    });
 
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json(data[0]);
+    const { rows } = await db.execute({
+      sql: 'SELECT * FROM layers WHERE id = ?',
+      args: [id]
+    });
+
+    const row = rows[0];
+    const metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    return res.status(200).json({
+      ...row,
+      config: metadata,
+      metadata
+    });
   }
 
   if (req.method === 'PUT' || req.method === 'PATCH') {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id required' });
-    const { error } = await supabase.from(tableName).update(req.body).match({ id });
-    if (error) return res.status(500).json({ error: error.message });
+    
+    const updateData = normalizeLayerData(req.body);
+    delete updateData.id;
+    
+    const fields = [];
+    const args = [];
+    
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (key === 'metadata') {
+        fields.push(`${key} = ?`);
+        args.push(JSON.stringify(value || {}));
+      } else {
+        fields.push(`${key} = ?`);
+        args.push(value);
+      }
+    });
+    
+    fields.push("updated_at = datetime('now')");
+    args.push(id);
+    
+    await db.execute({
+      sql: `UPDATE layers SET ${fields.join(', ')} WHERE id = ?`,
+      args
+    });
+    
     return res.status(200).json({ success: true });
   }
 
@@ -71,19 +151,36 @@ module.exports = async (req, res) => {
     const { id, storage_url } = req.query;
 
     if (id) {
-      const { error } = await supabase.from(tableName).delete().match({ id });
-      if (error) return res.status(500).json({ error: error.message });
+      const { rows } = await db.execute({
+        sql: 'SELECT storage_url FROM layers WHERE id = ?',
+        args: [id]
+      });
+      
+      await db.execute({
+        sql: 'DELETE FROM layers WHERE id = ?',
+        args: [id]
+      });
+      
+      if (rows[0]?.storage_url) {
+        const filePath = path.join(__dirname, '..', 'public', 'uploads', rows[0].storage_url);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
     } else if (storage_url) {
-      const { error } = await supabase.from(tableName).delete().match({ storage_url });
-      if (error) return res.status(500).json({ error: error.message });
+      const { rows } = await db.execute({
+        sql: 'SELECT id FROM layers WHERE storage_url = ?',
+        args: [storage_url]
+      });
+      
+      await db.execute({
+        sql: 'DELETE FROM layers WHERE storage_url = ?',
+        args: [storage_url]
+      });
 
-      const bucket = process.env.SUPABASE_BUCKET || 'shapefiles';
-      const fileName = storage_url.split('/').pop();
-      if (fileName) {
-        const client = supabaseAdmin || supabase;
-        await client.storage.from(bucket).remove([fileName]).catch(e =>
-          console.warn('[Layers] No se pudo eliminar archivo del storage:', e.message)
-        );
+      const filePath = path.join(__dirname, '..', 'public', 'uploads', storage_url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
     }
 

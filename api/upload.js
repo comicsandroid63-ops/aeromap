@@ -1,30 +1,34 @@
-const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { getDb } = require('./db');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-let supabase = null;
-let supabaseAdmin = null;
-try {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  }
-} catch (e) {
-  console.warn('[Upload] Supabase no configurado:', e.message);
+const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const upload = multer({ storage: multer.memoryStorage() }).single('file');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const { user_id, project_id } = req.query;
+    const prefix = (user_id && project_id) ? `${user_id}/${project_id}` : '';
+    const dest = prefix ? path.join(UPLOADS_DIR, prefix) : UPLOADS_DIR;
+    
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest, { recursive: true });
+    }
+    
+    cb(null, dest);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage }).single('file');
 
 module.exports = async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Supabase no configurado (faltan SUPABASE_URL / SUPABASE_ANON_KEY)' });
-  }
-
-  // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -49,31 +53,16 @@ module.exports = async (req, res) => {
     const file = req.file;
     const { user_id, project_id } = req.query;
     const prefix = (user_id && project_id) ? `${user_id}/${project_id}` : '';
-    const fileName = prefix ? `${prefix}/${file.originalname}` : file.originalname;
+    const storagePath = prefix ? `${prefix}/${file.originalname}` : file.originalname;
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client.storage
-      .from(process.env.SUPABASE_BUCKET || 'shapefiles')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: true
-      });
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    const { data: publicData } = client.storage
-      .from(process.env.SUPABASE_BUCKET || 'shapefiles')
-      .getPublicUrl(fileName);
+    const url = `/uploads/${storagePath}`;
 
     res.status(200).json({ 
       success: true, 
-      url: publicData.publicUrl, 
+      url, 
       name: file.originalname,
-      id: data.id,
-      storagePath: fileName
+      id: storagePath,
+      storagePath
     });
   });
 };
