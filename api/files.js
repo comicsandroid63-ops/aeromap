@@ -54,8 +54,8 @@ module.exports = async (req, res) => {
 
     if (storagePath) {
       await db.execute({
-        sql: 'DELETE FROM layers WHERE storage_url = ?',
-        args: [storagePath]
+        sql: 'DELETE FROM layers WHERE storage_url = ? OR storage_url = ?',
+        args: [storagePath, `/uploads/${storagePath.replace(/^\/?uploads\//, '')}`]
       });
     }
 
@@ -95,15 +95,30 @@ module.exports = async (req, res) => {
   const layersWithStorage = (layersData || []).filter(l => l.storage_url);
 
   const filesWithStatus = layersWithStorage.map(layer => {
-    const fileName = layer.storage_url;
-    const fullPath = path.join(UPLOADS_DIR, fileName);
+    let rawStorage = layer.storage_url || '';
+    // Normalizar storagePath y url
+    let storagePath = rawStorage;
+    if (storagePath.startsWith('/uploads/')) {
+      storagePath = storagePath.slice('/uploads/'.length);
+    } else if (storagePath.startsWith('uploads/')) {
+      storagePath = storagePath.slice('uploads/'.length);
+    }
+    
+    const fullPath = path.join(UPLOADS_DIR, storagePath);
     const fileExists = fs.existsSync(fullPath);
     
+    const fileUrl = rawStorage.startsWith('http://') || rawStorage.startsWith('https://') 
+      ? rawStorage 
+      : `/uploads/${storagePath}`;
+
+    // Nombre para mostrar: usar layer.name o basename del archivo
+    const displayName = layer.name || path.basename(storagePath);
+    
     return {
-      name: path.basename(fileName),
-      url: `/uploads/${fileName}`,
-      storagePath: fileName,
-      type: /\.gpkg$/i.test(fileName) ? 'application/geopackage' : (layer.type === 'vector' ? 'application/json' : 'image/tiff'),
+      name: displayName,
+      url: fileUrl,
+      storagePath: rawStorage,
+      type: /\.gpkg$/i.test(storagePath) ? 'application/geopackage' : (layer.type === 'vector' ? 'application/json' : 'image/tiff'),
       isActive: layer.visible === 1,
       exists: fileExists
     };

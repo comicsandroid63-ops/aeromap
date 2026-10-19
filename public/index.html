@@ -10711,8 +10711,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
           }
         }
         
-        // Guardar en BD con el storage_url (si existe)
-        saveLayerToDatabase(layer, projId, usrId).catch(e => console.warn('[Persist] Save failed:', e));
+        // Guardar en BD con el storage_url (si existe) y refrescar lista de la nube
+        saveLayerToDatabase(layer, projId, usrId)
+          .then(() => {
+            if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+          })
+          .catch(e => console.warn('[Persist] Save failed:', e));
       }
 
       if (layer.bounds.isValid() && !opts.silent) {
