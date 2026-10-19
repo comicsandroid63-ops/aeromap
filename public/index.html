@@ -5101,13 +5101,25 @@ self.onmessage = async function(e) {
                                 f.start();
                             };
 
-                            const stream = zipFile.stream();
-                            const reader = stream.getReader();
-                            while(true) {
-                                const { done, value } = await reader.read();
-                                if (done) { unzipper.push(new Uint8Array(0), true); break; }
-                                unzipper.push(value);
+                            // Stream or read all chunks once
+                            const zipChunks = [];
+                            const stream = zipFile.stream ? zipFile.stream() : null;
+                            if (stream) {
+                                const reader = stream.getReader();
+                                while(true) {
+                                    const { done, value } = await reader.read();
+                                    if (done) break;
+                                    zipChunks.push(value);
+                                }
+                            } else {
+                                const fullBuf = await zipFile.arrayBuffer();
+                                zipChunks.push(new Uint8Array(fullBuf));
                             }
+
+                            for (const chunk of zipChunks) {
+                                unzipper.push(chunk);
+                            }
+                            unzipper.push(new Uint8Array(0), true);
 
                             const layerList = Object.values(layersMap).filter(l => l.files.shp).map(l => ({
                                 name: l.name, path: l.path, hasDbf: !!l.files.dbf, hasPrj: !!l.files.prj
@@ -5123,18 +5135,25 @@ self.onmessage = async function(e) {
                             
                             // Re-init unzipper for second pass (selective extraction)
                             const unzipper2 = new fflate.Unzip();
-                            const blobChunks = {}; // Using Blobs to avoid memory-heavy Uint8Arrays
+                            const blobChunks = {};
+                            const normalizeP = (p) => (p || '').replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
                             
                             unzipper2.onfile = (f) => {
-                                const matched = selectedLayers.find(sl => sl.path === f.name.substring(0, f.name.length - (f.name.match(/\.[^/.]+$/)?.[0].length || 0)));
+                                const normF = normalizeP(f.name);
+                                const fBase = normF.substring(0, normF.length - (normF.match(/\.[^/.]+$/)?.[0].length || 0));
+                                const matched = selectedLayers.find(sl => {
+                                    const slBase = normalizeP(sl.path);
+                                    return slBase === fBase || slBase.endsWith('/' + fBase) || fBase.endsWith('/' + slBase) || sl.path === f.name.substring(0, f.name.length - (f.name.match(/\.[^/.]+$/)?.[0].length || 0));
+                                });
                                 if (matched) {
                                     const ext = f.name.match(/\.([^.]+)$/)?.[1].toLowerCase();
-                                    if (!blobChunks[matched.path]) blobChunks[matched.path] = {};
-                                    if (!blobChunks[matched.path][ext]) blobChunks[matched.path][ext] = [];
+                                    const storeKey = matched.path;
+                                    if (!blobChunks[storeKey]) blobChunks[storeKey] = {};
+                                    if (!blobChunks[storeKey][ext]) blobChunks[storeKey][ext] = [];
                                     
                                     f.ondata = (err, chunk, final) => {
                                         if (err) throw err;
-                                        blobChunks[matched.path][ext].push(chunk);
+                                        blobChunks[storeKey][ext].push(chunk);
                                     };
                                 } else {
                                     f.ondata = () => {};
@@ -5142,41 +5161,41 @@ self.onmessage = async function(e) {
                                 f.start();
                             };
 
-                            const reader2 = zipFile.stream().getReader();
-                            while(true) {
-                                const { done, value } = await reader2.read();
-                                if (done) { unzipper2.push(new Uint8Array(0), true); break; }
-                                unzipper2.push(value);
+                            for (const chunk of zipChunks) {
+                                unzipper2.push(chunk);
                             }
+                            unzipper2.push(new Uint8Array(0), true);
 
                             self.postMessage({ action: 'progress', message: 'Procesando geometrías...', pct: 80 });
                             
                             const results = [];
                             for (const path of Object.keys(blobChunks)) {
                                 const parts = blobChunks[path];
-                                if (!parts.shp) continue;
+                                if (!parts.shp || parts.shp.length === 0) continue;
 
                                 const shpBlob = new Blob(parts.shp);
                                 const shpArr = await shpBlob.arrayBuffer();
                                 
                                 let dbfArr = null;
-                                if (parts.dbf) {
+                                if (parts.dbf && parts.dbf.length > 0) {
                                     const dbfBlob = new Blob(parts.dbf);
                                     dbfArr = await dbfBlob.arrayBuffer();
                                 }
 
                                 let prjTextData = null;
-                                if (parts.prj) {
+                                if (parts.prj && parts.prj.length > 0) {
                                     const prjBlob = new Blob(parts.prj);
                                     prjTextData = await prjBlob.text();
                                 }
 
-                                const geojson = await shp.combine([shp.parseShp(shpArr), dbfArr ? shp.parseDbf(dbfArr) : null]);
+                                const parsedGeoms = shp.parseShp(shpArr);
+                                const parsedAttrs = dbfArr ? shp.parseDbf(dbfArr) : Array(parsedGeoms.length).fill({});
+                                const geojson = await shp.combine([parsedGeoms, parsedAttrs]);
                                 
-                                const layerInfo = selectedLayers.find(sl => sl.path === path);
+                                const layerInfo = selectedLayers.find(sl => sl.path === path || normalizeP(sl.path) === normalizeP(path));
                                 results.push({ 
                                     name: layerInfo ? layerInfo.name : path.split('/').pop(), 
-                                    path: path, // Track internal path
+                                    path: path,
                                     geojson: await reproject(geojson, prjTextData), 
                                     prjText: prjTextData 
                                 });
@@ -5186,7 +5205,9 @@ self.onmessage = async function(e) {
                         }
                         else if (action === 'processDirect') {
                             if (typeof shp === 'undefined' || !shp.combine || !shp.parseShp) throw new Error("API shpjs incompleta en el worker.");
-                            let geojson = await shp.combine([shp.parseShp(shpBuffer), dbfBuffer ? shp.parseDbf(dbfBuffer) : null]);
+                            const parsedGeoms = shp.parseShp(shpBuffer);
+                            const parsedAttrs = dbfBuffer ? shp.parseDbf(dbfBuffer) : Array(parsedGeoms.length).fill({});
+                            let geojson = await shp.combine([parsedGeoms, parsedAttrs]);
                             geojson = await reproject(geojson, prjText);
                             self.postMessage({ action: 'processResults', results: [{ name, geojson }] });
                         }
@@ -9478,10 +9499,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
             // 1. Ejecución directa en hilo principal con shpjs si está disponible
             if (typeof window.shp !== 'undefined' && typeof window.shp.combine === 'function' && typeof window.shp.parseShp === 'function') {
                 showProgress('Procesando geometrías...', 60, 'Importador Shapefile');
-                let geojson = await window.shp.combine([
-                    window.shp.parseShp(shpBuffer),
-                    dbfBuffer ? window.shp.parseDbf(dbfBuffer) : null
-                ]);
+                const parsedGeoms = window.shp.parseShp(shpBuffer);
+                const parsedAttrs = dbfBuffer ? window.shp.parseDbf(dbfBuffer) : Array(parsedGeoms.length).fill({});
+                let geojson = await window.shp.combine([parsedGeoms, parsedAttrs]);
                 if (prjText) {
                     geojson = await reprojectGeoJSON(geojson, prjText);
                 }
@@ -10492,12 +10512,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function runImportWithWorker(selected, opts) {
       return new Promise((resolve, reject) => {
           if (!shpWorker) {
+            console.warn("[Import] Web Worker no disponible, usando analizador directo");
+            if (_activeZipFile) {
+                fallbackParseZip(_activeZipFile, selected, opts).then(resolve).catch(reject);
+                return;
+            }
             toast("Procesador de datos no disponible.", "error");
             hideProgress();
             return reject(new Error("No worker"));
           }
 
+          let handled = false;
           const watchdog = setTimeout(() => {
+              if (handled) return;
+              handled = true;
+              console.warn("[Import] Worker timeout excedido (60s), intentando fallback en hilo principal...");
+              if (_activeZipFile) {
+                  fallbackParseZip(_activeZipFile, selected, opts).then(resolve).catch(reject);
+                  return;
+              }
               if ($progressOv.classList.contains('opacity-0')) return;
               hideProgress();
               toast("El procesador no responde.", "warning");
@@ -10506,22 +10539,44 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
           const handleResults = async (e) => {
               if (e.data.action === 'processResults') {
-                  for (const item of e.data.results) {
+                  handled = true;
+                  clearTimeout(watchdog);
+                  shpWorker.removeEventListener('message', handleResults);
+                  const results = e.data.results || [];
+                  if (results.length === 0 && _activeZipFile) {
+                      console.warn("[Import] Worker devolvió 0 capas, ejecutando fallback...");
+                      try {
+                          await fallbackParseZip(_activeZipFile, selected, opts);
+                          resolve();
+                      } catch (err) {
+                          reject(err);
+                      }
+                      return;
+                  }
+                  for (const item of results) {
                       let geo = await reprojectGeoJSON(item.geojson, item.prjText);
                       await addVectorLayer(geo, item.name, { ...opts, subLayerPath: item.path });
                   }
-                  clearTimeout(watchdog);
                   hideProgress();
-                  toast(`Importadas ${e.data.results.length} capas`, "success");
-                  shpWorker.removeEventListener('message', handleResults);
+                  toast(`Importadas ${results.length} capas`, "success");
                   resolve();
               } else if (e.data.action === 'progress') {
                   showProgress(e.data.message, e.data.pct);
               } else if (e.data.action === 'error') {
+                  handled = true;
                   clearTimeout(watchdog);
+                  shpWorker.removeEventListener('message', handleResults);
+                  console.warn("[Import] Worker falló (" + e.data.message + "), ejecutando fallback directo...");
+                  if (_activeZipFile) {
+                      fallbackParseZip(_activeZipFile, selected, opts).then(resolve).catch(err => {
+                          hideProgress();
+                          toast(`Error: ${e.data.message}`, 'error');
+                          reject(new Error(e.data.message));
+                      });
+                      return;
+                  }
                   hideProgress();
                   toast(`Error: ${e.data.message}`, 'error');
-                  shpWorker.removeEventListener('message', handleResults);
                   reject(new Error(e.data.message));
               }
           };
