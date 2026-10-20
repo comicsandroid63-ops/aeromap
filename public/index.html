@@ -14059,6 +14059,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const modal = document.getElementById('layoutModal');
         modal.style.display = 'flex';
         
+        setTimeout(() => {
+            ensureLayoutMapInit();
+            syncLayoutMapLayers();
+        }, 150);
+        
         if (!layoutConfig.initialized) {
             const topLayer = state.layers[0];
             if (topLayer) layoutConfig.titleText = `Mapa: ${topLayer.name}`;
@@ -14332,57 +14337,207 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     
     // ══════════════════════════════════════════════════════════════════════════════════
-    // ESTADO Y FUNCIONES PARA MOVER LA VISTA DEL MAPA DESDE DENTRO (PAN & ZOOM)
+    // ══════════════════════════════════════════════════════════════════════════════════
+    // MAPA EN VIVO INTEGRADO EN EL LAYOUT (ACCESO DIRECTO AL MAPA Y RELLENO TOTAL)
     // ══════════════════════════════════════════════════════════════════════════════════
     const layoutMapContent = {
-        panX: 0,
-        panY: 0,
-        zoom: 1.0,
-        isDragging: false,
-        startX: 0,
-        startY: 0,
-        startPanX: 0,
-        startPanY: 0,
-        imgData: null,
-        activeMode: 'content' // 'content' (mover captura desde dentro) | 'frame' (mover marco en hoja)
+        activeMode: 'content' // 'content' (mover vista del mapa) | 'frame' (mover marco en la hoja)
     };
 
-    function applyLayoutMapContentTransform() {
-        const img = document.getElementById('layoutSnapshotImg');
-        if (!img) return;
-        img.style.transform = 'translate(' + layoutMapContent.panX + 'px, ' + layoutMapContent.panY + 'px) scale(' + layoutMapContent.zoom + ')';
-        
-        const pct = Math.round(layoutMapContent.zoom * 100) + '%';
-        const b1 = document.getElementById('floatZoomBadge');
-        if (b1) b1.textContent = pct;
-        const b2 = document.getElementById('sideZoomBadge');
-        if (b2) b2.textContent = pct;
+    window.layoutLeafletMap = null;
+    window.layoutBaseLayer = null;
+    window.layoutLayersGroup = null;
+
+    function ensureLayoutMapInit() {
+        const container = document.getElementById('layoutMapContainer');
+        if (!container) return;
+
+        if (!window.layoutLeafletMap) {
+            container.innerHTML = '';
+            container.style.background = '#1a1a1e';
+
+            const center = state.map ? state.map.getCenter() : [11.5, -72.9];
+            const zoom = state.map ? state.map.getZoom() : 7;
+
+            window.layoutLeafletMap = L.map('layoutMapContainer', {
+                preferCanvas: true,
+                attributionControl: false,
+                zoomControl: false,
+                center: center,
+                zoom: zoom,
+                zoomSnap: 0.1,
+                zoomDelta: 0.5,
+                wheelPxPerZoomLevel: 60,
+                maxZoom: 28,
+                minZoom: 1
+            });
+
+            // Basemap satelital / oscuro / claro sincronizado
+            const baseUrls = {
+                satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+            };
+            const currentStyle = state.currentBaseStyle || 'satellite';
+            window.layoutBaseLayer = L.tileLayer(baseUrls[currentStyle] || baseUrls.satellite, {
+                attribution: '&copy; Google',
+                maxNativeZoom: 20,
+                maxZoom: 28,
+                crossOrigin: 'anonymous'
+            }).addTo(window.layoutLeafletMap);
+
+            window.layoutLayersGroup = L.layerGroup().addTo(window.layoutLeafletMap);
+
+            window.layoutLeafletMap.on('zoomend', updateLayoutZoomBadges);
+            window.layoutLeafletMap.on('moveend', () => {
+                if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
+                    layoutDrawGrid();
+                }
+                layoutUpdateScaleText();
+            });
+
+            // Deshabilitar propagación de clicks para que Leaflet responda nativamente
+            const mapContainerEl = window.layoutLeafletMap.getContainer();
+            L.DomEvent.disableClickPropagation(mapContainerEl);
+        }
+
+        setTimeout(() => {
+            if (window.layoutLeafletMap) {
+                window.layoutLeafletMap.invalidateSize();
+            }
+        }, 150);
+    }
+
+    function syncLayoutMapLayers() {
+        if (!window.layoutLeafletMap || !state.map) return;
+
+        // Actualizar URL de mapa base
+        const baseUrls = {
+            satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+            dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+            light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+        };
+        const currentStyle = state.currentBaseStyle || 'satellite';
+        if (window.layoutBaseLayer) {
+            window.layoutBaseLayer.setUrl(baseUrls[currentStyle] || baseUrls.satellite);
+        }
+
+        if (window.layoutLayersGroup) {
+            window.layoutLayersGroup.clearLayers();
+        }
+
+        // Clonar capas visibles
+        const visibleLayers = (state.layers || []).filter(l => l.visible).slice().reverse();
+
+        for (const l of visibleLayers) {
+            try {
+                if (l.type === 'vector' && l.geoJson) {
+                    const vLayer = L.geoJSON(l.geoJson, {
+                        style: (feat) => ({
+                            color: l.strokeColor || '#222222',
+                            weight: l.strokeWidth ?? 1.5,
+                            opacity: l.strokeOpacity ?? l.opacity ?? 1.0,
+                            fillColor: l.color || '#9333ea',
+                            fillOpacity: l.fillOpacity ?? 0.6
+                        }),
+                        pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
+                            radius: l.pointRadius || 6,
+                            fillColor: l.color || '#9333ea',
+                            color: l.strokeColor || '#ffffff',
+                            weight: l.strokeWidth || 1.5,
+                            opacity: 1,
+                            fillOpacity: l.fillOpacity ?? 0.8
+                        })
+                    });
+                    window.layoutLayersGroup.addLayer(vLayer);
+                } else if (l.type === 'raster') {
+                    if (l.mapLayer) {
+                        if (typeof l.mapLayer.getTileUrl === 'function' && l.mapLayer._url) {
+                            const rTile = L.tileLayer(l.mapLayer._url, {
+                                ...l.mapLayer.options,
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            window.layoutLayersGroup.addLayer(rTile);
+                        } else if (l.mapLayer._url && l.mapLayer._bounds) {
+                            const rImg = L.imageOverlay(l.mapLayer._url, l.mapLayer._bounds, {
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            window.layoutLayersGroup.addLayer(rImg);
+                        } else if (l.mapLayer._image && l.mapLayer._image.src && l.bounds) {
+                            const b = _normBounds(l.bounds);
+                            if (b) {
+                                const rImg = L.imageOverlay(l.mapLayer._image.src, b, {
+                                    opacity: l.opacity ?? 1,
+                                    crossOrigin: 'anonymous'
+                                });
+                                window.layoutLayersGroup.addLayer(rImg);
+                            }
+                        }
+                    } else if (l.serverFilename) {
+                        const tileUrl = '/api/tiles/' + encodeURIComponent(l.serverFilename) + '/{z}/{x}/{y}.png';
+                        const rTile = L.tileLayer(tileUrl, {
+                            opacity: l.opacity ?? 1,
+                            maxZoom: 28,
+                            crossOrigin: 'anonymous'
+                        });
+                        window.layoutLayersGroup.addLayer(rTile);
+                    }
+                }
+            } catch(e) {
+                console.warn('[LayoutMapSync] Error clonando capa:', l.name, e);
+            }
+        }
+
+        window.layoutLeafletMap.invalidateSize();
+        updateLayoutZoomBadges();
     }
 
     function layoutContentZoomStep(delta) {
-        layoutMapContent.zoom = Math.max(0.5, Math.min(5.0, layoutMapContent.zoom + delta));
-        applyLayoutMapContentTransform();
+        if (!window.layoutLeafletMap) return;
+        window.layoutLeafletMap.setZoom(window.layoutLeafletMap.getZoom() + delta);
+        updateLayoutZoomBadges();
     }
 
     function layoutContentReset() {
-        layoutMapContent.panX = 0;
-        layoutMapContent.panY = 0;
-        layoutMapContent.zoom = 1.0;
-        applyLayoutMapContentTransform();
-        toast('Encuadre de mapa restablecido (100% centrado)', 'info');
+        if (!window.layoutLeafletMap || !state.map) return;
+        window.layoutLeafletMap.setView(state.map.getCenter(), state.map.getZoom(), { animate: true });
+        updateLayoutZoomBadges();
+        toast('Vista re-centrada con el mapa principal', 'info');
+    }
+
+    function updateLayoutZoomBadges() {
+        if (!window.layoutLeafletMap) return;
+        const z = window.layoutLeafletMap.getZoom();
+        const text = 'Z' + (Number.isInteger(z) ? z : z.toFixed(1));
+        const b1 = document.getElementById('floatZoomBadge');
+        if (b1) b1.textContent = text;
+        const b2 = document.getElementById('sideZoomBadge');
+        if (b2) b2.textContent = text;
     }
 
     function setLayoutMapMode(mode) {
         layoutMapContent.activeMode = mode;
         const isContent = (mode === 'content');
 
+        if (window.layoutLeafletMap) {
+            if (isContent) {
+                window.layoutLeafletMap.dragging.enable();
+                window.layoutLeafletMap.scrollWheelZoom.enable();
+                window.layoutLeafletMap.touchZoom.enable();
+                window.layoutLeafletMap.doubleClickZoom.enable();
+            } else {
+                window.layoutLeafletMap.dragging.disable();
+                window.layoutLeafletMap.scrollWheelZoom.disable();
+                window.layoutLeafletMap.touchZoom.disable();
+                window.layoutLeafletMap.doubleClickZoom.disable();
+            }
+        }
+
         const mapFrame = document.getElementById('layoutMapFrame');
         if (mapFrame) {
-            mapFrame.style.cursor = isContent ? 'default' : 'move';
-        }
-        const wrapper = document.getElementById('layoutMapContentWrapper');
-        if (wrapper) {
-            wrapper.style.cursor = isContent ? 'grab' : 'move';
+            mapFrame.style.cursor = isContent ? 'grab' : 'move';
         }
 
         const fContent = document.getElementById('floatBtnModeContent');
@@ -14420,295 +14575,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     async function layoutUpdateSnapshot() {
-        console.log('[Snapshot] Iniciando captura...');
-        const container = document.getElementById('layoutMapContainer');
-        const frame = document.getElementById('layoutMapFrame');
-        
-        if (!container) { toast('Error: layoutMapContainer no encontrado', 'error'); console.error('[Snapshot] layoutMapContainer missing'); return; }
-        if (!frame)     { toast('Error: layoutMapFrame no encontrado', 'error'); console.error('[Snapshot] layoutMapFrame missing'); return; }
-
-        const frameW_mm = parseFloat(frame.style.width)  || 210;
-        const frameH_mm = parseFloat(frame.style.height) || 297;
-        const pxW = Math.round(frameW_mm * (300 / 25.4));
-        const pxH = Math.round(frameH_mm * (300 / 25.4));
-        console.log(`[Snapshot] Frame: ${frameW_mm}×${frameH_mm}mm → ${pxW}×${pxH}px (300 DPI)`);
-
-        toast('Generando captura de alta resolución...', 'info');
-
-        const rasterLayers = state.layers.filter(l => l.type === 'raster' && l.visible);
-        console.log(`[Snapshot] Capas raster visibles: ${rasterLayers.length}`);
-        let nativeCanvas = null;
-
-        // ── Step 1: Extract native TIFF pixels from compressed file ──────────
-        if (rasterLayers.length > 0) {
-            const layerObj = rasterLayers[0];
-            let tiffImage = null;
-            let tiffBounds = null;
-
-            // Try multiple file sources in order of preference
-            const fileSources = [];
-            
-            // 1. Local file (if it's a TIFF the browser can read)
-            if (layerObj.file && window.GeoTIFF && /\.(tiff?)$/i.test(layerObj.file.name || '')) {
-                fileSources.push({ type: 'blob', blob: layerObj.file, label: 'local file' });
-            }
-            
-            // 2. Compressed/optimized file from server
-            if (layerObj.serverFilename) {
-                fileSources.push({ type: 'url', url: `/compressed/${encodeURIComponent(layerObj.serverFilename)}`, label: 'compressed' });
-            }
-            
-            // 3. Original upload
-            if (layerObj._originalServerFilename) {
-                fileSources.push({ type: 'url', url: `/uploads/${encodeURIComponent(layerObj._originalServerFilename)}`, label: 'uploads' });
-            }
-            
-            // 4. Geotiff file URL
-            if (layerObj._geotiffFileUrl) {
-                fileSources.push({ type: 'url', url: layerObj._geotiffFileUrl, label: 'geotiffFileUrl' });
-            }
-
-            for (const src of fileSources) {
-                try {
-                    console.log(`[Snapshot] Trying ${src.label}...`);
-                    let arrayBuffer;
-                    if (src.type === 'blob') {
-                        arrayBuffer = await src.blob.arrayBuffer();
-                    } else {
-                        const resp = await fetch(src.url);
-                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                        arrayBuffer = await resp.arrayBuffer();
-                    }
-                    const tiff = await window.GeoTIFF.fromArrayBuffer(arrayBuffer);
-                    tiffImage = await tiff.getImage();
-                    tiffBounds = _normBounds(layerObj.bounds);
-                    if (tiffImage && tiffBounds) {
-                        console.log(`[Snapshot] Loaded TIFF from ${src.label}: ${tiffImage.getWidth()}x${tiffImage.getHeight()}`);
-                        break;
-                    }
-                } catch(e) {
-                    console.warn(`[Snapshot] Failed to load from ${src.label}:`, e.message);
-                }
-            }
-
-            if (tiffImage && tiffBounds) {
-                const mapBounds = state.map.getBounds();
-                const visWest  = Math.max(mapBounds.getWest(),  tiffBounds.getWest());
-                const visSouth = Math.max(mapBounds.getSouth(), tiffBounds.getSouth());
-                const visEast  = Math.min(mapBounds.getEast(),  tiffBounds.getEast());
-                const visNorth = Math.min(mapBounds.getNorth(), tiffBounds.getNorth());
-
-                if (visWest < visEast && visSouth < visNorth) {
-                    const imgW = tiffImage.getWidth();
-                    const imgH = tiffImage.getHeight();
-                    const bboxW = tiffBounds.getEast()  - tiffBounds.getWest();
-                    const bboxH = tiffBounds.getNorth() - tiffBounds.getSouth();
-                    const scaleX = imgW / bboxW;
-                    const scaleY = imgH / bboxH;
-
-                    const wndL = Math.max(0, Math.round((visWest  - tiffBounds.getWest())  * scaleX));
-                    const wndT = Math.max(0, Math.round((tiffBounds.getNorth() - visNorth) * scaleY));
-                    const wndR = Math.min(imgW, Math.round((visEast  - tiffBounds.getWest())  * scaleX));
-                    const wndB = Math.min(imgH, Math.round((tiffBounds.getNorth() - visSouth) * scaleY));
-
-                    const windowW = Math.max(1, wndR - wndL);
-                    const windowH = Math.max(1, wndB - wndT);
-
-                    // Scale to fit export size while preserving aspect ratio
-                    const exportRatio = pxW / pxH;
-                    const windowRatio = windowW / windowH;
-                    let outW, outH;
-                    if (windowRatio > exportRatio) {
-                        outH = Math.min(windowH, pxH);
-                        outW = Math.round(outH * windowRatio);
-                    } else {
-                        outW = Math.min(windowW, pxW);
-                        outH = Math.round(outW / windowRatio);
-                    }
-
-                    // Clamp to 8192px max
-                    const MAX_PX = 8192;
-                    if (outW > MAX_PX || outH > MAX_PX) {
-                        const ratio = Math.min(MAX_PX / outW, MAX_PX / outH);
-                        outW = Math.round(outW * ratio);
-                        outH = Math.round(outH * ratio);
-                    }
-
-                    console.log(`[EXPORT] TIFF native window ${windowW}×${windowH} → rendering at ${outW}×${outH}`);
-
-                    const nSamples = tiffImage.getSamplesPerPixel ? tiffImage.getSamplesPerPixel() : 3;
-                    const rgb = nSamples >= 3;
-                    const raw = await tiffImage.readRasters({
-                        samples: rgb ? [0, 1, 2] : [0],
-                        interleave: rgb,
-                        window: [wndL, wndT, wndR, wndB],
-                        width: outW,
-                        height: outH,
-                    });
-
-                    nativeCanvas = document.createElement('canvas');
-                    nativeCanvas.width = outW;
-                    nativeCanvas.height = outH;
-                    const ctx = nativeCanvas.getContext('2d');
-                    const idata = ctx.createImageData(outW, outH);
-                    const d = idata.data;
-                    const px = outW * outH;
-
-                    if (rgb) {
-                        const isArr = Array.isArray(raw);
-                        const rBand = isArr ? raw[0] : raw;
-                        const gBand = isArr ? raw[1] : raw;
-                        const bBand = isArr ? raw[2] : raw;
-                        const isByte = (rBand instanceof Uint8Array) || (rBand instanceof Uint8ClampedArray);
-                        if (isByte) {
-                            if (isArr) {
-                                for (let i = 0; i < px; i++) { d[i*4]=rBand[i]; d[i*4+1]=gBand[i]; d[i*4+2]=bBand[i]; d[i*4+3]=255; }
-                            } else {
-                                for (let i = 0; i < px; i++) { d[i*4]=raw[i*3]; d[i*4+1]=raw[i*3+1]; d[i*4+2]=raw[i*3+2]; d[i*4+3]=255; }
-                            }
-                        } else {
-                            let mnR=Infinity,mxR=-Infinity,mnG=Infinity,mxG=-Infinity,mnB=Infinity,mxB=-Infinity;
-                            if (isArr) {
-                                for (let i=0;i<px;i++){const r=rBand[i]||0,g=gBand[i]||0,b=bBand[i]||0;if(r<mnR)mnR=r;if(r>mxR)mxR=r;if(g<mnG)mnG=g;if(g>mxG)mxG=g;if(b<mnB)mnB=b;if(b>mxB)mxB=b;}
-                                const rr=mxR-mnR||1,gr=mxG-mnG||1,br=mxB-mnB||1;
-                                for (let i=0;i<px;i++){d[i*4]=(rBand[i]-mnR)/rr*255;d[i*4+1]=(gBand[i]-mnG)/gr*255;d[i*4+2]=(bBand[i]-mnB)/br*255;d[i*4+3]=255;}
-                            } else {
-                                for (let i=0;i<px;i++){const r=raw[i*3],g=raw[i*3+1],b=raw[i*3+2];if(r<mnR)mnR=r;if(r>mxR)mxR=r;if(g<mnG)mnG=g;if(g>mxG)mxG=g;if(b<mnB)mnB=b;if(b>mxB)mxB=b;}
-                                const rr=mxR-mnR||1,gr=mxG-mnG||1,br=mxB-mnB||1;
-                                for (let i=0;i<px;i++){d[i*4]=(raw[i*3]-mnR)/rr*255;d[i*4+1]=(raw[i*3+1]-mnG)/gr*255;d[i*4+2]=(raw[i*3+2]-mnB)/br*255;d[i*4+3]=255;}
-                            }
-                        }
-                    } else {
-                        const b0 = raw[0] || raw;
-                        const isByte = (b0 instanceof Uint8Array) || (b0 instanceof Uint8ClampedArray);
-                        if (isByte) {
-                            for (let i=0;i<px;i++){const v=b0[i]||0;d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;}
-                        } else {
-                            let mn=Infinity,mx=-Infinity;
-                            for (let i=0;i<px;i++){const v=b0[i]||0;if(v<mn)mn=v;if(v>mx)mx=v;}
-                            const rng=mx-mn||1;
-                            for (let i=0;i<px;i++){const v=((b0[i]||0)-mn)/rng*255;d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;}
-                        }
-                    }
-                    ctx.putImageData(idata, 0, 0);
-                    toast(`Píxeles nativos extraídos: ${outW}×${outH}px`, 'success');
-                }
-            }
+        console.log('[Snapshot] Sincronizando mapa interactivo en layout...');
+        ensureLayoutMapInit();
+        if (state.map && window.layoutLeafletMap) {
+            window.layoutLeafletMap.setView(state.map.getCenter(), state.map.getZoom(), { animate: false });
         }
-
-        // ── Fallback: html2canvas (último recurso) ─────────────────────────────
-        if (!nativeCanvas) {
-            console.log('[Snapshot] Native canvas not available, capturing viewport via html2canvas...');
-            toast('Capturando vista actual del mapa...', 'info');
-            const controls = document.querySelectorAll('.leaflet-control-container');
-            controls.forEach(c => c.style.display = 'none');
-
-            try {
-                const mapEl = document.getElementById('map');
-                const capturedCanvas = await html2canvas(mapEl, {
-                    useCORS: true,
-                    allowTaint: false,
-                    scale: 4,
-                    logging: false
-                });
-
-                controls.forEach(c => c.style.display = '');
-
-                const mapW = capturedCanvas.width;
-                const mapH = capturedCanvas.height;
-                const frameRatio = pxW / pxH;
-
-                let cropW, cropH;
-                if (mapW / mapH > frameRatio) {
-                    cropH = mapH;
-                    cropW = mapH * frameRatio;
-                } else {
-                    cropW = mapW;
-                    cropH = mapW / frameRatio;
-                }
-                const cropX = (mapW - cropW) / 2;
-                const cropY = (mapH - cropH) / 2;
-
-                nativeCanvas = document.createElement('canvas');
-                nativeCanvas.width = pxW;
-                nativeCanvas.height = pxH;
-                const ctx = nativeCanvas.getContext('2d');
-                ctx.drawImage(capturedCanvas, cropX, cropY, cropW, cropH, 0, 0, nativeCanvas.width, nativeCanvas.height);
-                console.log('[Snapshot] html2canvas viewport capture completed successfully.');
-            } catch (err) {
-                console.error('[Snapshot] html2canvas capture failed:', err);
-                controls.forEach(c => c.style.display = '');
-                toast('Error al capturar vista del mapa: ' + err.message, 'error');
-            }
-        }
-
-        // ── Step 2: Build the final export canvas ─────────────────────────────
-        const exportW = nativeCanvas ? nativeCanvas.width  : pxW;
-        const exportH = nativeCanvas ? nativeCanvas.height : pxH;
-
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width  = exportW;
-        finalCanvas.height = exportH;
-        const finalCtx = finalCanvas.getContext('2d');
-
-        if (nativeCanvas) {
-            finalCtx.drawImage(nativeCanvas, 0, 0, exportW, exportH);
-        }
-
-        // ── Step 3: Save result into the layout container ──────────────────────
-        const imgData = finalCanvas.toDataURL('image/png');
-
-        layoutConfig.snapshotCenter = { lat: state.map.getCenter().lat, lng: state.map.getCenter().lng };
-        layoutConfig.snapshotZoom   = state.map.getZoom();
-        layoutConfig.snapshotPxSize = { w: exportW, h: exportH };
-
-        layoutMapContent.imgData = imgData;
-        layoutMapContent.panX = 0;
-        layoutMapContent.panY = 0;
-        layoutMapContent.zoom = 1.0;
-
-        container.innerHTML = `
-            <div id="layoutMapContentWrapper" class="w-full h-full relative select-none overflow-hidden" style="cursor: grab;">
-                <img id="layoutSnapshotImg" src="${imgData}" draggable="false" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; transform-origin: center center; will-change: transform;">
-            </div>
-            <div id="layoutMapHintPill" class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-zinc-900/80 backdrop-blur-sm text-white text-[9px] font-bold px-3 py-1 rounded-full pointer-events-none opacity-90 z-20 flex items-center gap-1.5 shadow-lg border border-white/10 transition-opacity">
-                <span class="material-symbols-outlined text-[13px] text-emerald-400">pan_tool</span> Arrastra para mover la vista • Rueda para zoom
-            </div>
-        `;
-
-        container.onwheel = function(e) {
-            if (layoutMapContent.activeMode !== 'content' || !layoutMapContent.imgData) return;
-            e.preventDefault();
-            e.stopPropagation();
-            const delta = e.deltaY < 0 ? 0.1 : -0.1;
-            layoutContentZoomStep(delta);
-        };
-
-        container.ondblclick = function(e) {
-            if (e.target.closest('#layoutMapFloatingToolbar')) return;
-            layoutContentReset();
-        };
-
-        setTimeout(() => {
-            const hint = document.getElementById('layoutMapHintPill');
-            if (hint) {
-                setTimeout(() => { 
-                    hint.style.transition = 'opacity 1s';
-                    hint.style.opacity = '0'; 
-                    setTimeout(() => { try { hint.remove(); } catch(_) {} }, 1000); 
-                }, 4000);
-            }
-        }, 100);
-
+        syncLayoutMapLayers();
         setLayoutMapMode('content');
-        applyLayoutMapContentTransform();
 
-        if (layoutConfig.grid.enabled) layoutDrawGrid();
+        if (state.map) {
+            layoutConfig.snapshotCenter = { lat: state.map.getCenter().lat, lng: state.map.getCenter().lng };
+            layoutConfig.snapshotZoom = state.map.getZoom();
+        }
+
+        if (layoutConfig.grid && layoutConfig.grid.enabled) layoutDrawGrid();
         layoutUpdateScaleText();
 
-        toast(`Captura completada: ${exportW}×${exportH}px`, 'success');
+        toast('¡Vista capturada! El mapa rellena todo el marco y tiene acceso completo en tiempo real.', 'success');
     }
-
+    
     function layoutToggleElement(key) {
         layoutConfig.elements[key] = !layoutConfig.elements[key];
         layoutUpdateElementUI(key);
@@ -15217,22 +15102,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (e.target.id.startsWith('layoutMapResize')) return;
         if (e.target.closest('#layoutMapFloatingToolbar')) return;
 
-        // Si estamos en modo mover contenido y se hizo click dentro del contenedor con captura activa
+        // Si estamos en modo 'content' (mover mapa) y el click fue sobre el mapa interactivo:
         const isInsideContainer = e.target.closest('#layoutMapContainer');
-        if (layoutMapContent.activeMode === 'content' && isInsideContainer && layoutMapContent.imgData) {
-            layoutMapContent.isDragging = true;
-            layoutMapContent.startX = e.clientX;
-            layoutMapContent.startY = e.clientY;
-            layoutMapContent.startPanX = layoutMapContent.panX;
-            layoutMapContent.startPanY = layoutMapContent.panY;
-            const wrap = document.getElementById('layoutMapContentWrapper');
-            if (wrap) wrap.style.cursor = 'grabbing';
-            e.preventDefault();
-            e.stopPropagation();
+        if (layoutMapContent.activeMode === 'content' && isInsideContainer && window.layoutLeafletMap) {
+            // Leaflet gestiona el pan y zoom nativamente con acceso a teselas
             return;
         }
 
-        // Si no, mover el marco completo en la hoja
+        // Si estamos en modo 'frame' o se hizo click en el borde del marco:
         dragEl = this;
         startX = e.clientX; startY = e.clientY;
         elementStartX = parseInt(dragEl.style.left) || 20;
@@ -15257,15 +15134,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
     resizeHeight.onmousedown = (e) => startResize(e, 'h');
 
     window.onmousemove = function(e) {
-        if (layoutMapContent.isDragging) {
-            const dx = e.clientX - layoutMapContent.startX;
-            const dy = e.clientY - layoutMapContent.startY;
-            layoutMapContent.panX = layoutMapContent.startPanX + dx;
-            layoutMapContent.panY = layoutMapContent.startPanY + dy;
-            applyLayoutMapContentTransform();
-            return;
-        }
-
         if (dragEl) {
             const dx = (e.clientX - startX) * (25.4 / 96);
             const dy = (e.clientY - startY) * (25.4 / 96);
@@ -15287,12 +15155,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
     };
 
     window.onmouseup = function() {
-        if (layoutMapContent.isDragging) {
-            layoutMapContent.isDragging = false;
-            const wrap = document.getElementById('layoutMapContentWrapper');
-            if (wrap && layoutMapContent.activeMode === 'content') wrap.style.cursor = 'grab';
-        }
-
         if (dragEl) {
             dragEl.style.transition = 'all 0.3s';
             if (dragEl.id.startsWith('sh-')) {
@@ -15320,6 +15182,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
         if (resizeEl) {
             resizeEl.style.transition = 'all 0.3s';
+            if (resizeEl === mapFrame && window.layoutLeafletMap) {
+                setTimeout(() => window.layoutLeafletMap.invalidateSize(), 50);
+            }
             if (resizeEl.id.startsWith('sh-')) {
                 const sh = layoutConfig.shapes.find(s => s.id === resizeEl.id);
                 if (sh) { sh.width = resizeEl.style.width; sh.height = resizeEl.style.height; }
@@ -15370,26 +15235,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const existing = document.getElementById('layoutGridOverlay');
         if (existing) existing.remove();
 
-        if (!config.enabled || !layoutConfig.snapshotCenter) return;
+        if (!config.enabled) return;
         if (config.intervalLat <= 0 || config.intervalLng <= 0) return; // Evitar división por cero
 
-        const pxW = layoutConfig.snapshotPxSize.w;
-        const pxH = layoutConfig.snapshotPxSize.h;
-        const center = L.latLng(layoutConfig.snapshotCenter.lat, layoutConfig.snapshotCenter.lng);
-        const zoom = layoutConfig.snapshotZoom;
+        const m = window.layoutLeafletMap || state.map;
+        if (!m) return;
 
-        // Use the actual Leaflet map to project coordinates relative to snapshot center
-        const centerPx = state.map.project(center, zoom);
-        const nwPx = { x: centerPx.x - pxW / 2, y: centerPx.y - pxH / 2 };
-        const sePx = { x: centerPx.x + pxW / 2, y: centerPx.y + pxH / 2 };
+        const bounds = m.getBounds();
+        const minLat = bounds.getSouth();
+        const maxLat = bounds.getNorth();
+        const minLng = bounds.getWest();
+        const maxLng = bounds.getEast();
 
-        const nwLatLng = state.map.unproject(L.point(nwPx.x, nwPx.y), zoom);
-        const seLatLng = state.map.unproject(L.point(sePx.x, sePx.y), zoom);
-
-        const minLat = seLatLng.lat;
-        const maxLat = nwLatLng.lat;
-        const minLng = nwLatLng.lng;
-        const maxLng = seLatLng.lng;
+        const sz = m.getSize();
+        const pxW = sz.x || 600;
+        const pxH = sz.y || 600;
 
         // SVG Overlay con overflow visible para que las coordenadas se salgan del marco
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -15400,8 +15260,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // Draw Latitudes (Horizontal Lines)
         let lat = Math.ceil(minLat / config.intervalLat) * config.intervalLat;
         while (lat <= maxLat) {
-            const p = state.map.project(L.latLng(lat, center.lng), zoom);
-            const y = (p.y - nwPx.y);
+            const p = m.latLngToContainerPoint(L.latLng(lat, minLng));
+            const y = p.y;
             
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("x1", "0"); line.setAttribute("y1", y);
@@ -15454,8 +15314,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // Draw Longitudes (Vertical Lines)
         let lng = Math.ceil(minLng / config.intervalLng) * config.intervalLng;
         while (lng <= maxLng) {
-            const p = state.map.project(L.latLng(center.lat, lng), zoom);
-            const x = (p.x - nwPx.x);
+            const p = m.latLngToContainerPoint(L.latLng(minLat, lng));
+            const x = p.x;
 
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("x1", x); line.setAttribute("y1", "0");
