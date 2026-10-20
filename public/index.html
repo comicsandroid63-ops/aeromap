@@ -3828,35 +3828,37 @@
       <div class="p-6 space-y-6">
         <!-- Section: Pegar / Fusionar Capas Vectoriales -->
         <div class="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-4">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-emerald-600 text-lg">join_inner</span>
-            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Pegar / Unir Capas Vectoriales</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-emerald-600 text-lg">join_inner</span>
+              <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Pegar / Unir Capas Vectoriales</span>
+            </div>
+            <button onclick="toggleSelectAllMergeLayers()" id="btnSelectAllMerge" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-wider">
+              Seleccionar Todas
+            </button>
           </div>
           <p class="text-[11px] text-zinc-600 leading-relaxed">
-            Combina los polígonos, líneas o puntos de dos capas vectoriales en una única capa consolidada conservando todas sus geometrías y atributos.
+            Selecciona dos o más capas (o todas las capas del proyecto) para combinarlas en una sola capa consolidada conservando todas sus geometrías y atributos.
           </p>
 
           <div class="space-y-3">
             <div>
-              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Capa A (Base):</label>
-              <select id="mergeLayerA" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
-                <option value="">Selecciona la primera capa...</option>
-              </select>
+              <div class="flex justify-between items-center mb-1.5">
+                <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500">Capas a unir:</label>
+                <span id="mergeSelectedCount" class="text-[9px] font-bold text-zinc-500">0 seleccionadas</span>
+              </div>
+              <div id="mergeLayersCheckList" class="bg-white border border-zinc-300 rounded-2xl p-2.5 max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                <!-- Capas inyectadas por JS -->
+              </div>
             </div>
             <div>
-              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Capa B (A unir con A):</label>
-              <select id="mergeLayerB" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
-                <option value="">Selecciona la segunda capa...</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Nombre de la nueva capa:</label>
-              <input type="text" id="mergeOutputName" placeholder="Capa Unida (Pegada)" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
+              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Nombre de la nueva capa unida:</label>
+              <input type="text" id="mergeOutputName" placeholder="Capa Unida del Proyecto" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
             </div>
           </div>
 
           <button onclick="executeMergeLayers()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm">
-            <span class="material-symbols-outlined text-[16px]">join_inner</span> Pegar Capas
+            <span class="material-symbols-outlined text-[16px]">join_inner</span> Pegar Capas Seleccionadas
           </button>
         </div>
 
@@ -15319,8 +15321,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function openVectorAdvancedModal() {
         const modal = document.getElementById('vectorAdvancedModal');
         if (!modal) return;
-        const selA = document.getElementById('mergeLayerA');
-        const selB = document.getElementById('mergeLayerB');
+        const listCont = document.getElementById('mergeLayersCheckList');
         const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
 
         if (vectorLayers.length === 0) {
@@ -15328,27 +15329,39 @@ async function deleteFromCloud(fileName, url, storagePath) {
             return;
         }
 
-        const opts = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-        selA.innerHTML = '<option value="">Selecciona la primera capa...</option>' + opts;
-        selB.innerHTML = '<option value="">Selecciona la segunda capa...</option>' + opts;
+        listCont.innerHTML = vectorLayers.map((l, i) => {
+            const count = (l.geoJson && l.geoJson.features) ? l.geoJson.features.length : 1;
+            return `
+              <label class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-100 cursor-pointer transition-colors group">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <input type="checkbox" value="${l.id}" checked class="merge-layer-chk w-4 h-4 rounded text-emerald-600 border-zinc-300 focus:ring-emerald-500 cursor-pointer" onchange="updateMergeCount()">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${l.color || '#3b82f6'};"></span>
+                  <span class="text-xs font-semibold text-zinc-900 truncate" title="${l.name}">${l.name}</span>
+                </div>
+                <span class="text-[9px] font-bold text-zinc-400 shrink-0">${count} obj</span>
+              </label>
+            `;
+        }).join('');
 
-        if (vectorLayers.length >= 1) selA.value = vectorLayers[0].id;
-        if (vectorLayers.length >= 2) {
-            selB.value = vectorLayers[1].id;
-            document.getElementById('mergeOutputName').value = `${vectorLayers[0].name} + ${vectorLayers[1].name}`;
-        } else {
-            document.getElementById('mergeOutputName').value = `${vectorLayers[0].name} (Copia)`;
-        }
-
-        selA.onchange = selB.onchange = () => {
-            const lA = vectorLayers.find(l => l.id == selA.value);
-            const lB = vectorLayers.find(l => l.id == selB.value);
-            if (lA && lB) {
-                document.getElementById('mergeOutputName').value = `${lA.name} + ${lB.name}`;
-            }
-        };
-
+        updateMergeCount();
+        document.getElementById('mergeOutputName').value = `Capas Unidas (${vectorLayers.length})`;
         modal.style.display = 'flex';
+    }
+
+    function updateMergeCount() {
+        const checked = document.querySelectorAll('.merge-layer-chk:checked');
+        const lbl = document.getElementById('mergeSelectedCount');
+        if (lbl) lbl.textContent = `${checked.length} seleccionadas`;
+    }
+
+    function toggleSelectAllMergeLayers() {
+        const chks = document.querySelectorAll('.merge-layer-chk');
+        if (chks.length === 0) return;
+        const allChecked = Array.from(chks).every(c => c.checked);
+        chks.forEach(c => c.checked = !allChecked);
+        const btn = document.getElementById('btnSelectAllMerge');
+        if (btn) btn.textContent = allChecked ? 'Seleccionar Todas' : 'Deseleccionar Todas';
+        updateMergeCount();
     }
 
     function closeVectorAdvancedModal() {
@@ -15357,46 +15370,51 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     async function executeMergeLayers() {
-        const selA = document.getElementById('mergeLayerA');
-        const selB = document.getElementById('mergeLayerB');
+        const checkedChks = Array.from(document.querySelectorAll('.merge-layer-chk:checked'));
         const outNameInput = document.getElementById('mergeOutputName');
 
-        const idA = parseInt(selA.value);
-        const idB = parseInt(selB.value);
-
-        if (!idA || !idB) {
-            return toast('Por favor selecciona las dos capas que deseas pegar.', 'error');
+        if (checkedChks.length < 2) {
+            return toast('Por favor selecciona al menos 2 capas para unirlas.', 'warning');
         }
 
-        const layerA = state.layers.find(l => l.id === idA);
-        const layerB = state.layers.find(l => l.id === idB);
+        const selectedIds = checkedChks.map(c => parseInt(c.value));
+        const selectedLayers = state.layers.filter(l => selectedIds.includes(l.id));
 
-        if (!layerA?.geoJson || !layerB?.geoJson) {
-            return toast('Datos geométricos no disponibles para las capas seleccionadas.', 'error');
+        if (selectedLayers.length === 0) {
+            return toast('No se encontraron las capas seleccionadas.', 'error');
         }
 
-        const outName = (outNameInput.value.trim()) || `${layerA.name} + ${layerB.name}`;
+        const outName = (outNameInput.value.trim()) || `Capas Unidas (${selectedLayers.length})`;
 
-        showProgress('Pegando capas vectoriales...', 30, 'Unión Vectorial');
+        showProgress(`Pegando ${selectedLayers.length} capas vectoriales...`, 30, 'Unión Vectorial');
         try {
-            const featuresA = (layerA.geoJson.features || [layerA.geoJson]).map(f => JSON.parse(JSON.stringify(f)));
-            const featuresB = (layerB.geoJson.features || [layerB.geoJson]).map(f => JSON.parse(JSON.stringify(f)));
+            let mergedFeatures = [];
+            for (let i = 0; i < selectedLayers.length; i++) {
+                const layer = selectedLayers[i];
+                const feats = (layer.geoJson.features || [layer.geoJson]).map(f => {
+                    const cloned = JSON.parse(JSON.stringify(f));
+                    cloned.properties = cloned.properties || {};
+                    cloned.properties._origen_capa = layer.name;
+                    return cloned;
+                });
+                mergedFeatures = mergedFeatures.concat(feats);
+            }
 
-            const mergedFeatures = [...featuresA, ...featuresB];
             const mergedCollection = {
                 type: 'FeatureCollection',
                 features: mergedFeatures
             };
 
             showProgress('Creando capa unida en el mapa...', 70, 'Unión Vectorial');
+            const baseColor = selectedLayers[0].color || '#3b82f6';
             await addVectorLayer(mergedCollection, outName, {
-                color: layerA.color || '#3b82f6',
-                fillOpacity: layerA.fillOpacity ?? 0.5,
-                strokeWidth: layerA.strokeWidth ?? 1.5
+                color: baseColor,
+                fillOpacity: selectedLayers[0].fillOpacity ?? 0.5,
+                strokeWidth: selectedLayers[0].strokeWidth ?? 1.5
             });
 
             closeVectorAdvancedModal();
-            toast(`¡Capas pegadas con éxito! Creada: ${outName} (${mergedFeatures.length} entidades)`, 'success');
+            toast(`¡${selectedLayers.length} capas pegadas con éxito! Creada: ${outName} (${mergedFeatures.length} entidades)`, 'success');
         } catch(err) {
             console.error('[MergeLayers] Error:', err);
             toast('Error al pegar las capas: ' + err.message, 'error');
