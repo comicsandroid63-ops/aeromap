@@ -5033,14 +5033,24 @@
                          </div>
                          
                          <div id="layoutGridControls" class="hidden flex-col gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
+                            <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-zinc-200">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[13px] text-emerald-600">tune</span>
+                                    <span class="text-[8px] font-black uppercase text-zinc-700">Ajuste Automático</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="chkLayoutGridAuto" checked onchange="layoutToggleGridAuto(this.checked)" class="sr-only peer">
+                                    <div class="w-7 h-4 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div class="flex flex-col gap-1">
                                     <label class="text-[8px] font-black text-zinc-400 uppercase">Intervalo Lat (°)</label>
-                                    <input type="number" step="0.0001" value="0.0000" oninput="layoutUpdateGrid('intervalLat', this.value)" class="bg-white border-zinc-200 rounded-lg p-2 text-[10px] font-bold outline-none focus:ring-1 focus:ring-black">
+                                    <input type="number" step="0.0001" value="0.5" id="layoutGridIntervalLat" oninput="layoutUpdateGrid('intervalLat', this.value)" class="bg-white border-zinc-200 rounded-lg p-2 text-[10px] font-bold outline-none focus:ring-1 focus:ring-black">
                                 </div>
                                 <div class="flex flex-col gap-1">
                                     <label class="text-[8px] font-black text-zinc-400 uppercase">Intervalo Lng (°)</label>
-                                    <input type="number" step="0.0001" value="0.0000" oninput="layoutUpdateGrid('intervalLng', this.value)" class="bg-white border-zinc-200 rounded-lg p-2 text-[10px] font-bold outline-none focus:ring-1 focus:ring-black">
+                                    <input type="number" step="0.0001" value="0.5" id="layoutGridIntervalLng" oninput="layoutUpdateGrid('intervalLng', this.value)" class="bg-white border-zinc-200 rounded-lg p-2 text-[10px] font-bold outline-none focus:ring-1 focus:ring-black">
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
@@ -14035,11 +14045,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
         legend: { top: '215mm', left: '20mm', width: '60mm', height: '60mm' },
         scale: { top: '215mm', left: '110mm', width: '60mm', height: '20mm' },
         grid: { 
-            enabled: false, 
+            enabled: false,
+            auto: true,
             color: '#333333', 
-            opacity: 0.3,
-            intervalLat: 0, 
-            intervalLng: 0, 
+            opacity: 0.35,
+            intervalLat: 0.5, 
+            intervalLng: 0.5, 
             showLabels: true,
             fontSize: 8,
             fontColor: '#000000',
@@ -14391,7 +14402,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
             window.layoutLeafletMap.on('zoomend', updateLayoutZoomBadges);
             window.layoutLeafletMap.on('moveend', () => {
                 if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
-                    layoutDrawGrid();
+                    if (layoutConfig.grid.auto) {
+                        layoutAutoAdjustGrid(false);
+                    } else {
+                        layoutDrawGrid();
+                    }
                 }
                 layoutUpdateScaleText();
             });
@@ -15213,17 +15228,80 @@ async function deleteFromCloud(fileName, url, storagePath) {
         document.getElementById('layoutMapFrame').style.border = enabled ? '1px solid #000' : 'none';
     }
 
+    function calculateAutoGridInterval(spanDeg, targetDivisions = 5) {
+        if (!spanDeg || spanDeg <= 0) return 0.1;
+        const rawStep = spanDeg / targetDivisions;
+        const power = Math.floor(Math.log10(rawStep));
+        const fraction = rawStep / Math.pow(10, power);
+        let niceFraction;
+        if (fraction < 1.5) niceFraction = 1;
+        else if (fraction < 3) niceFraction = 2;
+        else if (fraction < 7) niceFraction = 5;
+        else niceFraction = 10;
+        return niceFraction * Math.pow(10, power);
+    }
+
     function layoutToggleMapGrid(enabled) {
         layoutConfig.grid.enabled = enabled;
         const ctrls = document.getElementById('layoutGridControls');
         if (ctrls) ctrls.style.display = enabled ? 'flex' : 'none';
         
+        if (enabled) {
+            layoutAutoAdjustGrid(true);
+        } else {
+            const existing = document.getElementById('layoutGridOverlay');
+            if (existing) existing.remove();
+        }
+    }
+
+    function layoutToggleGridAuto(enabled) {
+        layoutConfig.grid.auto = enabled;
+        if (enabled) {
+            layoutAutoAdjustGrid(true);
+        }
+    }
+
+    function layoutAutoAdjustGrid(notify = false) {
+        const m = window.layoutLeafletMap || state.map;
+        if (!m) return;
+        
+        const bounds = m.getBounds();
+        const spanLat = Math.abs(bounds.getNorth() - bounds.getSouth());
+        const spanLng = Math.abs(bounds.getEast() - bounds.getWest());
+
+        const autoLat = calculateAutoGridInterval(spanLat, 5);
+        const autoLng = calculateAutoGridInterval(spanLng, 5);
+
+        layoutConfig.grid.intervalLat = autoLat;
+        layoutConfig.grid.intervalLng = autoLng;
+
+        const formatVal = (v) => v >= 1 ? v.toFixed(0) : v.toFixed(Math.min(6, Math.max(1, -Math.floor(Math.log10(v)) + 1)));
+
+        const inpLat = document.getElementById('layoutGridIntervalLat');
+        const inpLng = document.getElementById('layoutGridIntervalLng');
+        if (inpLat) inpLat.value = formatVal(autoLat);
+        if (inpLng) inpLng.value = formatVal(autoLng);
+
+        const chkAuto = document.getElementById('chkLayoutGridAuto');
+        if (chkAuto) chkAuto.checked = layoutConfig.grid.auto;
+
         layoutDrawGrid();
+        if (notify) {
+            toast('Cuadrícula ajustada automáticamente (Intervalo: ' + formatVal(autoLat) + '°)', 'info');
+        }
     }
 
     function layoutUpdateGrid(prop, val) {
         if (prop === 'intervalLat' || prop === 'intervalLng' || prop === 'opacity') val = parseFloat(val);
         layoutConfig.grid[prop] = val;
+
+        // Si el usuario edita manualmente el intervalo, desactivar modo auto
+        if (prop === 'intervalLat' || prop === 'intervalLng') {
+            layoutConfig.grid.auto = false;
+            const chkAuto = document.getElementById('chkLayoutGridAuto');
+            if (chkAuto) chkAuto.checked = false;
+        }
+
         layoutDrawGrid();
     }
 
@@ -15231,12 +15309,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const container = document.getElementById('layoutMapContainer');
         const config = layoutConfig.grid;
         
-        // Remove existing grid overlay
+        // Eliminar cuadrícula previa
         const existing = document.getElementById('layoutGridOverlay');
         if (existing) existing.remove();
 
         if (!config.enabled) return;
-        if (config.intervalLat <= 0 || config.intervalLng <= 0) return; // Evitar división por cero
+        if (!config.intervalLat || config.intervalLat <= 0 || !config.intervalLng || config.intervalLng <= 0) return;
 
         const m = window.layoutLeafletMap || state.map;
         if (!m) return;
@@ -15251,15 +15329,28 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const pxW = sz.x || 600;
         const pxH = sz.y || 600;
 
-        // SVG Overlay con overflow visible para que las coordenadas se salgan del marco
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.id = 'layoutGridOverlay';
         svg.setAttribute("viewBox", `0 0 ${pxW} ${pxH}`);
-        svg.style.cssText = `position:absolute; inset:0; width:100%; height:100%; z-index:20; pointer-events:none; overflow:visible;`;
+        svg.style.cssText = "position:absolute; inset:0; width:100%; height:100%; z-index:800; pointer-events:none; overflow:visible;";
 
-        // Draw Latitudes (Horizontal Lines)
-        let lat = Math.ceil(minLat / config.intervalLat) * config.intervalLat;
-        while (lat <= maxLat) {
+        const formatCoord = (val, step, isLat) => {
+            const dec = step >= 1 ? 0 : Math.min(6, Math.max(1, -Math.floor(Math.log10(step)) + 1));
+            let s = val.toFixed(dec) + '°';
+            if (config.showSuffix) {
+                if (isLat) s += (val >= 0 ? ' N' : ' S');
+                else s += (val >= 0 ? ' E' : ' W');
+            }
+            if (config.showPrefix) {
+                s = (isLat ? 'Lat: ' : 'Lon: ') + s;
+            }
+            return s;
+        };
+
+        // Líneas de Latitud (Horizontales)
+        const latStep = config.intervalLat;
+        let lat = Math.ceil(minLat / latStep) * latStep;
+        while (lat <= maxLat + (latStep * 0.01)) {
             const p = m.latLngToContainerPoint(L.latLng(lat, minLng));
             const y = p.y;
             
@@ -15273,7 +15364,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             if (config.showLabels) {
                 const isInside = config.position === 'inside';
-                const dist = isInside ? 10 : 20;
+                const dist = isInside ? 8 : 14;
 
                 const drawLatLabel = (xOffset, anchor, isRight) => {
                     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -15285,7 +15376,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     text.setAttribute("stroke", "white");
                     text.setAttribute("stroke-width", "3");
                     text.setAttribute("paint-order", "stroke fill");
-                    text.setAttribute("font-size", config.fontSize * 2.5);
+                    text.setAttribute("font-size", config.fontSize * 1.8);
                     text.setAttribute("font-family", config.fontFamily + ", sans-serif");
                     text.setAttribute("font-weight", "bold");
                     
@@ -15294,26 +15385,20 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         text.setAttribute("transform", `rotate(${rot}, ${xOffset}, ${y})`);
                     }
 
-                    // Formatear texto con prefijo/sufijo
-                    let label = lat.toFixed(4);
-                    if (config.showSuffix) label += (lat >= 0 ? " N" : " S");
-                    if (config.showPrefix) label = "Lat: " + label;
-
-                    text.textContent = label;
+                    text.textContent = formatCoord(lat, latStep, true);
                     svg.appendChild(text);
                 };
 
-                // IZQUIERDA
                 drawLatLabel(isInside ? dist : -dist, isInside ? "start" : "end", false);
-                // DERECHA
                 drawLatLabel(isInside ? (pxW - dist) : (pxW + dist), isInside ? "end" : "start", true);
             }
-            lat += config.intervalLat;
+            lat += latStep;
         }
 
-        // Draw Longitudes (Vertical Lines)
-        let lng = Math.ceil(minLng / config.intervalLng) * config.intervalLng;
-        while (lng <= maxLng) {
+        // Líneas de Longitud (Verticales)
+        const lngStep = config.intervalLng;
+        let lng = Math.ceil(minLng / lngStep) * lngStep;
+        while (lng <= maxLng + (lngStep * 0.01)) {
             const p = m.latLngToContainerPoint(L.latLng(minLat, lng));
             const x = p.x;
 
@@ -15327,41 +15412,34 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             if (config.showLabels) {
                 const isInside = config.position === 'inside';
-                const dist = isInside ? 10 : 20;
+                const dist = isInside ? 8 : 14;
 
-                const drawLngLabel = (yOffset, baseline) => {
+                const drawLngLabel = (yOffset, dominant) => {
                     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                     text.setAttribute("x", x);
                     text.setAttribute("y", yOffset);
                     text.setAttribute("text-anchor", "middle");
-                    text.setAttribute("dominant-baseline", baseline);
+                    text.setAttribute("dominant-baseline", dominant);
                     text.setAttribute("fill", "#000000");
                     text.setAttribute("stroke", "white");
                     text.setAttribute("stroke-width", "3");
                     text.setAttribute("paint-order", "stroke fill");
-                    text.setAttribute("font-size", config.fontSize * 2.5);
+                    text.setAttribute("font-size", config.fontSize * 1.8);
                     text.setAttribute("font-family", config.fontFamily + ", sans-serif");
                     text.setAttribute("font-weight", "bold");
-
+                    
                     if (config.orientLng === 'vertical') {
                         text.setAttribute("transform", `rotate(-90, ${x}, ${yOffset})`);
                     }
 
-                    // Formatear texto con prefijo/sufijo
-                    let label = lng.toFixed(4);
-                    if (config.showSuffix) label += (lng >= 0 ? " E" : " W");
-                    if (config.showPrefix) label = "Lng: " + label;
-
-                    text.textContent = label;
+                    text.textContent = formatCoord(lng, lngStep, false);
                     svg.appendChild(text);
                 };
 
-                // ARRIBA
-                drawLngLabel(isInside ? dist : -dist, isInside ? "hanging" : "auto", false);
-                // ABAJO
-                drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging", true);
+                drawLngLabel(isInside ? dist : -dist, isInside ? "hanging" : "auto");
+                drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging");
             }
-            lng += config.intervalLng;
+            lng += lngStep;
         }
 
         container.appendChild(svg);
