@@ -2202,11 +2202,42 @@
   <main class="fixed inset-0 z-0 bg-surface-container">
     <div id="map"></div>
     <div id="map3DContainer" style="display:none;position:absolute;inset:0;background:#000;overflow:hidden;">
-      <div id="dbg3d" style="position:absolute;top:0;left:0;z-index:999;padding:8px 14px;background:rgba(255,0,0,.85);color:#fff;font-size:14px;font-family:monospace;font-weight:bold;pointer-events:none;display:block;white-space:pre-wrap;">⚠ ESPERANDO...</div>
-      <div style="position:absolute;bottom:100px;left:16px;z-index:10;padding:8px 14px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border-radius:12px;border:1px solid rgba(255,255,255,.1);font-size:9px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-family:Inter,sans-serif;pointer-events:none;display:flex;flex-direction:column;gap:3px;">
-        <span>🖱 Izq → Paneo</span>
-        <span>🖱 Der → Rotar</span>
-        <span>🔍 Scroll → Zoom</span>
+      <div id="dbg3d" style="display:none;"></div>
+      <!-- HUD flotante para control del Terreno 3D -->
+      <div class="absolute bottom-6 left-6 z-20 flex flex-col gap-2.5 p-3.5 bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto">
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-2">
+          <div class="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] text-zinc-200">
+            <span class="material-symbols-outlined text-emerald-400 text-[16px]">landscape</span>
+            <span>Relieve 3D (DEM)</span>
+          </div>
+          <span id="label3DExaggeration" class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">1.5x</span>
+        </div>
+        
+        <!-- Slider de Exageración de Elevación -->
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between text-[9px] text-zinc-400 font-bold uppercase">
+            <span>Exageración:</span>
+            <span>0.5x - 4x</span>
+          </div>
+          <input type="range" id="slider3DExaggeration" min="0.5" max="4.0" step="0.25" value="1.5"
+                 oninput="if(typeof set3DExaggeration==='function') set3DExaggeration(this.value); const lb=document.getElementById('label3DExaggeration'); if(lb) lb.textContent = this.value + 'x';"
+                 class="w-40 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+        </div>
+
+        <!-- Botón para recentrar / re-inclinar vista 3D -->
+        <button onclick="if(typeof reset3DView==='function') reset3DView();" class="flex items-center justify-center gap-1.5 py-1 px-2 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all text-zinc-200">
+          <span class="material-symbols-outlined text-[14px]">explore</span>
+          <span>Inclinar 60° (Vista 3D)</span>
+        </button>
+
+        <!-- Atajos de control -->
+        <div class="flex items-center justify-between pt-1 border-t border-white/10 text-[8px] text-zinc-400 font-bold uppercase tracking-wider">
+          <span>🖱 Izq: Paneo</span>
+          <span>•</span>
+          <span>🖱 Der: Rotar 3D</span>
+          <span>•</span>
+          <span>Scroll: Zoom</span>
+        </div>
       </div>
     </div>
     <div class="empty-state absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-4"
@@ -7582,10 +7613,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     async function switchTo3D() {
-        const dbg = () => document.getElementById('dbgGlobal');
-        const show = (msg) => { const el = dbg(); if (el) { el.style.display = 'block'; el.textContent = msg; } };
         try {
-            show('▶ switchTo3D iniciado...');
+            console.log('[3D] ▶ switchTo3D iniciado...');
             updateViewModeUI('3d');
 
             // Close terrain 3D modal if open
@@ -7596,18 +7625,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
             document.getElementById('map').style.display = 'none';
             const container = document.getElementById('map3DContainer');
             container.style.display = 'block';
-            show('▶ contenedor visible');
 
             // Get current Leaflet map center and zoom
             if (!state.map) {
-                show('❌ state.map is null');
+                console.error('[3D] ❌ state.map is null');
                 hideProgress(); switchTo2D(); return;
             }
             const center = state.map.getCenter();
             const zoom = state.map.getZoom();
-            show('▶ center=' + center.lng.toFixed(4) + ',' + center.lat.toFixed(4) + ' z=' + zoom);
+            console.log('[3D] center=' + center.lng.toFixed(4) + ',' + center.lat.toFixed(4) + ' z=' + zoom);
 
-            showProgress('Iniciando MapLibre 3D...', 10);
+            showProgress('Iniciando MapLibre 3D con Terreno Global...', 15);
 
             // Collect all raster layers (regardless of 2D visibility)
             const visibleLayers = state.layers
@@ -7624,19 +7652,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 .filter(l => l.type === 'vector' && l.geoJson)
                 .map(l => ({ ...l }));
             console.log('[3D] Visible raster:', visibleLayers.length, 'vector:', vectorLayers.length);
-            const allNames = state.layers.map(l => l.name + '(type=' + l.type + ',vis=' + l.visible + ')').join(' | ');
-            show('▶ raster=' + visibleLayers.length + ' vector=' + vectorLayers.length + '\n' + allNames);
 
             // Initialize MapLibre 3D map (async, progress hidden on 'load')
             setTimeout(() => {
-                show(document.getElementById('dbgGlobal').textContent + ' | init3DMap...');
                 init3DMap([center.lng, center.lat], zoom, visibleLayers, vectorLayers);
             }, 100);
         } catch(e) {
             console.error('[3D]', e);
-            show('❌ Error: ' + e.message + ' | stack: ' + (e.stack ? e.stack.split('\n').slice(0,3).join(' -> ') : 'N/A'));
+            toast('Error al activar 3D: ' + e.message, 'error');
             hideProgress();
-            setTimeout(() => switchTo2D(), 10000);
+            setTimeout(() => switchTo2D(), 2000);
         }
     }
 

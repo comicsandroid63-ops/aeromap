@@ -1,6 +1,7 @@
 let maplibreMap = null;
 let current3DBasemap = 'satellite';
 let active3DLayers = {};
+let current3DExaggeration = 1.5;
 
 const basemapDefs = {
   dark: {
@@ -32,7 +33,7 @@ const basemapDefs = {
 function init3DMap(center, zoom, visibleLayers, vectorLayers) {
   destroy3DMap();
 
-  const bm = basemapDefs[current3DBasemap];
+  const bm = basemapDefs[current3DBasemap] || basemapDefs.satellite;
 
   maplibreMap = new maplibregl.Map({
     container: 'map3DContainer',
@@ -54,18 +55,35 @@ function init3DMap(center, zoom, visibleLayers, vectorLayers) {
 
   maplibreMap.on('load', () => {
     console.log('[3D] MapLibre loaded');
+    
+    // Activar elevación 3D explícitamente en el motor de MapLibre
+    try {
+      maplibreMap.setTerrain({
+        source: 'terrainSource',
+        exaggeration: current3DExaggeration
+      });
+      console.log('[3D] Elevación 3D Terrarium activada con éxito');
+    } catch(err) {
+      console.warn('[3D] Advertencia al activar terreno 3D:', err);
+    }
+
+    // Ocultar indicadores de depuración cuando la carga ha sido exitosa
     const dbg = document.getElementById('dbgGlobal');
-    if (dbg) dbg.textContent += ' | LOADED';
+    if (dbg) {
+      dbg.style.display = 'none';
+      dbg.textContent = '';
+    }
+    const dbg3d = document.getElementById('dbg3d');
+    if (dbg3d) dbg3d.style.display = 'none';
+
     if (visibleLayers && visibleLayers.length) {
       console.log('[3D] Adding', visibleLayers.length, 'raster layers');
-      if (dbg) dbg.textContent += ' | raster ' + visibleLayers.length;
       addRasterLayers(visibleLayers);
     } else {
       console.log('[3D] No raster layers to add');
     }
     if (vectorLayers && vectorLayers.length) {
       console.log('[3D] Adding', vectorLayers.length, 'vector layers');
-      if (dbg) dbg.textContent += ' | vector ' + vectorLayers.length;
       addVectorLayers(vectorLayers);
     } else {
       console.log('[3D] No vector layers to add');
@@ -75,8 +93,6 @@ function init3DMap(center, zoom, visibleLayers, vectorLayers) {
 
   maplibreMap.on('error', (e) => {
     console.error('[3D] MapLibre error:', e.error?.message || e);
-    const dbg = document.getElementById('dbgGlobal');
-    if (dbg) dbg.textContent += ' | ERROR: ' + (e.error?.message || e);
     hideProgress();
   });
 
@@ -84,6 +100,33 @@ function init3DMap(center, zoom, visibleLayers, vectorLayers) {
     maplibreMap.resize();
   });
 }
+
+function set3DExaggeration(val) {
+  if (!maplibreMap) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0) return;
+  current3DExaggeration = num;
+  try {
+    maplibreMap.setTerrain({
+      source: 'terrainSource',
+      exaggeration: num
+    });
+    console.log('[3D] Exageración de relieve actualizada a:', num);
+  } catch(e) {
+    console.warn('[3D] Error setTerrain:', e);
+  }
+}
+window.set3DExaggeration = set3DExaggeration;
+
+function reset3DView() {
+  if (!maplibreMap) return;
+  maplibreMap.easeTo({
+    pitch: 60,
+    bearing: 45,
+    duration: 800
+  });
+}
+window.reset3DView = reset3DView;
 
 function addVectorLayers(layers) {
   const dbg = document.getElementById('dbgGlobal');
@@ -177,18 +220,30 @@ function buildStyle(bm) {
       },
       terrainSource: {
         type: 'raster-dem',
-        tiles: ['/terrain-dem/{z}/{x}/{y}.png'],
+        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
         encoding: 'terrarium',
         tileSize: 256,
-        maxzoom: 14
+        maxzoom: 15
       }
     },
     layers: [
-      { id: 'base', type: 'raster', source: 'base' }
+      { id: 'base', type: 'raster', source: 'base' },
+      {
+        id: 'hills',
+        type: 'hillshade',
+        source: 'terrainSource',
+        layout: { visibility: 'visible' },
+        paint: {
+          'hillshade-shadow-color': '#000000',
+          'hillshade-highlight-color': '#ffffff',
+          'hillshade-accent-color': '#000000',
+          'hillshade-exaggeration': 0.25
+        }
+      }
     ],
     terrain: {
       source: 'terrainSource',
-      exaggeration: 1.5
+      exaggeration: current3DExaggeration
     }
   };
 }
