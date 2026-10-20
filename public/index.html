@@ -15306,13 +15306,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function layoutDrawGrid() {
-        const container = document.getElementById('layoutMapContainer');
-        const config = layoutConfig.grid;
+        const frame = document.getElementById('layoutMapFrame');
+        if (!frame) return;
         
-        // Eliminar cuadrícula previa
+        // Eliminar cuadrícula previa (del frame o del container)
         const existing = document.getElementById('layoutGridOverlay');
         if (existing) existing.remove();
 
+        const config = layoutConfig.grid;
         if (!config.enabled) return;
         if (!config.intervalLat || config.intervalLat <= 0 || !config.intervalLng || config.intervalLng <= 0) return;
 
@@ -15329,14 +15330,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const pxW = sz.x || 600;
         const pxH = sz.y || 600;
 
+        // Margen ampliado para que las coordenadas fuera del marco NUNCA se corten
+        const pad = 50;
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.id = 'layoutGridOverlay';
-        svg.setAttribute("viewBox", `0 0 ${pxW} ${pxH}`);
-        svg.style.cssText = "position:absolute; inset:0; width:100%; height:100%; z-index:800; pointer-events:none; overflow:visible;";
+        svg.setAttribute("viewBox", `-${pad} -${pad} ${pxW + pad * 2} ${pxH + pad * 2}`);
+        svg.style.cssText = `position:absolute; top:-${pad}px; left:-${pad}px; width:calc(100% + ${pad * 2}px); height:calc(100% + ${pad * 2}px); z-index:35; pointer-events:none; overflow:visible;`;
 
         const formatCoord = (val, step, isLat) => {
             const dec = step >= 1 ? 0 : Math.min(6, Math.max(1, -Math.floor(Math.log10(step)) + 1));
-            let s = val.toFixed(dec) + '°';
+            const num = config.showSuffix ? Math.abs(val) : val;
+            let s = num.toFixed(dec) + '°';
             if (config.showSuffix) {
                 if (isLat) s += (val >= 0 ? ' N' : ' S');
                 else s += (val >= 0 ? ' E' : ' W');
@@ -15354,43 +15358,46 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const p = m.latLngToContainerPoint(L.latLng(lat, minLng));
             const y = p.y;
             
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", "0"); line.setAttribute("y1", y);
-            line.setAttribute("x2", pxW); line.setAttribute("y2", y);
-            line.setAttribute("stroke", config.color);
-            line.setAttribute("stroke-width", "1");
-            line.setAttribute("opacity", config.opacity);
-            svg.appendChild(line);
+            // Solo dibujar líneas dentro del marco
+            if (y >= 0 && y <= pxH) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", "0"); line.setAttribute("y1", y);
+                line.setAttribute("x2", pxW); line.setAttribute("y2", y);
+                line.setAttribute("stroke", config.color);
+                line.setAttribute("stroke-width", "1");
+                line.setAttribute("opacity", config.opacity);
+                svg.appendChild(line);
 
-            if (config.showLabels) {
-                const isInside = config.position === 'inside';
-                const dist = isInside ? 8 : 14;
+                if (config.showLabels) {
+                    const isInside = config.position === 'inside';
+                    const dist = isInside ? 8 : 10;
 
-                const drawLatLabel = (xOffset, anchor, isRight) => {
-                    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    text.setAttribute("x", xOffset);
-                    text.setAttribute("y", y);
-                    text.setAttribute("text-anchor", anchor);
-                    text.setAttribute("dominant-baseline", "middle");
-                    text.setAttribute("fill", "#000000");
-                    text.setAttribute("stroke", "white");
-                    text.setAttribute("stroke-width", "3");
-                    text.setAttribute("paint-order", "stroke fill");
-                    text.setAttribute("font-size", config.fontSize * 1.8);
-                    text.setAttribute("font-family", config.fontFamily + ", sans-serif");
-                    text.setAttribute("font-weight", "bold");
-                    
-                    if (config.orientLat === 'vertical') {
-                        const rot = isRight ? 90 : -90;
-                        text.setAttribute("transform", `rotate(${rot}, ${xOffset}, ${y})`);
-                    }
+                    const drawLatLabel = (xOffset, anchor, isRight) => {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute("x", xOffset);
+                        text.setAttribute("y", y);
+                        text.setAttribute("text-anchor", anchor);
+                        text.setAttribute("dominant-baseline", "middle");
+                        text.setAttribute("fill", "#000000");
+                        text.setAttribute("stroke", "#ffffff");
+                        text.setAttribute("stroke-width", "2.5");
+                        text.setAttribute("paint-order", "stroke fill");
+                        text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
+                        text.setAttribute("font-family", "Inter, -apple-system, sans-serif");
+                        text.setAttribute("font-weight", "700");
+                        
+                        if (config.orientLat === 'vertical') {
+                            const rot = isRight ? 90 : -90;
+                            text.setAttribute("transform", `rotate(${rot}, ${xOffset}, ${y})`);
+                        }
 
-                    text.textContent = formatCoord(lat, latStep, true);
-                    svg.appendChild(text);
-                };
+                        text.textContent = formatCoord(lat, latStep, true);
+                        svg.appendChild(text);
+                    };
 
-                drawLatLabel(isInside ? dist : -dist, isInside ? "start" : "end", false);
-                drawLatLabel(isInside ? (pxW - dist) : (pxW + dist), isInside ? "end" : "start", true);
+                    drawLatLabel(isInside ? dist : -dist, isInside ? "start" : "end", false);
+                    drawLatLabel(isInside ? (pxW - dist) : (pxW + dist), isInside ? "end" : "start", true);
+                }
             }
             lat += latStep;
         }
@@ -15402,47 +15409,51 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const p = m.latLngToContainerPoint(L.latLng(minLat, lng));
             const x = p.x;
 
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", x); line.setAttribute("y1", "0");
-            line.setAttribute("x2", x); line.setAttribute("y2", pxH);
-            line.setAttribute("stroke", config.color);
-            line.setAttribute("stroke-width", "1");
-            line.setAttribute("opacity", config.opacity);
-            svg.appendChild(line);
+            // Solo dibujar líneas dentro del marco
+            if (x >= 0 && x <= pxW) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", x); line.setAttribute("y1", "0");
+                line.setAttribute("x2", x); line.setAttribute("y2", pxH);
+                line.setAttribute("stroke", config.color);
+                line.setAttribute("stroke-width", "1");
+                line.setAttribute("opacity", config.opacity);
+                svg.appendChild(line);
 
-            if (config.showLabels) {
-                const isInside = config.position === 'inside';
-                const dist = isInside ? 8 : 14;
+                if (config.showLabels) {
+                    const isInside = config.position === 'inside';
+                    const dist = isInside ? 8 : 10;
 
-                const drawLngLabel = (yOffset, dominant) => {
-                    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    text.setAttribute("x", x);
-                    text.setAttribute("y", yOffset);
-                    text.setAttribute("text-anchor", "middle");
-                    text.setAttribute("dominant-baseline", dominant);
-                    text.setAttribute("fill", "#000000");
-                    text.setAttribute("stroke", "white");
-                    text.setAttribute("stroke-width", "3");
-                    text.setAttribute("paint-order", "stroke fill");
-                    text.setAttribute("font-size", config.fontSize * 1.8);
-                    text.setAttribute("font-family", config.fontFamily + ", sans-serif");
-                    text.setAttribute("font-weight", "bold");
-                    
-                    if (config.orientLng === 'vertical') {
-                        text.setAttribute("transform", `rotate(-90, ${x}, ${yOffset})`);
-                    }
+                    const drawLngLabel = (yOffset, dominant) => {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute("x", x);
+                        text.setAttribute("y", yOffset);
+                        text.setAttribute("text-anchor", "middle");
+                        text.setAttribute("dominant-baseline", dominant);
+                        text.setAttribute("fill", "#000000");
+                        text.setAttribute("stroke", "#ffffff");
+                        text.setAttribute("stroke-width", "2.5");
+                        text.setAttribute("paint-order", "stroke fill");
+                        text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
+                        text.setAttribute("font-family", "Inter, -apple-system, sans-serif");
+                        text.setAttribute("font-weight", "700");
+                        
+                        if (config.orientLng === 'vertical') {
+                            text.setAttribute("transform", `rotate(-90, ${x}, ${yOffset})`);
+                        }
 
-                    text.textContent = formatCoord(lng, lngStep, false);
-                    svg.appendChild(text);
-                };
+                        text.textContent = formatCoord(lng, lngStep, false);
+                        svg.appendChild(text);
+                    };
 
-                drawLngLabel(isInside ? dist : -dist, isInside ? "hanging" : "auto");
-                drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging");
+                    drawLngLabel(isInside ? dist : -dist, isInside ? "hanging" : "auto");
+                    drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging");
+                }
             }
             lng += lngStep;
         }
 
-        container.appendChild(svg);
+        // Agregar al FRAME (que tiene overflow: visible) para que las etiquetas externas se vean en la hoja
+        frame.appendChild(svg);
     }
 
     async function exportToImage(format) {
