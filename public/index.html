@@ -3900,7 +3900,7 @@
   </div>
 
   <!-- Modal Configuración de Exportación Vectorial (GeoPackage / Shapefile / GeoJSON / KML) -->
-  <div id="exportVectorModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="exportVectorModal" style="display:none" class="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col">
       <!-- Modal Header -->
       <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
@@ -5228,8 +5228,17 @@
       <button onclick="ctxOpen3D()" id="ctx3DBtn" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
         <span class="material-symbols-outlined text-[16px]">3d_rotation</span> Ver vista 3D (DEM)
       </button>
-      <button onclick="ctxExportLayer()" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
-        <span class="material-symbols-outlined text-[16px]">ios_share</span> Exportar
+      <button onclick="ctxQuickExport('shp')" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left group">
+        <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span>
+        <span class="text-zinc-800 font-medium">Exportar Shapefile (.zip)</span>
+      </button>
+      <button onclick="ctxQuickExport('gpkg')" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left group">
+        <span class="material-symbols-outlined text-[16px] text-indigo-600">layers</span>
+        <span class="text-zinc-800 font-medium">Exportar GeoPackage (.gpkg)</span>
+      </button>
+      <button onclick="ctxExportLayer()" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left text-zinc-600">
+        <span class="material-symbols-outlined text-[16px]">tune</span>
+        <span>Configurar Exportación...</span>
       </button>
       <button onclick="ctxDeleteLayer()" class="px-4 py-2 flex items-center gap-3 hover:bg-red-50 text-red-600 transition-colors">
         <span class="material-symbols-outlined text-[16px]">delete</span> Eliminar capa
@@ -16668,17 +16677,102 @@ async function deleteFromCloud(fileName, url, storagePath) {
     };
 
     function triggerFileDownload(blob, filename) {
+        if (!blob) {
+            console.error('[Export] triggerFileDownload: blob nulo o vacío');
+            return toast('Error: no se generaron datos para descargar', 'error');
+        }
+        console.log('[Export] triggerFileDownload iniciado:', filename, 'tam:', blob.size, 'bytes');
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.style.display = 'none';
+        a.style.position = 'fixed';
+        a.style.left = '-9999px';
+        a.style.top = '-9999px';
+        a.style.width = '2px';
+        a.style.height = '2px';
+        a.style.opacity = '0';
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);
-        a.click();
+
+        try {
+            a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        } catch (_) {
+            a.click();
+        }
+
         setTimeout(() => {
-            document.body.removeChild(a);
+            try { a.remove(); } catch (_) {}
             URL.revokeObjectURL(url);
-        }, 6000);
+        }, 20000);
+    }
+
+    async function ctxQuickExport(format = 'shp') {
+        const layer = state.layers.find(l => String(l.id) === String(state.ctxLayerId));
+        hideContextMenu();
+        if (!layer) return toast('Capa no encontrada para exportar', 'warning');
+        
+        const cleanGeoJson = getCleanLayerGeoJson(layer, false);
+        if (!cleanGeoJson || !cleanGeoJson.features || cleanGeoJson.features.length === 0) {
+            return toast('La capa no contiene geometrías válidas.', 'error');
+        }
+
+        const safeBase = (layer.name || 'capa').replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+        showProgress(`Descargando ${layer.name} como ${format.toUpperCase()}...`, 40, 'Exportación Rápida');
+
+        try {
+            // Intentar backend primero
+            try {
+                const res = await fetch('/api/export-vector', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        format: format,
+                        geojson: cleanGeoJson,
+                        filename: safeBase,
+                        layerName: layer.name,
+                        crs: 'EPSG:4326'
+                    })
+                });
+                if (res.ok) {
+                    const ct = res.headers.get('content-type') || '';
+                    if (!ct.includes('application/json')) {
+                        const blob = await res.blob();
+                        const ext = format === 'shp' ? 'zip' : 'gpkg';
+                        triggerFileDownload(blob, `${safeBase}.${ext}`);
+                        toast(`¡${safeBase}.${ext} descargado con éxito!`, 'success');
+                        return;
+                    }
+                }
+            } catch(_) {}
+
+            // Motor cliente directo
+            if (format === 'shp') {
+                const zipBlob = buildClientShapefileZip(cleanGeoJson, safeBase, 'EPSG:4326');
+                triggerFileDownload(zipBlob, `${safeBase}.zip`);
+                toast(`¡${safeBase}.zip (Shapefile) descargado!`, 'success');
+            } else if (format === 'gpkg') {
+                const GP = (window.GeoPackage && window.GeoPackage.GeoPackageAPI) || window.GeoPackage;
+                if (GP && typeof GP.create === 'function') {
+                    const gpkg = await GP.create();
+                    const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
+                    if (gpkg.createFeatureTableFromProperties) await gpkg.createFeatureTableFromProperties(safeBase.substring(0, 32), firstProps);
+                    if (gpkg.addGeoJSONFeaturesToGeoPackage) await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, safeBase.substring(0, 32));
+                    const u8 = await gpkg.export();
+                    const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
+                    triggerFileDownload(blob, `${safeBase}.gpkg`);
+                    toast(`¡${safeBase}.gpkg descargado!`, 'success');
+                } else {
+                    const zipBlob = buildClientShapefileZip(cleanGeoJson, safeBase, 'EPSG:4326');
+                    triggerFileDownload(zipBlob, `${safeBase}.zip`);
+                    toast(`Descargado como Shapefile (.zip) compatible.`, 'success');
+                }
+            }
+        } catch(err) {
+            console.error('[QuickExport] Error:', err);
+            toast('Error al exportar: ' + err.message, 'error');
+        } finally {
+            hideProgress();
+        }
     }
 
     function reprojectGeoJsonCoords(geojson, targetCrs) {
