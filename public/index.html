@@ -16717,55 +16717,42 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
 
         const safeBase = (layer.name || 'capa').replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
-        showProgress(`Descargando ${layer.name} como ${format.toUpperCase()}...`, 40, 'Exportación Rápida');
+        showProgress('Descargando ' + layer.name + ' como ' + format.toUpperCase() + '...', 50, 'Exportación Rápida');
 
         try {
-            // Intentar backend primero
-            try {
-                const res = await fetch('/api/export-vector', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        format: format,
-                        geojson: cleanGeoJson,
-                        filename: safeBase,
-                        layerName: layer.name,
-                        crs: 'EPSG:4326'
-                    })
-                });
-                if (res.ok) {
-                    const ct = res.headers.get('content-type') || '';
-                    if (!ct.includes('application/json')) {
-                        const blob = await res.blob();
-                        const ext = format === 'shp' ? 'zip' : 'gpkg';
-                        triggerFileDownload(blob, `${safeBase}.${ext}`);
-                        toast(`¡${safeBase}.${ext} descargado con éxito!`, 'success');
-                        return;
-                    }
-                }
-            } catch(_) {}
-
-            // Motor cliente directo
             if (format === 'shp') {
                 const zipBlob = buildClientShapefileZip(cleanGeoJson, safeBase, 'EPSG:4326');
-                triggerFileDownload(zipBlob, `${safeBase}.zip`);
-                toast(`¡${safeBase}.zip (Shapefile) descargado!`, 'success');
+                triggerFileDownload(zipBlob, safeBase + '.zip');
+                toast('¡' + safeBase + '.zip (Shapefile) descargado!', 'success');
             } else if (format === 'gpkg') {
-                const GP = (window.GeoPackage && window.GeoPackage.GeoPackageAPI) || window.GeoPackage;
-                if (GP && typeof GP.create === 'function') {
-                    const gpkg = await GP.create();
-                    const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
-                    if (gpkg.createFeatureTableFromProperties) await gpkg.createFeatureTableFromProperties(safeBase.substring(0, 32), firstProps);
-                    if (gpkg.addGeoJSONFeaturesToGeoPackage) await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, safeBase.substring(0, 32));
-                    const u8 = await gpkg.export();
-                    const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
-                    triggerFileDownload(blob, `${safeBase}.gpkg`);
-                    toast(`¡${safeBase}.gpkg descargado!`, 'success');
-                } else {
-                    const zipBlob = buildClientShapefileZip(cleanGeoJson, safeBase, 'EPSG:4326');
-                    triggerFileDownload(zipBlob, `${safeBase}.zip`);
-                    toast(`Descargado como Shapefile (.zip) compatible.`, 'success');
+                let gpkgDone = false;
+                try {
+                    const GP = (window.GeoPackage && window.GeoPackage.GeoPackageAPI) || (window.GeoPackage && window.GeoPackage.create ? window.GeoPackage : window.GeoPackageAPI);
+                    if (GP && typeof GP.create === 'function') {
+                        const gpkg = await GP.create();
+                        const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
+                        if (gpkg.createFeatureTableFromProperties) await gpkg.createFeatureTableFromProperties(safeBase.substring(0, 32), firstProps);
+                        if (gpkg.addGeoJSONFeaturesToGeoPackage) await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, safeBase.substring(0, 32));
+                        const u8 = await gpkg.export();
+                        if (u8 && u8.length > 0) {
+                            const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
+                            triggerFileDownload(blob, safeBase + '.gpkg');
+                            toast('¡' + safeBase + '.gpkg descargado!', 'success');
+                            gpkgDone = true;
+                        }
+                    }
+                } catch(e) {
+                    console.warn('GeoPackage export fallback:', e);
                 }
+                if (!gpkgDone) {
+                    const zipBlob = buildClientShapefileZip(cleanGeoJson, safeBase, 'EPSG:4326');
+                    triggerFileDownload(zipBlob, safeBase + '.zip');
+                    toast('Descargado como Shapefile (.zip) compatible.', 'success');
+                }
+            } else if (format === 'geojson') {
+                const blob = new Blob([JSON.stringify(cleanGeoJson, null, 2)], { type: 'application/geo+json' });
+                triggerFileDownload(blob, safeBase + '.geojson');
+                toast('¡' + safeBase + '.geojson descargado!', 'success');
             }
         } catch(err) {
             console.error('[QuickExport] Error:', err);
@@ -17214,84 +17201,44 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
 
         const formatRadio = document.querySelector('input[name="exportFormat"]:checked');
-        const format = formatRadio ? formatRadio.value : 'gpkg';
+        const format = formatRadio ? formatRadio.value : 'shp';
         const crs = document.getElementById('exportCrsSel').value || 'EPSG:4326';
         const filename = (document.getElementById('exportFilenameInput').value.trim()) || layer.name || 'capa';
         const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
-        showProgress(`Preparando exportación ${format.toUpperCase()} (${cleanGeoJson.features.length} entidades)...<br><span class="text-[10px] text-zinc-400">Iniciando proceso</span>`, 30, 'Exportador');
+        showProgress('Generando ' + format.toUpperCase() + ' (' + cleanGeoJson.features.length + ' entidades)...', 50, 'Exportador');
         const btn = document.getElementById('btnStartExport');
         if (btn) btn.disabled = true;
 
         try {
-            // Intentar exportación rápida en backend
-            let backendSuccess = false;
-            try {
-                const res = await fetch('/api/export-vector', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        format: format,
-                        geojson: cleanGeoJson,
-                        filename: safeBase,
-                        layerName: layer.name,
-                        crs: crs
-                    })
-                });
-
-                if (res.ok) {
-                    const contentType = res.headers.get('content-type') || '';
-                    if (contentType.includes('application/json')) {
-                        const jsonRes = await res.json();
-                        if (jsonRes.fallbackClient) {
-                            console.log('[Export] Host solicitó fallback en cliente:', jsonRes.message);
-                        } else {
-                            backendSuccess = true;
-                        }
-                    } else {
-                        // Descargar binario retornado por el servidor
-                        const blob = await res.blob();
-                        const ext = format === 'shp' ? 'zip' : (format === 'geojson' ? 'geojson' : (format === 'kml' ? 'kml' : 'gpkg'));
-                        triggerFileDownload(blob, `${safeBase}.${ext}`);
-                        backendSuccess = true;
-                        closeExportVectorModal();
-                        toast(`¡${safeBase}.${ext} exportado exitosamente!`, 'success');
-                        return;
-                    }
-                }
-            } catch(fetchErr) {
-                console.warn('[Export] Backend fetch no disponible, usando motor cliente:', fetchErr.message);
-            }
-
-            // MOTOR CLIENTE RESILIENTE (100% independiente de GDAL o servidor)
-            showProgress(`Generando ${format.toUpperCase()} directamente en el navegador...`, 65, 'Exportador');
             const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(cleanGeoJson, crs) : cleanGeoJson;
 
             if (format === 'geojson') {
                 const blob = new Blob([JSON.stringify(reprojected, null, 2)], { type: 'application/geo+json' });
-                triggerFileDownload(blob, `${safeBase}.geojson`);
+                triggerFileDownload(blob, safeBase + '.geojson');
                 closeExportVectorModal();
-                toast(`¡${safeBase}.geojson descargado con éxito!`, 'success');
+                toast('¡' + safeBase + '.geojson descargado con éxito!', 'success');
 
             } else if (format === 'kml') {
                 const kmlStr = buildClientKml(cleanGeoJson, safeBase);
                 const blob = new Blob([kmlStr], { type: 'application/vnd.google-earth.kml+xml' });
-                triggerFileDownload(blob, `${safeBase}.kml`);
+                triggerFileDownload(blob, safeBase + '.kml');
                 closeExportVectorModal();
-                toast(`¡${safeBase}.kml descargado con éxito!`, 'success');
+                toast('¡' + safeBase + '.kml descargado con éxito!', 'success');
 
             } else if (format === 'shp') {
                 const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
-                triggerFileDownload(zipBlob, `${safeBase}.zip`);
+                triggerFileDownload(zipBlob, safeBase + '.zip');
                 closeExportVectorModal();
-                toast(`¡${safeBase}.zip (Shapefile) exportado con éxito!`, 'success');
+                toast('¡' + safeBase + '.zip (Shapefile) exportado con éxito!', 'success');
 
             } else if (format === 'gpkg') {
-                // Generador GeoPackage en cliente con @ngageoint/geopackage
-                if (typeof window.GeoPackage !== 'undefined') {
-                    showProgress('Construyendo base SQLite OGC GeoPackage...', 75, 'Exportador');
-                    try {
-                        const gpkg = await window.GeoPackage.create();
+                let gpkgDone = false;
+                try {
+                    const GP = (window.GeoPackage && window.GeoPackage.GeoPackageAPI) || (window.GeoPackage && window.GeoPackage.create ? window.GeoPackage : window.GeoPackageAPI);
+                    if (GP && typeof GP.create === 'function') {
+                        showProgress('Construyendo base SQLite OGC GeoPackage...', 75, 'Exportador');
+                        const gpkg = await GP.create();
                         const tableName = safeBase.substring(0, 32);
                         const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
                         if (gpkg.createFeatureTableFromProperties) {
@@ -17301,24 +17248,28 @@ async function deleteFromCloud(fileName, url, storagePath) {
                             await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, tableName);
                         }
                         const u8 = await gpkg.export();
-                        const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
-                        triggerFileDownload(blob, `${safeBase}.gpkg`);
-                        closeExportVectorModal();
-                        toast(`¡${safeBase}.gpkg exportado con éxito!`, 'success');
-                        return;
-                    } catch(gpkgErr) {
-                        console.warn('[GPKG Client Export] Falló SQLite cliente:', gpkgErr);
+                        if (u8 && u8.length > 0) {
+                            const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
+                            triggerFileDownload(blob, safeBase + '.gpkg');
+                            closeExportVectorModal();
+                            toast('¡' + safeBase + '.gpkg exportado con éxito!', 'success');
+                            gpkgDone = true;
+                        }
                     }
+                } catch(gpkgErr) {
+                    console.warn('[GPKG Client Export] Falló SQLite cliente:', gpkgErr);
                 }
-                // Si el motor GPKG del navegador no inicializó, descargar como Shapefile comprimido o GeoJSON
-                const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
-                triggerFileDownload(zipBlob, `${safeBase}.zip`);
-                closeExportVectorModal();
-                toast(`Exportado como Shapefile (.zip) compatible con QGIS y ArcGIS.`, 'success');
+
+                if (!gpkgDone) {
+                    const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
+                    triggerFileDownload(zipBlob, safeBase + '.zip');
+                    closeExportVectorModal();
+                    toast('Exportado como Shapefile (.zip) compatible con QGIS y ArcGIS.', 'success');
+                }
             }
         } catch(err) {
             console.error('[ExportVector] Error fatal:', err);
-            toast(`Error al exportar: ${err.message}`, 'error');
+            toast('Error al exportar: ' + err.message, 'error');
         } finally {
             hideProgress();
             if (btn) btn.disabled = false;
