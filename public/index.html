@@ -15679,6 +15679,127 @@ async function deleteFromCloud(fileName, url, storagePath) {
         });
     }
 
+    // Renderiza una captura nativa del mapa a la resolución exacta de los DPI solicitados (evita teselas borrosas)
+    async function renderHighResMapSnapshot(width, height, center, zoom) {
+        const tempDiv = document.createElement('div');
+        tempDiv.id = 'layoutExportTempMap';
+        tempDiv.style.cssText = `position:fixed; top:0; left:0; width:${width}px; height:${height}px; overflow:hidden; z-index:-9999; pointer-events:none; background:#1a1a1e;`;
+        document.body.appendChild(tempDiv);
+
+        try {
+            const tempMap = L.map(tempDiv, {
+                preferCanvas: true,
+                attributionControl: false,
+                zoomControl: false,
+                center: center,
+                zoom: zoom,
+                zoomSnap: 0.01,
+                fadeAnimation: false
+            });
+
+            tempMap.invalidateSize({ animate: false });
+
+            // Mapa Base con teselas de alta definición
+            const baseUrls = {
+                satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+            };
+            const currentStyle = state.currentBaseStyle || 'satellite';
+            const baseLayer = L.tileLayer(baseUrls[currentStyle] || baseUrls.satellite, {
+                maxNativeZoom: 20,
+                maxZoom: 28,
+                crossOrigin: 'anonymous'
+            }).addTo(tempMap);
+
+            // Factor de escala vectorial para mantener grosores físicos en 300 DPI
+            const baseScreenW = (window.layoutLeafletMap && window.layoutLeafletMap.getSize ? window.layoutLeafletMap.getSize().x : 642) || 642;
+            const vectorScale = width / baseScreenW;
+
+            // Clonar capas visibles (vectores y rásters)
+            const visibleLayers = (state.layers || []).filter(l => l.visible).slice().reverse();
+            for (const l of visibleLayers) {
+                try {
+                    if (l.type === 'vector' && l.geoJson) {
+                        const vLayer = L.geoJSON(l.geoJson, {
+                            style: () => ({
+                                color: l.strokeColor || '#222222',
+                                weight: Math.max(1, (l.strokeWidth ?? 1.5) * vectorScale),
+                                opacity: l.strokeOpacity ?? l.opacity ?? 1.0,
+                                fillColor: l.color || '#9333ea',
+                                fillOpacity: l.fillOpacity ?? 0.6
+                            }),
+                            pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
+                                radius: Math.max(3, (l.pointRadius || 6) * vectorScale),
+                                fillColor: l.color || '#9333ea',
+                                color: l.strokeColor || '#ffffff',
+                                weight: Math.max(1, (l.strokeWidth || 1.5) * vectorScale),
+                                opacity: 1,
+                                fillOpacity: l.fillOpacity ?? 0.8
+                            })
+                        });
+                        vLayer.addTo(tempMap);
+                    } else if (l.type === 'raster') {
+                        if (l._layoutExportOverlay && l._layoutExportOverlay._url) {
+                            const rImg = L.imageOverlay(l._layoutExportOverlay._url, l._layoutExportOverlay._bounds, {
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            rImg.addTo(tempMap);
+                        } else if (l.mapLayer && l.mapLayer._url && l.mapLayer._bounds) {
+                            const rImg = L.imageOverlay(l.mapLayer._url, l.mapLayer._bounds, {
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            rImg.addTo(tempMap);
+                        } else if (l.serverFilename) {
+                            const tileUrl = '/api/tiles/' + encodeURIComponent(l.serverFilename) + '/{z}/{x}/{y}.png';
+                            const rTile = L.tileLayer(tileUrl, {
+                                opacity: l.opacity ?? 1,
+                                maxZoom: 28,
+                                crossOrigin: 'anonymous'
+                            });
+                            rTile.addTo(tempMap);
+                        }
+                    }
+                } catch(e) {
+                    console.warn('[renderHighResMapSnapshot] Capa omitida:', l.name, e);
+                }
+            }
+
+            // Esperar que carguen las teselas nativas a resolución de impresión
+            await new Promise(resolve => {
+                let loaded = false;
+                const done = () => { if (!loaded) { loaded = true; resolve(); } };
+                baseLayer.once('load', done);
+                setTimeout(done, 2600);
+            });
+
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+            // Captura exacta a escala 1.0 del contenedor nativo
+            const mapCanvas = await html2canvas(tempDiv, {
+                useCORS: true,
+                allowTaint: false,
+                scale: 1,
+                width: width,
+                height: height,
+                x: 0,
+                y: 0,
+                scrollX: 0,
+                scrollY: 0,
+                backgroundColor: '#1a1a1e',
+                logging: false
+            });
+
+            tempMap.remove();
+            return mapCanvas;
+
+        } finally {
+            if (tempDiv.parentNode) tempDiv.parentNode.removeChild(tempDiv);
+        }
+    }
+
     async function exportToImage(format = 'png') {
         const fmt = (format || 'png').toLowerCase().trim();
         
@@ -15756,8 +15877,41 @@ async function deleteFromCloud(fileName, url, storagePath) {
             try { await _prepareExportResolution(l); } catch (err) { console.warn("Could not prepare high res for", l.name, err); }
         }
 
-        // Breve pausa para asegurar que se hayan renderizado fuentes, imágenes y tiles
-        await new Promise(resolve => setTimeout(resolve, 400));
+        // GENERACIÓN DE TESELAS REALES A 300 DPI PARA EL MARCO DE MAPA
+        let highResMapImg = null;
+        const layoutContainer = document.getElementById('layoutMapContainer');
+        const layoutMapFrame = document.getElementById('layoutMapFrame');
+
+        if (isLayoutActive && layoutContainer && window.layoutLeafletMap && layoutMapFrame) {
+            toast(`Descargando y componiendo teselas nativas a ${dpi} DPI...`, 'info');
+            
+            const frameW = layoutMapFrame.offsetWidth || layoutContainer.offsetWidth || 642;
+            const frameH = layoutMapFrame.offsetHeight || layoutContainer.offsetHeight || 642;
+            const targetMapPxW = Math.round(frameW * exactScale);
+            const targetMapPxH = Math.round(frameH * exactScale);
+            const currentCenter = window.layoutLeafletMap.getCenter();
+            const currentZoom = window.layoutLeafletMap.getZoom();
+            const targetZoom = +(currentZoom + Math.log2(exactScale)).toFixed(4);
+
+            try {
+                const mapCanvas = await renderHighResMapSnapshot(targetMapPxW, targetMapPxH, currentCenter, targetZoom);
+                if (mapCanvas) {
+                    highResMapImg = document.createElement('img');
+                    highResMapImg.id = 'layoutMapHighResOverlay';
+                    highResMapImg.src = mapCanvas.toDataURL('image/png');
+                    highResMapImg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:450; object-fit:fill; pointer-events:none;';
+                    layoutContainer.appendChild(highResMapImg);
+                    
+                    // Breve espera para decodificación de imagen en el DOM
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            } catch (err) {
+                console.warn('[Export300DPI] Error generando mapa de alta resolución:', err);
+            }
+        }
+
+        // Breve pausa para asegurar renderizado completo
+        await new Promise(resolve => setTimeout(resolve, 350));
 
         try {
             const renderedCanvas = await html2canvas(targetEl, {
@@ -15847,6 +16001,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             console.error('Export Error:', err);
             toast('Error al generar la exportación: ' + (err.message || err), 'error');
         } finally {
+            // Eliminar imagen de alta resolución temporal
+            if (highResMapImg && highResMapImg.parentNode) {
+                highResMapImg.parentNode.removeChild(highResMapImg);
+            }
             // Restaurar controles y manijas
             hiddenElements.forEach(item => {
                 if (item.el) item.el.style.display = item.display;
