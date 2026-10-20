@@ -4613,7 +4613,7 @@
             <!-- Map Element -->
             <div id="layoutMapFrame" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 170mm; height: 170mm; top: 20mm; left: 20mm; transition: all 0.3s; overflow: visible;">
                 <!-- Floating Toolbar on Frame -->
-                <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-xl shadow-2xl border border-white/20 flex items-center gap-1 z-30 transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
+                <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-xl shadow-2xl border border-white/20 flex items-center gap-1 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
                     <button id="floatBtnModeContent" onclick="setLayoutMapMode('content')" class="px-2.5 py-1 bg-white text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all" title="Mover la vista del mapa desde dentro">
                         <span class="material-symbols-outlined text-[13px]">pan_tool</span> Mover Vista
                     </button>
@@ -4627,7 +4627,7 @@
                     <button onclick="layoutContentReset()" class="px-1.5 h-5 rounded hover:bg-white/20 text-zinc-300 hover:text-white text-[8px] font-bold uppercase flex items-center justify-center ml-0.5" title="Centrar">⟲</button>
                 </div>
 
-                <div id="layoutMapContainer" class="w-full h-full relative overflow-hidden" style="background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px;">
+                <div id="layoutMapContainer" class="w-full h-full relative overflow-hidden" style="background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; z-index: 1; isolation: isolate;">
                     <div id="layoutMapPlaceholder" class="w-full h-full flex flex-col items-center justify-center text-zinc-300 gap-4">
                         <span class="material-symbols-outlined text-[48px]">map</span>
                         <span class="text-[10px] font-black uppercase tracking-widest">Vista de Mapa Principal</span>
@@ -14048,7 +14048,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             enabled: false,
             auto: true,
             color: '#333333', 
-            opacity: 0.35,
+            opacity: 0.45,
             intervalLat: 0.5, 
             intervalLng: 0.5, 
             showLabels: true,
@@ -14399,7 +14399,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             window.layoutLayersGroup = L.layerGroup().addTo(window.layoutLeafletMap);
 
-            window.layoutLeafletMap.on('zoomend', updateLayoutZoomBadges);
+            window.layoutLeafletMap.on('zoomend', () => {
+                updateLayoutZoomBadges();
+                if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
+                    if (layoutConfig.grid.auto) {
+                        layoutAutoAdjustGrid(false);
+                    } else {
+                        layoutDrawGrid();
+                    }
+                }
+            });
             window.layoutLeafletMap.on('moveend', () => {
                 if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
                     if (layoutConfig.grid.auto) {
@@ -15335,7 +15344,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.id = 'layoutGridOverlay';
         svg.setAttribute("viewBox", `-${pad} -${pad} ${pxW + pad * 2} ${pxH + pad * 2}`);
-        svg.style.cssText = `position:absolute; top:-${pad}px; left:-${pad}px; width:calc(100% + ${pad * 2}px); height:calc(100% + ${pad * 2}px); z-index:35; pointer-events:none; overflow:visible;`;
+        // z-index:50 asegura estar POR ENCIMA de #layoutMapContainer (z-index:1 con isolation:isolate)
+        svg.style.cssText = `position:absolute; top:-${pad}px; left:-${pad}px; width:calc(100% + ${pad * 2}px); height:calc(100% + ${pad * 2}px); z-index:50; pointer-events:none; overflow:visible;`;
+
+        const strokeColor = config.color || '#333333';
+        const lineOpacity = (typeof config.opacity === 'number' && !isNaN(config.opacity)) ? Math.max(0.15, config.opacity) : 0.45;
 
         const formatCoord = (val, step, isLat) => {
             const dec = step >= 1 ? 0 : Math.min(6, Math.max(1, -Math.floor(Math.log10(step)) + 1));
@@ -15353,20 +15366,33 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
         // Líneas de Latitud (Horizontales)
         const latStep = config.intervalLat;
-        let lat = Math.ceil(minLat / latStep) * latStep;
-        while (lat <= maxLat + (latStep * 0.01)) {
+        let lat = Math.round((Math.ceil(minLat / latStep) * latStep) * 1e8) / 1e8;
+        while (lat <= maxLat + (latStep * 0.02)) {
             const p = m.latLngToContainerPoint(L.latLng(lat, minLng));
             const y = p.y;
             
             // Solo dibujar líneas dentro del marco
-            if (y >= 0 && y <= pxH) {
+            if (y >= -1 && y <= pxH + 1) {
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", "0"); line.setAttribute("y1", y);
                 line.setAttribute("x2", pxW); line.setAttribute("y2", y);
-                line.setAttribute("stroke", config.color);
-                line.setAttribute("stroke-width", "1");
-                line.setAttribute("opacity", config.opacity);
+                line.setAttribute("stroke", strokeColor);
+                line.setAttribute("stroke-width", "1.2");
+                line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
+
+                // Marcas de cuadrícula en el borde (ticks)
+                const tickL = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                tickL.setAttribute("x1", "-4"); tickL.setAttribute("y1", y);
+                tickL.setAttribute("x2", "4"); tickL.setAttribute("y2", y);
+                tickL.setAttribute("stroke", strokeColor); tickL.setAttribute("stroke-width", "1.5");
+                svg.appendChild(tickL);
+
+                const tickR = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                tickR.setAttribute("x1", pxW - 4); tickR.setAttribute("y1", y);
+                tickR.setAttribute("x2", pxW + 4); tickR.setAttribute("y2", y);
+                tickR.setAttribute("stroke", strokeColor); tickR.setAttribute("stroke-width", "1.5");
+                svg.appendChild(tickR);
 
                 if (config.showLabels) {
                     const isInside = config.position === 'inside';
@@ -15378,12 +15404,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         text.setAttribute("y", y);
                         text.setAttribute("text-anchor", anchor);
                         text.setAttribute("dominant-baseline", "middle");
-                        text.setAttribute("fill", "#000000");
+                        text.setAttribute("fill", config.fontColor || "#000000");
                         text.setAttribute("stroke", "#ffffff");
                         text.setAttribute("stroke-width", "2.5");
                         text.setAttribute("paint-order", "stroke fill");
                         text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
-                        text.setAttribute("font-family", "Inter, -apple-system, sans-serif");
+                        text.setAttribute("font-family", (config.fontFamily || "Inter") + ", -apple-system, sans-serif");
                         text.setAttribute("font-weight", "700");
                         
                         if (config.orientLat === 'vertical') {
@@ -15399,25 +15425,38 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     drawLatLabel(isInside ? (pxW - dist) : (pxW + dist), isInside ? "end" : "start", true);
                 }
             }
-            lat += latStep;
+            lat = Math.round((lat + latStep) * 1e8) / 1e8;
         }
 
         // Líneas de Longitud (Verticales)
         const lngStep = config.intervalLng;
-        let lng = Math.ceil(minLng / lngStep) * lngStep;
-        while (lng <= maxLng + (lngStep * 0.01)) {
+        let lng = Math.round((Math.ceil(minLng / lngStep) * lngStep) * 1e8) / 1e8;
+        while (lng <= maxLng + (lngStep * 0.02)) {
             const p = m.latLngToContainerPoint(L.latLng(minLat, lng));
             const x = p.x;
 
             // Solo dibujar líneas dentro del marco
-            if (x >= 0 && x <= pxW) {
+            if (x >= -1 && x <= pxW + 1) {
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", x); line.setAttribute("y1", "0");
                 line.setAttribute("x2", x); line.setAttribute("y2", pxH);
-                line.setAttribute("stroke", config.color);
-                line.setAttribute("stroke-width", "1");
-                line.setAttribute("opacity", config.opacity);
+                line.setAttribute("stroke", strokeColor);
+                line.setAttribute("stroke-width", "1.2");
+                line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
+
+                // Marcas de cuadrícula en el borde (ticks)
+                const tickT = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                tickT.setAttribute("x1", x); tickT.setAttribute("y1", "-4");
+                tickT.setAttribute("x2", x); tickT.setAttribute("y2", "4");
+                tickT.setAttribute("stroke", strokeColor); tickT.setAttribute("stroke-width", "1.5");
+                svg.appendChild(tickT);
+
+                const tickB = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                tickB.setAttribute("x1", x); tickB.setAttribute("y1", pxH - 4);
+                tickB.setAttribute("x2", x); tickB.setAttribute("y2", pxH + 4);
+                tickB.setAttribute("stroke", strokeColor); tickB.setAttribute("stroke-width", "1.5");
+                svg.appendChild(tickB);
 
                 if (config.showLabels) {
                     const isInside = config.position === 'inside';
@@ -15429,12 +15468,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         text.setAttribute("y", yOffset);
                         text.setAttribute("text-anchor", "middle");
                         text.setAttribute("dominant-baseline", dominant);
-                        text.setAttribute("fill", "#000000");
+                        text.setAttribute("fill", config.fontColor || "#000000");
                         text.setAttribute("stroke", "#ffffff");
                         text.setAttribute("stroke-width", "2.5");
                         text.setAttribute("paint-order", "stroke fill");
                         text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
-                        text.setAttribute("font-family", "Inter, -apple-system, sans-serif");
+                        text.setAttribute("font-family", (config.fontFamily || "Inter") + ", -apple-system, sans-serif");
                         text.setAttribute("font-weight", "700");
                         
                         if (config.orientLng === 'vertical') {
@@ -15449,7 +15488,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging");
                 }
             }
-            lng += lngStep;
+            lng = Math.round((lng + lngStep) * 1e8) / 1e8;
         }
 
         // Agregar al FRAME (que tiene overflow: visible) para que las etiquetas externas se vean en la hoja
