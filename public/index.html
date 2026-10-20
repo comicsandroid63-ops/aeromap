@@ -9360,12 +9360,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
             };
             newOverlay.once('load', done);
             newOverlay.addTo(state.map);
+            if (window.layoutLayersGroup) {
+                const layoutOverlay = L.imageOverlay(canvas.toDataURL('image/png', 1.0), visBounds, { opacity: layerObj.opacity ?? 1 });
+                layoutOverlay.addTo(window.layoutLayersGroup);
+                layerObj._layoutExportOverlay = layoutOverlay;
+            }
             layerObj.mapLayer = newOverlay;
             setTimeout(done, 3000); // Increased timeout for 8K canvases
         });
     }
 
     function _restoreExportResolution(layerObj) {
+        if (layerObj._layoutExportOverlay && window.layoutLayersGroup) {
+            window.layoutLayersGroup.removeLayer(layerObj._layoutExportOverlay);
+            layerObj._layoutExportOverlay = null;
+        }
         if (!layerObj._exportBackupLayer) return;
         const highResLayer = layerObj.mapLayer;
         if (highResLayer && highResLayer.remove) {
@@ -15522,6 +15531,138 @@ async function deleteFromCloud(fileName, url, storagePath) {
         frame.appendChild(svg);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // DPI METADATA INJECTORS (Inyecta resolución física real en los encabezados binarios)
+    // ══════════════════════════════════════════════════════════════════════
+    const _dpiCrcTable = (() => {
+        let c;
+        const table = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+            c = n;
+            for (let k = 0; k < 8; k++) {
+                c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+            }
+            table[n] = c;
+        }
+        return table;
+    })();
+
+    function _dpiCrc32(bytes) {
+        let crc = 0 ^ (-1);
+        for (let i = 0; i < bytes.length; i++) {
+            crc = (crc >>> 8) ^ _dpiCrcTable[(crc ^ bytes[i]) & 0xFF];
+        }
+        return (crc ^ (-1)) >>> 0;
+    }
+
+    function _base64ToBytes(base64) {
+        const bin = atob(base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+
+    function _bytesToBase64(bytes) {
+        let binary = '';
+        const len = bytes.byteLength;
+        const chunkSize = 16384;
+        for (let i = 0; i < len; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunkSize, len)));
+        }
+        return btoa(binary);
+    }
+
+    // Inyecta el encabezado JFIF con densidad física exacta en DPI en imágenes JPEG
+    function patchJpegDpi(dataUrl, dpi) {
+        const parts = dataUrl.split(',');
+        const mime = parts[0];
+        const bytes = _base64ToBytes(parts[1]);
+        
+        if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
+            if (bytes[2] === 0xFF && bytes[3] === 0xE0 && 
+                bytes[6] === 0x4A && bytes[7] === 0x46 && bytes[8] === 0x49 && bytes[9] === 0x46 && bytes[10] === 0x00) {
+                // Modificar bloque JFIF existente
+                bytes[13] = 1; // 1 = dots per inch (DPI)
+                bytes[14] = (dpi >> 8) & 0xFF;
+                bytes[15] = dpi & 0xFF;
+                bytes[16] = (dpi >> 8) & 0xFF;
+                bytes[17] = dpi & 0xFF;
+                return `${mime},${_bytesToBase64(bytes)}`;
+            } else {
+                // Insertar bloque JFIF APP0 (18 bytes) justo después de SOI
+                const jfif = new Uint8Array([
+                    0xFF, 0xE0, // APP0 marker
+                    0x00, 0x10, // length = 16
+                    0x4A, 0x46, 0x49, 0x46, 0x00, // 'JFIF\0'
+                    0x01, 0x02, // version 1.02
+                    0x01,       // units = DPI
+                    (dpi >> 8) & 0xFF, dpi & 0xFF, // X density
+                    (dpi >> 8) & 0xFF, dpi & 0xFF, // Y density
+                    0x00, 0x00  // thumbnail 0x0
+                ]);
+                const newBytes = new Uint8Array(bytes.length + jfif.length);
+                newBytes.set(bytes.subarray(0, 2), 0);
+                newBytes.set(jfif, 2);
+                newBytes.set(bytes.subarray(2), 2 + jfif.length);
+                return `${mime},${_bytesToBase64(newBytes)}`;
+            }
+        }
+        return dataUrl;
+    }
+
+    // Inyecta el chunk pHYs con la resolución física en DPI (píxeles por metro) en imágenes PNG
+    function patchPngDpi(dataUrl, dpi) {
+        const parts = dataUrl.split(',');
+        const mime = parts[0];
+        let bytes = _base64ToBytes(parts[1]);
+
+        if (bytes.length < 33 || bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4E || bytes[3] !== 0x47) {
+            return dataUrl;
+        }
+
+        // 300 DPI = 11811 píxeles por metro (1 pulgada = 0.0254 metros)
+        const ppm = Math.round(dpi / 0.0254);
+
+        // Crear chunk pHYs (4 len + 4 type + 9 data + 4 crc = 21 bytes)
+        const phys = new Uint8Array(21);
+        const view = new DataView(phys.buffer);
+        view.setUint32(0, 9, false); // Length = 9
+        phys[4] = 0x70; phys[5] = 0x48; phys[6] = 0x59; phys[7] = 0x73; // 'pHYs'
+        view.setUint32(8, ppm, false);  // Pixels per unit, X
+        view.setUint32(12, ppm, false); // Pixels per unit, Y
+        phys[16] = 1; // Unit specifier: 1 = meter
+
+        // Calcular CRC sobre Type (4 bytes) + Data (9 bytes) = bytes 4 a 16
+        const crc = _dpiCrc32(phys.subarray(4, 17));
+        view.setUint32(17, crc, false);
+
+        // Buscar si ya existía un chunk pHYs para eliminarlo
+        let idx = 33;
+        const bView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        while (idx + 8 <= bytes.length) {
+            const chunkLen = bView.getUint32(idx, false);
+            const chunkType = String.fromCharCode(bytes[idx + 4], bytes[idx + 5], bytes[idx + 6], bytes[idx + 7]);
+            if (chunkType === 'pHYs') {
+                const totalChunkLen = 12 + chunkLen;
+                const filtered = new Uint8Array(bytes.length - totalChunkLen);
+                filtered.set(bytes.subarray(0, idx), 0);
+                filtered.set(bytes.subarray(idx + totalChunkLen), idx);
+                bytes = filtered;
+                break;
+            }
+            if (chunkType === 'IDAT' || chunkType === 'IEND') break;
+            idx += 12 + chunkLen;
+        }
+
+        // Insertar el nuevo chunk pHYs en la posición 33 (después de IHDR)
+        const result = new Uint8Array(bytes.length + phys.length);
+        result.set(bytes.subarray(0, 33), 0);
+        result.set(phys, 33);
+        result.set(bytes.subarray(33), 33 + phys.length);
+
+        return `${mime},${_bytesToBase64(result)}`;
+    }
+
     async function ensureJsPDF() {
         if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
         if (window.jsPDF) return window.jsPDF;
@@ -15550,12 +15691,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 dpi = val;
             }
         }
-        
-        // Escala para html2canvas: 96 DPI equivale a escala 1.0 (resolución base CSS)
-        // Ejemplo: 300 DPI = escala 3.125 (alta resolución para impresión)
-        const scale = dpi / 96;
 
-        toast(`Preparando exportación ${fmt.toUpperCase()} a ${dpi} DPI... Por favor espera`, 'info');
+        toast(`Preparando exportación ${fmt.toUpperCase()} a ${dpi} DPI (Resolución de Impresión)...`, 'info');
         
         const layoutModal = document.getElementById('layoutModal');
         const isLayoutActive = layoutModal && (layoutModal.style.display !== 'none') && !layoutModal.classList.contains('hidden');
@@ -15565,6 +15702,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
             toast('Elemento de mapa no encontrado para exportar', 'error');
             return;
         }
+
+        // Calcular dimensiones físicas exactas del papel en mm y píxeles exactos a los DPI solicitados
+        const isLandscape = targetEl.offsetWidth > targetEl.offsetHeight || (typeof layoutConfig !== 'undefined' && layoutConfig.orientation === 'landscape');
+        let mmW = isLandscape ? 297 : 210;
+        let mmH = isLandscape ? 210 : 297;
+        if (typeof layoutConfig !== 'undefined' && layoutConfig.paper === 'Letter') {
+            mmW = isLandscape ? 279.4 : 215.9;
+            mmH = isLandscape ? 215.9 : 279.4;
+        }
+
+        // Píxeles exactos calculados: para A4 a 300 DPI = exactamente 2480 x 3508 px
+        const targetPxW = Math.round((mmW / 25.4) * dpi);
+        const targetPxH = Math.round((mmH / 25.4) * dpi);
+
+        // Escala exacta requerida basada en los píxeles reales del DOM
+        const elW = targetEl.offsetWidth || targetEl.clientWidth || 794;
+        const exactScale = targetPxW / elW;
 
         const hiddenElements = [];
         
@@ -15596,61 +15750,74 @@ async function deleteFromCloud(fileName, url, storagePath) {
             if (val) titleName = val.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]/g, '_');
         }
 
-        // PREPARE HIGH-RES EXPORT LAYERS
+        // PREPARAR CAPAS DE ALTA RESOLUCIÓN RASTER (GeoTIFFs nativos)
         const rasterLayers = (state.layers || []).filter(l => l.type === 'raster' && l.visible);
         for (const l of rasterLayers) {
             try { await _prepareExportResolution(l); } catch (err) { console.warn("Could not prepare high res for", l.name, err); }
         }
 
         // Breve pausa para asegurar que se hayan renderizado fuentes, imágenes y tiles
-        await new Promise(resolve => setTimeout(resolve, 350));
+        await new Promise(resolve => setTimeout(resolve, 400));
 
         try {
-            const canvas = await html2canvas(targetEl, {
+            const renderedCanvas = await html2canvas(targetEl, {
                 useCORS: true,
                 allowTaint: false,
-                scale: scale,
+                scale: exactScale,
                 backgroundColor: '#ffffff',
                 logging: false
             });
 
-            const isLandscape = targetEl.offsetWidth > targetEl.offsetHeight || (typeof layoutConfig !== 'undefined' && layoutConfig.orientation === 'landscape');
-            const mmW = isLandscape ? 297 : 210;
-            const mmH = isLandscape ? 210 : 297;
+            // Normalizar a las dimensiones exactas en píxeles al milímetro para el DPI seleccionado
+            let finalCanvas = renderedCanvas;
+            if (renderedCanvas.width !== targetPxW || renderedCanvas.height !== targetPxH) {
+                const normCanvas = document.createElement('canvas');
+                normCanvas.width = targetPxW;
+                normCanvas.height = targetPxH;
+                const ctx = normCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(renderedCanvas, 0, 0, targetPxW, targetPxH);
+                finalCanvas = normCanvas;
+            }
 
             if (fmt === 'pdf') {
                 const jsPDFClass = await ensureJsPDF();
                 const pdf = new jsPDFClass({
                     orientation: isLandscape ? 'landscape' : 'portrait',
                     unit: 'mm',
-                    format: isLandscape ? [297, 210] : [210, 297],
+                    format: isLandscape ? [mmW, mmH] : [mmW, mmH],
                     compress: true
                 });
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                pdf.addImage(imgData, 'JPEG', 0, 0, mmW, mmH, undefined, 'FAST');
+                // Inyectar imagen JPEG con encabezado JFIF 300 DPI
+                const rawJpg = finalCanvas.toDataURL('image/jpeg', 0.96);
+                const patchedJpg = patchJpegDpi(rawJpg, dpi);
+                pdf.addImage(patchedJpg, 'JPEG', 0, 0, mmW, mmH, undefined, 'FAST');
                 pdf.save(`${titleName}_${dpi}dpi.pdf`);
-                toast(`¡Plano exportado exitosamente como ${titleName}_${dpi}dpi.pdf!`, 'success');
+                toast(`¡Plano PDF (${targetPxW}x${targetPxH} px a ${dpi} DPI) exportado exitosamente!`, 'success');
 
             } else if (fmt === 'jpg' || fmt === 'jpeg') {
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const rawJpg = finalCanvas.toDataURL('image/jpeg', 0.96);
+                const patchedJpg = patchJpegDpi(rawJpg, dpi);
                 const a = document.createElement('a');
-                a.href = imgData;
+                a.href = patchedJpg;
                 a.download = `${titleName}_${dpi}dpi.jpg`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                toast(`¡Mapa exportado exitosamente como ${titleName}_${dpi}dpi.jpg!`, 'success');
+                toast(`¡Imagen JPG (${targetPxW}x${targetPxH} px con metadatos reales de ${dpi} DPI) exportada exitosamente!`, 'success');
 
             } else if (fmt === 'svg') {
-                const imgData = canvas.toDataURL('image/png');
+                const rawPng = finalCanvas.toDataURL('image/png');
+                const patchedPng = patchPngDpi(rawPng, dpi);
                 const svgXml = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
      width="${mmW}mm" height="${mmH}mm" 
-     viewBox="0 0 ${canvas.width} ${canvas.height}">
+     viewBox="0 0 ${targetPxW} ${targetPxH}">
   <title>${titleName}</title>
-  <desc>Exportado desde Diseñador de Impresión a ${dpi} DPI</desc>
-  <image width="${canvas.width}" height="${canvas.height}" xlink:href="${imgData}" />
+  <desc>Exportado desde Diseñador de Impresión a ${dpi} DPI (${targetPxW}x${targetPxH} px)</desc>
+  <image width="${targetPxW}" height="${targetPxH}" xlink:href="${patchedPng}" />
 </svg>`;
                 const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
                 const blobUrl = URL.createObjectURL(blob);
@@ -15661,18 +15828,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(blobUrl);
-                toast(`¡Vector SVG exportado exitosamente como ${titleName}_${dpi}dpi.svg!`, 'success');
+                toast(`¡Vector SVG (${mmW}x${mmH} mm a ${dpi} DPI) exportado exitosamente!`, 'success');
 
             } else {
                 // Formato PNG por defecto
-                const imgData = canvas.toDataURL('image/png');
+                const rawPng = finalCanvas.toDataURL('image/png');
+                const patchedPng = patchPngDpi(rawPng, dpi);
                 const a = document.createElement('a');
-                a.href = imgData;
+                a.href = patchedPng;
                 a.download = `${titleName}_${dpi}dpi.png`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                toast(`¡Mapa exportado exitosamente como ${titleName}_${dpi}dpi.png!`, 'success');
+                toast(`¡Imagen PNG (${targetPxW}x${targetPxH} px con chunk pHYs de ${dpi} DPI) exportada exitosamente!`, 'success');
             }
 
         } catch (err) {
