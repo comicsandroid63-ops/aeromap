@@ -269,6 +269,41 @@
     #mbPreviewEmpty p { font-size: 10px; color: #a1a1aa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px; }
     .mb-preview-header { font-size: 8px; font-weight: 900; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.1em; padding: 8px 10px 6px; border-bottom: 1px solid #e4e4e7; background: #fafafa; }
 
+    
+    /* Dark contrast overrides for text */
+    .text-zinc-400, .text-zinc-300, .text-slate-400, .text-slate-300 {
+      color: #27272a !important;
+    }
+    .text-zinc-500 {
+      color: #18181b !important;
+    }
+    .text-zinc-600 {
+      color: #09090b !important;
+    }
+    th, td {
+      color: #09090b !important;
+    }
+    ::placeholder {
+      color: #52525b !important;
+      opacity: 1 !important;
+    }
+
+    /* Ensure text on dark elements stays readable white */
+    .bg-black, .bg-zinc-900, .bg-zinc-800, .bg-zinc-950, .bg-slate-900, .bg-indigo-600, .bg-blue-600, .bg-emerald-600, #hoverInfo {
+      color: #ffffff;
+    }
+    .bg-black *, .bg-zinc-900 *, .bg-zinc-800 *, .bg-zinc-950 *, .bg-slate-900 *, #hoverInfo * {
+      color: inherit;
+    }
+    #hoverInfo .text-cyan-400 { color: #22d3ee !important; }
+    #hoverInfo .text-amber-400 { color: #fbbf24 !important; }
+    #hoverInfo .text-white { color: #ffffff !important; }
+    #hoverInfo .text-zinc-500 { color: #94a3b8 !important; }
+    .text-white { color: #ffffff !important; }
+    .text-emerald-500, .text-emerald-600 { color: #059669 !important; }
+    .text-blue-600, .text-blue-700 { color: #2563eb !important; }
+    .text-red-500, .text-red-600 { color: #dc2626 !important; }
+
     .custom-scrollbar::-webkit-scrollbar-track {
       background: #e4e4e7 !important;
     }
