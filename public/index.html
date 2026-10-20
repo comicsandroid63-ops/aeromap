@@ -208,6 +208,39 @@
 
     /* High visibility scrollbars */
     ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    /* Diseñador de Impresión: Recursos Gráficos */
+    .layout-resource-item {
+      cursor: grab;
+      position: absolute;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: outline 0.15s ease;
+    }
+    .layout-resource-item:active {
+      cursor: grabbing;
+    }
+    .layout-resource-item .layout-res-ui {
+      display: none;
+    }
+    .layout-resource-item.layout-res-active {
+      z-index: 60 !important;
+    }
+    .layout-resource-item.layout-res-active .layout-res-ui {
+      display: block;
+    }
+    .layout-resource-item:hover:not(.layout-res-active)::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 1.5px dashed rgba(59, 130, 246, 0.45);
+      border-radius: 4px;
+      pointer-events: none;
+    }
       width: 14px;
       height: 14px;
     }
@@ -4595,29 +4628,32 @@
                     Recursos
                 </button>
                 <div id="layoutResourcesPanel" class="hidden absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-3 z-[9999] min-w-[280px]" style="box-shadow:0 20px 60px rgba(0,0,0,0.12);">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-[10px] font-bold uppercase tracking-wider" style="color:#999;">Recursos Gráficos</span>
-                        <button onclick="toggleLayoutResources()" class="text-[12px] leading-none" style="color:#999;">✕</button>
+                    <div class="flex items-center justify-between mb-2 pb-1 border-b border-zinc-100">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-700 block">Recursos Gráficos</span>
+                            <span class="text-[9px] text-zinc-400 block">Arrastra al plano o haz clic</span>
+                        </div>
+                        <button onclick="toggleLayoutResources()" class="text-[12px] leading-none text-zinc-400 hover:text-black">✕</button>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:3px;max-width:320px;">
-                        <button onclick="addLayoutResource('arrow-right')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha derecha">→</button>
-                        <button onclick="addLayoutResource('arrow-left')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha izquierda">←</button>
-                        <button onclick="addLayoutResource('arrow-up')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha arriba">↑</button>
-                        <button onclick="addLayoutResource('arrow-down')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha abajo">↓</button>
-                        <button onclick="addLayoutResource('line-h')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea horizontal">—</button>
-                        <button onclick="addLayoutResource('line-dash')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea rayada">− −</button>
-                        <button onclick="addLayoutResource('line-dot')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea punteada">···</button>
-                        <button onclick="addLayoutResource('circle')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Círculo">●</button>
-                        <button onclick="addLayoutResource('circle-o')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Círculo vacío">○</button>
-                        <button onclick="addLayoutResource('square')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Cuadrado">■</button>
-                        <button onclick="addLayoutResource('diamond')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Rombo">◇</button>
-                        <button onclick="addLayoutResource('cross')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Cruz">✚</button>
-                        <button onclick="addLayoutResource('star')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Estrella">★</button>
-                        <button onclick="addLayoutResource('triangle')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Triángulo">▲</button>
-                        <button onclick="addLayoutResource('divider-dots')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-xs" style="border:1px solid #e8e8e0;min-width:36px;" title="Divisor puntos">• • •</button>
-                        <button onclick="addLayoutResource('divider-star')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-center text-xs" style="border:1px solid #e8e8e0;min-width:36px;" title="Divisor estrellas">✻ ✻ ✻</button>
-                        <button onclick="addLayoutResource('frame')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-start text-[10px] font-semibold" style="border:1px solid #e8e8e0;min-width:60px;" title="Marco">▭ Marco</button>
-                        <button onclick="addLayoutResource('label')" class="px-3 py-2 rounded-lg cursor-pointer hover:bg-zinc-100 active:scale-95 text-start text-[10px] font-semibold" style="border:1px solid #e8e8e0;min-width:60px;" title="Etiqueta">Aa Etiqueta</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'arrow-right')" onclick="addLayoutResource('arrow-right')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha derecha (Arrastra al plano)">→</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'arrow-left')" onclick="addLayoutResource('arrow-left')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha izquierda (Arrastra al plano)">←</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'arrow-up')" onclick="addLayoutResource('arrow-up')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha arriba (Arrastra al plano)">↑</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'arrow-down')" onclick="addLayoutResource('arrow-down')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Flecha abajo (Arrastra al plano)">↓</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'line-h')" onclick="addLayoutResource('line-h')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea horizontal (Arrastra al plano)">—</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'line-dash')" onclick="addLayoutResource('line-dash')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea rayada (Arrastra al plano)">− −</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'line-dot')" onclick="addLayoutResource('line-dot')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Línea punteada (Arrastra al plano)">···</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'circle')" onclick="addLayoutResource('circle')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Círculo (Arrastra al plano)">●</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'circle-o')" onclick="addLayoutResource('circle-o')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Círculo vacío (Arrastra al plano)">○</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'square')" onclick="addLayoutResource('square')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Cuadrado (Arrastra al plano)">■</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'diamond')" onclick="addLayoutResource('diamond')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Rombo (Arrastra al plano)">◇</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'cross')" onclick="addLayoutResource('cross')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Cruz (Arrastra al plano)">✚</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'star')" onclick="addLayoutResource('star')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Estrella (Arrastra al plano)">★</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'triangle')" onclick="addLayoutResource('triangle')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-sm" style="border:1px solid #e8e8e0;min-width:36px;" title="Triángulo (Arrastra al plano)">▲</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'divider-dots')" onclick="addLayoutResource('divider-dots')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-xs" style="border:1px solid #e8e8e0;min-width:36px;" title="Divisor puntos (Arrastra al plano)">• • •</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'divider-star')" onclick="addLayoutResource('divider-star')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-center text-xs" style="border:1px solid #e8e8e0;min-width:36px;" title="Divisor estrellas (Arrastra al plano)">✻ ✻ ✻</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'frame')" onclick="addLayoutResource('frame')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-start text-[10px] font-semibold" style="border:1px solid #e8e8e0;min-width:60px;" title="Marco (Arrastra al plano)">▭ Marco</button>
+                        <button draggable="true" ondragstart="layoutResourceDragStart(event, 'label')" onclick="addLayoutResource('label')" class="px-3 py-2 rounded-lg cursor-grab hover:bg-zinc-100 active:scale-95 text-start text-[10px] font-semibold" style="border:1px solid #e8e8e0;min-width:60px;" title="Etiqueta (Arrastra al plano)">Aa Etiqueta</button>
                     </div>
                 </div>
             </div>
@@ -4667,7 +4703,7 @@
       <!-- Rulers Viewport Area -->
       <div class="flex-1 overflow-auto p-8 flex justify-center items-start relative custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
         <!-- The "Paper" -->
-        <div id="layoutPaper" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
+        <div id="layoutPaper" onclick="onLayoutPaperClick(event)" ondragover="layoutResourceDragOver(event)" ondrop="layoutResourceDrop(event)" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
             <!-- Map Element -->
             <div id="layoutMapFrame" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 170mm; height: 170mm; top: 20mm; left: 20mm; transition: all 0.3s; overflow: visible;">
                 <!-- Floating Toolbar on Frame -->
@@ -14213,79 +14249,427 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (panel) panel.classList.toggle('hidden');
     }
 
-    let _layoutResCount = 0;
-    function addLayoutResource(type) {
+    function layoutResourceDragStart(e, type) {
+        if (!e.dataTransfer) return;
+        e.dataTransfer.setData('text/plain', type);
+        e.dataTransfer.effectAllowed = 'copy';
+    }
+
+    function layoutResourceDragOver(e) {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    }
+
+    function layoutResourceDrop(e) {
+        e.preventDefault();
+        const type = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
+        if (!type) return;
         const paper = document.getElementById('layoutPaper');
         if (!paper) return;
-        const id = 'layout_res_' + (++_layoutResCount);
-        const div = document.createElement('div');
-        div.id = id;
-        div.className = 'absolute cursor-move group z-30 flex items-center justify-center select-none';
-        div.style.cssText = 'width:80px;height:40px;top:60mm;left:30mm;';
-        div.dataset.resType = type;
+        const rect = paper.getBoundingClientRect();
+        const scale = (paper.offsetWidth > 0) ? (rect.width / paper.offsetWidth) : 1;
+        const dropX = (e.clientX - rect.left) / scale;
+        const dropY = (e.clientY - rect.top) / scale;
+        addLayoutResource(type, dropX, dropY);
+    }
 
-        // Build inner content based on type
-        let inner = '';
-        switch (type) {
-            case 'arrow-right': inner = '<span style="font-size:32px;font-weight:300;">→</span>'; break;
-            case 'arrow-left': inner = '<span style="font-size:32px;font-weight:300;">←</span>'; break;
-            case 'arrow-up': inner = '<span style="font-size:32px;font-weight:300;">↑</span>'; break;
-            case 'arrow-down': inner = '<span style="font-size:32px;font-weight:300;">↓</span>'; break;
-            case 'line-h': inner = '<div style="width:100%;height:2px;background:#000;"></div>'; div.style.height = '20px'; break;
-            case 'line-dash': inner = '<div style="width:100%;border-top:2px dashed #000;"></div>'; div.style.height = '20px'; break;
-            case 'line-dot': inner = '<div style="width:100%;border-top:2px dotted #000;"></div>'; div.style.height = '20px'; break;
-            case 'circle': inner = '<span style="font-size:28px;">●</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'circle-o': inner = '<span style="font-size:28px;">○</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'square': inner = '<span style="font-size:28px;">■</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'diamond': inner = '<span style="font-size:28px;">◇</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'cross': inner = '<span style="font-size:28px;">✚</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'star': inner = '<span style="font-size:28px;">★</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'triangle': inner = '<span style="font-size:28px;">▲</span>'; div.style.width = '40px'; div.style.height = '40px'; break;
-            case 'divider-dots': inner = '<div style="font-size:14px;letter-spacing:4px;color:#000;text-align:center;width:100%;">• • •</div>'; div.style.height = '24px'; break;
-            case 'divider-star': inner = '<div style="font-size:16px;letter-spacing:6px;color:#000;text-align:center;width:100%;">✻ ✻ ✻</div>'; div.style.height = '24px'; break;
-            case 'frame': inner = '<div style="width:100%;height:100%;border:2px solid #000;border-radius:4px;"></div>'; div.style.width = '120px'; div.style.height = '80px'; break;
-            case 'label': inner = '<span style="font-size:14px;font-weight:600;color:#000;white-space:nowrap;">Etiqueta</span>'; div.style.width = 'auto'; div.style.padding = '0 8px'; break;
+    let activeLayoutRes = null;
+
+    function selectLayoutResource(el) {
+        if (activeLayoutRes && activeLayoutRes !== el) {
+            activeLayoutRes.classList.remove('layout-res-active');
         }
-        div.innerHTML = inner + '<button onclick="removeLayoutResource(this)" class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" style="z-index:50;">✕</button>';
+        activeLayoutRes = el;
+        if (el) {
+            el.classList.add('layout-res-active');
+            layoutResApplyTransform(el);
+        }
+    }
 
-        paper.appendChild(div);
-        makeLayoutResourceDraggable(div);
-        toggleLayoutResources();
+    function deselectAllLayoutResources() {
+        if (activeLayoutRes) {
+            activeLayoutRes.classList.remove('layout-res-active');
+            activeLayoutRes = null;
+        }
+        document.querySelectorAll('.layout-resource-item').forEach(el => {
+            el.classList.remove('layout-res-active');
+        });
+    }
+
+    function onLayoutPaperClick(e) {
+        if (!e.target.closest('.layout-resource-item')) {
+            deselectAllLayoutResources();
+        }
+    }
+
+    function layoutResApplyTransform(el) {
+        if (!el) return;
+        const rot = parseFloat(el.dataset.rotation || '0') || 0;
+        const scale = parseFloat(el.dataset.scale || '1') || 1;
+        
+        el.style.transform = `rotate(${rot}deg) scale(${scale})`;
+        
+        const toolbar = el.querySelector('.layout-res-toolbar');
+        if (toolbar) {
+            // Keep toolbar upright, centered, and legible at any rotation or scale
+            const topPx = parseFloat(el.style.top) || 0;
+            if (topPx < 70) {
+                toolbar.style.bottom = 'auto';
+                toolbar.style.top = 'calc(100% + 16px)';
+            } else {
+                toolbar.style.top = 'auto';
+                toolbar.style.bottom = 'calc(100% + 16px)';
+            }
+            toolbar.style.transform = `translateX(-50%) scale(${1 / scale}) rotate(${-rot}deg)`;
+            
+            const scaleBadge = toolbar.querySelector('.layout-res-scale-text');
+            if (scaleBadge) scaleBadge.textContent = `${Math.round(scale * 100)}%`;
+            
+            const rotBadge = toolbar.querySelector('.layout-res-rot-text');
+            if (rotBadge) rotBadge.textContent = `${Math.round(((rot % 360) + 360) % 360)}°`;
+        }
+    }
+
+    function layoutResChangeScale(btn, delta) {
+        const el = btn.closest('.layout-resource-item');
+        if (!el) return;
+        let s = parseFloat(el.dataset.scale || '1') || 1;
+        s = Math.max(0.2, Math.min(8.0, Math.round((s + delta) * 100) / 100));
+        el.dataset.scale = s;
+        layoutResApplyTransform(el);
+    }
+
+    function layoutResRotateStep(btn, stepDeg = 45) {
+        const el = btn.closest('.layout-resource-item');
+        if (!el) return;
+        let r = parseFloat(el.dataset.rotation || '0') || 0;
+        r = (r + stepDeg) % 360;
+        el.dataset.rotation = r;
+        layoutResApplyTransform(el);
+    }
+
+    function layoutResUpdateColor(input, e) {
+        const el = input.closest('.layout-resource-item');
+        if (!el) return;
+        layoutResApplyColor(el, input.value);
+    }
+
+    function layoutResSetColorPreset(btn, color) {
+        const el = btn.closest('.layout-resource-item');
+        if (!el) return;
+        const colorInput = el.querySelector('input[type="color"]');
+        if (colorInput) colorInput.value = color;
+        layoutResApplyColor(el, color);
+    }
+
+    function layoutResApplyColor(el, color) {
+        if (!el) return;
+        el.dataset.color = color;
+        const content = el.querySelector('.layout-res-content');
+        if (content) {
+            content.style.color = color;
+            content.querySelectorAll('div, span').forEach(node => {
+                if (node.style.borderColor && node.style.borderColor !== 'transparent') {
+                    node.style.borderColor = color;
+                }
+                if (node.style.backgroundColor && node.style.backgroundColor !== 'transparent') {
+                    node.style.backgroundColor = color;
+                }
+            });
+        }
+    }
+
+    function layoutResDelete(btn) {
+        const el = btn.closest('.layout-resource-item');
+        if (el) {
+            if (activeLayoutRes === el) activeLayoutRes = null;
+            el.remove();
+        }
     }
 
     function removeLayoutResource(btn) {
-        const parent = btn.closest('[id^="layout_res_"]') || btn.parentElement;
-        if (parent) parent.remove();
+        layoutResDelete(btn);
     }
 
-    function makeLayoutResourceDraggable(el) {
-        let isDown = false, startX, startY, origX, origY;
+    let _layoutResCount = 0;
+    function addLayoutResource(type, posX, posY) {
+        const paper = document.getElementById('layoutPaper');
+        if (!paper) return;
+        const id = 'layout_res_' + (++_layoutResCount);
+        
+        let initW = 50, initH = 50, fontSize = 32;
+        let inner = '';
+        
+        switch (type) {
+            case 'arrow-right': 
+                inner = '<span style="font-size:36px;font-weight:300;line-height:1;display:inline-block;">→</span>'; 
+                break;
+            case 'arrow-left': 
+                inner = '<span style="font-size:36px;font-weight:300;line-height:1;display:inline-block;">←</span>'; 
+                break;
+            case 'arrow-up': 
+                inner = '<span style="font-size:36px;font-weight:300;line-height:1;display:inline-block;">↑</span>'; 
+                break;
+            case 'arrow-down': 
+                inner = '<span style="font-size:36px;font-weight:300;line-height:1;display:inline-block;">↓</span>'; 
+                break;
+            case 'line-h': 
+                inner = '<div style="width:100%;height:3px;background:currentColor;border-radius:2px;"></div>'; 
+                initW = 140; initH = 26; 
+                break;
+            case 'line-dash': 
+                inner = '<div style="width:100%;border-top:2px dashed currentColor;height:0;"></div>'; 
+                initW = 140; initH = 26; 
+                break;
+            case 'line-dot': 
+                inner = '<div style="width:100%;border-top:3px dotted currentColor;height:0;"></div>'; 
+                initW = 140; initH = 26; 
+                break;
+            case 'circle': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">●</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'circle-o': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">○</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'square': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">■</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'diamond': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">◇</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'cross': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">✚</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'star': 
+                inner = '<span style="font-size:34px;line-height:1;display:inline-block;">★</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'triangle': 
+                inner = '<span style="font-size:32px;line-height:1;display:inline-block;">▲</span>'; 
+                initW = 44; initH = 44; 
+                break;
+            case 'divider-dots': 
+                inner = '<div style="font-size:16px;letter-spacing:6px;text-align:center;width:100%;line-height:1;">• • •</div>'; 
+                initW = 130; initH = 32; 
+                break;
+            case 'divider-star': 
+                inner = '<div style="font-size:18px;letter-spacing:6px;text-align:center;width:100%;line-height:1;">✻ ✻ ✻</div>'; 
+                initW = 130; initH = 32; 
+                break;
+            case 'frame': 
+                inner = '<div style="width:100%;height:100%;border:2px solid currentColor;border-radius:6px;box-sizing:border-box;"></div>'; 
+                initW = 150; initH = 95; 
+                break;
+            case 'label': 
+                inner = '<span contenteditable="true" spellcheck="false" class="outline-none focus:ring-1 focus:ring-blue-400 rounded px-1.5 py-0.5" style="font-size:16px;font-weight:600;white-space:nowrap;user-select:text;display:inline-block;">Etiqueta</span>'; 
+                initW = 90; initH = 32; 
+                break;
+            default:
+                inner = '<span>●</span>';
+                initW = 40; initH = 40;
+        }
+
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = 'layout-resource-item absolute z-30 select-none group';
+        div.dataset.resType = type;
+        div.dataset.color = '#000000';
+        div.dataset.scale = '1';
+        div.dataset.rotation = '0';
+
+        const finalLeft = (posX !== undefined && posX !== null) 
+            ? Math.max(0, Math.round(posX - initW / 2)) 
+            : Math.max(20, Math.round((paper.offsetWidth || 794) / 2 - initW / 2));
+        const finalTop = (posY !== undefined && posY !== null) 
+            ? Math.max(0, Math.round(posY - initH / 2)) 
+            : Math.max(20, Math.round(Math.min((paper.offsetHeight || 1123) / 2, 250) - initH / 2));
+
+        div.style.left = finalLeft + 'px';
+        div.style.top = finalTop + 'px';
+        div.style.width = initW + 'px';
+        div.style.height = initH + 'px';
+        div.style.transformOrigin = 'center center';
+
+        div.innerHTML = `
+            <!-- Content -->
+            <div class="layout-res-content w-full h-full flex items-center justify-center" style="color: #000000;">
+                ${inner}
+            </div>
+
+            <!-- UI Handles & Toolbar (hidden during export and when inactive) -->
+            <div class="layout-res-ui pointer-events-none">
+                <!-- Selection Box -->
+                <div class="absolute -inset-1 border-2 border-dashed border-blue-500 rounded pointer-events-none"></div>
+
+                <!-- Rotate Handle (Top Knob) -->
+                <div class="layout-res-rotate-handle pointer-events-auto absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing z-50" title="Arrastra para rotar">
+                    <div class="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shadow-md border-2 border-white hover:scale-110 transition-transform">↻</div>
+                    <div class="w-0.5 h-3 bg-blue-500"></div>
+                </div>
+
+                <!-- Resize Handle (Bottom-Right Corner) -->
+                <div class="layout-res-resize-handle pointer-events-auto absolute -bottom-2 -right-2 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-50" title="Arrastra para cambiar tamaño"></div>
+
+                <!-- Floating Toolbar -->
+                <div class="layout-res-toolbar pointer-events-auto absolute left-1/2 -translate-x-1/2 bg-zinc-900/95 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex items-center gap-2 z-[70] border border-white/20 whitespace-nowrap text-xs backdrop-blur-sm" style="bottom: calc(100% + 16px); transform-origin: center center;">
+                    
+                    <!-- Color Picker + Presets -->
+                    <div class="flex items-center gap-1.5" title="Color del recurso">
+                        <span class="text-[9px] uppercase font-bold text-zinc-400">Color:</span>
+                        <input type="color" value="#000000" class="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent" oninput="layoutResUpdateColor(this, event)" title="Elegir color personalizado">
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#000000')" class="w-3.5 h-3.5 rounded-full bg-black border border-white/40 hover:scale-125 transition-transform" title="Negro"></button>
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#ef4444')" class="w-3.5 h-3.5 rounded-full bg-red-500 border border-white/40 hover:scale-125 transition-transform" title="Rojo"></button>
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#2563eb')" class="w-3.5 h-3.5 rounded-full bg-blue-600 border border-white/40 hover:scale-125 transition-transform" title="Azul"></button>
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#16a34a')" class="w-3.5 h-3.5 rounded-full bg-green-600 border border-white/40 hover:scale-125 transition-transform" title="Verde"></button>
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#eab308')" class="w-3.5 h-3.5 rounded-full bg-yellow-500 border border-white/40 hover:scale-125 transition-transform" title="Amarillo"></button>
+                            <button type="button" onclick="layoutResSetColorPreset(this, '#ffffff')" class="w-3.5 h-3.5 rounded-full bg-white border border-zinc-400 hover:scale-125 transition-transform" title="Blanco"></button>
+                        </div>
+                    </div>
+
+                    <div class="w-[1px] h-4 bg-white/20"></div>
+
+                    <!-- Size / Scale -->
+                    <div class="flex items-center gap-1" title="Tamaño del recurso">
+                        <span class="text-[9px] uppercase font-bold text-zinc-400">Tamaño:</span>
+                        <button type="button" onclick="layoutResChangeScale(this, -0.15)" class="w-5 h-5 rounded hover:bg-white/20 flex items-center justify-center font-bold text-xs" title="Reducir">−</button>
+                        <span class="layout-res-scale-text text-[10px] font-mono text-zinc-300 w-9 text-center">100%</span>
+                        <button type="button" onclick="layoutResChangeScale(this, 0.15)" class="w-5 h-5 rounded hover:bg-white/20 flex items-center justify-center font-bold text-xs" title="Aumentar">+</button>
+                    </div>
+
+                    <div class="w-[1px] h-4 bg-white/20"></div>
+
+                    <!-- Rotate 45 deg -->
+                    <div class="flex items-center gap-1" title="Rotar recurso">
+                        <button type="button" onclick="layoutResRotateStep(this, 45)" class="px-2 py-0.5 rounded hover:bg-white/20 text-zinc-200 hover:text-white text-[10px] font-bold flex items-center gap-1" title="Rotar 45° a la derecha">
+                            <span>↻</span> <span class="layout-res-rot-text text-[9px] font-mono">0°</span>
+                        </button>
+                    </div>
+
+                    <div class="w-[1px] h-4 bg-white/20"></div>
+
+                    <!-- Delete -->
+                    <button type="button" onclick="layoutResDelete(this)" class="w-5 h-5 rounded hover:bg-red-600 text-red-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors" title="Eliminar recurso">✕</button>
+                </div>
+            </div>
+        `;
+
+        paper.appendChild(div);
+        initLayoutResourceEvents(div);
+        selectLayoutResource(div);
+        layoutResApplyTransform(div);
+    }
+
+    function initLayoutResourceEvents(el) {
         el.addEventListener('mousedown', (e) => {
-            if (e.target.closest('button')) return;
-            isDown = true;
-            const rect = el.getBoundingClientRect();
-            const paperRect = document.getElementById('layoutPaper').getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            origX = rect.left - paperRect.left;
-            origY = rect.top - paperRect.top;
-            el.style.cursor = 'grabbing';
-            el.style.zIndex = '100';
+            // Rotate handle clicked
+            if (e.target.closest('.layout-res-rotate-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                startRotateResource(el, e);
+                return;
+            }
+            // Resize handle clicked
+            if (e.target.closest('.layout-res-resize-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                startResizeResource(el, e);
+                return;
+            }
+            // Toolbar button / input clicked
+            if (e.target.closest('.layout-res-toolbar') || e.target.closest('button') || e.target.closest('input')) {
+                e.stopPropagation();
+                return;
+            }
+            // If editing contenteditable label
+            if (e.target.isContentEditable) {
+                selectLayoutResource(el);
+                e.stopPropagation();
+                return;
+            }
+
+            // Normal drag position
             e.preventDefault();
+            e.stopPropagation();
+            selectLayoutResource(el);
+            startMoveResource(el, e);
         });
-        document.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            el.style.left = (origX + dx) + 'px';
-            el.style.top = (origY + dy) + 'px';
-        });
-        document.addEventListener('mouseup', () => {
-            if (!isDown) return;
-            isDown = false;
+    }
+
+    function startMoveResource(el, e) {
+        const paper = document.getElementById('layoutPaper');
+        if (!paper) return;
+        const paperRect = paper.getBoundingClientRect();
+        const scale = (paper.offsetWidth > 0) ? (paperRect.width / paper.offsetWidth) : 1;
+        const startMouseX = e.clientX;
+        const startMouseY = e.clientY;
+        const startLeft = parseFloat(el.style.left) || 0;
+        const startTop = parseFloat(el.style.top) || 0;
+        el.style.cursor = 'grabbing';
+
+        function onMove(ev) {
+            const dx = (ev.clientX - startMouseX) / scale;
+            const dy = (ev.clientY - startMouseY) / scale;
+            el.style.left = Math.round(startLeft + dx) + 'px';
+            el.style.top = Math.round(startTop + dy) + 'px';
+            layoutResApplyTransform(el);
+        }
+        function onUp() {
             el.style.cursor = 'grab';
-        });
-        el.style.cursor = 'grab';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    function startRotateResource(el, e) {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        function onRotate(ev) {
+            const rad = Math.atan2(ev.clientY - centerY, ev.clientX - centerX);
+            let deg = rad * (180 / Math.PI) + 90;
+            if (deg < 0) deg += 360;
+            if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
+            deg = Math.round(deg) % 360;
+            el.dataset.rotation = deg;
+            layoutResApplyTransform(el);
+        }
+        function onRotateUp() {
+            document.removeEventListener('mousemove', onRotate);
+            document.removeEventListener('mouseup', onRotateUp);
+        }
+        document.addEventListener('mousemove', onRotate);
+        document.addEventListener('mouseup', onRotateUp);
+    }
+
+    function startResizeResource(el, e) {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const initialDist = Math.hypot(e.clientX - centerX, e.clientY - centerY) || 1;
+        const initialScale = parseFloat(el.dataset.scale || '1') || 1;
+
+        function onResize(ev) {
+            const curDist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
+            let newScale = (curDist / initialDist) * initialScale;
+            newScale = Math.max(0.2, Math.min(8.0, Math.round(newScale * 100) / 100));
+            el.dataset.scale = newScale;
+            layoutResApplyTransform(el);
+        }
+        function onResizeUp() {
+            document.removeEventListener('mousemove', onResize);
+            document.removeEventListener('mouseup', onResizeUp);
+        }
+        document.addEventListener('mousemove', onResize);
+        document.addEventListener('mouseup', onResizeUp);
     }
 
     function layoutSyncTitle() {
@@ -15870,7 +16254,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         
         // Ocultar manijas de redimensionamiento, barra flotante y controles durante la exportación
         if (isLayoutActive) {
-            const toHide = targetEl.querySelectorAll('[id*="Resize"], #layoutMapFloatingToolbar, #layoutMapHintPill, .layout-selection-border');
+            if (typeof deselectAllLayoutResources === 'function') deselectAllLayoutResources();
+            const toHide = targetEl.querySelectorAll('[id*="Resize"], #layoutMapFloatingToolbar, #layoutMapHintPill, .layout-selection-border, .layout-res-ui');
             toHide.forEach(el => {
                 if (el.style.display !== 'none') {
                     hiddenElements.push({ el, display: el.style.display });
