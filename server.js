@@ -86,6 +86,7 @@ mountApi('/api/layers', require('./api/layers'));
 mountApi('/api/files', require('./api/files'));
 mountApi('/api/upload', require('./api/upload'));
 mountApi('/api/gpkg-geojson', require('./api/gpkg-geojson'));
+mountApi('/api/export-vector', require('./api/export-vector'));
 app.use('/api/upload-visualization', require('./api/upload-visualization'));
 mountApi('/api/admin/dashboard', require('./api/dashboard'));
 mountApi('/api/presence', require('./api/presence'));
