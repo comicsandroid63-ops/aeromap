@@ -5408,7 +5408,7 @@ self.onmessage = async function(e) {
                             // Re-init unzipper for second pass (selective extraction)
                             const unzipper2 = new fflate.Unzip();
                             const blobChunks = {};
-                            const normalizeP = (p) => (p || '').replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+                            const normalizeP = (p) => (p || '').split(String.fromCharCode(92)).join('/').replace(/^\.\//, '').toLowerCase();
                             
                             unzipper2.onfile = (f) => {
                                 const normF = normalizeP(f.name);
@@ -16655,8 +16655,347 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     // 6.6 Export to Standard Format (GeoJSON handling GeoPackage role)
     // ══════════════════════════════════════════
-    //  EXPORTADOR VECTORIAL PROFESIONAL (GPKG, SHP, GeoJSON, KML)
+    //  EXPORTADOR VECTORIAL UNIVERSAL (GPKG, SHP, GeoJSON, KML)
     // ══════════════════════════════════════════
+
+    const CRS_PRJ_WKT_MAP = {
+      'EPSG:4326': 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]',
+      'EPSG:3857': 'PROJCS["WGS_1984_Web_Mercator_Auxiliary_Sphere",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Mercator_Auxiliary_Sphere"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],PARAMETER["Standard_Parallel_1",0.0],PARAMETER["Auxiliary_Sphere_Type",0.0],UNIT["Meter",1.0]]',
+      'EPSG:3116': 'PROJCS["MAGNA-SIRGAS_Colombia_Bogota_Zone",GEOGCS["GCS_MAGNA",DATUM["D_MAGNA",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",1000000.0],PARAMETER["False_Northing",1000000.0],PARAMETER["Central_Meridian",-74.07750791666666],PARAMETER["Scale_Factor",1.0],PARAMETER["Latitude_Of_Origin",4.596200416666666],UNIT["Meter",1.0]]',
+      'EPSG:9377': 'PROJCS["MAGNA-SIRGAS_2018_Origen-Nacional",GEOGCS["GCS_MAGNA",DATUM["D_MAGNA",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",5000000.0],PARAMETER["False_Northing",2000000.0],PARAMETER["Central_Meridian",-73.0],PARAMETER["Scale_Factor",0.9992],PARAMETER["Latitude_Of_Origin",4.0],UNIT["Meter",1.0]]',
+      'EPSG:32618': 'PROJCS["WGS_1984_UTM_Zone_18N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-75.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
+      'EPSG:32619': 'PROJCS["WGS_1984_UTM_Zone_19N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-69.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]'
+    };
+
+    function triggerFileDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 6000);
+    }
+
+    function reprojectGeoJsonCoords(geojson, targetCrs) {
+        if (!targetCrs || targetCrs === 'EPSG:4326' || typeof proj4 === 'undefined') return geojson;
+
+        if (!proj4.defs('EPSG:3116')) proj4.defs('EPSG:3116', '+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+        if (!proj4.defs('EPSG:9377')) proj4.defs('EPSG:9377', '+proj=tmerc +lat_0=4 +lon_0=-73 +k=0.9992 +x_0=5000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+        if (!proj4.defs('EPSG:3857')) proj4.defs('EPSG:3857', '+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs');
+        if (!proj4.defs('EPSG:32618')) proj4.defs('EPSG:32618', '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs');
+        if (!proj4.defs('EPSG:32619')) proj4.defs('EPSG:32619', '+proj=utm +zone=19 +datum=WGS84 +units=m +no_defs');
+
+        const transformCoord = (coord) => {
+            if (!Array.isArray(coord) || coord.length < 2) return coord;
+            try {
+                const res = proj4('EPSG:4326', targetCrs, [coord[0], coord[1]]);
+                return [res[0], res[1], ...(coord.slice(2))];
+            } catch(e) {
+                return coord;
+            }
+        };
+
+        const transformGeom = (geom) => {
+            if (!geom || !geom.coordinates) return geom;
+            const rec = (c) => {
+                if (typeof c[0] === 'number') return transformCoord(c);
+                return c.map(rec);
+            };
+            return {
+                ...geom,
+                coordinates: rec(geom.coordinates)
+            };
+        };
+
+        return {
+            type: 'FeatureCollection',
+            crs: { type: 'name', properties: { name: targetCrs } },
+            features: geojson.features.map(f => ({
+                ...f,
+                geometry: transformGeom(f.geometry)
+            }))
+        };
+    }
+
+    function buildClientShapefileZip(geojson, filename, crs) {
+        if (typeof fflate === 'undefined') throw new Error('Librería fflate no disponible para empaquetar ZIP');
+        const features = geojson.features || [];
+        if (features.length === 0) throw new Error('Capa sin entidades para exportar a Shapefile');
+
+        let geomType = 'Polygon';
+        for (const f of features) {
+            if (f && f.geometry && f.geometry.type) {
+                geomType = f.geometry.type.replace('Multi', '');
+                break;
+            }
+        }
+
+        let shapeType = 5; // Polygon
+        if (geomType === 'Point') shapeType = 1;
+        else if (geomType === 'LineString') shapeType = 3;
+
+        const propKeys = [];
+        const keyMap = new Map();
+        for (const f of features) {
+            if (f && f.properties) {
+                for (const k of Object.keys(f.properties)) {
+                    if (!keyMap.has(k)) {
+                        let shortKey = k.substring(0, 10).replace(/[^a-zA-Z0-9_]/g, '_');
+                        if (propKeys.includes(shortKey)) shortKey = (shortKey.substring(0, 8) + propKeys.length);
+                        propKeys.push(shortKey);
+                        keyMap.set(k, shortKey);
+                    }
+                }
+            }
+        }
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const updateBBox = (x, y) => {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        };
+
+        const shpRecords = [];
+        for (let i = 0; i < features.length; i++) {
+            const f = features[i];
+            const geom = f ? f.geometry : null;
+            let recContent = null;
+
+            if (shapeType === 1) { // Point
+                const coords = (geom && geom.coordinates) ? geom.coordinates : [0, 0];
+                const x = coords[0] || 0;
+                const y = coords[1] || 0;
+                updateBBox(x, y);
+
+                const buf = new ArrayBuffer(20);
+                const view = new DataView(buf);
+                view.setInt32(0, 1, true);
+                view.setFloat64(4, x, true);
+                view.setFloat64(12, y, true);
+                recContent = new Uint8Array(buf);
+
+            } else if (shapeType === 3 || shapeType === 5) { // Line or Polygon
+                let rings = [];
+                if (geom) {
+                    if (geom.type === 'Polygon') rings = geom.coordinates || [];
+                    else if (geom.type === 'MultiPolygon') {
+                        for (const poly of (geom.coordinates || [])) for (const ring of (poly || [])) rings.push(ring);
+                    } else if (geom.type === 'LineString') rings = [geom.coordinates || []];
+                    else if (geom.type === 'MultiLineString') rings = geom.coordinates || [];
+                }
+
+                let numPoints = 0;
+                for (const r of rings) numPoints += r.length;
+
+                let rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity;
+                for (const r of rings) {
+                    for (const pt of r) {
+                        updateBBox(pt[0], pt[1]);
+                        if (pt[0] < rMinX) rMinX = pt[0];
+                        if (pt[1] < rMinY) rMinY = pt[1];
+                        if (pt[0] > rMaxX) rMaxX = pt[0];
+                        if (pt[1] > rMaxY) rMaxY = pt[1];
+                    }
+                }
+                if (rMinX === Infinity) { rMinX = 0; rMinY = 0; rMaxX = 0; rMaxY = 0; }
+
+                const numParts = rings.length;
+                const contentLen = 44 + (4 * numParts) + (16 * numPoints);
+                const buf = new ArrayBuffer(contentLen);
+                const view = new DataView(buf);
+
+                view.setInt32(0, shapeType, true);
+                view.setFloat64(4, rMinX, true);
+                view.setFloat64(12, rMinY, true);
+                view.setFloat64(20, rMaxX, true);
+                view.setFloat64(28, rMaxY, true);
+                view.setInt32(36, numParts, true);
+                view.setInt32(40, numPoints, true);
+
+                let partOffset = 0;
+                for (let p = 0; p < numParts; p++) {
+                    view.setInt32(44 + (p * 4), partOffset, true);
+                    partOffset += rings[p].length;
+                }
+
+                let ptOffset = 44 + (4 * numParts);
+                for (const r of rings) {
+                    for (const pt of r) {
+                        view.setFloat64(ptOffset, pt[0] || 0, true);
+                        view.setFloat64(ptOffset + 8, pt[1] || 0, true);
+                        ptOffset += 16;
+                    }
+                }
+                recContent = new Uint8Array(buf);
+            }
+
+            const headerBuf = new ArrayBuffer(8);
+            const headerView = new DataView(headerBuf);
+            headerView.setInt32(0, i + 1, false);
+            headerView.setInt32(4, recContent.length / 2, false);
+            
+            const fullRec = new Uint8Array(8 + recContent.length);
+            fullRec.set(new Uint8Array(headerBuf), 0);
+            fullRec.set(recContent, 8);
+            shpRecords.push(fullRec);
+        }
+
+        if (minX === Infinity) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
+
+        let totalShpLen = 100;
+        for (const r of shpRecords) totalShpLen += r.length;
+
+        const shpHeaderBuf = new ArrayBuffer(100);
+        const shpHeaderView = new DataView(shpHeaderBuf);
+        shpHeaderView.setInt32(0, 9994, false);
+        shpHeaderView.setInt32(24, totalShpLen / 2, false);
+        shpHeaderView.setInt32(28, 1000, true);
+        shpHeaderView.setInt32(32, shapeType, true);
+        shpHeaderView.setFloat64(36, minX, true);
+        shpHeaderView.setFloat64(44, minY, true);
+        shpHeaderView.setFloat64(52, maxX, true);
+        shpHeaderView.setFloat64(60, maxY, true);
+
+        const shpBytes = new Uint8Array(totalShpLen);
+        shpBytes.set(new Uint8Array(shpHeaderBuf), 0);
+        let curPos = 100;
+        for (const r of shpRecords) {
+            shpBytes.set(r, curPos);
+            curPos += r.length;
+        }
+
+        // SHX
+        const totalShxLen = 100 + (features.length * 8);
+        const shxBytes = new Uint8Array(totalShxLen);
+        const shxHeaderView = new DataView(shpHeaderBuf);
+        shxHeaderView.setInt32(24, totalShxLen / 2, false);
+        shxBytes.set(new Uint8Array(shpHeaderBuf), 0);
+
+        let curShxPos = 100;
+        let curWordOffset = 50;
+        for (const r of shpRecords) {
+            const hBuf = new ArrayBuffer(8);
+            const hView = new DataView(hBuf);
+            hView.setInt32(0, curWordOffset, false);
+            hView.setInt32(4, (r.length - 8) / 2, false);
+            shxBytes.set(new Uint8Array(hBuf), curShxPos);
+            curShxPos += 8;
+            curWordOffset += r.length / 2;
+        }
+
+        // DBF
+        const fieldWidth = 60;
+        const headerLen = 32 + (propKeys.length * 32) + 1;
+        const recordLen = 1 + (propKeys.length * fieldWidth);
+        const totalDbfLen = headerLen + (features.length * recordLen) + 1;
+        const dbfBytes = new Uint8Array(totalDbfLen);
+        dbfBytes.fill(0x20);
+
+        const dbfView = new DataView(dbfBytes.buffer);
+        dbfView.setUint8(0, 0x03);
+        const now = new Date();
+        dbfView.setUint8(1, now.getFullYear() - 1900);
+        dbfView.setUint8(2, now.getMonth() + 1);
+        dbfView.setUint8(3, now.getDate());
+        dbfView.setUint32(4, features.length, true);
+        dbfView.setUint16(8, headerLen, true);
+        dbfView.setUint16(10, recordLen, true);
+
+        const encoder = new TextEncoder();
+        for (let k = 0; k < propKeys.length; k++) {
+            const fOffset = 32 + (k * 32);
+            const nameBytes = encoder.encode(propKeys[k]);
+            dbfBytes.set(nameBytes.subarray(0, 10), fOffset);
+            dbfBytes[fOffset + 11] = 67; // 'C'
+            dbfBytes[fOffset + 16] = fieldWidth;
+        }
+        dbfBytes[headerLen - 1] = 0x0D;
+
+        let recPos = headerLen;
+        for (let i = 0; i < features.length; i++) {
+            dbfBytes[recPos] = 0x20; // not deleted
+            let colOffset = recPos + 1;
+            const props = features[i].properties || {};
+            for (const shortKey of propKeys) {
+                let origKey = shortKey;
+                for (const [ok, sk] of keyMap.entries()) { if (sk === shortKey) { origKey = ok; break; } }
+                const val = props[origKey] !== undefined && props[origKey] !== null ? String(props[origKey]) : '';
+                const vBytes = encoder.encode(val);
+                dbfBytes.set(vBytes.subarray(0, fieldWidth), colOffset);
+                colOffset += fieldWidth;
+            }
+            recPos += recordLen;
+        }
+        dbfBytes[totalDbfLen - 1] = 0x1A; // EOF
+
+        const prjWkt = CRS_PRJ_WKT_MAP[crs] || CRS_PRJ_WKT_MAP['EPSG:4326'];
+        const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
+
+        const zipData = fflate.zipSync({
+            [`${safeBase}.shp`]: shpBytes,
+            [`${safeBase}.shx`]: shxBytes,
+            [`${safeBase}.dbf`]: dbfBytes,
+            [`${safeBase}.prj`]: fflate.strToU8(prjWkt),
+            [`${safeBase}.cpg`]: fflate.strToU8('UTF-8')
+        });
+
+        return new Blob([zipData], { type: 'application/zip' });
+    }
+
+    function buildClientKml(geojson, layerName) {
+        let kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n';
+        kml += `  <name>${escapeXmlStr(layerName || 'capa')}</name>\n`;
+        const feats = geojson.features || [];
+        for (const f of feats) {
+            if (!f || !f.geometry) continue;
+            kml += '  <Placemark>\n';
+            if (f.properties) {
+                const name = f.properties.name || f.properties.nombre || f.properties.identificador || f.properties.id || '';
+                if (name) kml += `    <name>${escapeXmlStr(String(name))}</name>\n`;
+                kml += '    <ExtendedData>\n';
+                for (const [k, v] of Object.entries(f.properties)) {
+                    if (v !== undefined && v !== null) {
+                        kml += `      <Data name="${escapeXmlStr(k)}"><value>${escapeXmlStr(String(v))}</value></Data>\n`;
+                    }
+                }
+                kml += '    </ExtendedData>\n';
+            }
+            const geom = f.geometry;
+            if (geom.type === 'Point') {
+                const c = geom.coordinates || [0, 0];
+                kml += `    <Point><coordinates>${c[0]},${c[1]},${c[2] || 0}</coordinates></Point>\n`;
+            } else if (geom.type === 'LineString') {
+                const coordStr = (geom.coordinates || []).map(c => `${c[0]},${c[1]},${c[2] || 0}`).join(' ');
+                kml += `    <LineString><coordinates>${coordStr}</coordinates></LineString>\n`;
+            } else if (geom.type === 'Polygon') {
+                kml += '    <Polygon>\n';
+                if (geom.coordinates && geom.coordinates[0]) {
+                    const extStr = geom.coordinates[0].map(c => `${c[0]},${c[1]},${c[2] || 0}`).join(' ');
+                    kml += `      <outerBoundaryIs><LinearRing><coordinates>${extStr}</coordinates></LinearRing></outerBoundaryIs>\n`;
+                }
+                for (let i = 1; i < (geom.coordinates || []).length; i++) {
+                    const intStr = geom.coordinates[i].map(c => `${c[0]},${c[1]},${c[2] || 0}`).join(' ');
+                    kml += `      <innerBoundaryIs><LinearRing><coordinates>${intStr}</coordinates></LinearRing></innerBoundaryIs>\n`;
+                }
+                kml += '    </Polygon>\n';
+            }
+            kml += '  </Placemark>\n';
+        }
+        kml += '</Document>\n</kml>';
+        return kml;
+    }
+
+    function escapeXmlStr(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function getCleanLayerGeoJson(layer, onlySelected = false) {
         if (!layer) return null;
         let raw = layer.geoJson;
@@ -16784,66 +17123,113 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const format = formatRadio ? formatRadio.value : 'gpkg';
         const crs = document.getElementById('exportCrsSel').value || 'EPSG:4326';
         const filename = (document.getElementById('exportFilenameInput').value.trim()) || layer.name || 'capa';
+        const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
-        showProgress(`Generando ${format.toUpperCase()} (${cleanGeoJson.features.length} entidades)... <br><span class="text-[10px] text-zinc-400">Procesando con GDAL</span>`, 35, 'Exportador Vectorial');
+        showProgress(`Preparando exportación ${format.toUpperCase()} (${cleanGeoJson.features.length} entidades)...<br><span class="text-[10px] text-zinc-400">Iniciando proceso</span>`, 30, 'Exportador');
         const btn = document.getElementById('btnStartExport');
         if (btn) btn.disabled = true;
 
         try {
-            const res = await fetch('/api/export-vector', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    format: format,
-                    geojson: cleanGeoJson,
-                    filename: filename,
-                    layerName: layer.name,
-                    crs: crs
-                })
-            });
+            // Intentar exportación rápida en backend
+            let backendSuccess = false;
+            try {
+                const res = await fetch('/api/export-vector', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        format: format,
+                        geojson: cleanGeoJson,
+                        filename: safeBase,
+                        layerName: layer.name,
+                        crs: crs
+                    })
+                });
 
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || `HTTP ${res.status} al generar ${format.toUpperCase()}`);
+                if (res.ok) {
+                    const contentType = res.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const jsonRes = await res.json();
+                        if (jsonRes.fallbackClient) {
+                            console.log('[Export] Host solicitó fallback en cliente:', jsonRes.message);
+                        } else {
+                            backendSuccess = true;
+                        }
+                    } else {
+                        // Descargar binario retornado por el servidor
+                        const blob = await res.blob();
+                        const ext = format === 'shp' ? 'zip' : (format === 'geojson' ? 'geojson' : (format === 'kml' ? 'kml' : 'gpkg'));
+                        triggerFileDownload(blob, `${safeBase}.${ext}`);
+                        backendSuccess = true;
+                        closeExportVectorModal();
+                        toast(`¡${safeBase}.${ext} exportado exitosamente!`, 'success');
+                        return;
+                    }
+                }
+            } catch(fetchErr) {
+                console.warn('[Export] Backend fetch no disponible, usando motor cliente:', fetchErr.message);
             }
 
-            const blob = await res.blob();
-            const ext = format === 'shp' ? 'zip' : (format === 'geojson' ? 'geojson' : (format === 'kml' ? 'kml' : 'gpkg'));
-            const downloadFilename = `${filename}.${ext}`;
+            // MOTOR CLIENTE RESILIENTE (100% independiente de GDAL o servidor)
+            showProgress(`Generando ${format.toUpperCase()} directamente en el navegador...`, 65, 'Exportador');
+            const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(cleanGeoJson, crs) : cleanGeoJson;
 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = downloadFilename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-            closeExportVectorModal();
-            toast(`¡${downloadFilename} descargado con éxito!`, 'success');
-        } catch(err) {
-            console.error('[ExportVector] Error:', err);
             if (format === 'geojson') {
-                const blob = new Blob([JSON.stringify(cleanGeoJson, null, 2)], { type: 'application/geo+json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${filename}.geojson`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                const blob = new Blob([JSON.stringify(reprojected, null, 2)], { type: 'application/geo+json' });
+                triggerFileDownload(blob, `${safeBase}.geojson`);
                 closeExportVectorModal();
-                toast('Exportado como GeoJSON estándar.', 'success');
-            } else {
-                toast(`Error al exportar: ${err.message}`, 'error');
+                toast(`¡${safeBase}.geojson descargado con éxito!`, 'success');
+
+            } else if (format === 'kml') {
+                const kmlStr = buildClientKml(cleanGeoJson, safeBase);
+                const blob = new Blob([kmlStr], { type: 'application/vnd.google-earth.kml+xml' });
+                triggerFileDownload(blob, `${safeBase}.kml`);
+                closeExportVectorModal();
+                toast(`¡${safeBase}.kml descargado con éxito!`, 'success');
+
+            } else if (format === 'shp') {
+                const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
+                triggerFileDownload(zipBlob, `${safeBase}.zip`);
+                closeExportVectorModal();
+                toast(`¡${safeBase}.zip (Shapefile) exportado con éxito!`, 'success');
+
+            } else if (format === 'gpkg') {
+                // Generador GeoPackage en cliente con @ngageoint/geopackage
+                if (typeof window.GeoPackage !== 'undefined') {
+                    showProgress('Construyendo base SQLite OGC GeoPackage...', 75, 'Exportador');
+                    try {
+                        const gpkg = await window.GeoPackage.create();
+                        const tableName = safeBase.substring(0, 32);
+                        const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
+                        if (gpkg.createFeatureTableFromProperties) {
+                            await gpkg.createFeatureTableFromProperties(tableName, firstProps);
+                        }
+                        if (gpkg.addGeoJSONFeaturesToGeoPackage) {
+                            await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, tableName);
+                        }
+                        const u8 = await gpkg.export();
+                        const blob = new Blob([u8], { type: 'application/geopackage+sqlite3' });
+                        triggerFileDownload(blob, `${safeBase}.gpkg`);
+                        closeExportVectorModal();
+                        toast(`¡${safeBase}.gpkg exportado con éxito!`, 'success');
+                        return;
+                    } catch(gpkgErr) {
+                        console.warn('[GPKG Client Export] Falló SQLite cliente:', gpkgErr);
+                    }
+                }
+                // Si el motor GPKG del navegador no inicializó, descargar como Shapefile comprimido o GeoJSON
+                const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
+                triggerFileDownload(zipBlob, `${safeBase}.zip`);
+                closeExportVectorModal();
+                toast(`Exportado como Shapefile (.zip) compatible con QGIS y ArcGIS.`, 'success');
             }
+        } catch(err) {
+            console.error('[ExportVector] Error fatal:', err);
+            toast(`Error al exportar: ${err.message}`, 'error');
         } finally {
             hideProgress();
             if (btn) btn.disabled = false;
         }
     }
-
 
     function exportGeoPackage() {
         const layer = state.selectedLayerId ? state.layers.find(l => String(l.id) === String(state.selectedLayerId)) : null;
