@@ -10932,7 +10932,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         hInfo.style.zIndex = '10001';
                         
                         if (l.setStyle) {
-                            l.setStyle({ weight: 6, color: '#ffffff', opacity: 1, fillOpacity: 0.95 });
+                            const origStyle = getVectorFeatureStyle(layer, feature);
+                            const hoverWeight = Math.max((origStyle.weight || 2) + 2, 4);
+                            l.setStyle({
+                                weight: hoverWeight,
+                                color: '#38bdf8',
+                                opacity: 1
+                            });
                             if (l.bringToFront) l.bringToFront();
                         }
                     },
