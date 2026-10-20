@@ -113,8 +113,8 @@ module.exports = async (req, res) => {
   }
 
   const exportFormat = (format || 'gpkg').toLowerCase();
-  const safeBaseName = (filename || 'capa_exportada').replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const targetLayerName = (layerName || safeBaseName).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const safeBaseName = (filename || 'capa_exportada').replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa_exportada';
+  const targetLayerName = (layerName || safeBaseName).replace(/[^a-zA-Z0-9_\-]/g, '_') || safeBaseName;
   const targetCrs = crs || 'EPSG:4326';
 
   const tmpDir = path.join(os.tmpdir(), `export_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
@@ -131,7 +131,10 @@ module.exports = async (req, res) => {
         outGpkgPath,
         inputGeoJsonPath,
         '-nln', targetLayerName,
+        '-s_srs', 'EPSG:4326',
         '-t_srs', targetCrs,
+        '-nlt', 'PROMOTE_TO_MULTI',
+        '-skipfailures',
         '-overwrite'
       ];
 
@@ -156,7 +159,10 @@ module.exports = async (req, res) => {
         outShpPath,
         inputGeoJsonPath,
         '-nln', targetLayerName,
+        '-s_srs', 'EPSG:4326',
         '-t_srs', targetCrs,
+        '-lco', 'ENCODING=UTF-8',
+        '-skipfailures',
         '-overwrite'
       ];
 
@@ -164,6 +170,9 @@ module.exports = async (req, res) => {
 
       // Empaquetar todo (.shp, .dbf, .shx, .prj, .cpg) en un .zip
       const files = fs.readdirSync(shpOutDir);
+      if (files.length === 0) {
+        throw new Error('No se generaron los archivos del Shapefile');
+      }
       const entries = files.map(f => ({
         name: f,
         data: fs.readFileSync(path.join(shpOutDir, f))
@@ -187,7 +196,9 @@ module.exports = async (req, res) => {
         outKmlPath,
         inputGeoJsonPath,
         '-nln', targetLayerName,
+        '-s_srs', 'EPSG:4326',
         '-t_srs', 'EPSG:4326',
+        '-skipfailures',
         '-overwrite'
       ];
       await execFileAsync(OGR2OGR_BIN, args, { env: GDAL_ENV, timeout: 60000 });
