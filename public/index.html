@@ -2348,14 +2348,14 @@
         </div>
       </div>
 
-      <!-- Sentinel-2 Search -->
+      <!-- Opciones Avanzadas de Vectores -->
       <div class="bg-white/40 border border-zinc-200 rounded-lg p-4">
         <div class="flex items-center gap-2 mb-3">
-          <span class="material-symbols-outlined text-emerald-600">aerial</span>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Sentinel-2</span>
+          <span class="material-symbols-outlined text-indigo-600">polyline</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Opciones avanzadas de vectores</span>
         </div>
-        <button onclick="openSentinel2Search()" class="w-full py-2.5 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-          <span class="material-symbols-outlined text-sm">search</span> Buscar imágenes
+        <button onclick="openVectorAdvancedModal()" class="w-full py-2.5 bg-zinc-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm">
+          <span class="material-symbols-outlined text-sm">tune</span> Opciones de Vectores
         </button>
       </div>
 
@@ -3804,6 +3804,80 @@
   </div>
 
   <!-- Progress overlay -->
+
+  <!-- Modal Opciones Avanzadas de Vectores -->
+  <div id="vectorAdvancedModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">polyline</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-zinc-900">Opciones Avanzadas de Vectores</h3>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Herramientas topológicas y unión de capas</p>
+          </div>
+        </div>
+        <button onclick="closeVectorAdvancedModal()" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
+          <span class="material-symbols-outlined text-zinc-500 text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-6">
+        <!-- Section: Pegar / Fusionar Capas Vectoriales -->
+        <div class="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-4">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-600 text-lg">join_inner</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Pegar / Unir Capas Vectoriales</span>
+          </div>
+          <p class="text-[11px] text-zinc-600 leading-relaxed">
+            Combina los polígonos, líneas o puntos de dos capas vectoriales en una única capa consolidada conservando todas sus geometrías y atributos.
+          </p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Capa A (Base):</label>
+              <select id="mergeLayerA" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
+                <option value="">Selecciona la primera capa...</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Capa B (A unir con A):</label>
+              <select id="mergeLayerB" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
+                <option value="">Selecciona la segunda capa...</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Nombre de la nueva capa:</label>
+              <input type="text" id="mergeOutputName" placeholder="Capa Unida (Pegada)" class="w-full bg-white border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20">
+            </div>
+          </div>
+
+          <button onclick="executeMergeLayers()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">join_inner</span> Pegar Capas
+          </button>
+        </div>
+
+        <!-- Extra Tools -->
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="closeVectorAdvancedModal(); openClipModal('clip');" class="p-3 bg-white border border-zinc-200 hover:border-black rounded-2xl text-left transition-all group">
+            <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs mb-1">
+              <span class="material-symbols-outlined text-[16px] text-red-500">content_cut</span> Recortar (Clip)
+            </div>
+            <p class="text-[9px] text-zinc-500">Corta una capa usando los límites de otra</p>
+          </button>
+          <button onclick="closeVectorAdvancedModal(); openClipModal('intersect');" class="p-3 bg-white border border-zinc-200 hover:border-black rounded-2xl text-left transition-all group">
+            <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs mb-1">
+              <span class="material-symbols-outlined text-[16px] text-purple-600">merge</span> Intersectar
+            </div>
+            <p class="text-[9px] text-zinc-500">Extrae las zonas en común entre 2 capas</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Clip/Intersect Layer Picker Modal -->
   <div id="clipModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
@@ -15241,6 +15315,95 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     let _clipMode = 'clip';
     let _cloudLayersForClip = [];
+
+    function openVectorAdvancedModal() {
+        const modal = document.getElementById('vectorAdvancedModal');
+        if (!modal) return;
+        const selA = document.getElementById('mergeLayerA');
+        const selB = document.getElementById('mergeLayerB');
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+
+        if (vectorLayers.length === 0) {
+            toast('No hay capas vectoriales cargadas en el mapa.', 'warning');
+            return;
+        }
+
+        const opts = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        selA.innerHTML = '<option value="">Selecciona la primera capa...</option>' + opts;
+        selB.innerHTML = '<option value="">Selecciona la segunda capa...</option>' + opts;
+
+        if (vectorLayers.length >= 1) selA.value = vectorLayers[0].id;
+        if (vectorLayers.length >= 2) {
+            selB.value = vectorLayers[1].id;
+            document.getElementById('mergeOutputName').value = `${vectorLayers[0].name} + ${vectorLayers[1].name}`;
+        } else {
+            document.getElementById('mergeOutputName').value = `${vectorLayers[0].name} (Copia)`;
+        }
+
+        selA.onchange = selB.onchange = () => {
+            const lA = vectorLayers.find(l => l.id == selA.value);
+            const lB = vectorLayers.find(l => l.id == selB.value);
+            if (lA && lB) {
+                document.getElementById('mergeOutputName').value = `${lA.name} + ${lB.name}`;
+            }
+        };
+
+        modal.style.display = 'flex';
+    }
+
+    function closeVectorAdvancedModal() {
+        const modal = document.getElementById('vectorAdvancedModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function executeMergeLayers() {
+        const selA = document.getElementById('mergeLayerA');
+        const selB = document.getElementById('mergeLayerB');
+        const outNameInput = document.getElementById('mergeOutputName');
+
+        const idA = parseInt(selA.value);
+        const idB = parseInt(selB.value);
+
+        if (!idA || !idB) {
+            return toast('Por favor selecciona las dos capas que deseas pegar.', 'error');
+        }
+
+        const layerA = state.layers.find(l => l.id === idA);
+        const layerB = state.layers.find(l => l.id === idB);
+
+        if (!layerA?.geoJson || !layerB?.geoJson) {
+            return toast('Datos geométricos no disponibles para las capas seleccionadas.', 'error');
+        }
+
+        const outName = (outNameInput.value.trim()) || `${layerA.name} + ${layerB.name}`;
+
+        showProgress('Pegando capas vectoriales...', 30, 'Unión Vectorial');
+        try {
+            const featuresA = (layerA.geoJson.features || [layerA.geoJson]).map(f => JSON.parse(JSON.stringify(f)));
+            const featuresB = (layerB.geoJson.features || [layerB.geoJson]).map(f => JSON.parse(JSON.stringify(f)));
+
+            const mergedFeatures = [...featuresA, ...featuresB];
+            const mergedCollection = {
+                type: 'FeatureCollection',
+                features: mergedFeatures
+            };
+
+            showProgress('Creando capa unida en el mapa...', 70, 'Unión Vectorial');
+            await addVectorLayer(mergedCollection, outName, {
+                color: layerA.color || '#3b82f6',
+                fillOpacity: layerA.fillOpacity ?? 0.5,
+                strokeWidth: layerA.strokeWidth ?? 1.5
+            });
+
+            closeVectorAdvancedModal();
+            toast(`¡Capas pegadas con éxito! Creada: ${outName} (${mergedFeatures.length} entidades)`, 'success');
+        } catch(err) {
+            console.error('[MergeLayers] Error:', err);
+            toast('Error al pegar las capas: ' + err.message, 'error');
+        } finally {
+            hideProgress();
+        }
+    }
 
     async function openClipModal(mode) {
         _clipMode = mode;
