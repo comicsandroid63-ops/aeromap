@@ -205,8 +205,8 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar {
-      width: 4px;
-      height: 4px;
+      width: 8px;
+      height: 8px;
     }
 
     /* Model Builder */
@@ -2881,7 +2881,7 @@
         </button>
       </div>
       <div class="flex-1 overflow-auto p-4 custom-scrollbar">
-        <table class="w-full border-collapse" id="attrTable">
+        <table class="w-max min-w-full border-collapse" id="attrTable">
           <thead class="sticky top-0 bg-white z-10 shadow-sm">
             <tr id="attrModalHeader">
               <!-- Injected via JS -->
@@ -3088,7 +3088,7 @@
                 </button>
             </div>
         </div>
-        <table class="w-full text-left border-collapse min-w-full table-auto">
+        <table class="w-max min-w-full text-left border-collapse table-auto">
             <thead class="sticky top-0 bg-white border-b border-zinc-200 z-10 antialiased">
                 <tr id="attrTablePanelHeader">
                     <!-- Dynamic Headers -->
@@ -5573,7 +5573,7 @@ self.onmessage = async function(e) {
                     ${keys.map(k => {
                         const val = row[k];
                         const displayVal = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === undefined || val === null ? '-' : val);
-                        return `<td class="px-4 py-2 border-r border-zinc-100 truncate max-w-[300px] text-[11px] font-medium text-zinc-700">${displayVal}</td>`;
+                        return `<td class="px-4 py-2 border-r border-zinc-100 whitespace-nowrap min-w-[120px] max-w-[400px] truncate text-[11px] font-medium text-zinc-700" title="${displayVal}">${displayVal}</td>`;
                     }).join('')}
                 </tr>
             `).join('');
@@ -11811,7 +11811,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       // Get headers from first feature properties
       const headers = Object.keys(features[0].properties);
       $attrTableHead.innerHTML = headers.map(h => `
-    <th class="px-4 py-3 text-left border-b border-zinc-100 text-[10px] font-bold uppercase tracking-widest text-zinc-400">${h}</th>
+    <th class="px-4 py-3 text-left border-b border-zinc-100 text-[10px] font-bold uppercase tracking-widest text-zinc-400 whitespace-nowrap min-w-[120px]">${h}</th>
   `).join('');
 
       $attrTableBody.innerHTML = features.slice(0, 500).map(f => {
@@ -11821,7 +11821,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
               ${headers.map(h => {
                   const val = props[h];
                   const display = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val ?? '');
-                  return `<td class="px-4 py-2 truncate max-w-[200px] text-[11px]" title="${display}">${display}</td>`;
+                  return `<td class="px-4 py-2 whitespace-nowrap min-w-[120px] max-w-[400px] truncate text-[11px]" title="${display}">${display}</td>`;
               }).join('')}
             </tr>
           `;
