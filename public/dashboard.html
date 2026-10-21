@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cuentas y Dashboard - AeroMap</title>
+  <title>Portal de Administración - AeroMap</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
@@ -87,6 +87,15 @@
     }
     .nav-btn.primary:hover {
       background: #1d4ed8;
+    }
+    .nav-btn.danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .nav-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
     }
 
     /* Container */
@@ -203,7 +212,7 @@
     .stat-card.storage .icon-wrapper { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
     .stat-card.storage .value { color: #f472b6; }
 
-    /* Tabs & Section Header */
+    /* Section Box */
     .section-box {
       background: #0f172a;
       border: 1px solid #1e293b;
@@ -369,6 +378,25 @@
       font-weight: 600;
       color: #f8fafc;
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .role-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .role-tag.admin {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .role-tag.user {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
     }
     .user-id-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -455,6 +483,83 @@
       max-height: 260px;
     }
 
+    /* Admin Login Card */
+    .login-modal-box {
+      max-width: 440px;
+      margin: 60px auto 0;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    .login-icon-circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 6px 18px rgba(37,99,235,0.35);
+    }
+    .login-icon-circle span { font-size: 32px; color: #fff; }
+    .login-modal-box h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 8px;
+    }
+    .login-modal-box p {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .login-input {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: #f8fafc;
+      font-size: 14px;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .login-input:focus {
+      border-color: #3b82f6;
+    }
+    .login-submit-btn {
+      width: 100%;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .login-submit-btn:hover {
+      background: #1d4ed8;
+    }
+    .login-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 16px;
+      text-align: left;
+      display: none;
+    }
+
     /* Loading and Error states */
     .state-box {
       text-align: center;
@@ -511,62 +616,91 @@
   <nav class="navbar">
     <div class="brand">
       <div class="brand-icon">
-        <span class="material-symbols-outlined">map</span>
+        <span class="material-symbols-outlined">shield_person</span>
       </div>
       <div class="brand-info">
         <h1>AeroMap Pro</h1>
-        <p>Panel de Administración & Cuentas</p>
+        <p>Portal Exclusivo de Administración</p>
       </div>
     </div>
     <div class="nav-actions">
-      <a href="/" class="nav-btn primary">
+      <span id="adminSessionBadge" style="font-size:12px;color:#94a3b8;margin-right:8px;display:none;">
+        Sesión: <b style="color:#60a5fa;" id="adminEmailDisplay">—</b>
+      </span>
+      <a href="/" class="nav-btn">
         <span class="material-symbols-outlined" style="font-size:18px">map</span>
-        Ir al Mapa
+        Volver al Mapa
       </a>
-      <a href="/#projects" class="nav-btn">
-        <span class="material-symbols-outlined" style="font-size:18px">folder_open</span>
-        Mis Proyectos
-      </a>
+      <button class="nav-btn danger" id="adminLogoutBtn" onclick="handleAdminLogout()" style="display:none;">
+        <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+        Cerrar Sesión Admin
+      </button>
     </div>
   </nav>
 
   <!-- Container -->
   <div class="container">
 
-    <!-- Header Bar -->
-    <div class="header-bar">
-      <div class="header-title">
-        <h2>
-          <span class="material-symbols-outlined" style="color:#60a5fa;font-size:30px">manage_accounts</span>
-          Cuentas Registradas y Estadísticas
-        </h2>
-        <p>Consulta en tiempo real los usuarios registrados en el sistema, proyectos creados y métricas de almacenamiento.</p>
-      </div>
-      <div class="header-controls">
-        <span class="last-updated" id="lastUpdated">—</span>
-        <button class="nav-btn" onclick="loadDashboard()">
-          <span class="material-symbols-outlined" id="refreshIcon" style="font-size:18px">refresh</span>
-          Actualizar
-        </button>
+    <!-- Admin Login Gate (Visible if not authenticated as Admin) -->
+    <div id="adminLoginGate" style="display:none;">
+      <div class="login-modal-box">
+        <div class="login-icon-circle">
+          <span class="material-symbols-outlined">lock</span>
+        </div>
+        <h3>Acceso Restringido</h3>
+        <p>Esta página contiene información administrativa y listados de usuarios del sistema. Inicia sesión con tus credenciales de administrador para continuar.</p>
+
+        <div id="loginGateError" class="login-error"></div>
+
+        <form onsubmit="handleAdminLogin(event)">
+          <input type="email" id="loginAdminEmail" class="login-input" placeholder="Correo de Administrador" required />
+          <input type="password" id="loginAdminPassword" class="login-input" placeholder="Contraseña de Administrador" required minlength="6" />
+          <button type="submit" id="loginSubmitBtn" class="login-submit-btn">Ingresar al Dashboard</button>
+        </form>
+
+        <div style="margin-top:20px;border-top:1px solid #1e293b;padding-top:16px;">
+          <a href="/" style="color:#64748b;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px">arrow_back</span>
+            Regresar al mapa principal
+          </a>
+        </div>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div id="loadingBox" class="state-box">
+    <div id="loadingBox" class="state-box" style="display:none;">
       <div class="spinner"></div>
-      <p style="color:#94a3b8;font-size:15px;font-weight:500">Cargando usuarios y estadísticas del servidor...</p>
+      <p style="color:#94a3b8;font-size:15px;font-weight:500">Validando permisos de administrador y cargando datos...</p>
     </div>
 
     <!-- Error State -->
     <div id="errorBox" class="state-box" style="display:none">
       <span class="material-symbols-outlined" style="font-size:48px;color:#f87171;margin-bottom:12px">error_outline</span>
-      <h3 style="color:#f8fafc;font-size:18px;margin-bottom:8px">Error al cargar la información</h3>
-      <p style="color:#94a3b8;font-size:14px;margin-bottom:20px" id="errorMessage">No se pudo conectar con el endpoint de administración.</p>
-      <button class="nav-btn primary" onclick="loadDashboard()">Reintentar</button>
+      <h3 style="color:#f8fafc;font-size:18px;margin-bottom:8px">Acceso denegado o error del servidor</h3>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:20px" id="errorMessage">No se pudo cargar la información de administración.</p>
+      <button class="nav-btn primary" onclick="showLoginGate()">Iniciar con otra cuenta</button>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main Content (Only shown if authorized) -->
     <div id="dashboardContent" style="display:none">
+
+      <!-- Header Bar -->
+      <div class="header-bar">
+        <div class="header-title">
+          <h2>
+            <span class="material-symbols-outlined" style="color:#60a5fa;font-size:30px">manage_accounts</span>
+            Cuentas Registradas y Estadísticas
+          </h2>
+          <p>Consulta en tiempo real los usuarios registrados en el sistema, proyectos creados y métricas de almacenamiento.</p>
+        </div>
+        <div class="header-controls">
+          <span class="last-updated" id="lastUpdated">—</span>
+          <button class="nav-btn" onclick="loadDashboard()">
+            <span class="material-symbols-outlined" id="refreshIcon" style="font-size:18px">refresh</span>
+            Actualizar
+          </button>
+        </div>
+      </div>
 
       <!-- Stats Grid -->
       <div class="stats-grid" id="statsGrid">
@@ -578,7 +712,7 @@
         <div class="section-head">
           <div class="section-head-title">
             <span class="material-symbols-outlined" style="color:#60a5fa;font-size:24px">group</span>
-            <h3>Cuentas de Usuarios Registradas</h3>
+            <h3>Listado de Cuentas del Sistema</h3>
             <span class="badge-count" id="usersCountBadge">0 cuentas</span>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
@@ -597,7 +731,7 @@
           </div>
           <div class="filter-group">
             <select id="userFilterStatus" class="filter-select" onchange="filterUsers()">
-              <option value="all">Todos los estados</option>
+              <option value="all">Todos los usuarios</option>
               <option value="online">En línea / Sesión Activa</option>
               <option value="offline">Desconectados</option>
               <option value="has_projects">Con proyectos</option>
@@ -655,7 +789,7 @@
 
   <!-- Footer -->
   <footer>
-    <div>AeroMap GIS Platform · Portal de Administración y Cuentas</div>
+    <div>AeroMap GIS Platform · Portal Administrativo Privado</div>
     <div id="footerSummary">Total de usuarios: —</div>
   </footer>
 
@@ -729,14 +863,6 @@
       }
     }
 
-    function formatBytes(bytes) {
-      if (!bytes || bytes === 0) return '0 B';
-      const k = 1024;
-      const sizes = ['B', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
     function copyToClipboard(text, label = 'Copiado') {
       navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('toastNotice');
@@ -748,19 +874,131 @@
       });
     }
 
+    function getStoredAdminUser() {
+      try {
+        const raw = localStorage.getItem('aeromap_user') || sessionStorage.getItem('aeromap_user');
+        if (!raw) return null;
+        const u = JSON.parse(raw);
+        if (u && u.token) {
+          const isAdmin = Boolean(u.isAdmin || u.role === 'admin' || u.email === 'admin@aeromap.com' || u.email === 'comicsandroid63@gmail.com');
+          u.isAdmin = isAdmin;
+          return u;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function showLoginGate(errorMsg = '') {
+      document.getElementById('loadingBox').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'none';
+      document.getElementById('dashboardContent').style.display = 'none';
+      document.getElementById('adminSessionBadge').style.display = 'none';
+      document.getElementById('adminLogoutBtn').style.display = 'none';
+
+      const gate = document.getElementById('adminLoginGate');
+      gate.style.display = 'block';
+
+      const errEl = document.getElementById('loginGateError');
+      if (errorMsg) {
+        errEl.textContent = errorMsg;
+        errEl.style.display = 'block';
+      } else {
+        errEl.style.display = 'none';
+      }
+    }
+
+    async function handleAdminLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginAdminEmail').value.trim();
+      const password = document.getElementById('loginAdminPassword').value;
+      const btn = document.getElementById('loginSubmitBtn');
+      const errEl = document.getElementById('loginGateError');
+
+      btn.disabled = true;
+      btn.textContent = 'Verificando...';
+      errEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Credenciales inválidas');
+
+        const isAdmin = Boolean(data.isAdmin || data.role === 'admin' || data.email === 'admin@aeromap.com' || data.email === 'comicsandroid63@gmail.com');
+        if (!isAdmin) {
+          throw new Error('Esta cuenta no posee privilegios de administrador para ver el dashboard.');
+        }
+
+        const userObj = {
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          role: 'admin',
+          isAdmin: true,
+          token: data.token
+        };
+        const str = JSON.stringify(userObj);
+        localStorage.setItem('aeromap_user', str);
+        sessionStorage.setItem('aeromap_user', str);
+
+        document.getElementById('adminLoginGate').style.display = 'none';
+        loadDashboard();
+      } catch (err) {
+        errEl.textContent = err.message || 'Error al iniciar sesión';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ingresar al Dashboard';
+      }
+    }
+
+    function handleAdminLogout() {
+      localStorage.removeItem('aeromap_user');
+      sessionStorage.removeItem('aeromap_user');
+      showLoginGate('Has cerrado sesión como administrador.');
+    }
+
     async function loadDashboard() {
+      const user = getStoredAdminUser();
+      if (!user || !user.token || !user.isAdmin) {
+        showLoginGate();
+        return;
+      }
+
       const loadingBox = document.getElementById('loadingBox');
       const errorBox = document.getElementById('errorBox');
       const content = document.getElementById('dashboardContent');
+      const gate = document.getElementById('adminLoginGate');
       const refreshIcon = document.getElementById('refreshIcon');
 
+      gate.style.display = 'none';
       loadingBox.style.display = 'block';
       errorBox.style.display = 'none';
       content.style.display = 'none';
       if (refreshIcon) refreshIcon.style.animation = 'spin 1s linear infinite';
 
+      // Update admin UI in navbar
+      document.getElementById('adminEmailDisplay').textContent = user.email || 'Admin';
+      document.getElementById('adminSessionBadge').style.display = 'inline-block';
+      document.getElementById('adminLogoutBtn').style.display = 'inline-flex';
+
       try {
-        const res = await fetch('/api/admin/dashboard');
+        const token = user.token;
+        const res = await fetch('/api/admin/dashboard?token=' + encodeURIComponent(token), {
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          showLoginGate(errData.error || 'Sesión no autorizada o expirada.');
+          return;
+        }
+
         if (!res.ok) throw new Error('Error al consultar el servidor (HTTP ' + res.status + ')');
         const data = await res.json();
         _dashboardData = data;
@@ -802,7 +1040,7 @@
           icon: 'how_to_reg',
           label: 'Usuarios Activos',
           value: activeUsers,
-          sub: 'Con al menos 1 proyecto creado'
+          sub: 'Con proyectos o actividad reciente'
         },
         {
           cls: 'projects',
@@ -902,6 +1140,7 @@
         const dateObj = formatDate(u.createdAt);
         const displayName = u.name && u.name.trim() ? u.name : (u.email ? u.email.split('@')[0] : 'Sin nombre');
         const shortId = u.id ? (u.id.length > 12 ? u.id.slice(0, 8) + '...' : u.id) : '—';
+        const isAccountAdmin = u.email === 'admin@aeromap.com' || u.email === 'comicsandroid63@gmail.com' || u.role === 'admin';
 
         return `
           <tr>
@@ -909,7 +1148,10 @@
               <div class="user-cell">
                 <div class="user-avatar" style="background:${bg}">${initials}</div>
                 <div class="user-details">
-                  <span class="user-name">${escapeHtml(displayName)}</span>
+                  <div class="user-name">
+                    ${escapeHtml(displayName)}
+                    ${isAccountAdmin ? '<span class="role-tag admin">ADMIN</span>' : ''}
+                  </div>
                   <span class="user-id-code" onclick="copyToClipboard('${escapeHtml(u.id)}', 'ID de Usuario')" title="Haga clic para copiar ID completo">
                     ${escapeHtml(shortId)}
                     <span class="material-symbols-outlined" style="font-size:13px">content_copy</span>
@@ -1057,7 +1299,7 @@
         .replace(/'/g, '&#39;');
     }
 
-    // Auto-load on startup
+    // Auto-check authentication on startup
     loadDashboard();
   </script>
 </body>

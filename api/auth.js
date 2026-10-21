@@ -101,7 +101,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await db.execute({
-        sql: 'SELECT id, email, password_hash, name FROM users WHERE email = ?',
+        sql: 'SELECT id, email, password_hash, name, role FROM users WHERE email = ?',
         args: [email]
       });
       if (!result.rows || result.rows.length === 0) {
@@ -120,7 +120,8 @@ module.exports = async function handler(req, res) {
         args: [token, tokenExpiry, user.id]
       });
 
-      return res.json({ id: user.id, email: user.email, name: user.name, token });
+      const isAdmin = user.role === 'admin' || user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com';
+      return res.json({ id: user.id, email: user.email, name: user.name, role: user.role || (isAdmin ? 'admin' : 'user'), isAdmin, token });
     }
 
     if (action === 'verify') {
@@ -130,7 +131,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await db.execute({
-        sql: 'SELECT id, email, name, token_expiry FROM users WHERE token = ?',
+        sql: 'SELECT id, email, name, role, token_expiry FROM users WHERE token = ?',
         args: [token]
       });
       if (!result.rows || result.rows.length === 0) {
@@ -142,7 +143,8 @@ module.exports = async function handler(req, res) {
         return res.status(401).json({ error: 'Token expirado' });
       }
 
-      return res.json({ id: user.id, email: user.email, name: user.name });
+      const isAdmin = user.role === 'admin' || user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com';
+      return res.json({ id: user.id, email: user.email, name: user.name, role: user.role || (isAdmin ? 'admin' : 'user'), isAdmin });
     }
 
     if (action === 'logout') {

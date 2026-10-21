@@ -1879,9 +1879,9 @@
         <span class="text-[11px] px-3 py-1 rounded-full" style="background:#f0f0eb;color:#666;">Professional GIS Editor</span>
       </div>
       <div class="flex items-center gap-3">
-        <a href="/dashboard.html" class="flex items-center gap-2 text-xs px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-semibold transition-all shadow-sm" title="Ver cuántos usuarios tiene la página y listado de cuentas">
+        <a href="/dashboard.html" id="adminDashboardBtn" class="hidden items-center gap-2 text-xs px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-semibold transition-all shadow-sm" style="display:none;" title="Panel de Administración y Cuentas">
           <span class="material-symbols-outlined text-[16px] text-blue-600">manage_accounts</span>
-          Ver Cuentas y Usuarios
+          Panel Admin
         </a>
         <button onclick="signOut()" class="flex items-center gap-2 text-xs px-4 py-2 rounded-lg hover:bg-zinc-100 transition-colors" style="color:#666;">
           <span class="material-symbols-outlined text-[16px]">logout</span>
@@ -2227,9 +2227,9 @@
           class="material-symbols-outlined text-zinc-500 cursor-pointer hover:text-zinc-900 transition-colors">account_circle</span>
         <div id="userMenu" class="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-2 min-w-[200px] hidden group-hover:block">
           <div class="px-3 py-2 text-[11px] text-zinc-500 font-medium border-b border-zinc-100" id="userEmailDisplay">Invitado</div>
-          <a href="/dashboard.html" class="flex items-center gap-2 w-full text-left px-3 py-2 text-[11px] text-zinc-700 hover:bg-zinc-50 rounded-xl font-semibold mt-1 transition-colors">
+          <a href="/dashboard.html" id="userMenuAdminLink" class="hidden items-center gap-2 w-full text-left px-3 py-2 text-[11px] text-zinc-700 hover:bg-zinc-50 rounded-xl font-semibold mt-1 transition-colors" style="display:none;">
             <span class="material-symbols-outlined text-[16px] text-blue-600">manage_accounts</span>
-            Cuentas y Usuarios
+            Panel de Cuentas (Admin)
           </a>
           <button onclick="signOut()" class="w-full text-left px-3 py-2 text-[11px] text-red-500 hover:bg-red-50 rounded-xl font-semibold mt-1 transition-colors">Cerrar sesión</button>
         </div>
@@ -20556,9 +20556,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (cached) {
           const user = JSON.parse(cached);
           if (user && user.token) {
+            if (user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com' || user.role === 'admin') {
+              user.isAdmin = true;
+              user.role = 'admin';
+            }
             _currentUser = user;
             // Asegurar persistencia en ambos
-            try { localStorage.setItem('aeromap_user', cached); } catch(_) {}
+            try { localStorage.setItem('aeromap_user', JSON.stringify(user)); } catch(_) {}
             setAuthNav();
             // Si NO hay invite activo en la URL, borrar cualquier _pendingSharedProject
             // sobrante para evitar falsos logins obligatorios en visitas normales
@@ -20622,7 +20626,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');
 
-        _currentUser = { id: data.id, email: data.email, name: data.name, token: data.token };
+        const isAdmin = Boolean(data.isAdmin || data.role === 'admin' || data.email === 'admin@aeromap.com' || data.email === 'comicsandroid63@gmail.com');
+        _currentUser = { id: data.id, email: data.email, name: data.name, token: data.token, role: data.role || (isAdmin ? 'admin' : 'user'), isAdmin };
         const userStr = JSON.stringify(_currentUser);
         localStorage.setItem('aeromap_user', userStr);
         sessionStorage.setItem('aeromap_user', userStr);
@@ -20670,6 +20675,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         sessionStorage.removeItem('aeromap_user'); 
       } catch(e) {}
       stopCollab();
+      updateAdminUI();
       document.getElementById('projectDashboard').classList.add('hidden');
       document.getElementById('workspace').classList.add('hidden');
       document.getElementById('landingPage').classList.remove('hidden');
@@ -21568,12 +21574,40 @@ async function deleteFromCloud(fileName, url, storagePath) {
       setAuthNav();
     }
 
+    function updateAdminUI() {
+      const isAdmin = Boolean(_currentUser && (_currentUser.isAdmin || _currentUser.role === 'admin' || _currentUser.email === 'admin@aeromap.com' || _currentUser.email === 'comicsandroid63@gmail.com'));
+      
+      const adminDashBtn = document.getElementById('adminDashboardBtn');
+      if (adminDashBtn) {
+        if (isAdmin) {
+          adminDashBtn.classList.remove('hidden');
+          adminDashBtn.style.display = 'inline-flex';
+        } else {
+          adminDashBtn.classList.add('hidden');
+          adminDashBtn.style.display = 'none';
+        }
+      }
+
+      const userMenuAdminLink = document.getElementById('userMenuAdminLink');
+      if (userMenuAdminLink) {
+        if (isAdmin) {
+          userMenuAdminLink.classList.remove('hidden');
+          userMenuAdminLink.style.display = 'flex';
+        } else {
+          userMenuAdminLink.classList.add('hidden');
+          userMenuAdminLink.style.display = 'none';
+        }
+      }
+    }
+
     function setAuthNav() {
       const nav = document.getElementById('landingNavAuth') || document.querySelector('#landingPage .landing-nav-inner > div:last-child');
-      if (!nav) return;
+      if (!nav) {
+        updateAdminUI();
+        return;
+      }
       if (_currentUser && _currentUser.token) {
         nav.innerHTML = `
-          <a href="/dashboard.html" class="btn-ghost hidden sm:inline-flex" style="text-decoration:none;" title="Ver cuántos usuarios tiene la página y las cuentas">Usuarios</a>
           <button class="btn-ghost" onclick="goToProjects()">Mis Proyectos</button>
           <button class="btn-primary" onclick="goToProjects()">Editor</button>
         `;
@@ -21584,6 +21618,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           <button class="btn-primary" onclick="showLogin()">Comenzar</button>
         `;
       }
+      updateAdminUI();
     }
 
     function showWorkspace() {

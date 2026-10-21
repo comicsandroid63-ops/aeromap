@@ -5,7 +5,7 @@ const path = require('path');
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -15,6 +15,33 @@ module.exports = async (req, res) => {
     db = getDb();
   } catch (e) {
     return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  // Admin auth verification
+  const authHeader = req.headers['authorization'] || '';
+  const token = (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '') || req.query?.token || '';
+  if (!token) {
+    return res.status(401).json({ error: 'Acceso no autorizado. Inicie sesión con una cuenta de administrador.' });
+  }
+
+  let isAdmin = false;
+  try {
+    const userRes = await db.execute({
+      sql: 'SELECT id, email, role, token_expiry FROM users WHERE token = ?',
+      args: [token]
+    });
+    if (userRes.rows && userRes.rows.length > 0) {
+      const u = userRes.rows[0];
+      if (u.role === 'admin' || u.email === 'admin@aeromap.com' || u.email === 'comicsandroid63@gmail.com') {
+        isAdmin = true;
+      }
+    }
+  } catch (e) {
+    console.warn('[Dashboard] Auth check error:', e.message);
+  }
+
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Acceso restringido: Se requiere cuenta con permisos de Administrador.' });
   }
 
   try {
