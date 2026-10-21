@@ -4952,14 +4952,18 @@
 
             <!-- Metadata/Details -->
             <div id="layoutMetadataContainer" onclick="layoutSelectElement('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 61mm; top: 202mm; left: 139mm; overflow: visible;">
+                <!-- Pin / Punto Decorativo Superior -->
+                <div id="layoutMetadataPin" class="absolute -top-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border border-zinc-400 flex items-center justify-center shadow-sm pointer-events-none z-10">
+                    <span id="layoutMetadataPinDot" class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                </div>
                 <div id="layoutMetadataDisplay" class="flex flex-col gap-1.5 w-full text-left" style="overflow: visible;">
                     <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 border-b border-zinc-100 pb-1" style="overflow: visible;">
-                        <span class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Fecha:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right" id="layoutDateDisplay" style="line-height: 1.3; white-space: nowrap; overflow: visible;">21 de octubre de 2026</span>
+                        <span id="metaDateLabelDisplay" class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Fecha:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right" id="layoutDateDisplay" oninput="if(document.getElementById('metaDateInput')) document.getElementById('metaDateInput').value = this.innerText;" style="line-height: 1.3; white-space: nowrap; overflow: visible;">21 de octubre de 2026</span>
                     </div>
                     <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 pt-0.5" style="overflow: visible;">
-                        <span class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Centro:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right text-[7.5px]" id="layoutCoordDisplay" style="line-height: 1.3; white-space: nowrap; overflow: visible;">WGS-84</span>
+                        <span id="metaCoordLabelDisplay" class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Centro:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right text-[7.5px]" id="layoutCoordDisplay" oninput="if(document.getElementById('metaCoordInput')) document.getElementById('metaCoordInput').value = this.innerText;" style="line-height: 1.3; white-space: nowrap; overflow: visible;">WGS-84</span>
                     </div>
                 </div>
                 <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
@@ -5315,37 +5319,120 @@
 
             <!-- 4. METADATOS PROPS -->
             <div id="props-metadata" class="hidden flex-col gap-4">
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Tamaño (px)</label>
-                    <div class="flex items-center gap-2">
-                        <input type="range" min="8" max="32" value="10" oninput="document.getElementById('meta-size-num').value = this.value; layoutUpdateStyle('metadata', 'fontSize', this.value)" class="flex-1 accent-black cursor-pointer">
-                        <input type="number" id="meta-size-num" value="10" min="8" max="32" oninput="layoutUpdateStyle('metadata', 'fontSize', this.value)" class="w-14 bg-zinc-50 border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-center text-zinc-800 outline-none">
+                <!-- Contenido de la Ficha -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Contenido de la Ficha</span>
+                    
+                    <!-- Fecha -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Texto de Fecha</label>
+                            <button type="button" onclick="layoutSetMetaToday()" class="text-[8px] font-bold text-emerald-600 hover:text-emerald-800">📅 Hoy</button>
+                        </div>
+                        <input type="text" id="metaDateInput" oninput="layoutUpdateMetaText('date', this.value)" placeholder="Ej: 21 de octubre de 2026" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
                     </div>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Color</label>
-                    <div class="flex items-center gap-2">
-                        <input type="color" value="#000000" oninput="layoutUpdateStyle('metadata', 'color', this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#000000')" class="w-4 h-4 rounded-full bg-black border border-zinc-300 hover:scale-125 transition-transform" title="Negro"></button>
-                            <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#52525b')" class="w-4 h-4 rounded-full bg-zinc-600 border border-zinc-300 hover:scale-125 transition-transform" title="Gris"></button>
-                            <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#2563eb')" class="w-4 h-4 rounded-full bg-blue-600 border border-zinc-300 hover:scale-125 transition-transform" title="Azul"></button>
-                            <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#ffffff')" class="w-4 h-4 rounded-full bg-white border border-zinc-400 hover:scale-125 transition-transform" title="Blanco"></button>
+
+                    <!-- Coordenadas / Centro -->
+                    <div class="flex flex-col gap-1 pt-1 border-t border-zinc-200/60">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Centro / Coordenadas</label>
+                            <button type="button" onclick="layoutUpdateCoordDisplay()" class="text-[8px] font-bold text-emerald-600 hover:text-emerald-800">🎯 GPS Mapa</button>
+                        </div>
+                        <input type="text" id="metaCoordInput" oninput="layoutUpdateMetaText('coord', this.value)" placeholder="Ej: 0.0000° N, 0.1758° W (WGS84)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+
+                    <!-- Etiquetas Prefijo -->
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Etiqueta 1</label>
+                            <input type="text" id="metaDateLabelInput" value="FECHA:" oninput="layoutUpdateMetaText('dateLabel', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-700 outline-none">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Etiqueta 2</label>
+                            <input type="text" id="metaCoordLabelInput" value="CENTRO:" oninput="layoutUpdateMetaText('coordLabel', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-700 outline-none">
                         </div>
                     </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Estilos</label>
-                    <div class="flex items-center gap-1">
-                        <button onclick="layoutToggleFormat('metadata', 'bold')" id="fmt-metadata-bold" class="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-800 transition-colors" title="Negrita">
-                            <span class="material-symbols-outlined text-[16px]">format_bold</span>
-                        </button>
-                        <button onclick="layoutToggleFormat('metadata', 'italic')" id="fmt-metadata-italic" class="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-800 transition-colors" title="Cursiva">
-                            <span class="material-symbols-outlined text-[16px]">format_italic</span>
-                        </button>
-                        <button onclick="layoutToggleFormat('metadata', 'underline')" id="fmt-metadata-underline" class="w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-800 transition-colors" title="Subrayado">
-                            <span class="material-symbols-outlined text-[16px]">format_underlined</span>
-                        </button>
+
+                <!-- Estilo del Marco / Borde -->
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Marco y Fondo</span>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <!-- Color de Borde -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Color Borde</label>
+                            <div class="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-zinc-200">
+                                <input type="color" id="metaBorderColorInput" value="#2d5a27" oninput="layoutUpdateMetaStyle('borderColor', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <span id="metaBorderColorHex" class="text-[9px] font-mono font-bold text-zinc-700">#2D5A27</span>
+                            </div>
+                        </div>
+
+                        <!-- Color de Fondo -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Color Fondo</label>
+                            <div class="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-zinc-200">
+                                <input type="color" id="metaBgColorInput" value="#ffffff" oninput="layoutUpdateMetaStyle('backgroundColor', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <span id="metaBgColorHex" class="text-[9px] font-mono font-bold text-zinc-700">#FFFFFF</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                        <!-- Grosor de Borde -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Grosor Borde</label>
+                            <select id="metaBorderWidthSelect" onchange="layoutUpdateMetaStyle('borderWidth', this.value)" class="bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none">
+                                <option value="0px">Sin Borde (0px)</option>
+                                <option value="1px">Fino (1px)</option>
+                                <option value="1.5px" selected>Medio (1.5px)</option>
+                                <option value="2px">Grueso (2px)</option>
+                                <option value="3px">Extra (3px)</option>
+                            </select>
+                        </div>
+
+                        <!-- Radio de Esquinas -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Esquinas</label>
+                            <select id="metaBorderRadiusSelect" onchange="layoutUpdateMetaStyle('borderRadius', this.value)" class="bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none">
+                                <option value="0px">Rectas (0px)</option>
+                                <option value="4px">Leve (4px)</option>
+                                <option value="6px" selected>Redondeadas (6px)</option>
+                                <option value="12px">Muy curvas (12px)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Pin o Punto Superior Decorativo -->
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="metaShowPinCheck" checked onchange="layoutToggleMetaPin(this.checked)" class="w-3.5 h-3.5 accent-black rounded cursor-pointer">
+                            <label class="text-[8.5px] font-bold text-zinc-700 uppercase">Punto / Pin Superior</label>
+                        </div>
+                        <input type="color" id="metaPinColorInput" value="#ef4444" oninput="layoutUpdateMetaPinColor(this.value)" class="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent" title="Color del Pin">
+                    </div>
+                </div>
+
+                <!-- Tipografía y Colores de Texto -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Tipografía</span>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">Tamaño (px)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" min="7" max="24" value="8" id="meta-size-slider" oninput="document.getElementById('meta-size-num').value = this.value; layoutUpdateStyle('metadata', 'fontSize', this.value)" class="flex-1 accent-black cursor-pointer">
+                            <input type="number" id="meta-size-num" value="8" min="7" max="24" oninput="document.getElementById('meta-size-slider').value = this.value; layoutUpdateStyle('metadata', 'fontSize', this.value)" class="w-14 bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-center text-zinc-800 outline-none">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1 pt-1 border-t border-zinc-200/60">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">Color del Texto</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="metaTextColorInput" value="#111115" oninput="layoutUpdateStyle('metadata', 'color', this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#111115')" class="w-4 h-4 rounded-full bg-[#111115] border border-zinc-300" title="Negro"></button>
+                                <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#2d5a27')" class="w-4 h-4 rounded-full bg-[#2d5a27] border border-zinc-300" title="Verde"></button>
+                                <button type="button" onclick="layoutUpdateStyle('metadata', 'color', '#0284c7')" class="w-4 h-4 rounded-full bg-[#0284c7] border border-zinc-300" title="Azul"></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5485,22 +5572,98 @@
 
             <!-- 9. EMBLEMA TURÍSTICO PROPS -->
             <div id="props-touristTopLogo" class="hidden flex-col gap-4">
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Nombre de Entidad / Destino</label>
-                    <input type="text" id="touristLogoTitleInput" oninput="layoutUpdateTouristLogo('title', this.value)" value="EXPLORA TOLIMA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                <!-- Textos del Logo -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Textos del Emblema</span>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">Título / Nombre de Entidad</label>
+                        <input type="text" id="touristLogoTitleInput" oninput="layoutUpdateTouristLogo('title', this.value)" value="EXPLORA EL TERRITORIO" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none uppercase focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">Subtítulo / Lema</label>
+                        <input type="text" id="touristLogoSubInput" oninput="layoutUpdateTouristLogo('subtitle', this.value)" value="CORPORACIÓN TURÍSTICA" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black uppercase text-zinc-500">Color Título</label>
+                            <input type="color" id="touristLogoTitleColorInput" value="#1b3816" oninput="layoutUpdateTouristLogo('titleColor', this.value)" class="w-7 h-7 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black uppercase text-zinc-500">Color Subtítulo</label>
+                            <input type="color" id="touristLogoSubColorInput" value="#0284c7" oninput="layoutUpdateTouristLogo('subColor', this.value)" class="w-7 h-7 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        </div>
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Subtítulo / Lema</label>
-                    <input type="text" id="touristLogoSubInput" oninput="layoutUpdateTouristLogo('subtitle', this.value)" value="CORPORACIÓN TURÍSTICA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+
+                <!-- Ilustración / Ícono del Logo (Image 3) -->
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Ilustración / Emblema</span>
+                    
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">Tipo de Ícono</label>
+                        <select id="touristLogoEmblemType" onchange="layoutUpdateTouristLogoEmblem(this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="mountains" selected>⛰️ Montañas, Sol y Río (Pastoral)</option>
+                            <option value="compass">🧭 Rosa Náutica / Brújula de Aventura</option>
+                            <option value="forest">🌲 Árbol & Bosque Ecológico</option>
+                            <option value="sun_sea">☀️ Sol & Costa / Olas</option>
+                            <option value="shield">🛡️ Escudo Cartográfico Regional</option>
+                            <option value="custom">🖼️ Subir Imagen Propia (PNG/JPG/SVG)</option>
+                        </select>
+                    </div>
+
+                    <!-- Colores de la Ilustración -->
+                    <div id="touristLogoColorPalette" class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[7.5px] font-bold uppercase text-zinc-500">Montaña 1</label>
+                            <input type="color" id="touristLogoCol1" value="#2d5a27" oninput="layoutUpdateTouristLogoColors()" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[7.5px] font-bold uppercase text-zinc-500">Montaña 2</label>
+                            <input type="color" id="touristLogoCol2" value="#5fa743" oninput="layoutUpdateTouristLogoColors()" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[7.5px] font-bold uppercase text-zinc-500">Sol Dorado</label>
+                            <input type="color" id="touristLogoColSun" value="#fbb040" oninput="layoutUpdateTouristLogoColors()" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[7.5px] font-bold uppercase text-zinc-500">Río / Agua</label>
+                            <input type="color" id="touristLogoColWater" value="#00a8e8" oninput="layoutUpdateTouristLogoColors()" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                        </div>
+                    </div>
+
+                    <!-- Input para Subir Imagen / URL si custom -->
+                    <div id="touristLogoCustomUpload" class="hidden flex-col gap-1.5 pt-1 border-t border-zinc-200/60">
+                        <label class="text-[8px] font-black uppercase text-zinc-500">URL del Logo o Imagen</label>
+                        <input type="text" id="touristLogoCustomUrl" oninput="layoutSetTouristLogoCustomUrl(this.value)" placeholder="https://... o data:image..." class="w-full bg-white border border-zinc-200 rounded-lg p-1.5 text-xs outline-none">
+                        <input type="file" id="touristLogoFileInput" accept="image/*" onchange="layoutHandleTouristLogoFile(event)" class="text-[9px] text-zinc-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[9px] file:bg-zinc-800 file:text-white cursor-pointer">
+                    </div>
+
+                    <!-- Tamaño del Emblema -->
+                    <div class="flex flex-col gap-1 pt-1 border-t border-zinc-200/60">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[8px] font-black uppercase text-zinc-500">Tamaño del Emblema</label>
+                            <span id="touristLogoSizeVal" class="text-[9px] font-mono font-bold text-zinc-600">24px</span>
+                        </div>
+                        <input type="range" id="touristLogoSizeSlider" min="16" max="48" value="24" oninput="document.getElementById('touristLogoSizeVal').innerText = this.value + 'px'; layoutUpdateTouristLogoSize(this.value)" class="w-full accent-emerald-600 cursor-pointer">
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Color de Texto</label>
-                    <div class="flex items-center gap-2">
-                        <input type="color" value="#1b3816" oninput="layoutUpdateTouristLogo('color', this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#1b3816')" class="w-4 h-4 rounded-full bg-[#1b3816] border border-zinc-300"></button>
-                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#0284c7')" class="w-4 h-4 rounded-full bg-[#0284c7] border border-zinc-300"></button>
-                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#ea580c')" class="w-4 h-4 rounded-full bg-[#ea580c] border border-zinc-300"></button>
+
+                <!-- Marco y Fondo de la Tarjeta del Logo -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Fondo de la Tarjeta</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black uppercase text-zinc-500">Color de Fondo</label>
+                            <input type="color" id="touristLogoCardBg" value="#ffffff" oninput="layoutUpdateTouristLogoCardStyle('bg', this.value)" class="w-7 h-7 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black uppercase text-zinc-500">Borde / Sombra</label>
+                            <select id="touristLogoCardShadow" onchange="layoutUpdateTouristLogoCardStyle('shadow', this.value)" class="bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none">
+                                <option value="shadow">Con Sombra Suave</option>
+                                <option value="bordered">Solo Borde Verde</option>
+                                <option value="flat">Plano sin Borde</option>
+                                <option value="none">Transparente</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -5508,17 +5671,138 @@
 
             <!-- 10. FRANJA INFERIOR Y CONTACTO PROPS -->
             <div id="props-touristFooterBanner" class="hidden flex-col gap-4">
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Texto Promocional</label>
-                    <input type="text" id="touristFooterPromoInput" oninput="layoutUpdateTouristFooter('promo', this.value)" value="¿Quieres aparecer en el Mapa Turístico?" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                <!-- Textos de Contacto -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Información y Contacto</span>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase tracking-wider text-zinc-500">Texto Promocional</label>
+                        <input type="text" id="touristFooterPromoInput" oninput="layoutUpdateTouristFooter('promo', this.value)" value="¿Quieres aparecer en el Mapa Turístico?" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase tracking-wider text-zinc-500">Teléfono / Línea</label>
+                        <input type="text" id="touristFooterPhoneInput" oninput="layoutUpdateTouristFooter('phone', this.value)" value="📞 Comunícate: (+57) 312 549 1252" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black uppercase tracking-wider text-zinc-500">Portal Web</label>
+                        <input type="text" id="touristFooterWebInput" oninput="layoutUpdateTouristFooter('web', this.value)" value="🌐 Visita nuestra página: corporacionturismo.org" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Teléfono / Contacto</label>
-                    <input type="text" id="touristFooterPhoneInput" oninput="layoutUpdateTouristFooter('phone', this.value)" value="📞 Comunícate: (+57) 312 549 1252" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+
+                <!-- Códigos QR Estilizados (Image 2) -->
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Códigos QR & Accesos Rápidos</span>
+                        <input type="checkbox" id="touristFooterShowQr" checked onchange="layoutToggleTouristFooterQr(this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer" title="Mostrar/Ocultar Códigos QR">
+                    </div>
+
+                    <div id="touristFooterQrSettings" class="flex flex-col gap-2 pt-1 border-t border-zinc-200/60">
+                        <!-- QR 1 (Izquierdo) -->
+                        <div class="flex flex-col gap-1 p-2 bg-white rounded-lg border border-zinc-200">
+                            <span class="text-[8px] font-black uppercase text-emerald-800">QR 1 (Izquierdo)</span>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <div>
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Etiqueta</label>
+                                    <input type="text" id="touristQr1LabelInput" value="INFO" oninput="layoutUpdateTouristQrText(1, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold text-zinc-800 outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Ícono / Tipo</label>
+                                    <select id="touristQr1TypeSelect" onchange="layoutUpdateTouristQrIcon(1, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold outline-none">
+                                        <option value="qr" selected>Código QR</option>
+                                        <option value="instagram">Instagram</option>
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="map">Ubicación GPS</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- QR 2 (Derecho) -->
+                        <div class="flex flex-col gap-1 p-2 bg-white rounded-lg border border-zinc-200">
+                            <span class="text-[8px] font-black uppercase text-emerald-800">QR 2 (Derecho)</span>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <div>
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Etiqueta</label>
+                                    <input type="text" id="touristQr2LabelInput" value="PORTAL" oninput="layoutUpdateTouristQrText(2, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold text-zinc-800 outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Ícono / Tipo</label>
+                                    <select id="touristQr2TypeSelect" onchange="layoutUpdateTouristQrIcon(2, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold outline-none">
+                                        <option value="qr" selected>Código QR</option>
+                                        <option value="web">Sitio Web</option>
+                                        <option value="hotel">Hotelería / Booking</option>
+                                        <option value="store">Tienda / Catálogo</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Sitio Web / Enlace</label>
-                    <input type="text" id="touristFooterWebInput" oninput="layoutUpdateTouristFooter('web', this.value)" value="🌐 Visita nuestra página: corporacionturismo.org" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+
+                <!-- Sellos e Insignias Institucionales (Image 4) -->
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Sellos e Insignias (Derecha)</span>
+                        <input type="checkbox" id="touristFooterShowBadges" checked onchange="layoutToggleTouristFooterBadges(this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer" title="Mostrar/Ocultar Sellos">
+                    </div>
+
+                    <div id="touristFooterBadgesSettings" class="flex flex-col gap-2 pt-1 border-t border-zinc-200/60">
+                        <!-- Sello 1: Escudo / Institucional -->
+                        <div class="flex flex-col gap-1.5 p-2 bg-white rounded-lg border border-zinc-200">
+                            <span class="text-[8px] font-black uppercase text-zinc-700">Sello 1: Escudo Institucional</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="flex flex-col gap-0.5">
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Tipo</label>
+                                    <select id="touristBadge1Select" onchange="layoutUpdateTouristBadge(1, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold outline-none">
+                                        <option value="shield" selected>🛡️ Escudo de Armas</option>
+                                        <option value="star">⭐ Estrella de Calidad</option>
+                                        <option value="verified">✓ Verificado Oficial</option>
+                                        <option value="award">🎖️ Medalla de Honor</option>
+                                        <option value="flag">🚩 Bandera Regional</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-0.5">
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Color Sello</label>
+                                    <input type="color" id="touristBadge1BgInput" value="#fbb040" oninput="layoutUpdateTouristBadgeColor(1, this.value)" class="w-7 h-7 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sello 2: Hoja / Sostenibilidad -->
+                        <div class="flex flex-col gap-1.5 p-2 bg-white rounded-lg border border-zinc-200">
+                            <span class="text-[8px] font-black uppercase text-zinc-700">Sello 2: Sostenible / Ecológico</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="flex flex-col gap-0.5">
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Ícono / Emoji</label>
+                                    <select id="touristBadge2Select" onchange="layoutUpdateTouristBadge(2, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold outline-none">
+                                        <option value="🍃" selected>🍃 Hoja Pastoral</option>
+                                        <option value="🌲">🌲 Árbol / Bosque</option>
+                                        <option value="⛰️">⛰️ Montaña</option>
+                                        <option value="☀️">☀️ Sol Radiante</option>
+                                        <option value="🌸">🌸 Flor / Orquídea</option>
+                                        <option value="🐾">🐾 Huella Natural</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-0.5">
+                                    <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Color Fondo</label>
+                                    <input type="color" id="touristBadge2BgInput" value="#fbb040" oninput="layoutUpdateTouristBadgeColor(2, this.value)" class="w-7 h-7 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color de la Franja -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Color de la Franja</span>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="touristFooterBgColor" value="#0f3b5c" oninput="layoutUpdateTouristFooterBg(this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#0f3b5c')" class="w-5 h-5 rounded-full bg-[#0f3b5c] border border-zinc-300" title="Azul Profundo"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#2d5a27')" class="w-5 h-5 rounded-full bg-[#2d5a27] border border-zinc-300" title="Verde Bosque"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#111115')" class="w-5 h-5 rounded-full bg-[#111115] border border-zinc-300" title="Negro Ébano"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#b45309')" class="w-5 h-5 rounded-full bg-[#b45309] border border-zinc-300" title="Terracota"></button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -15361,20 +15645,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <div class="tmpl-drag-handle absolute -top-3.5 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
                     </div>
-                    <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.92);padding:3px 7px;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,0.12);border:1px solid rgba(0,0,0,0.06);">
-                        <svg width="24" height="24" viewBox="0 0 40 40">
-                            <!-- Montañas verdes y sol dorado -->
-                            <polygon points="6,34 18,12 30,34" fill="#2d5a27" />
-                            <polygon points="18,34 27,18 36,34" fill="#5fa743" />
-                            <circle cx="28" cy="12" r="5" fill="#fbb040" />
-                            <path d="M 4,34 Q 20,31 36,34" stroke="#00a8e8" stroke-width="2.5" fill="none" />
-                        </svg>
+                    <div id="touristLogoCard" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.92);padding:3px 7px;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,0.12);border:1px solid rgba(0,0,0,0.06);">
+                        <div id="touristLogoEmblem" style="cursor:pointer;" onclick="event.stopPropagation(); layoutSelectElement('touristTopLogo')">
+                            <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                                <!-- Montañas verdes y sol dorado -->
+                                <polygon id="touristLogoPoly1" points="6,34 18,12 30,34" fill="#2d5a27" />
+                                <polygon id="touristLogoPoly2" points="18,34 27,18 36,34" fill="#5fa743" />
+                                <circle id="touristLogoCircleSun" cx="28" cy="12" r="5" fill="#fbb040" />
+                                <path id="touristLogoPathWater" d="M 4,34 Q 20,31 36,34" stroke="#00a8e8" stroke-width="2.5" fill="none" />
+                            </svg>
+                        </div>
                         <div style="display:flex;flex-direction:column;line-height:1.1;">
-                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:900;color:#1b3816;letter-spacing:0.04em;text-transform:uppercase;">EXPLORA EL TERRITORIO</span>
-                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:700;color:#0284c7;letter-spacing:0.02em;">CORPORACIÓN TURÍSTICA</span>
+                            <span id="touristLogoTitle" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristLogoTitleInput')) document.getElementById('touristLogoTitleInput').value = this.innerText;" style="outline:none;font-size:7.5px;font-weight:900;color:#1b3816;letter-spacing:0.04em;text-transform:uppercase;">EXPLORA EL TERRITORIO</span>
+                            <span id="touristLogoSubtitle" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristLogoSubInput')) document.getElementById('touristLogoSubInput').value = this.innerText;" style="outline:none;font-size:6.5px;font-weight:700;color:#0284c7;letter-spacing:0.02em;">CORPORACIÓN TURÍSTICA</span>
                         </div>
                     </div>
                     <div id="touristTopLogoResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
                 </div>
 
                 <!-- 3. CAPA TÍTULO: "Mapa Turístico REGIONAL" (Exacto al póster) -->
@@ -15444,55 +15731,56 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 </div>
 
                 <!-- 6. CAPA PIE: Franja Inferior de Contacto, Redes & QR (Exacto a images (4).jpg) -->
-                <div id="touristFooterBanner" onclick="layoutSelectElement('touristFooterBanner')" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto &amp; QR (Arrastrar o redimensionar)">
+                <div id="touristFooterBanner" onclick="layoutSelectElement('touristFooterBanner')" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto & QR (Arrastrar o redimensionar)">
                     <div class="tmpl-drag-handle absolute -top-3.5 left-6 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Franja Inferior
                     </div>
                     <!-- Barra Azul Profunda / Verde Bosque con información -->
-                    <div style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;justify-content:space-between;padding:0 10mm;color:#ffffff;font-family:Inter,sans-serif;">
+                    <div id="touristFooterBg" style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;justify-content:space-between;padding:0 10mm;color:#ffffff;font-family:Inter,sans-serif;">
                         <!-- Bloque Izquierdo: Teléfono y Web -->
                         <div style="display:flex;flex-direction:column;gap:2px;max-width:85mm;">
-                            <span id="touristFooterPromoText" contenteditable="true" spellcheck="false" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
-                            <span id="touristFooterPhoneText" contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
-                            <span id="touristFooterWebText" contenteditable="true" spellcheck="false" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
+                            <span id="touristFooterPromoText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterPromoInput')) document.getElementById('touristFooterPromoInput').value = this.innerText;" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
+                            <span id="touristFooterPhoneText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterPhoneInput')) document.getElementById('touristFooterPhoneInput').value = this.innerText;" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
+                            <span id="touristFooterWebText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterWebInput')) document.getElementById('touristFooterWebInput').value = this.innerText;" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
                         </div>
 
-                        <!-- Bloque Central: Códigos QR estilizados -->
-                        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);">
+                        <!-- Bloque Central: Códigos QR estilizados (Image 2) -->
+                        <div id="touristFooterQrBlock" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);">
                             <!-- QR 1 Redes -->
                             <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                                <div style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
+                                <div id="touristQr1Container" style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
                                     <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
                                         <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
                                     </svg>
                                 </div>
-                                <span style="font-size:5px;font-weight:800;color:#a4dbf4;">REDES</span>
+                                <span id="touristQr1Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr1LabelInput')) document.getElementById('touristQr1LabelInput').value = this.innerText;" style="font-size:5px;font-weight:800;color:#a4dbf4;">INFO</span>
                             </div>
-                            <!-- QR 2 Web -->
+                            <!-- QR 2 Portal -->
                             <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                                <div style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
+                                <div id="touristQr2Container" style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
                                     <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
                                         <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
                                     </svg>
                                 </div>
-                                <span style="font-size:5px;font-weight:800;color:#a4dbf4;">PORTAL</span>
+                                <span id="touristQr2Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr2LabelInput')) document.getElementById('touristQr2LabelInput').value = this.innerText;" style="font-size:5px;font-weight:800;color:#a4dbf4;">PORTAL</span>
                             </div>
                         </div>
 
-                        <!-- Bloque Derecho: Sellos Institucionales y Escudo -->
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:22px;height:22px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.25);">
-                                <svg width="15" height="15" viewBox="0 0 24 24">
+                        <!-- Bloque Derecho: Sellos Institucionales y Escudo (Image 4) -->
+                        <div id="touristFooterBadgesBlock" style="display:flex;align-items:center;gap:6px;">
+                            <div id="touristBadge1Container" style="width:22px;height:22px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.25);">
+                                <svg id="touristBadge1Svg" width="15" height="15" viewBox="0 0 24 24">
                                     <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#fbb040" />
                                     <path d="M12 4.18L19 8.09V13c0 4.41-3 8.52-7 9.82-4-1.3-7-5.41-7-9.82V8.09l7-3.91z" fill="#2d5a27" />
                                 </svg>
                             </div>
-                            <div style="width:20px;height:20px;border-radius:50%;background:#fbb040;border:1.5px solid #ffffff;display:flex;align-items:center;justify-content:center;color:#1b3816;font-size:9px;font-weight:900;">
-                                🍃
+                            <div id="touristBadge2Container" style="width:20px;height:20px;border-radius:50%;background:#fbb040;border:1.5px solid #ffffff;display:flex;align-items:center;justify-content:center;color:#1b3816;font-size:9px;font-weight:900;">
+                                <span id="touristBadge2Icon">🍃</span>
                             </div>
                         </div>
                     </div>
                     <div id="touristFooterBannerResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
                 </div>
             `;
 
@@ -16357,6 +16645,298 @@ async function deleteFromCloud(fileName, url, storagePath) {
     window.layoutSelectElement = layoutSelectElement;
 
     // Sincronizaciones para Logo Turístico
+    // ════ METADATOS EDITABLES (Image 1) ════
+    function layoutSetMetaToday() {
+        const d = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(new Date());
+        layoutUpdateMetaText('date', d);
+        const inp = document.getElementById('metaDateInput');
+        if (inp) inp.value = d;
+    }
+
+    function layoutUpdateMetaText(field, val) {
+        if (field === 'date') {
+            const el = document.getElementById('layoutDateDisplay');
+            if (el) el.innerText = val;
+            layoutConfig.metadataTextDate = val;
+        } else if (field === 'coord') {
+            const el = document.getElementById('layoutCoordDisplay');
+            if (el) el.innerText = val;
+            layoutConfig.customCoord = val;
+        } else if (field === 'dateLabel') {
+            const el = document.getElementById('metaDateLabelDisplay');
+            if (el) el.innerText = val;
+        } else if (field === 'coordLabel') {
+            const el = document.getElementById('metaCoordLabelDisplay');
+            if (el) el.innerText = val;
+        }
+    }
+
+    function layoutUpdateMetaStyle(prop, val) {
+        const box = document.getElementById('layoutMetadataContainer');
+        if (!box) return;
+        if (prop === 'borderColor') {
+            box.style.borderColor = val;
+            const hex = document.getElementById('metaBorderColorHex');
+            if (hex) hex.innerText = val.toUpperCase();
+        } else if (prop === 'backgroundColor') {
+            box.style.backgroundColor = val;
+            const hex = document.getElementById('metaBgColorHex');
+            if (hex) hex.innerText = val.toUpperCase();
+        } else if (prop === 'borderWidth') {
+            box.style.borderWidth = val;
+        } else if (prop === 'borderRadius') {
+            box.style.borderRadius = val;
+        }
+    }
+
+    function layoutToggleMetaPin(show) {
+        const pin = document.getElementById('layoutMetadataPin');
+        if (pin) pin.style.display = show ? 'flex' : 'none';
+    }
+
+    function layoutUpdateMetaPinColor(color) {
+        const dot = document.getElementById('layoutMetadataPinDot');
+        if (dot) dot.style.backgroundColor = color;
+    }
+
+    // ════ LOGO / EMBLEMA EDITABLE (Image 3) ════
+    function layoutUpdateTouristLogo(field, val) {
+        if (field === 'title') {
+            const el = document.getElementById('touristLogoTitle');
+            if (el) el.innerText = val.toUpperCase();
+        } else if (field === 'subtitle') {
+            const el = document.getElementById('touristLogoSubtitle');
+            if (el) el.innerText = val;
+        } else if (field === 'titleColor') {
+            const el = document.getElementById('touristLogoTitle');
+            if (el) el.style.color = val;
+        } else if (field === 'subColor') {
+            const el = document.getElementById('touristLogoSubtitle');
+            if (el) el.style.color = val;
+        }
+    }
+
+    function layoutUpdateTouristLogoEmblem(type) {
+        const emb = document.getElementById('touristLogoEmblem');
+        const customUpload = document.getElementById('touristLogoCustomUpload');
+        const pal = document.getElementById('touristLogoColorPalette');
+        if (!emb) return;
+
+        if (customUpload) customUpload.classList.toggle('hidden', type !== 'custom');
+        if (customUpload) customUpload.classList.toggle('flex', type === 'custom');
+        if (pal) pal.style.display = (type === 'custom') ? 'none' : 'grid';
+
+        const c1 = document.getElementById('touristLogoCol1')?.value || '#2d5a27';
+        const c2 = document.getElementById('touristLogoCol2')?.value || '#5fa743';
+        const cs = document.getElementById('touristLogoColSun')?.value || '#fbb040';
+        const cw = document.getElementById('touristLogoColWater')?.value || '#00a8e8';
+
+        if (type === 'mountains') {
+            emb.innerHTML = `
+                <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                    <polygon id="touristLogoPoly1" points="6,34 18,12 30,34" fill="${c1}" />
+                    <polygon id="touristLogoPoly2" points="18,34 27,18 36,34" fill="${c2}" />
+                    <circle id="touristLogoCircleSun" cx="28" cy="12" r="5" fill="${cs}" />
+                    <path id="touristLogoPathWater" d="M 4,34 Q 20,31 36,34" stroke="${cw}" stroke-width="2.5" fill="none" />
+                </svg>
+            `;
+        } else if (type === 'compass') {
+            emb.innerHTML = `
+                <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="17" fill="none" stroke="${cw}" stroke-width="2" />
+                    <polygon points="20,4 24,18 20,16 16,18" fill="${cs}" />
+                    <polygon points="20,36 24,22 20,24 16,22" fill="${c1}" />
+                    <polygon points="4,20 18,16 16,20 18,24" fill="${c2}" />
+                    <polygon points="36,20 22,16 24,20 22,24" fill="${cs}" />
+                    <circle cx="20" cy="20" r="3" fill="${c1}" />
+                </svg>
+            `;
+        } else if (type === 'forest') {
+            emb.innerHTML = `
+                <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                    <polygon points="20,6 12,20 28,20" fill="${c1}" />
+                    <polygon points="20,14 10,28 30,28" fill="${c2}" />
+                    <rect x="18" y="28" width="4" height="6" fill="#78350f" />
+                    <circle cx="31" cy="10" r="4" fill="${cs}" />
+                </svg>
+            `;
+        } else if (type === 'sun_sea') {
+            emb.innerHTML = `
+                <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                    <circle cx="20" cy="16" r="9" fill="${cs}" />
+                    <path d="M 4,28 Q 12,22 20,28 T 36,28" stroke="${cw}" stroke-width="3" fill="none" stroke-linecap="round" />
+                    <path d="M 6,34 Q 14,30 22,34 T 34,34" stroke="${c2}" stroke-width="2.5" fill="none" stroke-linecap="round" />
+                </svg>
+            `;
+        } else if (type === 'shield') {
+            emb.innerHTML = `
+                <svg id="touristLogoSvg" width="24" height="24" viewBox="0 0 40 40">
+                    <path d="M 20,4 L 33,10 L 33,22 Q 33,32 20,36 Q 7,32 7,22 L 7,10 Z" fill="${cs}" />
+                    <path d="M 20,8 L 29,12 L 29,21 Q 29,28 20,32 Q 11,28 11,21 L 11,12 Z" fill="${c1}" />
+                    <circle cx="20" cy="20" r="4" fill="${cw}" />
+                </svg>
+            `;
+        } else if (type === 'custom') {
+            const url = document.getElementById('touristLogoCustomUrl')?.value || '';
+            if (url) layoutSetTouristLogoCustomUrl(url);
+        }
+    }
+
+    function layoutUpdateTouristLogoColors() {
+        const c1 = document.getElementById('touristLogoCol1')?.value || '#2d5a27';
+        const c2 = document.getElementById('touristLogoCol2')?.value || '#5fa743';
+        const cs = document.getElementById('touristLogoColSun')?.value || '#fbb040';
+        const cw = document.getElementById('touristLogoColWater')?.value || '#00a8e8';
+
+        const p1 = document.getElementById('touristLogoPoly1');
+        const p2 = document.getElementById('touristLogoPoly2');
+        const sun = document.getElementById('touristLogoCircleSun');
+        const wat = document.getElementById('touristLogoPathWater');
+
+        if (p1) p1.setAttribute('fill', c1);
+        if (p2) p2.setAttribute('fill', c2);
+        if (sun) sun.setAttribute('fill', cs);
+        if (wat) wat.setAttribute('stroke', cw);
+    }
+
+    function layoutUpdateTouristLogoSize(val) {
+        const svg = document.getElementById('touristLogoSvg') || document.querySelector('#touristLogoEmblem img');
+        if (svg) {
+            svg.setAttribute('width', val);
+            svg.setAttribute('height', val);
+        }
+    }
+
+    function layoutUpdateTouristLogoCardStyle(prop, val) {
+        const card = document.getElementById('touristLogoCard');
+        if (!card) return;
+        if (prop === 'bg') {
+            card.style.background = val;
+        } else if (prop === 'shadow') {
+            if (val === 'shadow') {
+                card.style.boxShadow = '0 3px 10px rgba(0,0,0,0.12)';
+                card.style.border = '1px solid rgba(0,0,0,0.06)';
+            } else if (val === 'bordered') {
+                card.style.boxShadow = 'none';
+                card.style.border = '1.5px solid #2d5a27';
+            } else if (val === 'flat') {
+                card.style.boxShadow = 'none';
+                card.style.border = 'none';
+            } else if (val === 'none') {
+                card.style.background = 'transparent';
+                card.style.boxShadow = 'none';
+                card.style.border = 'none';
+            }
+        }
+    }
+
+    function layoutSetTouristLogoCustomUrl(url) {
+        const emb = document.getElementById('touristLogoEmblem');
+        if (!emb || !url) return;
+        const size = document.getElementById('touristLogoSizeSlider')?.value || 24;
+        emb.innerHTML = `<img src="${url}" style="width:${size}px;height:${size}px;object-fit:contain;border-radius:4px;" />`;
+    }
+
+    function layoutHandleTouristLogoFile(evt) {
+        const file = evt.target.files && evt.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            const input = document.getElementById('touristLogoCustomUrl');
+            if (input) input.value = dataUrl;
+            layoutSetTouristLogoCustomUrl(dataUrl);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ════ QR CODES & SELLOS EDITABLES (Image 2 & Image 4) ════
+    function layoutToggleTouristFooterQr(show) {
+        const block = document.getElementById('touristFooterQrBlock');
+        if (block) block.style.display = show ? 'flex' : 'none';
+    }
+
+    function layoutUpdateTouristQrText(num, text) {
+        const el = document.getElementById(`touristQr${num}Label`);
+        if (el) el.innerText = text.toUpperCase();
+    }
+
+    function layoutUpdateTouristQrIcon(num, type) {
+        const box = document.getElementById(`touristQr${num}Container`);
+        if (!box) return;
+        if (type === 'qr') {
+            box.innerHTML = `
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
+                    <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
+                </svg>
+            `;
+        } else if (type === 'instagram') {
+            box.innerHTML = `<span style="font-size:12px;">📷</span>`;
+        } else if (type === 'whatsapp') {
+            box.innerHTML = `<span style="font-size:12px;">💬</span>`;
+        } else if (type === 'map') {
+            box.innerHTML = `<span style="font-size:12px;">📍</span>`;
+        } else if (type === 'web') {
+            box.innerHTML = `<span style="font-size:12px;">🌐</span>`;
+        } else if (type === 'hotel') {
+            box.innerHTML = `<span style="font-size:12px;">🏨</span>`;
+        } else if (type === 'store') {
+            box.innerHTML = `<span style="font-size:12px;">🛍️</span>`;
+        }
+    }
+
+    function layoutToggleTouristFooterBadges(show) {
+        const block = document.getElementById('touristFooterBadgesBlock');
+        if (block) block.style.display = show ? 'flex' : 'none';
+    }
+
+    function layoutUpdateTouristBadge(num, type) {
+        if (num === 1) {
+            const c = document.getElementById('touristBadge1Container');
+            if (!c) return;
+            const bg = document.getElementById('touristBadge1BgInput')?.value || '#fbb040';
+            if (type === 'shield') {
+                c.innerHTML = `
+                    <svg id="touristBadge1Svg" width="15" height="15" viewBox="0 0 24 24">
+                        <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="${bg}" />
+                        <path d="M12 4.18L19 8.09V13c0 4.41-3 8.52-7 9.82-4-1.3-7-5.41-7-9.82V8.09l7-3.91z" fill="#2d5a27" />
+                    </svg>
+                `;
+            } else if (type === 'star') {
+                c.innerHTML = `<span style="font-size:12px;">⭐</span>`;
+            } else if (type === 'verified') {
+                c.innerHTML = `<span style="font-size:12px;font-weight:900;color:#0284c7;">✓</span>`;
+            } else if (type === 'award') {
+                c.innerHTML = `<span style="font-size:12px;">🎖️</span>`;
+            } else if (type === 'flag') {
+                c.innerHTML = `<span style="font-size:12px;">🚩</span>`;
+            }
+        } else if (num === 2) {
+            const icon = document.getElementById('touristBadge2Icon');
+            if (icon) icon.innerText = type;
+        }
+    }
+
+    function layoutUpdateTouristBadgeColor(num, color) {
+        if (num === 1) {
+            const svg = document.getElementById('touristBadge1Svg');
+            if (svg) {
+                const paths = svg.querySelectorAll('path');
+                if (paths[0]) paths[0].setAttribute('fill', color);
+            }
+        } else if (num === 2) {
+            const c = document.getElementById('touristBadge2Container');
+            if (c) c.style.backgroundColor = color;
+        }
+    }
+
+    function layoutUpdateTouristFooterBg(color) {
+        const bg = document.getElementById('touristFooterBg');
+        if (bg) {
+            bg.style.background = `linear-gradient(90deg, ${color} 0%, ${color} 65%, transparent 85%)`;
+        }
+    }
+
     function layoutUpdateTouristLogo(field, val) {
         if (field === 'title') {
             const el = document.getElementById('touristLogoTitle');
@@ -16476,6 +17056,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
             layoutSyncDrawerPoiList();
         } else if (key === 'touristLegendBox' && typeof layoutSyncDrawerLegendList === 'function') {
             layoutSyncDrawerLegendList();
+        } else if (key === 'metadata') {
+            const d = document.getElementById('layoutDateDisplay');
+            const c = document.getElementById('layoutCoordDisplay');
+            const dl = document.getElementById('metaDateLabelDisplay');
+            const cl = document.getElementById('metaCoordLabelDisplay');
+            const box = document.getElementById('layoutMetadataContainer');
+
+            if (d && document.getElementById('metaDateInput')) document.getElementById('metaDateInput').value = d.innerText.trim();
+            if (c && document.getElementById('metaCoordInput')) document.getElementById('metaCoordInput').value = c.innerText.trim();
+            if (dl && document.getElementById('metaDateLabelInput')) document.getElementById('metaDateLabelInput').value = dl.innerText.trim();
+            if (cl && document.getElementById('metaCoordLabelInput')) document.getElementById('metaCoordLabelInput').value = cl.innerText.trim();
+            if (box && document.getElementById('metaBorderColorInput')) {
+                const bc = window.getComputedStyle(box).borderColor;
+                if (bc) {
+                    const hex = document.getElementById('metaBorderColorHex');
+                    if (hex) hex.innerText = box.style.borderColor || '#2D5A27';
+                }
+            }
         } else if (key === 'touristTopLogo') {
             const tLogo = document.getElementById('touristLogoTitle');
             const sLogo = document.getElementById('touristLogoSubtitle');
@@ -16485,9 +17083,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const p = document.getElementById('touristFooterPromoText');
             const ph = document.getElementById('touristFooterPhoneText');
             const w = document.getElementById('touristFooterWebText');
+            const q1 = document.getElementById('touristQr1Label');
+            const q2 = document.getElementById('touristQr2Label');
             if (p && document.getElementById('touristFooterPromoInput')) document.getElementById('touristFooterPromoInput').value = p.innerText.trim();
             if (ph && document.getElementById('touristFooterPhoneInput')) document.getElementById('touristFooterPhoneInput').value = ph.innerText.trim();
             if (w && document.getElementById('touristFooterWebInput')) document.getElementById('touristFooterWebInput').value = w.innerText.trim();
+            if (q1 && document.getElementById('touristQr1LabelInput')) document.getElementById('touristQr1LabelInput').value = q1.innerText.trim();
+            if (q2 && document.getElementById('touristQr2LabelInput')) document.getElementById('touristQr2LabelInput').value = q2.innerText.trim();
         }
         
         const info = infoMap[key] || { icon: 'rectangle', title: 'Elemento de Diseño', subtitle: 'Ajustes del elemento' };
