@@ -504,11 +504,14 @@
 
 
     .template-card {
-      background:#fff; border-radius:0.75rem; overflow:hidden; cursor:pointer;
-      transition:transform 0.2s, box-shadow 0.2s; border:1px solid #e8e8e0;
+      background:#fff; border-radius:0.875rem; overflow:hidden; cursor:pointer;
+      transition:all 0.25s cubic-bezier(0.16, 1, 0.3, 1); border:1px solid #e5e7eb;
+      display:flex; flex-direction:column; position:relative; box-shadow:0 2px 4px rgba(0,0,0,0.03);
     }
-    .template-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.06); }
-    .template-preview { position:relative; height:130px; display:flex; align-items:center; justify-content:center; }
+    .template-card:hover { transform:translateY(-4px); box-shadow:0 16px 36px -10px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06); border-color:#cbd5e1; }
+    .template-preview { position:relative; height:155px; width:100%; display:flex; align-items:center; justify-content:center; background:#0b0f19; overflow:hidden; }
+    .template-preview canvas { width:100%; height:100%; object-fit:contain; display:block; }
+    .template-badge { position:absolute; top:8px; right:8px; font-size:9px; font-weight:700; padding:2.5px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.04em; backdrop-filter:blur(8px); z-index:2; pointer-events:none; }
     .history-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.06); }
     .mh-theme.selected { border-color:#1a1c1f !important; box-shadow:0 0 0 2px rgba(26,28,31,0.15); }
     #mhPreview { transition:background 0.3s, color 0.3s; }
@@ -1948,32 +1951,131 @@
           </button>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="templateGrid">
-          <div onclick="applyTemplate('poster')" class="template-card" data-template="poster">
-            <div class="template-preview" id="templatePreview-poster"></div>
-            <div class="p-3">
-              <h4 class="text-sm font-semibold" style="color:#1a1c1f;">Mapa Poster</h4>
-              <p class="text-[11px]" style="color:#999;">A3 horizontal · Título · Leyenda · Escala · Rosa</p>
+          <!-- 1. Plano Catastral Oficial -->
+          <div onclick="applyTemplate('cadastral')" class="template-card group" data-template="cadastral">
+            <div class="template-preview" id="templatePreview-cadastral">
+              <span class="template-badge bg-rose-600 text-white shadow-sm">Catastral</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Plano Catastral Oficial</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A4 V</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Grilla UTM +, cotas de predios y membrete técnico institucional</p>
+              </div>
             </div>
           </div>
-          <div onclick="applyTemplate('print')" class="template-card" data-template="print">
-            <div class="template-preview" id="templatePreview-print"></div>
-            <div class="p-3">
-              <h4 class="text-sm font-semibold" style="color:#1a1c1f;">Informe Técnico</h4>
-              <p class="text-[11px]" style="color:#999;">A4 vertical · Marco · Leyenda · Escala gráfica</p>
+
+          <!-- 2. Mapa Poster Panorámico -->
+          <div onclick="applyTemplate('poster')" class="template-card group" data-template="poster">
+            <div class="template-preview" id="templatePreview-poster">
+              <span class="template-badge bg-blue-600 text-white shadow-sm">Editorial</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Mapa Poster Panorámico</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A3 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Banner navy superior, rosa náutica moderna, relieve y leyenda flotante</p>
+              </div>
             </div>
           </div>
-          <div onclick="applyTemplate('minimal')" class="template-card" data-template="minimal">
-            <div class="template-preview" id="templatePreview-minimal"></div>
-            <div class="p-3">
-              <h4 class="text-sm font-semibold" style="color:#1a1c1f;">Mapa Minimalista</h4>
-              <p class="text-[11px]" style="color:#999;">A3 horizontal · Solo mapa · Sin elementos</p>
+
+          <!-- 3. Atlas Satelital Dark -->
+          <div onclick="applyTemplate('dark_satellite')" class="template-card group" data-template="dark_satellite">
+            <div class="template-preview" id="templatePreview-dark_satellite">
+              <span class="template-badge bg-cyan-400 text-black font-extrabold shadow-sm">Dark HUD</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Atlas Satelital Dark</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A3 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Fondo espacial nocturno, vectores neón, HUD orbital y retícula</p>
+              </div>
             </div>
           </div>
-          <div onclick="applyTemplate('academic')" class="template-card" data-template="academic">
-            <div class="template-preview" id="templatePreview-academic"></div>
-            <div class="p-3">
-              <h4 class="text-sm font-semibold" style="color:#1a1c1f;">Publicación Científica</h4>
-              <p class="text-[11px]" style="color:#999;">A4 horizontal · Leyenda · Grilla · Metadatos</p>
+
+          <!-- 4. Informe Técnico Ambiental -->
+          <div onclick="applyTemplate('print')" class="template-card group" data-template="print">
+            <div class="template-preview" id="templatePreview-print">
+              <span class="template-badge bg-emerald-600 text-white shadow-sm">Ambiental</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Informe Técnico Ambiental</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A4 V</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Marco doble graduado, cuencas hídricas, coberturas y sello oficial</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Cartografía Histórica -->
+          <div onclick="applyTemplate('vintage')" class="template-card group" data-template="vintage">
+            <div class="template-preview" id="templatePreview-vintage">
+              <span class="template-badge bg-amber-800 text-white shadow-sm">Vintage</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Cartografía Histórica</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A3 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Parchment añejo, orla ornamental, rosa de los vientos y grabado</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Blueprint Arquitectónico -->
+          <div onclick="applyTemplate('blueprint')" class="template-card group" data-template="blueprint">
+            <div class="template-preview" id="templatePreview-blueprint">
+              <span class="template-badge bg-sky-600 text-white shadow-sm">Blueprint</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Blueprint Arquitectónico</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A3 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Fondo azul técnico, retícula milimétrica CAD y cotas maestras</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7. Infografía Urbana -->
+          <div onclick="applyTemplate('urban')" class="template-card group" data-template="urban">
+            <div class="template-preview" id="templatePreview-urban">
+              <span class="template-badge bg-violet-600 text-white shadow-sm">Urbanismo</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Infografía Urbana</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A4 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Red de transporte multimodal, métricas de ciudad y diseño suizo</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 8. Galería Minimalista -->
+          <div onclick="applyTemplate('minimal')" class="template-card group" data-template="minimal">
+            <div class="template-preview" id="templatePreview-minimal">
+              <span class="template-badge bg-zinc-800 text-white shadow-sm">Fine Art</span>
+            </div>
+            <div class="p-3 bg-white flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <h4 class="text-xs font-bold text-zinc-900 group-hover:text-primary transition-colors">Galería Minimalista</h4>
+                  <span class="text-[9px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">A3 H</span>
+                </div>
+                <p class="text-[10.5px] text-zinc-500 leading-snug">Gran passe-partout de galería, monocromo y coordenadas sutiles</p>
+              </div>
             </div>
           </div>
         </div>
@@ -4661,6 +4763,7 @@
         <div class="h-8 w-[1px] bg-zinc-100"></div>
         <div class="flex items-center gap-2">
             <button onclick="layoutSetPaper('A4')" id="btnPaperA4" class="px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight">A4</button>
+            <button onclick="layoutSetPaper('A3')" id="btnPaperA3" class="px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-colors">A3</button>
             <button onclick="layoutSetPaper('Letter')" id="btnPaperLetter" class="px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-colors">Carta</button>
             <div class="h-6 w-[1px] bg-zinc-100 mx-2"></div>
             <button onclick="layoutSetOrientation('landscape')" id="btnOrientLandscape" class="p-1.5 bg-zinc-900 text-white rounded-lg transition-colors" title="Horizontal">
@@ -4670,6 +4773,80 @@
                 <span class="material-symbols-outlined text-[18px]">portrait</span>
             </button>
             <div class="h-6 w-[1px] bg-zinc-100 mx-2"></div>
+            <!-- Plantillas Dropdown -->
+            <div class="relative">
+                <button onclick="toggleLayoutTemplatesDropdown()" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-colors border border-zinc-200/60" title="Cambiar plantilla de salida gráfica">
+                    <span class="material-symbols-outlined text-[16px] text-indigo-600">style</span>
+                    Plantillas
+                </button>
+                <div id="layoutTemplatesDropdown" class="hidden absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-3 z-[9999] w-[310px] max-h-[460px] overflow-y-auto custom-scrollbar" style="box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+                    <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-100">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-800 block">Estilos de Salida Gráfica</span>
+                            <span class="text-[9px] text-zinc-400 block">Aplica un diseño preconfigurado</span>
+                        </div>
+                        <button onclick="toggleLayoutTemplatesDropdown()" class="text-[12px] text-zinc-400 hover:text-black">✕</button>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <button onclick="applyTemplateInModal('cadastral')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Plano Catastral Oficial</span>
+                                <span class="text-[9px] text-zinc-400">A4 V · Grilla UTM · Membrete</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-600">Catastral</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('poster')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Mapa Poster Panorámico</span>
+                                <span class="text-[9px] text-zinc-400">A3 H · Navy Banner · Rosa</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">Editorial</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('dark_satellite')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Atlas Satelital Dark</span>
+                                <span class="text-[9px] text-zinc-400">A3 H · Modo Espacial · Neón</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">Dark HUD</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('print')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Informe Técnico Ambiental</span>
+                                <span class="text-[9px] text-zinc-400">A4 V · Marco Graduado · Sello</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">Ambiental</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('vintage')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Cartografía Histórica</span>
+                                <span class="text-[9px] text-zinc-400">A3 H · Pergamino · Orla · Grabado</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800">Vintage</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('blueprint')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Blueprint Arquitectónico</span>
+                                <span class="text-[9px] text-zinc-400">A3 H · Retícula CAD · Cotas</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700">Blueprint</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('urban')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Infografía Urbana</span>
+                                <span class="text-[9px] text-zinc-400">A4 H · Multimodal · Métricas</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">Urbanismo</span>
+                        </button>
+                        <button onclick="applyTemplateInModal('minimal')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Galería Minimalista</span>
+                                <span class="text-[9px] text-zinc-400">A3 H · Passe-partout · Nórdico</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-800">Fine Art</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="relative">
                 <button onclick="toggleLayoutResources()" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-colors" title="Recursos gráficos">
                     <span class="material-symbols-outlined text-[16px]">palette</span>
@@ -14887,10 +15064,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function layoutSetPaper(type) {
         layoutConfig.paper = type;
         const btnA4 = document.getElementById('btnPaperA4');
+        const btnA3 = document.getElementById('btnPaperA3');
         const btnLetter = document.getElementById('btnPaperLetter');
         
-        btnA4.className = type === 'A4' ? 'px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight' : 'px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight';
-        btnLetter.className = type === 'Letter' ? 'px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight' : 'px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight';
+        if (btnA4) btnA4.className = type === 'A4' ? 'px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight' : 'px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight';
+        if (btnA3) btnA3.className = type === 'A3' ? 'px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight' : 'px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight';
+        if (btnLetter) btnLetter.className = type === 'Letter' ? 'px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-tight' : 'px-3 py-1.5 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-tight';
         
         layoutApplyPageSize();
     }
@@ -14908,13 +15087,27 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function layoutApplyPageSize() {
         const paper = document.getElementById('layoutPaper');
+        if (!paper) return;
         if (layoutConfig.paper === 'A4') {
             if (layoutConfig.orientation === 'portrait') { paper.style.width = '210mm'; paper.style.height = '297mm'; }
             else { paper.style.width = '297mm'; paper.style.height = '210mm'; }
+        } else if (layoutConfig.paper === 'A3') {
+            if (layoutConfig.orientation === 'portrait') { paper.style.width = '297mm'; paper.style.height = '420mm'; }
+            else { paper.style.width = '420mm'; paper.style.height = '297mm'; }
         } else { // Letter
             if (layoutConfig.orientation === 'portrait') { paper.style.width = '215.9mm'; paper.style.height = '279.4mm'; }
             else { paper.style.width = '279.4mm'; paper.style.height = '215.9mm'; }
         }
+    }
+
+    function toggleLayoutTemplatesDropdown() {
+        const dd = document.getElementById('layoutTemplatesDropdown');
+        if (dd) dd.classList.toggle('hidden');
+    }
+
+    function applyTemplateInModal(type) {
+        applyTemplate(type);
+        toggleLayoutTemplatesDropdown();
     }
 
     function layoutUpdateLegend() {
@@ -20730,6 +20923,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     async function loadProjects() {
       updateAdminUI();
+      if (typeof renderAllTemplateCanvasPreviews === 'function') {
+        setTimeout(renderAllTemplateCanvasPreviews, 50);
+      }
       const container = document.getElementById('projectsList');
       try {
         const uid = _currentUser?.id || 'guest';
@@ -21479,115 +21675,725 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }).catch(() => {});
     }
 
-    function generateTemplatePreviews() {
-      if (typeof html2canvas === 'undefined') return;
-      const types = ['poster', 'print', 'minimal', 'academic'];
-      const presets = {
-        poster: { paper:'A3', orient:'landscape', title:'Mapa Poster', color:'#1a5276', elements:'Título · Leyenda · Escala · Rosa', mapFrame:{top:'15mm',left:'15mm',width:'270mm',height:'180mm'}, legend:{top:'15mm',left:'295mm',width:'50mm',height:'80mm'} },
-        print: { paper:'A4', orient:'portrait', title:'Informe Técnico', color:'#1e8449', elements:'Marco · Metadatos · Leyenda', mapFrame:{top:'15mm',left:'15mm',width:'180mm',height:'220mm'}, legend:{top:'15mm',left:'205mm',width:'45mm',height:'70mm'} },
-        minimal: { paper:'A3', orient:'landscape', title:'', color:'#636e72', elements:'Solo mapa', mapFrame:{top:'5mm',left:'5mm',width:'400mm',height:'287mm'}, legend:null },
-        academic: { paper:'A4', orient:'landscape', title:'Figura 1. Mapa', color:'#6c3483', elements:'Leyenda · Grilla · Metadatos', mapFrame:{top:'12mm',left:'12mm',width:'255mm',height:'170mm'}, legend:{top:'15mm',left:'277mm',width:'40mm',height:'60mm'} },
-      };
+    function renderAllTemplateCanvasPreviews() {
+      const types = ['cadastral', 'poster', 'dark_satellite', 'print', 'vintage', 'blueprint', 'urban', 'minimal'];
       types.forEach(type => {
-        const p = presets[type];
-        if (!p) return;
-        const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:'+(p.orient==='portrait'?'520px':'360px')+';background:#fff;overflow:hidden;z-index:-1;';
-        container.innerHTML = `
-          <div style="position:absolute;inset:8px;border:1px solid #dee2e6;border-radius:4px;background:#fff;overflow:hidden;">
-            ${p.title ? `<div style="position:absolute;top:8px;left:12px;right:12px;height:36px;background:${p.color};border-radius:3px;display:flex;align-items:center;padding:0 12px;color:#fff;font:bold 14px sans-serif;">${p.title}</div>` : ''}
-            <div style="position:absolute;${p.title ? 'top:52px;' : 'top:12px;'}left:12px;right:${p.legend ? '110px' : '12px'};bottom:${p.legend ? '60px' : '12px'};border:2px solid #adb5bd;border-radius:3px;background:linear-gradient(135deg,#e9ecef 0%,#dee2e6 50%,#ced4da 100%);display:flex;align-items:center;justify-content:center;">
-              <div style="text-align:center;color:#6c757d;font:12px sans-serif;">
-                <div style="font-size:24px;margin-bottom:4px;">🗺</div>
-                <div style="font-weight:bold;">Mapa</div>
-                <div style="font-size:10px;opacity:0.7;">Zona de estudio</div>
-              </div>
-            </div>
-            ${p.legend ? `<div style="position:absolute;top:52px;right:12px;width:90px;bottom:60px;border:1px solid #adb5bd;border-radius:3px;background:#f8f9fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;">
-              <div style="font:bold 9px sans-serif;color:#6c757d;">Leyenda</div>
-              <div style="width:40px;height:4px;background:${p.color};border-radius:2px;"></div>
-              <div style="width:30px;height:4px;background:${p.color};border-radius:2px;opacity:0.7;"></div>
-              <div style="width:20px;height:4px;background:${p.color};border-radius:2px;opacity:0.4;"></div>
-            </div>` : ''}
-            <div style="position:absolute;bottom:12px;left:12px;right:12px;height:40px;border-top:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;padding:0 4px;font:9px sans-serif;color:#6c757d;">
-              <span>${p.paper} · ${p.orient==='landscape'?'Horizontal':'Vertical'}</span>
-              <span style="display:flex;align-items:center;gap:8px;">
-                <span style="display:inline-block;width:30px;height:2px;background:#333;"></span>
-                <span>1:50k</span>
-                <span style="display:inline-block;width:16px;height:16px;border:2px solid ${p.color};border-radius:50%;"></span>
-              </span>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(container);
-        setTimeout(() => {
-          html2canvas(container, { scale: 2, backgroundColor: '#fff', useCORS: true }).then(canvas => {
-            const img = document.createElement('img');
-            img.src = canvas.toDataURL('image/jpeg', 0.85);
-            img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-            const preview = document.getElementById('templatePreview-' + type);
-            if (preview) {
-              preview.innerHTML = '';
-              preview.appendChild(img);
-            }
-          }).catch(() => {}).finally(() => {
-            container.remove();
-          });
-        }, 50);
+        const preview = document.getElementById('templatePreview-' + type);
+        if (!preview) return;
+        let canvas = preview.querySelector('canvas');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.width = 560;
+          canvas.height = 310;
+          canvas.style.cssText = 'width:100%;height:100%;display:block;object-fit:cover;';
+          preview.prepend(canvas);
+        }
+        renderTemplateCanvas(type, canvas);
       });
+    }
+    const generateTemplatePreviews = renderAllTemplateCanvasPreviews;
+
+    function renderTemplateCanvas(type, canvas) {
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const drawRound = (x, y, rw, rh, r, fill, stroke) => {
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(x, y, rw, rh, r);
+        } else {
+          ctx.rect(x, y, rw, rh);
+        }
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+      };
+
+      if (type === 'cadastral') {
+        // --- 1. PLANO CATASTRAL OFICIAL (A4 Vertical) ---
+        ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0, 0, w, h);
+        const sw = 210, sh = 286, sx = (w - sw) / 2, sy = 12;
+        ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.strokeRect(sx + 6, sy + 6, sw - 12, sh - 12);
+        ctx.lineWidth = 0.6; ctx.strokeRect(sx + 9, sy + 9, sw - 18, sh - 18);
+        const mx = sx + 13, my = sy + 13, mw = sw - 26, mh = sh - 82;
+        ctx.fillStyle = '#fafafa'; ctx.fillRect(mx, my, mw, mh);
+        // UTM grid (+)
+        ctx.fillStyle = '#94a3b8'; ctx.font = '10px monospace';
+        for (let gx = mx + 25; gx < mx + mw - 15; gx += 40) {
+          for (let gy = my + 25; gy < my + mh - 15; gy += 40) {
+            ctx.fillText('+', gx - 3, gy + 3);
+          }
+        }
+        // Road
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(mx, my + 95); ctx.bezierCurveTo(mx + 60, my + 80, mx + 110, my + 130, mx + mw, my + 115);
+        ctx.lineTo(mx + mw, my + 132); ctx.bezierCurveTo(mx + 110, my + 147, mx + 60, my + 97, mx, my + 112);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.stroke();
+        // Parcels
+        const parcels = [
+          { pts: [[mx+15, my+20], [mx+75, my+18], [mx+80, my+65], [mx+20, my+70]], fill: '#f1f5f9', lbl: 'L-01', a: '520 m²' },
+          { pts: [[mx+85, my+18], [mx+155, my+22], [mx+150, my+68], [mx+88, my+66]], fill: '#fef3c7', lbl: 'L-02', a: '610 m²' },
+          { pts: [[mx+25, my+125], [mx+85, my+110], [mx+95, my+170], [mx+30, my+165]], fill: '#fee2e2', stroke: '#dc2626', lbl: 'PREDIO 04', a: '1,240 m²', act: true },
+          { pts: [[mx+100, my+115], [mx+165, my+125], [mx+158, my+180], [mx+102, my+172]], fill: '#ecfdf5', lbl: 'L-05', a: '780 m²' }
+        ];
+        parcels.forEach(p => {
+          ctx.beginPath();
+          ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+          for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+          ctx.closePath();
+          ctx.fillStyle = p.fill; ctx.fill();
+          ctx.strokeStyle = p.act ? '#dc2626' : '#334155'; ctx.lineWidth = p.act ? 1.8 : 0.8; ctx.stroke();
+          ctx.fillStyle = p.act ? '#b91c1c' : '#475569'; ctx.font = (p.act ? 'bold 7px' : '6px') + ' sans-serif'; ctx.textAlign = 'center';
+          const cx = (p.pts[0][0] + p.pts[2][0]) / 2, cy = (p.pts[0][1] + p.pts[2][1]) / 2;
+          ctx.fillText(p.lbl, cx, cy - 2);
+          ctx.font = '5px sans-serif'; ctx.fillText(p.a, cx, cy + 6);
+        });
+        // Official Membrete
+        const bx = sx + 13, by = sy + sh - 64, bw = sw - 26, bh = 54;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(bx, by, bw, 13);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6.5px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('REPÚBLICA DE COLOMBIA · INSTITUTO GEOGRÁFICO', bx + bw / 2, by + 9);
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(bx, by + 26); ctx.lineTo(bx + bw, by + 26); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx + bw * 0.6, by + 13); ctx.lineTo(bx + bw * 0.6, by + bh); ctx.stroke();
+        ctx.textAlign = 'left'; ctx.fillStyle = '#0f172a'; ctx.font = 'bold 7px sans-serif';
+        ctx.fillText('PLANO CATASTRAL RURAL', bx + 4, by + 22);
+        ctx.font = '5.5px sans-serif'; ctx.fillStyle = '#475569';
+        ctx.fillText('ESCALA: 1:1,000   DATUM: WGS-84', bx + 4, by + 34);
+        ctx.fillText('PROYECTO: LEVANTAMIENTO PREDIAL', bx + 4, by + 42);
+        ctx.fillText('COORDENADAS: MAGNA-SIRGAS', bx + 4, by + 50);
+        ctx.textAlign = 'center'; ctx.font = 'bold 6px sans-serif'; ctx.fillStyle = '#0f172a';
+        ctx.fillText('FOLIO: PC-2026', bx + bw * 0.8, by + 22);
+        ctx.font = '5px sans-serif'; ctx.fillStyle = '#16a34a';
+        ctx.fillText('✓ CERTIFICADO', bx + bw * 0.8, by + 34);
+        ctx.fillStyle = '#64748b'; ctx.fillText('APROBADO', bx + bw * 0.8, by + 44);
+        const nx = mx + mw - 16, ny = my + 18;
+        ctx.beginPath(); ctx.arc(nx, ny, 10, 0, Math.PI * 2); ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 0.8; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(nx, ny - 9); ctx.lineTo(nx - 3, ny + 3); ctx.lineTo(nx, ny); ctx.closePath(); ctx.fillStyle = '#0f172a'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(nx, ny - 9); ctx.lineTo(nx + 3, ny + 3); ctx.lineTo(nx, ny); ctx.closePath(); ctx.strokeStyle = '#0f172a'; ctx.stroke();
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 6px sans-serif'; ctx.fillText('N', nx, ny - 11);
+      }
+      else if (type === 'poster') {
+        // --- 2. MAPA POSTER PANORÁMICO (A3 Horizontal) ---
+        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0, 0, w, h);
+        const sw = 480, sh = 270, sx = (w - sw) / 2, sy = 20;
+        ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.shadowColor = 'transparent';
+        const grad = ctx.createLinearGradient(sx + 10, sy + 10, sx + sw - 10, sy + 10);
+        grad.addColorStop(0, '#0f172a'); grad.addColorStop(1, '#1e3a8a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sx + 10, sy + 10, sw - 20, 36);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('CARTOGRAFÍA METROPOLITANA', sx + 22, sy + 26);
+        ctx.font = '8px sans-serif'; ctx.fillStyle = '#93c5fd';
+        ctx.fillText('SISTEMA INTEGRADO DE ANÁLISIS TERRITORIAL & GEODATOS · EDICIÓN 2026', sx + 22, sy + 38);
+        const mx = sx + 10, my = sy + 50, mw = sw - 20, mh = sh - 60;
+        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(mx, my, mw, mh);
+        // Bay
+        ctx.fillStyle = '#2563eb';
+        ctx.beginPath();
+        ctx.moveTo(mx + mw * 0.45, my);
+        ctx.bezierCurveTo(mx + mw * 0.5, my + 60, mx + mw * 0.35, my + 130, mx + mw * 0.6, my + mh);
+        ctx.lineTo(mx + mw, my + mh); ctx.lineTo(mx + mw, my);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.6)'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(mx + mw * 0.45, my);
+        ctx.bezierCurveTo(mx + mw * 0.5, my + 60, mx + mw * 0.35, my + 130, mx + mw * 0.6, my + mh);
+        ctx.stroke();
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.8;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(mx, my + 30 + i * 35);
+          ctx.bezierCurveTo(mx + 100, my + 40 + i * 25, mx + 160, my + 20 + i * 30, mx + mw * 0.4, my + 35 + i * 35);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(mx + 20, my + mh - 20);
+        ctx.bezierCurveTo(mx + 150, my + 120, mx + 260, my + 110, mx + mw - 20, my + 60);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(mx + 40, my + 30); ctx.lineTo(mx + 180, my + mh - 30);
+        ctx.moveTo(mx + 120, my + 20); ctx.lineTo(mx + 70, my + mh - 10);
+        ctx.moveTo(mx + 280, my + 30); ctx.lineTo(mx + 350, my + mh - 20);
+        ctx.stroke();
+        const lx = mx + 16, ly = my + mh - 60, lw = 140, lh = 48;
+        drawRound(lx, ly, lw, lh, 8, 'rgba(255,255,255,0.92)', 'rgba(0,0,0,0.08)');
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 7.5px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('SIMBOLOGÍA OFICIAL', lx + 10, ly + 14);
+        ctx.fillStyle = '#f59e0b'; ctx.fillRect(lx + 10, ly + 21, 14, 3);
+        ctx.fillStyle = '#475569'; ctx.font = '6.5px sans-serif'; ctx.fillText('Autopista Principal', lx + 30, ly + 25);
+        ctx.fillStyle = '#2563eb'; ctx.fillRect(lx + 10, ly + 31, 14, 6);
+        ctx.fillText('Cuenca / Litoral', lx + 30, ly + 36);
+        const cx = mx + mw - 35, cy = my + mh - 30;
+        ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx - 4, cy + 2); ctx.lineTo(cx, cy - 2); ctx.closePath(); ctx.fillStyle = '#0f172a'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx, cy + 12); ctx.lineTo(cx + 4, cy - 2); ctx.lineTo(cx, cy + 2); ctx.closePath(); ctx.fillStyle = '#e2e8f0'; ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', cx, cy - 14);
+      }
+      else if (type === 'dark_satellite') {
+        // --- 3. ATLAS SATELITAL DARK (A3 Horizontal) ---
+        ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, w, h);
+        const sw = 480, sh = 270, sx = (w - sw) / 2, sy = 20;
+        ctx.fillStyle = '#070d19'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1; ctx.strokeRect(sx + 8, sy + 8, sw - 16, sh - 16);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.12)'; ctx.lineWidth = 0.6;
+        for (let gx = sx + 20; gx < sx + sw - 20; gx += 45) {
+          ctx.beginPath(); ctx.moveTo(gx, sy + 10); ctx.lineTo(gx, sy + sh - 10); ctx.stroke();
+        }
+        for (let gy = sy + 20; gy < sy + sh - 20; gy += 45) {
+          ctx.beginPath(); ctx.moveTo(sx + 10, gy); ctx.lineTo(sx + sw - 10, gy); ctx.stroke();
+        }
+        ctx.fillStyle = '#0f1c32';
+        ctx.beginPath();
+        ctx.moveTo(sx + 15, sy + 40);
+        ctx.bezierCurveTo(sx + 120, sy + 60, sx + 200, sy + 180, sx + 340, sy + sh - 20);
+        ctx.lineTo(sx + 15, sy + sh - 20);
+        ctx.closePath(); ctx.fill();
+        ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx + 15, sy + 40);
+        ctx.bezierCurveTo(sx + 120, sy + 60, sx + 200, sy + 180, sx + 340, sy + sh - 20);
+        ctx.stroke();
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5; ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(sx + 30, sy + 90); ctx.bezierCurveTo(sx + 100, sy + 110, sx + 150, sy + 160, sx + 220, sy + sh - 30);
+        ctx.stroke();
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.2; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(sx + 80, sy + 60); ctx.lineTo(sx + 180, sy + 170);
+        ctx.moveTo(sx + 30, sy + 140); ctx.lineTo(sx + 160, sy + 80);
+        ctx.stroke();
+        ctx.shadowColor = 'transparent';
+        const tx = sx + 80, ty = sy + 90, tw = 90, th = 60;
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.08)'; ctx.fillRect(tx, ty, tw, th);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty + 10); ctx.lineTo(tx, ty); ctx.lineTo(tx + 10, ty);
+        ctx.moveTo(tx + tw - 10, ty); ctx.lineTo(tx + tw, ty); ctx.lineTo(tx + tw, ty + 10);
+        ctx.moveTo(tx, ty + th - 10); ctx.lineTo(tx, ty + th); ctx.lineTo(tx + 10, ty + th);
+        ctx.moveTo(tx + tw - 10, ty + th); ctx.lineTo(tx + tw, ty + th); ctx.lineTo(tx + tw, ty + th - 10);
+        ctx.stroke();
+        ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 6.5px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('AOI-07 · SENTINEL 2B', tx + 6, ty + 14);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '5.5px monospace';
+        ctx.fillText('NDVI: 0.74 (HIGH VEG)', tx + 6, ty + 24);
+        ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('ATLAS SATELITAL DARK · ORBITAL HUD', sx + 20, sy + 28);
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.7)'; ctx.font = '7px monospace';
+        ctx.fillText('RESOLUCIÓN 0.5M · COMPUESTO SWIR/NIR · EPOCA: 2026', sx + 20, sy + 38);
+        const ox = sx + sw - 45, oy = sy + 45;
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(ox, oy, 16, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ox, oy, 20, -0.6, 0.6); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ox, oy, 20, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke();
+        ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('358°N', ox, oy + 3);
+        ctx.fillStyle = '#00f0ff'; ctx.font = '6px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('LAT: 04°38\'12" N  LON: 74°05\'22" W   |   ALT: 786 KM   |   SYSTEM ONLINE', sx + 20, sy + sh - 14);
+      }
+      else if (type === 'print') {
+        // --- 4. INFORME TÉCNICO AMBIENTAL (A4 Vertical) ---
+        ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0, 0, w, h);
+        const sw = 210, sh = 286, sx = (w - sw) / 2, sy = 12;
+        ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#064e3b'; ctx.lineWidth = 1.5; ctx.strokeRect(sx + 6, sy + 6, sw - 12, sh - 12);
+        const segW = 12;
+        for (let x = sx + 6; x < sx + sw - 12; x += segW * 2) {
+          ctx.fillStyle = '#064e3b';
+          ctx.fillRect(x, sy + 6, segW, 2.5);
+          ctx.fillRect(x + segW, sy + sh - 8.5, segW, 2.5);
+        }
+        ctx.fillStyle = '#064e3b'; ctx.fillRect(sx + 10, sy + 12, sw - 20, 24);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('ESTUDIO DE IMPACTO AMBIENTAL (EIA)', sx + sw / 2, sy + 23);
+        ctx.font = '5.5px sans-serif'; ctx.fillStyle = '#a7f3d0';
+        ctx.fillText('ZONIFICACIÓN DE CUENCAS & ÁREAS PROTEGIDAS', sx + sw / 2, sy + 31);
+        const mx = sx + 10, my = sy + 40, mw = sw - 20, mh = sh - 110;
+        ctx.fillStyle = '#f0fdf4'; ctx.fillRect(mx, my, mw, mh);
+        ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(mx + mw * 0.2, my);
+        ctx.bezierCurveTo(mx + mw * 0.3, my + 40, mx + mw * 0.7, my + 80, mx + mw * 0.5, my + mh);
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(mx + mw, my + 50); ctx.bezierCurveTo(mx + mw * 0.7, my + 55, mx + mw * 0.55, my + 65, mx + mw * 0.48, my + 68);
+        ctx.stroke();
+        ctx.fillStyle = '#059669';
+        ctx.beginPath(); ctx.ellipse(mx + 35, my + 45, 25, 18, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(mx + mw - 35, my + mh - 40, 28, 22, -0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0d9488';
+        ctx.beginPath(); ctx.ellipse(mx + 45, my + mh - 45, 28, 14, 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.rect(mx + 15, my + 20, mw - 30, mh - 40); ctx.stroke();
+        ctx.setLineDash([]);
+        const lx = sx + 10, ly = sy + sh - 66, lw = sw - 20, lh = 54;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(lx, ly, lw, lh);
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.8; ctx.strokeRect(lx, ly, lw, lh);
+        ctx.fillStyle = '#064e3b'; ctx.font = 'bold 6.5px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('CLASIFICACIÓN DE COBERTURA VEGETAL', lx + 6, ly + 11);
+        const legItems = [
+          { color: '#059669', name: 'Bosque Nativo Denso' },
+          { color: '#0d9488', name: 'Humedal & Ronda Hídrica' },
+          { color: '#0284c7', name: 'Cuerpos de Agua' },
+          { color: '#dc2626', name: 'Zona de Amortiguamiento' }
+        ];
+        legItems.forEach((item, idx) => {
+          const ix = lx + 6 + (idx % 2) * (lw / 2);
+          const iy = ly + 20 + Math.floor(idx / 2) * 14;
+          ctx.fillStyle = item.color; ctx.fillRect(ix, iy, 10, 7);
+          ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 0.4; ctx.strokeRect(ix, iy, 10, 7);
+          ctx.fillStyle = '#334155'; ctx.font = '5.5px sans-serif';
+          ctx.fillText(item.name, ix + 14, iy + 6);
+        });
+        const rx = lx + lw - 24, ry = ly + lh / 2 + 3;
+        ctx.beginPath(); ctx.arc(rx, ry, 12, 0, Math.PI * 2); ctx.strokeStyle = '#059669'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = '#059669'; ctx.font = 'bold 4.5px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('VALIDADO', rx, ry - 1); ctx.fillText('2026', rx, ry + 5);
+      }
+      else if (type === 'vintage') {
+        // --- 5. CARTOGRAFÍA HISTÓRICA (A3 Horizontal) ---
+        ctx.fillStyle = '#261b12'; ctx.fillRect(0, 0, w, h);
+        const sw = 480, sh = 270, sx = (w - sw) / 2, sy = 20;
+        const pGrad = ctx.createRadialGradient(sx + sw / 2, sy + sh / 2, 80, sx + sw / 2, sy + sh / 2, sw / 2);
+        pGrad.addColorStop(0, '#fbf4dc'); pGrad.addColorStop(0.7, '#f3e5c0'); pGrad.addColorStop(1, '#d5b984');
+        ctx.fillStyle = pGrad; ctx.fillRect(sx, sy, sw, sh);
+        ctx.strokeStyle = '#452613'; ctx.lineWidth = 2; ctx.strokeRect(sx + 10, sy + 10, sw - 20, sh - 20);
+        ctx.lineWidth = 0.8; ctx.strokeRect(sx + 14, sy + 14, sw - 28, sh - 28);
+        [[sx + 14, sy + 14], [sx + sw - 14, sy + 14], [sx + 14, sy + sh - 14], [sx + sw - 14, sy + sh - 14]].forEach(([cx, cy]) => {
+          ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.stroke();
+        });
+        ctx.fillStyle = '#eddab0';
+        ctx.beginPath();
+        ctx.moveTo(sx + 20, sy + 60);
+        ctx.bezierCurveTo(sx + 140, sy + 40, sx + 220, sy + 180, sx + 320, sy + sh - 25);
+        ctx.lineTo(sx + 20, sy + sh - 25);
+        ctx.closePath(); ctx.fill();
+        for (let d = 2; d <= 6; d += 2) {
+          ctx.strokeStyle = d === 2 ? '#452613' : 'rgba(69, 38, 19, 0.4)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(sx + 20, sy + 60 + d);
+          ctx.bezierCurveTo(sx + 140, sy + 40 + d, sx + 220, sy + 180 + d, sx + 320, sy + sh - 25 + d);
+          ctx.stroke();
+        }
+        const drawMtn = (mx, my, mw, mh) => {
+          ctx.beginPath(); ctx.moveTo(mx - mw / 2, my + mh); ctx.lineTo(mx, my); ctx.lineTo(mx + mw / 2, my + mh);
+          ctx.strokeStyle = '#452613'; ctx.lineWidth = 1; ctx.stroke();
+          ctx.fillStyle = '#452613';
+          ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx + mw / 2, my + mh); ctx.lineTo(mx, my + mh); ctx.closePath(); ctx.fill();
+        };
+        drawMtn(sx + 70, sy + 110, 18, 16); drawMtn(sx + 85, sy + 105, 22, 20); drawMtn(sx + 105, sy + 112, 18, 15);
+        drawMtn(sx + 120, sy + 118, 16, 14); drawMtn(sx + 140, sy + 125, 20, 18);
+        ctx.strokeStyle = '#785434'; ctx.lineWidth = 0.8;
+        for (let i = 0; i < 5; i++) {
+          const wx = sx + 240 + (i % 3) * 60, wy = sy + 80 + i * 28;
+          ctx.beginPath(); ctx.arc(wx, wy, 6, Math.PI, 0); ctx.stroke();
+          ctx.beginPath(); ctx.arc(wx + 10, wy, 6, Math.PI, 0); ctx.stroke();
+        }
+        const kx = sx + 280, ky = sy + 150;
+        ctx.fillStyle = '#452613';
+        ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + 22, ky); ctx.lineTo(kx + 18, ky + 7); ctx.lineTo(kx + 3, ky + 7); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#452613'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(kx + 11, ky); ctx.lineTo(kx + 11, ky - 14); ctx.stroke();
+        ctx.fillStyle = '#f8f1df';
+        ctx.beginPath(); ctx.moveTo(kx + 11, ky - 13); ctx.bezierCurveTo(kx + 20, ky - 10, kx + 20, ky - 3, kx + 11, ky - 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        const rx = sx + sw - 65, ry = sy + 75;
+        ctx.beginPath(); ctx.arc(rx, ry, 26, 0, Math.PI * 2); ctx.strokeStyle = '#452613'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.strokeStyle = 'rgba(69, 38, 19, 0.2)'; ctx.lineWidth = 0.5;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+          ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(a) * 80, ry + Math.sin(a) * 80); ctx.stroke();
+        }
+        for (let a = 0; a < 8; a++) {
+          const ang = a * (Math.PI / 4) - Math.PI / 2;
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx + Math.cos(ang) * 24, ry + Math.sin(ang) * 24);
+          ctx.lineTo(rx + Math.cos(ang + 0.3) * 7, ry + Math.sin(ang + 0.3) * 7);
+          ctx.closePath();
+          ctx.fillStyle = (a % 2 === 0) ? '#8b0000' : '#452613'; ctx.fill();
+        }
+        ctx.fillStyle = '#452613'; ctx.font = 'bold 9px Georgia, serif'; ctx.textAlign = 'center';
+        ctx.fillText('N', rx, ry - 30);
+        const bx = sx + 30, by = sy + 25, bw = 240, bh = 28;
+        ctx.fillStyle = '#fefae0'; ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = '#452613'; ctx.lineWidth = 1.2; ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = '#452613'; ctx.font = 'bold italic 11px Georgia, serif'; ctx.textAlign = 'center';
+        ctx.fillText('NOVA TOTIUS TERRARUM TABULA', bx + bw / 2, by + 18);
+      }
+      else if (type === 'blueprint') {
+        // --- 6. BLUEPRINT ARQUITECTÓNICO (A3 Horizontal) ---
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, w, h);
+        const sw = 480, sh = 270, sx = (w - sw) / 2, sy = 20;
+        ctx.fillStyle = '#0c3a5e'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.strokeStyle = '#124c7a'; ctx.lineWidth = 0.5;
+        for (let gx = sx + 8; gx < sx + sw - 8; gx += 8) {
+          ctx.beginPath(); ctx.moveTo(gx, sy + 8); ctx.lineTo(gx, sy + sh - 8); ctx.stroke();
+        }
+        for (let gy = sy + 8; gy < sy + sh - 8; gy += 8) {
+          ctx.beginPath(); ctx.moveTo(sx + 8, gy); ctx.lineTo(sx + sw - 8, gy); ctx.stroke();
+        }
+        ctx.strokeStyle = '#1d6fa8'; ctx.lineWidth = 1;
+        for (let gx = sx + 8; gx < sx + sw - 8; gx += 40) {
+          ctx.beginPath(); ctx.moveTo(gx, sy + 8); ctx.lineTo(gx, sy + sh - 8); ctx.stroke();
+        }
+        for (let gy = sy + 8; gy < sy + sh - 8; gy += 40) {
+          ctx.beginPath(); ctx.moveTo(sx + 8, gy); ctx.lineTo(sx + sw - 8, gy); ctx.stroke();
+        }
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.strokeRect(sx + 8, sy + 8, sw - 16, sh - 16);
+        const drawCADBlock = (bx, by, bw, bh) => {
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, bh);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)'; ctx.lineWidth = 0.6;
+          for (let p = -bh; p < bw; p += 8) {
+            ctx.beginPath();
+            ctx.moveTo(Math.max(bx, bx + p), Math.min(by + bh, by + bh - (p < 0 ? -p : 0)));
+            ctx.lineTo(Math.min(bx + bw, bx + p + bh), by);
+            ctx.stroke();
+          }
+        };
+        drawCADBlock(sx + 35, sy + 45, 75, 45);
+        drawCADBlock(sx + 130, sy + 45, 90, 55);
+        drawCADBlock(sx + 35, sy + 115, 65, 65);
+        drawCADBlock(sx + 120, sy + 125, 80, 50);
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1; ctx.setLineDash([8, 3, 2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(sx + 20, sy + 102); ctx.lineTo(sx + 320, sy + 102);
+        ctx.moveTo(sx + 115, sy + 25); ctx.lineTo(sx + 115, sy + 200);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(sx + 230, sy + 35); ctx.bezierCurveTo(sx + 280, sy + 70, sx + 290, sy + 140, sx + 340, sy + 210);
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8'; ctx.font = '6px monospace';
+        ctx.fillText('+125.00m', sx + 250, sy + 58);
+        ctx.fillText('+120.00m', sx + 285, sy + 120);
+        const dimX1 = sx + 35, dimX2 = sx + 110, dimY = sy + 32;
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(dimX1, dimY); ctx.lineTo(dimX2, dimY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(dimX1, dimY - 3); ctx.lineTo(dimX1, dimY + 3); ctx.moveTo(dimX2, dimY - 3); ctx.lineTo(dimX2, dimY + 3); ctx.stroke();
+        ctx.fillStyle = '#ffffff'; ctx.font = '6px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('45.00 m', (dimX1 + dimX2) / 2, dimY - 4);
+        const tbx = sx + sw - 165, tby = sy + sh - 68, tbw = 153, tbh = 56;
+        ctx.fillStyle = '#08253d'; ctx.fillRect(tbx, tby, tbw, tbh);
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.strokeRect(tbx, tby, tbw, tbh);
+        ctx.beginPath();
+        ctx.moveTo(tbx, tby + 16); ctx.lineTo(tbx + tbw, tby + 16);
+        ctx.moveTo(tbx, tby + 34); ctx.lineTo(tbx + tbw, tby + 34);
+        ctx.moveTo(tbx + tbw * 0.55, tby + 16); ctx.lineTo(tbx + tbw * 0.55, tby + tbh);
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('ESTUDIO DE INGENIERÍA & CAD', tbx + 6, tby + 11);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px monospace';
+        ctx.fillText('PLAN REGULADOR', tbx + 6, tby + 27);
+        ctx.font = '5px monospace'; ctx.fillStyle = '#bae6fd';
+        ctx.fillText('ESCALA: 1:500', tbx + 6, tby + 44);
+        ctx.fillText('FECHA: 2026-10', tbx + 6, tby + 51);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6.5px monospace';
+        ctx.fillText('LAM: ARQ-01', tbx + tbw * 0.6, tby + 27);
+        ctx.fillStyle = '#38bdf8'; ctx.fillText('REV: C', tbx + tbw * 0.6, tby + 44);
+      }
+      else if (type === 'urban') {
+        // --- 7. INFOGRAFÍA URBANA (A4 Horizontal) ---
+        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0, 0, w, h);
+        const sw = 460, sh = 270, sx = (w - sw) / 2, sy = 20;
+        ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.shadowColor = 'transparent';
+        const mw = sw * 0.68, shx = sx + mw;
+        ctx.fillStyle = '#fafafa'; ctx.fillRect(sx + 10, sy + 10, mw - 15, sh - 20);
+        ctx.fillStyle = '#bae6fd';
+        ctx.beginPath();
+        ctx.moveTo(sx + 10, sy + 80);
+        ctx.bezierCurveTo(sx + 100, sy + 70, sx + 180, sy + 140, sx + mw - 5, sy + 130);
+        ctx.lineTo(sx + mw - 5, sy + 148);
+        ctx.bezierCurveTo(sx + 180, sy + 158, sx + 100, sy + 88, sx + 10, sy + 98);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e2e8f0';
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 5; c++) {
+            const bx = sx + 22 + c * 52, by = sy + 25 + r * 56;
+            if (bx + 40 < sx + mw - 15 && by + 40 < sy + sh - 20) {
+              drawRound(bx, by, 42, 38, 4, (r === 1 && c === 2) ? '#bbf7d0' : '#e2e8f0', null);
+            }
+          }
+        }
+        ctx.fillStyle = '#16a34a'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('PARQUE CENTRAL', sx + 22 + 2 * 52 + 21, sy + 25 + 1 * 56 + 22);
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(sx + 15, sy + 45); ctx.lineTo(sx + 140, sy + 45); ctx.lineTo(sx + 240, sy + 180);
+        ctx.stroke();
+        ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx + 60, sy + sh - 25); ctx.lineTo(sx + 180, sy + 120); ctx.lineTo(sx + mw - 15, sy + 60);
+        ctx.stroke();
+        [[sx + 80, sy + 45], [sx + 140, sy + 45], [sx + 180, sy + 120]].forEach(([px, py]) => {
+          ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+          ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
+        });
+        ctx.fillStyle = '#f8fafc'; ctx.fillRect(shx, sy + 10, sw - mw - 10, sh - 20);
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.strokeRect(shx, sy + 10, sw - mw - 10, sh - 20);
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 8.5px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('INDICADORES URBANOS', shx + 10, sy + 28);
+        ctx.font = '6px sans-serif'; ctx.fillStyle = '#64748b';
+        ctx.fillText('PLAN DIRECTOR METROPOLITANO', shx + 10, sy + 38);
+        const drawMetric = (my, title, val, pct, color) => {
+          ctx.fillStyle = '#0f172a'; ctx.font = 'bold 6.5px sans-serif'; ctx.textAlign = 'left';
+          ctx.fillText(title, shx + 10, my);
+          ctx.textAlign = 'right'; ctx.fillStyle = color;
+          ctx.fillText(val, shx + sw - mw - 20, my);
+          drawRound(shx + 10, my + 4, sw - mw - 30, 5, 2.5, '#e2e8f0', null);
+          drawRound(shx + 10, my + 4, (sw - mw - 30) * pct, 5, 2.5, color, null);
+        };
+        drawMetric(sy + 60, 'Tránsito Multimodal', '78%', 0.78, '#ef4444');
+        drawMetric(sy + 85, 'Espacio Público Verde', '42%', 0.42, '#16a34a');
+        drawMetric(sy + 110, 'Cobertura Ciclovía', '64%', 0.64, '#06b6d4');
+        drawRound(shx + 10, sy + 140, sw - mw - 30, 40, 6, '#ffffff', '#e2e8f0');
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('DENSIDAD POBLACIONAL', shx + 18, sy + 155);
+        ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = '#6366f1';
+        ctx.fillText('5,420 hab/km²', shx + 18, sy + 171);
+      }
+      else if (type === 'minimal') {
+        // --- 8. GALERÍA MINIMALISTA (A3 Horizontal) ---
+        ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, w, h);
+        const sw = 460, sh = 270, sx = (w - sw) / 2, sy = 20;
+        ctx.shadowColor = 'rgba(0,0,0,0.12)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = '#fafaf9'; ctx.fillRect(sx, sy, sw, sh);
+        ctx.shadowColor = 'transparent';
+        const mw = 320, mh = 165, mx = sx + (sw - mw) / 2, my = sy + 24;
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(mx, my, mw, mh);
+        ctx.strokeStyle = '#27272a'; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.beginPath();
+        ctx.moveTo(mx, my + 60);
+        ctx.bezierCurveTo(mx + 80, my + 40, mx + 160, my + 110, mx + mw, my + 95);
+        ctx.lineTo(mx + mw, my + 112);
+        ctx.bezierCurveTo(mx + 160, my + 127, mx + 80, my + 57, mx, my + 77);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.8; ctx.stroke();
+        ctx.strokeStyle = '#27272a'; ctx.lineWidth = 0.6;
+        for (let x = mx + 20; x < mx + mw - 20; x += 18) {
+          ctx.beginPath(); ctx.moveTo(x, my + 10); ctx.lineTo(x + 10, my + mh - 10); ctx.stroke();
+        }
+        for (let y = my + 20; y < my + mh - 20; y += 18) {
+          ctx.beginPath(); ctx.moveTo(mx + 10, y); ctx.lineTo(mx + mw - 10, y); ctx.stroke();
+        }
+        ctx.strokeStyle = '#18181b'; ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(mx + 25, my + mh - 25); ctx.lineTo(mx + mw - 25, my + 25);
+        ctx.stroke();
+        ctx.fillStyle = '#18181b'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('M E T R O P O L I S', sx + sw / 2, my + mh + 26);
+        ctx.fillStyle = '#71717a'; ctx.font = '7px sans-serif';
+        ctx.fillText('4° 35\' 56" N  ·  74° 04\' 51" W   |   EDICIÓN CARTOGRÁFICA LIMITADA', sx + sw / 2, my + mh + 39);
+        const scx = sx + sw / 2 - 25, scy = my + mh + 48;
+        ctx.strokeStyle = '#18181b'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(scx, scy); ctx.lineTo(scx + 50, scy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(scx, scy - 2); ctx.lineTo(scx, scy + 2); ctx.moveTo(scx + 50, scy - 2); ctx.lineTo(scx + 50, scy + 2); ctx.stroke();
+        ctx.fillStyle = '#71717a'; ctx.font = '5.5px sans-serif';
+        ctx.fillText('5 km', sx + sw / 2, scy + 9);
+      }
     }
 
     function applyTemplate(type) {
       const presets = {
+        cadastral: {
+          paper: 'A4', orientation: 'portrait',
+          titleText: 'Plano Catastral Oficial',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 20, color: '#111827', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 9, color: '#374151', fontFamily: 'Inter' },
+            legend: { fontSize: 9, color: '#111827', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 9, color: '#111827', fontFamily: 'Inter', design: 'classic' },
+            compass: { color: '#111827', design: 'classic', rotation: 0, size: 28 }
+          },
+          mapFrame: { top: '15mm', left: '15mm', width: '180mm', height: '185mm', visible: true },
+          compass: { top: '20mm', left: '160mm', width: '28mm', height: '28mm' },
+          titleProps: { top: '6mm', left: '15mm', width: '180mm', height: '8mm' },
+          metadata: { top: '205mm', left: '85mm', width: '110mm', height: '10mm' },
+          legend: { top: '205mm', left: '15mm', width: '65mm', height: '60mm' },
+          scale: { top: '245mm', left: '85mm', width: '110mm', height: '18mm' },
+          grid: { enabled: true, auto: true, color: '#475569', opacity: 0.5, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#111827', fontFamily: 'Inter' }
+        },
         poster: {
           paper: 'A3', orientation: 'landscape',
-          titleText: 'Mapa Poster',
+          titleText: 'Mapa Poster Panorámico',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
-          styles: { title: { fontSize: 36, color: '#1a5276', fontFamily: 'Inter', bold: true }, legend: { design: 'modern' }, scale: { design: 'modern' }, compass: { design: 'modern', color: '#1a5276', size: 30 } },
-          mapFrame: { top: '15mm', left: '15mm', width: '270mm', height: '180mm', visible: true },
-          compass: { top: '210mm', left: '250mm', width: '35mm', height: '35mm' },
-          titleProps: { top: '8mm', left: '15mm', width: '270mm' },
-          metadata: { top: '210mm', left: '15mm', width: '200mm' },
-          legend: { top: '15mm', left: '295mm', width: '50mm', height: '80mm' },
-          scale: { top: '210mm', left: '15mm', width: '80mm', height: '15mm' },
+          styles: {
+            title: { fontSize: 32, color: '#0f172a', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 10, color: '#475569', fontFamily: 'Inter' },
+            legend: { fontSize: 9, color: '#0f172a', fontFamily: 'Inter', design: 'modern' },
+            scale: { fontSize: 9, color: '#0f172a', fontFamily: 'Inter', design: 'modern' },
+            compass: { color: '#0f172a', design: 'modern', rotation: 0, size: 32 }
+          },
+          mapFrame: { top: '22mm', left: '15mm', width: '300mm', height: '235mm', visible: true },
+          compass: { top: '225mm', left: '335mm', width: '35mm', height: '35mm' },
+          titleProps: { top: '8mm', left: '15mm', width: '390mm', height: '12mm' },
+          metadata: { top: '262mm', left: '15mm', width: '390mm', height: '8mm' },
+          legend: { top: '30mm', left: '325mm', width: '80mm', height: '90mm' },
+          scale: { top: '230mm', left: '25mm', width: '85mm', height: '18mm' },
+          grid: { enabled: false }
+        },
+        dark_satellite: {
+          paper: 'A3', orientation: 'landscape',
+          titleText: 'Atlas Satelital Dark',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 26, color: '#00f0ff', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 9, color: '#94a3b8', fontFamily: 'Inter' },
+            legend: { fontSize: 9, color: '#ffffff', fontFamily: 'Inter', design: 'modern' },
+            scale: { fontSize: 9, color: '#00f0ff', fontFamily: 'Inter', design: 'modern' },
+            compass: { color: '#00f0ff', design: 'modern', rotation: 0, size: 30 }
+          },
+          mapFrame: { top: '18mm', left: '15mm', width: '390mm', height: '245mm', visible: true },
+          compass: { top: '25mm', left: '360mm', width: '30mm', height: '30mm' },
+          titleProps: { top: '6mm', left: '15mm', width: '260mm', height: '10mm' },
+          metadata: { top: '240mm', left: '120mm', width: '180mm', height: '8mm' },
+          legend: { top: '150mm', left: '320mm', width: '75mm', height: '70mm' },
+          scale: { top: '240mm', left: '25mm', width: '80mm', height: '15mm' },
+          grid: { enabled: true, auto: true, color: '#00f0ff', opacity: 0.35, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#00f0ff', fontFamily: 'Inter' }
         },
         print: {
           paper: 'A4', orientation: 'portrait',
-          titleText: 'Informe Técnico',
+          titleText: 'Informe Técnico Ambiental',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
-          styles: { title: { fontSize: 24, color: '#1e8449', fontFamily: 'Inter', bold: true }, legend: { design: 'classic' }, compass: { design: 'classic', color: '#1e8449', size: 22 } },
-          mapFrame: { top: '15mm', left: '15mm', width: '180mm', height: '220mm', visible: true },
-          compass: { top: '250mm', left: '165mm', width: '30mm', height: '30mm' },
-          titleProps: { top: '8mm', left: '15mm', width: '180mm' },
-          metadata: { top: '250mm', left: '15mm', width: '140mm' },
-          legend: { top: '15mm', left: '205mm', width: '45mm', height: '70mm' },
-          scale: { top: '250mm', left: '15mm', width: '70mm', height: '15mm' },
+          styles: {
+            title: { fontSize: 22, color: '#064e3b', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 9, color: '#374151', fontFamily: 'Inter' },
+            legend: { fontSize: 9, color: '#064e3b', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 9, color: '#064e3b', fontFamily: 'Inter', design: 'classic' },
+            compass: { color: '#064e3b', design: 'classic', rotation: 0, size: 26 }
+          },
+          mapFrame: { top: '18mm', left: '15mm', width: '180mm', height: '200mm', visible: true },
+          compass: { top: '225mm', left: '165mm', width: '26mm', height: '26mm' },
+          titleProps: { top: '6mm', left: '15mm', width: '180mm', height: '10mm' },
+          metadata: { top: '225mm', left: '85mm', width: '75mm', height: '10mm' },
+          legend: { top: '222mm', left: '15mm', width: '65mm', height: '65mm' },
+          scale: { top: '255mm', left: '85mm', width: '75mm', height: '14mm' },
+          grid: { enabled: true, auto: true, color: '#064e3b', opacity: 0.25, intervalLat: 0.5, intervalLng: 0.5, showLabels: true, fontSize: 8, fontColor: '#064e3b', fontFamily: 'Inter' }
+        },
+        vintage: {
+          paper: 'A3', orientation: 'landscape',
+          titleText: 'Nova Totius Terrarum Tabula',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 28, color: '#452613', fontFamily: 'Georgia', bold: true, italic: true },
+            metadata: { fontSize: 9, color: '#654321', fontFamily: 'Georgia' },
+            legend: { fontSize: 9, color: '#452613', fontFamily: 'Georgia', design: 'classic' },
+            scale: { fontSize: 9, color: '#452613', fontFamily: 'Georgia', design: 'classic' },
+            compass: { color: '#7a2e1d', design: 'classic', rotation: 0, size: 34 }
+          },
+          mapFrame: { top: '20mm', left: '18mm', width: '384mm', height: '235mm', visible: true },
+          compass: { top: '25mm', left: '350mm', width: '35mm', height: '35mm' },
+          titleProps: { top: '8mm', left: '20mm', width: '380mm', height: '10mm' },
+          metadata: { top: '260mm', left: '25mm', width: '370mm', height: '8mm' },
+          legend: { top: '155mm', left: '25mm', width: '70mm', height: '70mm' },
+          scale: { top: '235mm', left: '150mm', width: '120mm', height: '18mm' },
+          grid: { enabled: false }
+        },
+        blueprint: {
+          paper: 'A3', orientation: 'landscape',
+          titleText: 'Blueprint Arquitectónico CAD',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 24, color: '#38bdf8', fontFamily: 'Courier New', bold: true },
+            metadata: { fontSize: 9, color: '#e0f2fe', fontFamily: 'Courier New' },
+            legend: { fontSize: 9, color: '#ffffff', fontFamily: 'Courier New', design: 'classic' },
+            scale: { fontSize: 9, color: '#38bdf8', fontFamily: 'Courier New', design: 'modern' },
+            compass: { color: '#38bdf8', design: 'modern', rotation: 0, size: 28 }
+          },
+          mapFrame: { top: '15mm', left: '15mm', width: '390mm', height: '240mm', visible: true },
+          compass: { top: '22mm', left: '360mm', width: '28mm', height: '28mm' },
+          titleProps: { top: '6mm', left: '15mm', width: '300mm', height: '10mm' },
+          metadata: { top: '220mm', left: '280mm', width: '120mm', height: '10mm' },
+          legend: { top: '160mm', left: '20mm', width: '70mm', height: '65mm' },
+          scale: { top: '235mm', left: '20mm', width: '85mm', height: '15mm' },
+          grid: { enabled: true, auto: true, color: '#38bdf8', opacity: 0.35, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#38bdf8', fontFamily: 'Courier New' }
+        },
+        urban: {
+          paper: 'A4', orientation: 'landscape',
+          titleText: 'Plan Director Urbano',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 22, color: '#18181b', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 8, color: '#71717a', fontFamily: 'Inter' },
+            legend: { fontSize: 8, color: '#18181b', fontFamily: 'Inter', design: 'modern' },
+            scale: { fontSize: 8, color: '#18181b', fontFamily: 'Inter', design: 'modern' },
+            compass: { color: '#f43f5e', design: 'modern', rotation: 0, size: 24 }
+          },
+          mapFrame: { top: '15mm', left: '12mm', width: '185mm', height: '175mm', visible: true },
+          compass: { top: '20mm', left: '165mm', width: '24mm', height: '24mm' },
+          titleProps: { top: '6mm', left: '12mm', width: '270mm', height: '8mm' },
+          metadata: { top: '120mm', left: '205mm', width: '80mm', height: '8mm' },
+          legend: { top: '18mm', left: '205mm', width: '80mm', height: '90mm' },
+          scale: { top: '175mm', left: '205mm', width: '80mm', height: '15mm' },
+          grid: { enabled: false }
         },
         minimal: {
           paper: 'A3', orientation: 'landscape',
-          titleText: '',
-          elements: { mapFrame: true, title: false, metadata: false, legend: false, scale: false, compass: false },
-          styles: { compass: { design: 'modern', color: '#636e72', size: 20 } },
-          mapFrame: { top: '5mm', left: '5mm', width: '400mm', height: '287mm', visible: true },
-          compass: { top: '270mm', left: '375mm', width: '25mm', height: '25mm' },
-        },
-        academic: {
-          paper: 'A4', orientation: 'landscape',
-          titleText: 'Figura 1. Mapa de Referencia',
-          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
-          styles: { title: { fontSize: 14, color: '#6c3483', fontFamily: 'Inter', bold: false, italic: true }, metadata: { fontSize: 8, color: '#666' }, legend: { fontSize: 8, design: 'classic' }, compass: { design: 'modern', color: '#6c3483', size: 18 } },
-          mapFrame: { top: '12mm', left: '12mm', width: '255mm', height: '170mm', visible: true },
-          compass: { top: '195mm', left: '240mm', width: '25mm', height: '25mm' },
-          titleProps: { top: '6mm', left: '12mm', width: '270mm' },
-          metadata: { top: '195mm', left: '12mm', width: '200mm' },
-          legend: { top: '15mm', left: '277mm', width: '40mm', height: '60mm' },
-          scale: { top: '195mm', left: '12mm', width: '70mm', height: '12mm' },
-        },
+          titleText: 'Metrópolis Fine Art',
+          elements: { mapFrame: true, title: true, metadata: true, legend: false, scale: true, compass: false },
+          styles: {
+            title: { fontSize: 26, color: '#18181b', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 8, color: '#71717a', fontFamily: 'Inter' },
+            scale: { fontSize: 8, color: '#18181b', fontFamily: 'Inter', design: 'modern' }
+          },
+          mapFrame: { top: '25mm', left: '50mm', width: '320mm', height: '200mm', visible: true },
+          titleProps: { top: '235mm', left: '50mm', width: '320mm', height: '10mm' },
+          metadata: { top: '250mm', left: '50mm', width: '320mm', height: '8mm' },
+          scale: { top: '265mm', left: '185mm', width: '50mm', height: '10mm' },
+          grid: { enabled: false }
+        }
       };
+
       const preset = presets[type];
       if (!preset) return;
+
+      const inWorkspace = document.getElementById('workspace') && !document.getElementById('workspace').classList.contains('hidden');
+      if (_currentProject && inWorkspace) {
+        Object.assign(layoutConfig, JSON.parse(JSON.stringify(preset)));
+        layoutConfig.initialized = true;
+        if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
+        openLayoutModal();
+        if (typeof toast === 'function') toast(`Plantilla "${preset.titleText || type}" aplicada.`);
+        return;
+      }
+
       _pendingTemplate = preset;
       createProject();
+    }
+
+    // Auto-render canvas previews
+    if (typeof window !== 'undefined') {
+      window.addEventListener('DOMContentLoaded', () => setTimeout(renderAllTemplateCanvasPreviews, 60));
+      window.addEventListener('load', () => setTimeout(renderAllTemplateCanvasPreviews, 120));
+      window.addEventListener('resize', () => {
+        if (window._tmplResizeTimer) clearTimeout(window._tmplResizeTimer);
+        window._tmplResizeTimer = setTimeout(renderAllTemplateCanvasPreviews, 150);
+      });
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(renderAllTemplateCanvasPreviews, 30);
+      }
     }
 
     function backToProjects() {
