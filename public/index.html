@@ -4885,15 +4885,15 @@
             </div>
 
             <!-- Metadata/Details -->
-            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 61mm; top: 202mm; left: 139mm;">
-                <div id="layoutMetadataDisplay" class="flex flex-col gap-1 w-full text-left">
-                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 border-b border-zinc-100 pb-0.5">
-                        <span class="uppercase tracking-wider shrink-0 mr-1">Fecha:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right truncate" id="layoutDateDisplay">21 de Octubre, 2026</span>
+            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 61mm; top: 202mm; left: 139mm; overflow: visible;">
+                <div id="layoutMetadataDisplay" class="flex flex-col gap-1.5 w-full text-left" style="overflow: visible;">
+                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 border-b border-zinc-100 pb-1" style="overflow: visible;">
+                        <span class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Fecha:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right" id="layoutDateDisplay" style="line-height: 1.3; white-space: nowrap; overflow: visible;">21 de octubre de 2026</span>
                     </div>
-                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500">
-                        <span class="uppercase tracking-wider shrink-0 mr-1">Centro:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right text-[7.5px]" id="layoutCoordDisplay">WGS-84</span>
+                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 pt-0.5" style="overflow: visible;">
+                        <span class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Centro:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right text-[7.5px]" id="layoutCoordDisplay" style="line-height: 1.3; white-space: nowrap; overflow: visible;">WGS-84</span>
                     </div>
                 </div>
                 <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
@@ -14653,7 +14653,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // Sync coords (Always update to current view center)
         const center = (state.map && typeof state.map.getCenter === 'function') ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
         const coordEl = document.getElementById('layoutCoordDisplay');
-        if (coordEl) coordEl.textContent = `Centro: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)} (WGS84)`;
+        if (coordEl) {
+            const latStr = Math.abs(center.lat).toFixed(4) + '° ' + (center.lat >= 0 ? 'N' : 'S');
+            const lngStr = Math.abs(center.lng).toFixed(4) + '° ' + (center.lng >= 0 ? 'E' : 'W');
+            coordEl.textContent = `${latStr}, ${lngStr} (WGS84)`;
+        }
         
         layoutUpdateLegend();
         updateZoomDisplay();
