@@ -1214,6 +1214,12 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.15) !important;
     }
 </style>
+  <style>
+    /* Corrección de línea base y desfase vertical de html2canvas provocado por Tailwind CSS preflight */
+    #layoutPaper img, #layoutPaper svg, #layoutPaper canvas {
+      display: inline-block;
+    }
+  </style>
 </head>
 
 <body class="bg-surface text-on-surface font-body overflow-hidden">
@@ -17366,6 +17372,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
             }
         }
 
+        // Solución crítica para el bug de Tailwind CSS en html2canvas:
+        // Tailwind Preflight fuerza `img, svg, video { display: block }`, lo cual rompe
+        // el cálculo del baseline de las fuentes en html2canvas haciendo que todos los textos caigan hacia abajo.
+        let twFixStyle = document.getElementById('tw-html2canvas-baseline-fix');
+        if (!twFixStyle) {
+            twFixStyle = document.createElement('style');
+            twFixStyle.id = 'tw-html2canvas-baseline-fix';
+            twFixStyle.innerHTML = `
+                img, svg, video, canvas, audio, iframe, embed, object {
+                    display: inline-block !important;
+                }
+            `;
+            document.head.appendChild(twFixStyle);
+        }
+
         // Asegurar carga nítida de fuentes tipográficas para que los textos no se rueden
         if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
             try { await document.fonts.ready; } catch (e) {}
@@ -17378,7 +17399,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 allowTaint: false,
                 scale: exactScale,
                 backgroundColor: null,
-                logging: false
+                logging: false,
+                onclone: (clonedDoc) => {
+                    const s = clonedDoc.createElement('style');
+                    s.innerHTML = `
+                        img, svg, video, canvas, audio, iframe, embed, object {
+                            display: inline-block !important;
+                        }
+                    `;
+                    clonedDoc.head.appendChild(s);
+                }
             });
 
             // Normalizar a las dimensiones exactas en píxeles al milímetro para el DPI seleccionado
