@@ -1951,14 +1951,14 @@
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="templateGrid">
-          <!-- 1. El Juego del Calamar - Salida Cartográfica -->
-          <div onclick="applyTemplate('squid_game')" class="template-card group col-span-1 md:col-span-2 lg:col-span-2 cursor-pointer overflow-hidden rounded-2xl border-2 border-pink-400 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="squid_game">
-            <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-pink-300 flex items-center justify-center" id="templatePreview-squid_game">
+          <!-- 1. Arquitectura Pop Geométrica -->
+          <div onclick="applyTemplate('pop_geometric')" class="template-card group col-span-1 md:col-span-2 lg:col-span-2 cursor-pointer overflow-hidden rounded-2xl border-2 border-pink-400 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="pop_geometric">
+            <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-pink-300 flex items-center justify-center" id="templatePreview-pop_geometric">
               <span class="template-badge absolute top-3 left-3 bg-[#111115] text-[#ff2a85] font-black tracking-widest text-[11px] px-3.5 py-1.5 rounded-full shadow-lg border border-[#ff2a85] z-10 flex items-center gap-1.5">
-                <span class="inline-block w-2.5 h-2.5 rounded-full border border-white"></span>
+                <span class="inline-block w-2.5 h-2.5 rounded-full border border-[#00a8e8]"></span>
                 <span class="inline-block w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[9px] border-b-[#ff2a85]"></span>
-                <span class="inline-block w-2.5 h-2.5 border border-white"></span>
-                TEMPORADA 2
+                <span class="inline-block w-2.5 h-2.5 border border-[#fbb040]"></span>
+                POP GEOMÉTRICO
               </span>
               <span class="absolute top-3 right-3 bg-[#008259] text-white font-extrabold text-[10px] px-2.5 py-1 rounded shadow-md z-10">
                 A4 VERTICAL
@@ -1968,12 +1968,12 @@
               <div>
                 <div class="flex items-center gap-2 mb-1">
                   <h4 class="text-base sm:text-lg font-black tracking-wider text-white group-hover:text-[#ff2a85] transition-colors uppercase">
-                    El Juego del Calamar · Salida Cartográfica
+                    Arquitectura Pop Geométrica
                   </h4>
-                  <span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40">OFICIAL</span>
+                  <span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40">EDITORIAL</span>
                 </div>
                 <p class="text-xs text-zinc-300 leading-snug">
-                  Estética Squid Game Temporada 2: laberinto rosa chicle, escaleras doradas, verde jugador 456 y simbología geométrica ○ △ □.
+                  Estética cromática moderna: muros rosa chicle, escaleras celestes y doradas, marco verde esmeralda y membrete 100% editable.
                 </p>
               </div>
               <button class="shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs bg-[#ff2a85] hover:bg-[#e1146d] text-white shadow-lg transition-transform group-hover:scale-105 flex items-center gap-2">
@@ -15091,7 +15091,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (metadataContainer) metadataContainer.style.display = 'flex';
         if (compassEl) compassEl.style.display = 'flex';
 
-        // ═══ EL JUEGO DEL CALAMAR · TEMPORADA 2 ═══
+        // ═══ ESTILO POP GEOMÉTRICO (Arquitectura Cromática) ═══
         paper.style.background = '#f472b6';
         decor.innerHTML = `
             <!-- Left Sky Blue Stepped Architectural Block -->
@@ -15099,52 +15099,72 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 <div style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#111115;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.4);">
                     <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;"></span>
                 </div>
+                <div style="position:absolute;top:48mm;left:4mm;font-family:monospace;font-size:6px;font-weight:bold;color:rgba(255,255,255,0.7);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:left top;">
+                    ELEV: +2,640m // GRID: 100m
+                </div>
             </div>
 
-            <!-- Top Header Banner (Matte Black with Squid Game Symbols) -->
-            <div style="position:absolute;top:6mm;left:8mm;right:8mm;height:14mm;background:#111115;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 8mm;box-shadow:0 8px 20px rgba(0,0,0,0.3);border-bottom:3px solid #ff2a85;pointer-events:auto;">
+            <!-- Top Header Banner (Matte Black with Geometric Elements - 100% Editable) -->
+            <div style="position:absolute;top:6mm;left:8mm;right:8mm;height:14mm;background:#111115;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 8mm;box-shadow:0 8px 20px rgba(0,0,0,0.3);border-bottom:3px solid #ff2a85;pointer-events:auto;z-index:22;">
                 <div style="display:flex;align-items:center;gap:6mm;">
                     <div style="display:flex;gap:3mm;align-items:center;">
-                        <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #ffffff;border-radius:50%;"></span>
+                        <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #00a8e8;border-radius:50%;"></span>
                         <span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #ff2a85;"></span>
-                        <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #ffffff;"></span>
+                        <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #fbb040;"></span>
                     </div>
                     <div>
-                        <span style="color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;">EL JUEGO DEL CALAMAR</span>
-                        <span style="display:block;color:#f472b6;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;">SALIDA CARTOGRÁFICA OFICIAL · TEMPORADA 2</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#f472b6;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN POP</span>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:3mm;">
-                    <span style="background:#008259;color:#fff;font-size:7px;font-weight:900;padding:2px 7px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);">[ ○ ] JUGADOR 456</span>
-                    <span style="background:#e11d48;color:#fff;font-size:7px;font-weight:900;padding:2px 7px;border-radius:3px;letter-spacing:0.06em;">[ ✕ ] ELIMINADO</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#008259;color:#fff;font-size:7px;font-weight:900;padding:2px 7px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;">[ ○ ] DATUM WGS-84</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#e11d48;color:#fff;font-size:7px;font-weight:900;padding:2px 7px;border-radius:3px;letter-spacing:0.06em;cursor:text;">[ ✕ ] ZONA RESTRINGIDA</span>
                 </div>
             </div>
 
-            <!-- Bottom Stepped Yellow Staircase with Official Title Typography -->
+            <!-- Bottom Stepped Yellow Staircase with Technical Membrete (100% Editable) -->
             <div style="position:absolute;bottom:0;left:0;right:0;height:42mm;background:#fbb040;clip-path:polygon(0 100%, 100% 100%, 100% 0, 72% 0, 72% 28%, 46% 28%, 46% 60%, 20% 60%, 20% 100%);pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);">
-                <div style="position:absolute;bottom:6mm;right:10mm;left:68mm;display:flex;justify-content:space-between;align-items:flex-end;font-family:Inter,sans-serif;">
-                    <div>
-                        <div style="display:flex;align-items:baseline;gap:3px;font-weight:900;font-size:17px;color:#111115;letter-spacing:0.12em;">
-                            <span>EL</span>
-                            <span>JUEG<span style="display:inline-block;width:13px;height:13px;border:3px solid #ff2a85;border-radius:50%;vertical-align:middle;margin:-2px 1px 0;"></span></span>
-                            <span>DEL</span>
-                            <span>C<span style="display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid #ff2a85;vertical-align:middle;margin:-4px 1px 0;"></span>L<span style="display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid #ff2a85;vertical-align:middle;margin:-4px 1px 0;"></span>M<span style="display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid #ff2a85;vertical-align:middle;margin:-4px 1px 0;"></span>R</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
-                            <span style="background:#111115;color:#ffffff;font-size:7.5px;font-weight:900;padding:1px 6px;letter-spacing:0.1em;border-radius:2px;">TEMPORADA 2</span>
+                <div style="position:absolute;bottom:5mm;right:10mm;left:45mm;display:flex;justify-content:space-between;align-items:flex-end;font-family:Inter,sans-serif;">
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;color:#111115;letter-spacing:0.15em;text-transform:uppercase;background:rgba(255,255,255,0.65);padding:1px 6px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span contenteditable="true" spellcheck="false" style="outline:none;background:#111115;color:#ffffff;font-size:7px;font-weight:900;padding:2px 6px;letter-spacing:0.1em;border-radius:2px;cursor:text;">ESCALA: 1:1,000</span>
                             <span style="color:#b91c1c;font-size:7.5px;font-weight:900;">|</span>
-                            <span style="color:#111115;font-size:7.5px;font-weight:900;letter-spacing:0.08em;">YA DISPONIBLE</span>
+                            <span contenteditable="true" spellcheck="false" style="outline:none;color:#111115;font-size:7px;font-weight:900;letter-spacing:0.08em;background:rgba(255,255,255,0.75);padding:2px 6px;border-radius:2px;cursor:text;">PROYECCIÓN UTM</span>
                         </div>
                     </div>
                     <div style="background:#111115;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:1.5px;text-align:right;border-left:2.5px solid #008259;">
-                        <span style="color:#f472b6;font-weight:900;font-size:7.5px;">ESTUDIO GEOGRÁFICO DE SUPERVIVENCIA</span>
-                        <span style="color:#e4e4e7;">ESCALA: 1:1,000 · DATUM: WGS-84</span>
-                        <span style="color:#38bdf8;font-weight:800;">AUTORIZADO POR EL LÍDER (FRONT MAN) ✓</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#f472b6;font-weight:900;font-size:7.5px;cursor:text;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;">FOLIO: REG-2026-POP · ORIGEN CENTRAL</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#38bdf8;font-weight:800;cursor:text;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
                     </div>
                 </div>
             </div>
         `;
-        if (titleContainer) titleContainer.style.display = 'none';
+
+        // Configure Title Element to be 100% editable and visible
+        if (titleContainer) {
+            titleContainer.style.display = 'flex';
+            titleContainer.style.zIndex = '35';
+            titleContainer.style.top = layoutConfig.titleProps?.top || '214mm';
+            titleContainer.style.left = layoutConfig.titleProps?.left || '42mm';
+            titleContainer.style.width = layoutConfig.titleProps?.width || '150mm';
+        }
+        if (titleDisplay) {
+            titleDisplay.style.color = '#111115';
+            titleDisplay.style.fontFamily = 'Inter, sans-serif';
+            titleDisplay.style.fontWeight = '900';
+            titleDisplay.style.letterSpacing = '0.04em';
+            titleDisplay.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)';
+            titleDisplay.style.cursor = 'text';
+            titleDisplay.textContent = layoutConfig.titleText || 'PLANO CARTOGRÁFICO POP';
+            titleDisplay.oninput = function() {
+                layoutConfig.titleText = this.textContent;
+                const inp = document.getElementById('layoutTitleInput');
+                if (inp) inp.value = this.textContent;
+            };
+        }
         if (mapFrame) {
             mapFrame.style.border = '3.5px solid #008259';
             mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(0,0,0,0.28)';
@@ -15167,7 +15187,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             scaleContainer.style.color = '#111115';
         }
         if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
-        layoutConfig.styles.compass.design = 'squid-symbols';
+        layoutConfig.styles.compass.design = 'pop-geometric';
         layoutConfig.styles.compass.color = '#ff2a85';
         if (!layoutConfig.grid) layoutConfig.grid = {};
         layoutConfig.grid.enabled = false;
@@ -15193,15 +15213,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const visibleLayers = (state.layers || []).filter(l => l.visible);
         if (visibleLayers.length === 0 && layoutConfig && layoutConfig.theme) {
             const themeLegends = {
-                squid_game: [
-                    { name: '[ ○ ] Voto Favorable (Verde 456)', color: '#008259' },
-                    { name: '[ ✕ ] Zona Eliminación (Magenta)', color: '#e11d48' },
-                    { name: '[ △ ] Puesto de Guardia (Rosa Neón)', color: '#ff2a85' },
-                    { name: '[ □ ] Sala de Control Front Man', color: '#1e293b' },
-                    { name: 'Escaleras del Laberinto (Amarillo)', color: '#fbb040' }
+                pop_geometric: [
+                    { name: 'Zona de Cobertura Principal', color: '#008259' },
+                    { name: 'Área Protegida / Restringida', color: '#e11d48' },
+                    { name: 'Vértice Geodésico Principal', color: '#ff2a85' },
+                    { name: 'Infraestructura & Control', color: '#111115' },
+                    { name: 'Sector Rural / Expansión', color: '#fbb040' },
+                    { name: 'Red Hídrica & Drenaje', color: '#00a8e8' }
                 ]
             };
-            const items = themeLegends[layoutConfig.theme] || themeLegends.squid_game || [];
+            const items = themeLegends[layoutConfig.theme] || themeLegends.pop_geometric || themeLegends.squid_game || [];
             items.forEach(it => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center gap-2';
@@ -15392,16 +15413,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (visibleLayers.length === 0 && window.layoutLeafletMap) {
             const c = (state.map && typeof state.map.getCenter === 'function' ? state.map.getCenter() : window.layoutLeafletMap.getCenter()) || { lat: 4.6097, lng: -74.0817 };
             const d = 0.007;
-            const zDorm = [[c.lat + d*0.6, c.lng - d*0.7], [c.lat + d*0.6, c.lng + d*0.1], [c.lat + d*0.1, c.lng + d*0.1], [c.lat + d*0.1, c.lng - d*0.7]];
-            const zPlay = [[c.lat + d*0.6, c.lng + d*0.2], [c.lat + d*0.6, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.2]];
-            const zStairs = [[c.lat - d*0.05, c.lng - d*0.7], [c.lat - d*0.05, c.lng + d*0.1], [c.lat - d*0.6, c.lng + d*0.1], [c.lat - d*0.6, c.lng - d*0.7]];
-            const zVote = [[c.lat - d*0.2, c.lng + d*0.2], [c.lat - d*0.2, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.2]];
+            const z1 = [[c.lat + d*0.6, c.lng - d*0.7], [c.lat + d*0.6, c.lng + d*0.1], [c.lat + d*0.1, c.lng + d*0.1], [c.lat + d*0.1, c.lng - d*0.7]];
+            const z2 = [[c.lat + d*0.6, c.lng + d*0.2], [c.lat + d*0.6, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.2]];
+            const z3 = [[c.lat - d*0.05, c.lng - d*0.7], [c.lat - d*0.05, c.lng + d*0.1], [c.lat - d*0.6, c.lng + d*0.1], [c.lat - d*0.6, c.lng - d*0.7]];
+            const z4 = [[c.lat - d*0.2, c.lng + d*0.2], [c.lat - d*0.2, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.2]];
 
-            L.polygon(zDorm, { color: '#008259', weight: 3, fillColor: '#008259', fillOpacity: 0.75 }).bindTooltip('DORMITORIO · JUGADOR 456', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#008259] px-2 py-0.5 rounded shadow-md border border-white' }).addTo(window.layoutLayersGroup);
-            L.polygon(zPlay, { color: '#ff2a85', weight: 3, fillColor: '#ff2a85', fillOpacity: 0.65 }).bindTooltip('PATIO DE JUEGOS · LUZ ROJA', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#ff2a85] px-2 py-0.5 rounded shadow-md' }).addTo(window.layoutLayersGroup);
-            L.polygon(zStairs, { color: '#d97706', weight: 2.5, fillColor: '#fbb040', fillOpacity: 0.7 }).bindTooltip('LABERINTO DE ESCALERAS', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-black bg-[#fbb040] px-1.5 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
-            L.polygon(zVote, { color: '#0284c7', weight: 2.5, fillColor: '#00a8e8', fillOpacity: 0.65 }).bindTooltip('ZONA DE VOTACIÓN [○] / [✕]', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-white bg-[#00a8e8] px-1.5 py-0.5 rounded' }).addTo(window.layoutLayersGroup);
-            L.polyline([[c.lat + d*0.8, c.lng - d*0.3], [c.lat - d*0.8, c.lng - d*0.3]], { color: '#ffffff', weight: 6, opacity: 0.95 }).bindTooltip('CORREDOR CENTRAL', { permanent: true, direction: 'center', className: 'text-[8px] font-black text-black bg-white px-1.5 rounded border border-[#ff2a85]' }).addTo(window.layoutLayersGroup);
+            L.polygon(z1, { color: '#008259', weight: 3, fillColor: '#008259', fillOpacity: 0.75 }).bindTooltip('POLÍGONO A · ZONA NORTE', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#008259] px-2 py-0.5 rounded shadow-md border border-white' }).addTo(window.layoutLayersGroup);
+            L.polygon(z2, { color: '#ff2a85', weight: 3, fillColor: '#ff2a85', fillOpacity: 0.65 }).bindTooltip('POLÍGONO B · ÁREA PROTEGIDA', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#ff2a85] px-2 py-0.5 rounded shadow-md' }).addTo(window.layoutLayersGroup);
+            L.polygon(z3, { color: '#d97706', weight: 2.5, fillColor: '#fbb040', fillOpacity: 0.7 }).bindTooltip('POLÍGONO C · SECTOR RURAL', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-black bg-[#fbb040] px-1.5 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
+            L.polygon(z4, { color: '#0284c7', weight: 2.5, fillColor: '#00a8e8', fillOpacity: 0.65 }).bindTooltip('POLÍGONO D · CUENCA HÍDRICA', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-white bg-[#00a8e8] px-1.5 py-0.5 rounded' }).addTo(window.layoutLayersGroup);
+            L.polyline([[c.lat + d*0.8, c.lng - d*0.3], [c.lat - d*0.8, c.lng - d*0.3]], { color: '#ffffff', weight: 6, opacity: 0.95 }).bindTooltip('CORREDOR VIAL PRINCIPAL', { permanent: true, direction: 'center', className: 'text-[8px] font-black text-black bg-white px-1.5 rounded border border-[#ff2a85]' }).addTo(window.layoutLayersGroup);
         }
         
         for (const l of visibleLayers) {
@@ -15991,7 +16012,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <circle cx="50" cy="50" r="3" fill="${darkColor}"/>
                     <text x="50" y="20" text-anchor="middle" font-size="11" font-family="monospace" font-weight="900" fill="#ffffff">N</text>
                 </svg>`;
-        } else if (design === 'squid-symbols') {
+        } else if (design === 'pop-geometric' || design === 'squid-symbols') {
             svg = `
                 <svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="50" cy="50" r="46" fill="#111115" stroke="${darkColor}" stroke-width="2.5"/>
@@ -21841,7 +21862,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function renderAllTemplateCanvasPreviews() {
-      const types = ['squid_game'];
+      const types = ['pop_geometric'];
       types.forEach(type => {
         const preview = document.getElementById('templatePreview-' + type);
         if (!preview) return;
@@ -21866,11 +21887,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      // ─── 1. FONDO ROSA CHICLE (Bubblegum Pink) ───
+      // ─── 1. BASE ROSA CHICLE (Bubblegum Pink Wall) ───
       ctx.fillStyle = '#f472b6';
       ctx.fillRect(0, 0, w, h);
 
-      // ─── 2. LABERINTO DE ESCALERAS CYAN / SKY BLUE (Arriba a la Izquierda) ───
+      // ─── 2. LABERINTO DE ESCALERAS AZUL CIELO (Sky Blue Stepped Architecture) ───
       ctx.fillStyle = '#00a8e8';
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -21889,41 +21910,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Guardias en las escaleras azules
-      const drawGuard = (gx, gy, symbol) => {
-        // Cuerpo rosa
-        ctx.fillStyle = '#ff2a85';
+      // Detalles arquitectónicos en la pared azul (líneas de nivel y cotas, SIN figuras)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      for (let y = h * 0.08; y < h * 0.65; y += 22) {
         ctx.beginPath();
-        ctx.ellipse(gx, gy + 14, 11, 16, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Capucha y máscara negra
-        ctx.fillStyle = '#111115';
-        ctx.beginPath();
-        ctx.arc(gx, gy, 9, 0, Math.PI * 2);
-        ctx.fill();
-        // Símbolo blanco
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.4;
-        if (symbol === 'circle') {
-          ctx.beginPath();
-          ctx.arc(gx, gy, 4, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (symbol === 'triangle') {
-          ctx.beginPath();
-          ctx.moveTo(gx, gy - 4.5);
-          ctx.lineTo(gx + 4.5, gy + 4);
-          ctx.lineTo(gx - 4.5, gy + 4);
-          ctx.closePath();
-          ctx.stroke();
-        } else if (symbol === 'square') {
-          ctx.strokeRect(gx - 3.5, gy - 3.5, 7, 7);
-        }
-      };
+        ctx.moveTo(0, y);
+        ctx.lineTo(w * 0.16, y);
+        ctx.stroke();
+      }
+      // Símbolo de círculo técnico en el descansillo azul
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(w * 0.23, h * 0.25, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('+2,640m', w * 0.23, h * 0.25 + 2);
 
-      drawGuard(w * 0.22, h * 0.18, 'circle');
-      drawGuard(w * 0.14, h * 0.36, 'triangle');
-
-      // ─── 3. ARQUITECTURA ROSA SUPERIOR DERECHA (Con Front Man y Guardia) ───
+      // ─── 3. ARQUITECTURA ROSA SUPERIOR DERECHA ───
       ctx.fillStyle = '#ec4899';
       ctx.beginPath();
       ctx.moveTo(w * 0.68, 0);
@@ -21940,27 +21943,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Front Man (Líder con abrigo gris pizarra y máscara facetada)
-      const fx = w * 0.73, fy = h * 0.17;
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.ellipse(fx, fy + 15, 12, 17, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(fx, fy, 9.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#334155';
-      ctx.beginPath();
-      ctx.moveTo(fx, fy - 6); ctx.lineTo(fx + 5, fy + 1); ctx.lineTo(fx, fy + 6); ctx.lineTo(fx - 5, fy + 1);
-      ctx.closePath();
-      ctx.fill();
+      // Símbolo de cuadrado técnico en la pared superior derecha
+      ctx.strokeStyle = '#fbb040';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(w * 0.82, h * 0.22, 14, 14);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px monospace';
+      ctx.fillText('EST-01', w * 0.82 + 7, h * 0.22 + 9);
 
-      // Guardia con Cuadrado arriba a la derecha
-      drawGuard(w * 0.93, h * 0.34, 'square');
-
-      // ─── 4. VENTANA CARTOGRÁFICA CENTRAL (Tracksuit Green + White Stripe) ───
-      const mx = w * 0.22, my = h * 0.12, mw = w * 0.48, mh = h * 0.56;
+      // ─── 4. VENTANA CARTOGRÁFICA CENTRAL (Tracksuit Emerald + Double White Line) ───
+      const mx = w * 0.20, my = h * 0.10, mw = w * 0.52, mh = h * 0.58;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(mx - 4, my - 4, mw + 8, mh + 8);
       ctx.fillStyle = '#008259';
@@ -21970,50 +21961,60 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(mx, my, mw, mh);
 
-      // Traza urbana / mapas temáticos
+      // Red vial / ríos en el mapa
       ctx.fillStyle = '#e2e8f0';
       ctx.beginPath();
       ctx.moveTo(mx, my + mh * 0.5); ctx.bezierCurveTo(mx + mw * 0.3, my + mh * 0.3, mx + mw * 0.7, my + mh * 0.7, mx + mw, my + mh * 0.45);
       ctx.lineTo(mx + mw, my + mh * 0.58); ctx.bezierCurveTo(mx + mw * 0.7, my + mh * 0.82, mx + mw * 0.3, my + mh * 0.42, mx, my + mh * 0.62);
       ctx.closePath(); ctx.fill();
 
-      // Zonas de Juego
-      // Dormitorio 456 (Verde Esmeralda)
+      // Vía principal blanca con borde rosa
+      ctx.strokeStyle = '#ff2a85'; ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(mx + mw * 0.45, my); ctx.lineTo(mx + mw * 0.45, my + mh);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mx + mw * 0.45, my); ctx.lineTo(mx + mw * 0.45, my + mh);
+      ctx.stroke();
+
+      // Polígonos de zonificación temáticos
+      // Zona Norte (Verde Esmeralda)
       ctx.fillStyle = 'rgba(0, 130, 89, 0.85)';
-      ctx.fillRect(mx + 10, my + 10, mw * 0.45, mh * 0.32);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + 10, my + 10, mw * 0.45, mh * 0.32);
+      ctx.fillRect(mx + 10, my + 10, mw * 0.40, mh * 0.34);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + 10, my + 10, mw * 0.40, mh * 0.34);
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('DORMITORIO 456', mx + 10 + (mw * 0.45)/2, my + 10 + (mh * 0.32)/2 + 2);
+      ctx.fillText('ZONA NORTE', mx + 10 + (mw * 0.40)/2, my + 10 + (mh * 0.34)/2 + 2);
 
-      // Patio de Juegos (Rosa Neón)
+      // Área Protegida (Rosa Neón)
       ctx.fillStyle = 'rgba(255, 42, 133, 0.85)';
-      ctx.fillRect(mx + mw * 0.58, my + 10, mw * 0.36, mh * 0.32);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + mw * 0.58, my + 10, mw * 0.36, mh * 0.32);
+      ctx.fillRect(mx + mw * 0.52, my + 10, mw * 0.42, mh * 0.34);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + mw * 0.52, my + 10, mw * 0.42, mh * 0.34);
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 7px sans-serif';
-      ctx.fillText('LUZ ROJA', mx + mw * 0.58 + (mw * 0.36)/2, my + 10 + (mh * 0.32)/2 + 2);
+      ctx.fillText('ÁREA PROTEGIDA', mx + mw * 0.52 + (mw * 0.42)/2, my + 10 + (mh * 0.34)/2 + 2);
 
-      // Zona de Votación (Cyan)
+      // Cuenca Hídrica (Azul Cielo)
       ctx.fillStyle = 'rgba(0, 168, 232, 0.85)';
-      ctx.fillRect(mx + mw * 0.54, my + mh * 0.52, mw * 0.4, mh * 0.4);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + mw * 0.54, my + mh * 0.52, mw * 0.4, mh * 0.4);
+      ctx.fillRect(mx + mw * 0.50, my + mh * 0.52, mw * 0.44, mh * 0.40);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(mx + mw * 0.50, my + mh * 0.52, mw * 0.44, mh * 0.40);
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6.5px sans-serif';
-      ctx.fillText('VOTACIÓN [○]/[✕]', mx + mw * 0.54 + (mw * 0.4)/2, my + mh * 0.52 + (mh * 0.4)/2 + 2);
+      ctx.fillText('CUENCA HÍDRICA', mx + mw * 0.50 + (mw * 0.44)/2, my + mh * 0.52 + (mh * 0.40)/2 + 2);
 
-      // Badges en el mapa
-      ctx.fillStyle = '#00a8e8'; ctx.fillRect(mx + 8, my + mh - 26, 38, 11);
+      // Badges técnicos en el mapa
+      ctx.fillStyle = '#00a8e8'; ctx.fillRect(mx + 8, my + mh - 24, 46, 12);
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('[ ○ ] VOTO', mx + 11, my + mh - 18);
+      ctx.fillText('[ ○ ] WGS-84', mx + 12, my + mh - 16);
 
-      ctx.fillStyle = '#e11d48'; ctx.fillRect(mx + 48, my + mh - 26, 44, 11);
-      ctx.fillStyle = '#ffffff'; ctx.fillText('[ ✕ ] 218 ELIM', mx + 51, my + mh - 18);
+      ctx.fillStyle = '#e11d48'; ctx.fillRect(mx + 58, my + mh - 24, 52, 12);
+      ctx.fillStyle = '#ffffff'; ctx.fillText('[ ✕ ] ESPECIAL', mx + 62, my + mh - 16);
 
-      // Rosa de los vientos Squid Game
-      const cx = mx + mw - 20, cy = my + 20;
-      ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fillStyle = '#111115'; ctx.fill(); ctx.strokeStyle = '#ff2a85'; ctx.lineWidth = 1.2; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, cy - 9); ctx.lineTo(cx + 4, cy + 2); ctx.lineTo(cx - 4, cy + 2); ctx.closePath(); ctx.fillStyle = '#ff2a85'; ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', cx, cy - 10);
+      // Rosa de los vientos geométrica
+      const cx = mx + mw - 18, cy = my + 18;
+      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fillStyle = '#111115'; ctx.fill(); ctx.strokeStyle = '#ff2a85'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx + 3.5, cy + 2); ctx.lineTo(cx - 3.5, cy + 2); ctx.closePath(); ctx.fillStyle = '#ff2a85'; ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', cx, cy - 9);
 
-      // ─── 5. ESCALERAS AMARILLO DORADO EN PRIMER PLANO ───
+      // ─── 5. ESCALERAS AMARILLO DORADO EN PRIMER PLANO (SIN PERSONAS / MUÑECOS) ───
       ctx.fillStyle = '#fbb040';
       ctx.beginPath();
       ctx.moveTo(0, h);
@@ -22031,99 +22032,67 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Jugadores en las escaleras (Chándal verde con franja blanca)
-      const drawPlayer = (px, py, number, badgeType) => {
-        // Chaqueta verde
-        ctx.fillStyle = '#008259';
-        ctx.beginPath();
-        ctx.ellipse(px, py + 16, 12, 18, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Franja blanca en el brazo/hombro
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.moveTo(px - 10, py + 8); ctx.lineTo(px - 10, py + 26); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(px + 10, py + 8); ctx.lineTo(px + 10, py + 26); ctx.stroke();
-        // Cabeza / Cabello
-        ctx.fillStyle = '#111115';
-        ctx.beginPath(); ctx.arc(px, py - 1, 9, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fbcfe8';
-        ctx.beginPath(); ctx.arc(px, py + 2, 7, 0, Math.PI); ctx.fill();
-        // Placa en el pecho
-        if (badgeType === 'X') {
-          ctx.fillStyle = '#e11d48'; ctx.fillRect(px - 5, py + 12, 10, 8);
-          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✕', px, py + 18);
-        } else if (badgeType === 'O') {
-          ctx.fillStyle = '#00a8e8'; ctx.fillRect(px - 5, py + 12, 10, 8);
-          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('○', px, py + 18);
-        }
-      };
+      // Cotas y líneas de diseño sobre la escalera amarilla
+      ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(w * 0.32, h * 0.85); ctx.lineTo(w * 0.95, h * 0.85); ctx.stroke();
 
-      // Jugador 456 (Seong Gi-hun con chándal verde y parche rojo X)
-      drawPlayer(w * 0.44, h * 0.58, '456', 'X');
-      // Jugadora en las escaleras con parche azul O
-      drawPlayer(w * 0.66, h * 0.42, '067', 'O');
-      drawPlayer(w * 0.20, h * 0.74, '218', 'O');
-
-      // ─── 6. TIPOGRAFÍA OFICIAL DEL JUEGO DEL CALAMAR ───
-      const tx = w * 0.40, ty = h * 0.84;
+      // ─── 6. TIPOGRAFÍA CARTOGRÁFICA EDITABLE & MODERNA ───
+      const tx = w * 0.36, ty = h * 0.82;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#111115';
-      ctx.font = '900 24px sans-serif';
+      ctx.font = '900 18px sans-serif';
 
-      // "EL JUEGO DEL CALAMAR" con caracteres geométricos auténticos
-      ctx.fillText('EL', tx, ty);
-      ctx.fillText('JUEG', tx + 36, ty);
-      // El círculo rosa en JUEGO
-      ctx.beginPath(); ctx.arc(tx + 109, ty - 8, 8, 0, Math.PI * 2); ctx.fillStyle = '#ff2a85'; ctx.fill();
-      ctx.beginPath(); ctx.arc(tx + 109, ty - 8, 4.5, 0, Math.PI * 2); ctx.fillStyle = '#fbb040'; ctx.fill();
+      ctx.fillText('PLANO CARTOGRÁFICO POP', tx, ty);
 
-      ctx.fillStyle = '#111115';
-      ctx.fillText('DEL', tx, ty + 24);
-      ctx.fillText('C', tx + 56, ty + 24);
-      // Triángulo en CALAMAR
-      ctx.beginPath(); ctx.moveTo(tx + 76, ty + 24); ctx.lineTo(tx + 83, ty + 9); ctx.lineTo(tx + 90, ty + 24); ctx.closePath(); ctx.fillStyle = '#ff2a85'; ctx.fill();
-      ctx.fillStyle = '#111115'; ctx.fillText('L', tx + 93, ty + 24);
-      ctx.beginPath(); ctx.moveTo(tx + 110, ty + 24); ctx.lineTo(tx + 117, ty + 9); ctx.lineTo(tx + 124, ty + 24); ctx.closePath(); ctx.fillStyle = '#ff2a85'; ctx.fill();
-      ctx.fillStyle = '#111115'; ctx.fillText('M', tx + 127, ty + 24);
-      ctx.beginPath(); ctx.moveTo(tx + 152, ty + 24); ctx.lineTo(tx + 159, ty + 9); ctx.lineTo(tx + 166, ty + 24); ctx.closePath(); ctx.fillStyle = '#ff2a85'; ctx.fill();
-      ctx.fillStyle = '#111115'; ctx.fillText('R', tx + 169, ty + 24);
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 8.5px sans-serif';
+      ctx.fillText('SISTEMA INTEGRADO DE ANÁLISIS TERRITORIAL & GEODATOS', tx, ty + 15);
 
-      // Subtítulo
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.fillText('TEMPORADA 2  |  YA DISPONIBLE', tx, ty + 40);
+      // Bloque de metadatos técnicos en el pie
+      ctx.fillStyle = '#111115'; ctx.fillRect(tx, ty + 22, 60, 14);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6.5px monospace';
+      ctx.fillText('ESCALA 1:1,000', tx + 6, ty + 32);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(tx + 66, ty + 22, 75, 14);
+      ctx.fillStyle = '#111115'; ctx.font = 'bold 6.5px monospace';
+      ctx.fillText('DATUM: WGS-84', tx + 72, ty + 32);
+
+      ctx.fillStyle = '#008259'; ctx.fillRect(tx + 147, ty + 22, 75, 14);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6.5px monospace';
+      ctx.fillText('✓ CERTIFICADO', tx + 153, ty + 32);
     }
 
     function applyTemplate(type) {
       const presets = {
-        squid_game: {
-          theme: 'squid_game',
+        pop_geometric: {
+          theme: 'pop_geometric',
           paper: 'A4', orientation: 'portrait',
-          titleText: 'El Juego del Calamar · Salida Cartográfica',
+          titleText: 'Plano Cartográfico Pop',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
           styles: {
             title: { fontSize: 22, color: '#111115', fontFamily: 'Inter', bold: true },
             metadata: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter' },
             legend: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#ff2a85', design: 'squid-symbols', rotation: 0, size: 36 }
+            compass: { color: '#ff2a85', design: 'pop-geometric', rotation: 0, size: 36 }
           },
-          mapFrame: { top: '24mm', left: '14mm', width: '182mm', height: '188mm', visible: true },
-          compass: { top: '30mm', left: '155mm', width: '32mm', height: '32mm' },
-          titleProps: { top: '8mm', left: '14mm', width: '182mm', height: '12mm' },
-          metadata: { top: '218mm', left: '95mm', width: '100mm', height: '10mm' },
-          legend: { top: '216mm', left: '14mm', width: '75mm', height: '62mm' },
-          scale: { top: '244mm', left: '95mm', width: '100mm', height: '14mm' },
+          mapFrame: { top: '22mm', left: '14mm', width: '182mm', height: '185mm', visible: true },
+          compass: { top: '28mm', left: '156mm', width: '32mm', height: '32mm' },
+          titleProps: { top: '214mm', left: '42mm', width: '150mm', height: '14mm' },
+          metadata: { top: '270mm', left: '42mm', width: '150mm', height: '10mm' },
+          legend: { top: '210mm', left: '14mm', width: '65mm', height: '70mm' },
+          scale: { top: '252mm', left: '115mm', width: '80mm', height: '14mm' },
           grid: { enabled: false }
         }
       };
 
-      const preset = presets[type] || presets.squid_game;
+      const preset = presets[type] || presets.pop_geometric;
       if (!preset) return;
 
       const inWorkspace = document.getElementById('workspace') && !document.getElementById('workspace').classList.contains('hidden');
       if (_currentProject && inWorkspace) {
         Object.assign(layoutConfig, JSON.parse(JSON.stringify(preset)));
-        layoutConfig.theme = preset.theme || 'squid_game';
+        layoutConfig.theme = preset.theme || 'pop_geometric';
         layoutConfig.initialized = true;
         if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
         openLayoutModal();
@@ -22132,7 +22101,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         return;
       }
 
-      _pendingTemplate = Object.assign({ theme: 'squid_game' }, preset);
+      _pendingTemplate = Object.assign({ theme: 'pop_geometric' }, preset);
       createProject();
     }
 
