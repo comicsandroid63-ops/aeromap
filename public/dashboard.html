@@ -987,11 +987,18 @@
 
       try {
         const token = user.token;
-        const res = await fetch('/api/admin/dashboard?token=' + encodeURIComponent(token), {
+        let res = await fetch('/api/dashboard?token=' + encodeURIComponent(token), {
           headers: {
             'Authorization': 'Bearer ' + token
           }
         });
+        if (res.status === 404) {
+          res = await fetch('/api/admin/dashboard?token=' + encodeURIComponent(token), {
+            headers: {
+              'Authorization': 'Bearer ' + token
+            }
+          });
+        }
 
         if (res.status === 401 || res.status === 403) {
           const errData = await res.json().catch(() => ({}));

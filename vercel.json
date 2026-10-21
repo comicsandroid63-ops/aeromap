@@ -20,6 +20,14 @@
       "dest": "/api/auth.js"
     },
     {
+      "src": "/api/admin/dashboard",
+      "dest": "/api/dashboard.js"
+    },
+    {
+      "src": "/api/dashboard",
+      "dest": "/api/dashboard.js"
+    },
+    {
       "src": "/api/([^/]+)(?:/(.*))?",
       "dest": "/api/$1.js"
     },
