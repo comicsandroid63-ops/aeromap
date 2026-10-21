@@ -4882,7 +4882,7 @@
             </div>
 
             <!-- Metadata/Details -->
-            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-20 flex flex-col gap-2 p-2 bg-transparent hover:bg-zinc-50/50 hover:border hover:border-dashed hover:border-zinc-300 rounded-lg" style="width: 170mm; top: 200mm; left: 20mm;">
+            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-35 flex flex-col gap-1.5 p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[14mm]" style="width: 92mm; top: 250mm; left: 14mm;">
                 <div id="layoutMetadataDisplay" class="flex justify-between items-end w-full">
                     <div class="flex flex-col">
                         <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Generado el</span>
@@ -4908,8 +4908,8 @@
             </div>
 
             <!-- Scale Box -->
-            <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-end gap-3 p-4 bg-white/90 backdrop-blur-sm border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 60mm; top: 215mm; left: 110mm;">
-                <div id="layoutScale" class="flex flex-col items-end gap-3 w-full">
+            <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[14mm]" style="width: 84mm; top: 250mm; left: 112mm;">
+                <div id="layoutScale" class="flex flex-col items-center gap-1.5 w-full">
                     <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
                     <div class="flex items-center gap-2">
                         <div id="layoutScaleBar" class="h-2 relative border-black shrink-0" style="width: 120px;">
@@ -4931,7 +4931,7 @@
             <div id="layoutFooter" style="display: none"></div>
             
             <!-- Compass Element (Draggable) -->
-            <div id="layoutCompass" onclick="layoutOpenElementProps('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-2 bg-zinc-50/80 border border-dashed border-zinc-300 rounded-lg shadow-sm hover:shadow-md hover:border-primary/50 transition-shadow" style="width: 30mm; height: 30mm; top: 220mm; left: 160mm;">
+            <div id="layoutCompass" onclick="layoutOpenElementProps('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 30mm; height: 30mm; top: 220mm; left: 160mm;">
                 <div id="layoutCompassContainer" class="w-full h-full relative flex items-center justify-center pointer-events-none">
                     <!-- Compass designs will be injected via JS -->
                 </div>
@@ -14545,6 +14545,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
         setTimeout(() => {
             ensureLayoutMapInit();
             syncLayoutMapLayers();
+            if (window.layoutLeafletMap && typeof window.layoutLeafletMap.invalidateSize === 'function') {
+                window.layoutLeafletMap.invalidateSize({ animate: false });
+                if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
+                    layoutDrawGrid();
+                }
+            }
         }, 150);
         
         if (!layoutConfig.initialized) {
@@ -15972,9 +15978,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const scaleContainer = document.getElementById('layoutScaleBar');
         if (!scaleContainer) return;
         
-        const design = layoutConfig.styles.scale.design;
-        const color = layoutConfig.styles.scale.color;
-        const width = scaleContainer.style.width; // Mantenemos el ancho dinámico calculado
+        const design = layoutConfig.styles.scale.design || 'classic';
+        const color = layoutConfig.styles.scale.color || '#111115';
+        const width = scaleContainer.style.width || '120px';
         
         // Clear previous manteniendo el ancho
         scaleContainer.innerHTML = '';
@@ -15982,7 +15988,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         scaleContainer.style.borderColor = color;
         scaleContainer.style.width = width;
 
-        if (design === 'classic') {
+        if (design === 'classic' || design === 'modern') {
+            scaleContainer.classList.add('border-x', 'border-b');
+            scaleContainer.style.height = '8px';
+            scaleContainer.innerHTML = `
+                <div class="absolute inset-0 flex border border-black/80" style="border-color:${color}">
+                    <div class="flex-1" style="background: ${color}"></div>
+                    <div class="flex-1 bg-white"></div>
+                    <div class="flex-1" style="background: ${color}"></div>
+                    <div class="flex-1 bg-white"></div>
+                </div>`;
+        } else if (design === 'classic-simple') {
             scaleContainer.classList.add('border-x', 'border-b');
             scaleContainer.style.height = '8px';
             scaleContainer.innerHTML = `
@@ -16634,18 +16650,26 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function layoutDrawGrid() {
         const frame = document.getElementById('layoutMapFrame');
-        if (!frame) return;
+        const container = document.getElementById('layoutMapContainer');
+        if (!frame || !container) return;
         
-        // Eliminar cuadrícula previa (del frame o del container)
-        const existing = document.getElementById('layoutGridOverlay');
-        if (existing) existing.remove();
+        // Eliminar cuadrícula y etiquetas previas
+        const existingSvg = document.getElementById('layoutGridOverlay');
+        if (existingSvg) existingSvg.remove();
+        const existingLabels = document.getElementById('layoutGridLabelsOverlay');
+        if (existingLabels) existingLabels.remove();
 
         const config = layoutConfig.grid;
-        if (!config.enabled) return;
+        if (!config || !config.enabled) return;
         if (!config.intervalLat || config.intervalLat <= 0 || !config.intervalLng || config.intervalLng <= 0) return;
 
         const m = window.layoutLeafletMap || state.map;
         if (!m) return;
+
+        // Sincronizar dimensiones exactas de Leaflet
+        if (typeof m.invalidateSize === 'function') {
+            m.invalidateSize({ animate: false });
+        }
 
         const bounds = m.getBounds();
         const minLat = bounds.getSouth();
@@ -16653,20 +16677,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const minLng = bounds.getWest();
         const maxLng = bounds.getEast();
 
-        const sz = m.getSize();
-        const pxW = sz.x || 600;
-        const pxH = sz.y || 600;
+        const pxW = container.clientWidth || container.offsetWidth || 510;
+        const pxH = container.clientHeight || container.offsetHeight || 490;
 
-        // Margen ampliado para que las coordenadas fuera del marco NUNCA se corten
-        const pad = 50;
+        // SVG con las líneas internas del mapa (estrictamente confinadas dentro del marco)
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.id = 'layoutGridOverlay';
-        svg.setAttribute("viewBox", `-${pad} -${pad} ${pxW + pad * 2} ${pxH + pad * 2}`);
-        // z-index:50 asegura estar POR ENCIMA de #layoutMapContainer (z-index:1 con isolation:isolate)
-        svg.style.cssText = `position:absolute; top:-${pad}px; left:-${pad}px; width:calc(100% + ${pad * 2}px); height:calc(100% + ${pad * 2}px); z-index:50; pointer-events:none; overflow:visible;`;
+        svg.setAttribute("viewBox", `0 0 ${pxW} ${pxH}`);
+        svg.setAttribute("preserveAspectRatio", "none");
+        svg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:500; pointer-events:none; overflow:visible;';
+
+        // Capa HTML de etiquetas de coordenadas (100% nítidas en exportación 300 DPI y editables)
+        const labelsOverlay = document.createElement('div');
+        labelsOverlay.id = 'layoutGridLabelsOverlay';
+        labelsOverlay.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:510; pointer-events:none; overflow:visible;';
 
         const strokeColor = config.color || '#333333';
         const lineOpacity = (typeof config.opacity === 'number' && !isNaN(config.opacity)) ? Math.max(0.15, config.opacity) : 0.45;
+        const isInside = config.position === 'inside';
 
         const formatCoord = (val, step, isLat) => {
             const dec = step >= 1 ? 0 : Math.min(6, Math.max(1, -Math.floor(Math.log10(step)) + 1));
@@ -16682,15 +16710,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
             return s;
         };
 
-        // Líneas de Latitud (Horizontales)
+        const fontSize = Math.max(8.5, (config.fontSize || 8) * 1.3);
+        const fFam = (config.fontFamily || 'Inter') + ', sans-serif';
+        const fCol = config.fontColor || '#111115';
+
+        // ─── Líneas de Latitud (Horizontales) ───
         const latStep = config.intervalLat;
         let lat = Math.round((Math.ceil(minLat / latStep) * latStep) * 1e8) / 1e8;
         while (lat <= maxLat + (latStep * 0.02)) {
             const p = m.latLngToContainerPoint(L.latLng(lat, minLng));
-            const y = p.y;
-            
-            // Solo dibujar líneas dentro del marco
-            if (y >= -1 && y <= pxH + 1) {
+            const y = Math.round(p.y);
+
+            if (y >= 0 && y <= pxH) {
+                // Línea de cuadrícula interna
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", "0"); line.setAttribute("y1", y);
                 line.setAttribute("x2", pxW); line.setAttribute("y2", y);
@@ -16699,62 +16731,61 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
 
-                // Marcas de cuadrícula en el borde (ticks)
+                // Ticks en bordes izquierdo y derecho
                 const tickL = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickL.setAttribute("x1", "-4"); tickL.setAttribute("y1", y);
-                tickL.setAttribute("x2", "4"); tickL.setAttribute("y2", y);
+                tickL.setAttribute("x1", isInside ? "0" : "-5"); tickL.setAttribute("y1", y);
+                tickL.setAttribute("x2", isInside ? "6" : "0"); tickL.setAttribute("y2", y);
                 tickL.setAttribute("stroke", strokeColor); tickL.setAttribute("stroke-width", "1.5");
                 svg.appendChild(tickL);
 
                 const tickR = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickR.setAttribute("x1", pxW - 4); tickR.setAttribute("y1", y);
-                tickR.setAttribute("x2", pxW + 4); tickR.setAttribute("y2", y);
+                tickR.setAttribute("x1", isInside ? (pxW - 6) : pxW); tickR.setAttribute("y1", y);
+                tickR.setAttribute("x2", isInside ? pxW : (pxW + 5)); tickR.setAttribute("y2", y);
                 tickR.setAttribute("stroke", strokeColor); tickR.setAttribute("stroke-width", "1.5");
                 svg.appendChild(tickR);
 
                 if (config.showLabels) {
-                    const isInside = config.position === 'inside';
-                    const dist = isInside ? 8 : 10;
+                    const labelText = formatCoord(lat, latStep, true);
 
-                    const drawLatLabel = (xOffset, anchor, isRight) => {
-                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                        text.setAttribute("x", xOffset);
-                        text.setAttribute("y", y);
-                        text.setAttribute("text-anchor", anchor);
-                        text.setAttribute("dominant-baseline", "middle");
-                        text.setAttribute("fill", config.fontColor || "#000000");
-                        text.setAttribute("stroke", "#ffffff");
-                        text.setAttribute("stroke-width", "2.5");
-                        text.setAttribute("paint-order", "stroke fill");
-                        text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
-                        text.setAttribute("font-family", (config.fontFamily || "Inter") + ", -apple-system, sans-serif");
-                        text.setAttribute("font-weight", "700");
-                        
-                        if (config.orientLat === 'vertical') {
-                            const rot = isRight ? 90 : -90;
-                            text.setAttribute("transform", `rotate(${rot}, ${xOffset}, ${y})`);
-                        }
+                    // Etiqueta Izquierda
+                    const leftDiv = document.createElement('div');
+                    leftDiv.contentEditable = "true";
+                    leftDiv.spellcheck = false;
+                    leftDiv.className = 'pointer-events-auto cursor-text select-text';
+                    leftDiv.textContent = labelText;
+                    if (isInside) {
+                        leftDiv.style.cssText = `position:absolute; left:8px; top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                    } else {
+                        leftDiv.style.cssText = `position:absolute; right:calc(100% + 7px); top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                    }
+                    labelsOverlay.appendChild(leftDiv);
 
-                        text.textContent = formatCoord(lat, latStep, true);
-                        svg.appendChild(text);
-                    };
-
-                    drawLatLabel(isInside ? dist : -dist, isInside ? "start" : "end", false);
-                    drawLatLabel(isInside ? (pxW - dist) : (pxW + dist), isInside ? "end" : "start", true);
+                    // Etiqueta Derecha
+                    const rightDiv = document.createElement('div');
+                    rightDiv.contentEditable = "true";
+                    rightDiv.spellcheck = false;
+                    rightDiv.className = 'pointer-events-auto cursor-text select-text';
+                    rightDiv.textContent = labelText;
+                    if (isInside) {
+                        rightDiv.style.cssText = `position:absolute; right:8px; top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                    } else {
+                        rightDiv.style.cssText = `position:absolute; left:calc(100% + 7px); top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                    }
+                    labelsOverlay.appendChild(rightDiv);
                 }
             }
             lat = Math.round((lat + latStep) * 1e8) / 1e8;
         }
 
-        // Líneas de Longitud (Verticales)
+        // ─── Líneas de Longitud (Verticales) ───
         const lngStep = config.intervalLng;
         let lng = Math.round((Math.ceil(minLng / lngStep) * lngStep) * 1e8) / 1e8;
         while (lng <= maxLng + (lngStep * 0.02)) {
             const p = m.latLngToContainerPoint(L.latLng(minLat, lng));
-            const x = p.x;
+            const x = Math.round(p.x);
 
-            // Solo dibujar líneas dentro del marco
-            if (x >= -1 && x <= pxW + 1) {
+            if (x >= 0 && x <= pxW) {
+                // Línea de cuadrícula interna
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", x); line.setAttribute("y1", "0");
                 line.setAttribute("x2", x); line.setAttribute("y2", pxH);
@@ -16763,54 +16794,54 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
 
-                // Marcas de cuadrícula en el borde (ticks)
+                // Ticks en bordes superior e inferior
                 const tickT = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickT.setAttribute("x1", x); tickT.setAttribute("y1", "-4");
-                tickT.setAttribute("x2", x); tickT.setAttribute("y2", "4");
+                tickT.setAttribute("x1", x); tickT.setAttribute("y1", isInside ? "0" : "-5");
+                tickT.setAttribute("x2", x); tickT.setAttribute("y2", isInside ? "6" : "0");
                 tickT.setAttribute("stroke", strokeColor); tickT.setAttribute("stroke-width", "1.5");
                 svg.appendChild(tickT);
 
                 const tickB = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickB.setAttribute("x1", x); tickB.setAttribute("y1", pxH - 4);
-                tickB.setAttribute("x2", x); tickB.setAttribute("y2", pxH + 4);
+                tickB.setAttribute("x1", x); tickB.setAttribute("y1", isInside ? (pxH - 6) : pxH);
+                tickB.setAttribute("x2", x); tickB.setAttribute("y2", isInside ? pxH : (pxH + 5));
                 tickB.setAttribute("stroke", strokeColor); tickB.setAttribute("stroke-width", "1.5");
                 svg.appendChild(tickB);
 
                 if (config.showLabels) {
-                    const isInside = config.position === 'inside';
-                    const dist = isInside ? 8 : 10;
+                    const labelText = formatCoord(lng, lngStep, false);
 
-                    const drawLngLabel = (yOffset, dominant) => {
-                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                        text.setAttribute("x", x);
-                        text.setAttribute("y", yOffset);
-                        text.setAttribute("text-anchor", "middle");
-                        text.setAttribute("dominant-baseline", dominant);
-                        text.setAttribute("fill", config.fontColor || "#000000");
-                        text.setAttribute("stroke", "#ffffff");
-                        text.setAttribute("stroke-width", "2.5");
-                        text.setAttribute("paint-order", "stroke fill");
-                        text.setAttribute("font-size", `${Math.max(9, config.fontSize * 1.4)}px`);
-                        text.setAttribute("font-family", (config.fontFamily || "Inter") + ", -apple-system, sans-serif");
-                        text.setAttribute("font-weight", "700");
-                        
-                        if (config.orientLng === 'vertical') {
-                            text.setAttribute("transform", `rotate(-90, ${x}, ${yOffset})`);
-                        }
+                    // Etiqueta Superior
+                    const topDiv = document.createElement('div');
+                    topDiv.contentEditable = "true";
+                    topDiv.spellcheck = false;
+                    topDiv.className = 'pointer-events-auto cursor-text select-text';
+                    topDiv.textContent = labelText;
+                    if (isInside) {
+                        topDiv.style.cssText = `position:absolute; left:${x}px; top:8px; transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                    } else {
+                        topDiv.style.cssText = `position:absolute; left:${x}px; bottom:calc(100% + 7px); transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                    }
+                    labelsOverlay.appendChild(topDiv);
 
-                        text.textContent = formatCoord(lng, lngStep, false);
-                        svg.appendChild(text);
-                    };
-
-                    drawLngLabel(isInside ? dist : -dist, isInside ? "hanging" : "auto");
-                    drawLngLabel(isInside ? (pxH - dist) : (pxH + dist), isInside ? "auto" : "hanging");
+                    // Etiqueta Inferior
+                    const botDiv = document.createElement('div');
+                    botDiv.contentEditable = "true";
+                    botDiv.spellcheck = false;
+                    botDiv.className = 'pointer-events-auto cursor-text select-text';
+                    botDiv.textContent = labelText;
+                    if (isInside) {
+                        botDiv.style.cssText = `position:absolute; left:${x}px; bottom:8px; transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                    } else {
+                        botDiv.style.cssText = `position:absolute; left:${x}px; top:calc(100% + 7px); transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                    }
+                    labelsOverlay.appendChild(botDiv);
                 }
             }
             lng = Math.round((lng + lngStep) * 1e8) / 1e8;
         }
 
-        // Agregar al FRAME (que tiene overflow: visible) para que las etiquetas externas se vean en la hoja
         frame.appendChild(svg);
+        frame.appendChild(labelsOverlay);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -22244,10 +22275,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
           // Mapa por defecto más pequeño para resaltar el fondo y las escaleras arquitectónicas
           mapFrame: { top: '25mm', left: '46mm', width: '135mm', height: '130mm', visible: true },
           compass: { top: '28mm', left: '146mm', width: '30mm', height: '30mm' },
-          titleProps: { top: '214mm', left: '42mm', width: '150mm', height: '14mm' },
-          metadata: { top: '270mm', left: '42mm', width: '150mm', height: '10mm' },
-          legend: { top: '165mm', left: '14mm', width: '65mm', height: '70mm' },
-          scale: { top: '252mm', left: '115mm', width: '80mm', height: '14mm' },
+          titleProps: { top: '165mm', left: '88mm', width: '115mm', height: '16mm' },
+          legend: { top: '165mm', left: '14mm', width: '68mm', height: '78mm' },
+          metadata: { top: '250mm', left: '14mm', width: '92mm', height: '14mm' },
+          scale: { top: '250mm', left: '112mm', width: '84mm', height: '14mm' },
           grid: { enabled: false }
         }
       };
