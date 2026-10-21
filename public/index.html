@@ -5028,6 +5028,75 @@
         <div id="layoutDrawerPropsBody" class="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
             <!-- 1. TÍTULO PRINCIPAL PROPS -->
             <div id="props-title" class="hidden flex-col gap-4">
+                <!-- PANEL TURÍSTICO REGIONAL (Doble línea Cursiva + Bloque 3D) -->
+                <div id="props-title-tourist" class="hidden flex-col gap-3">
+                    <div class="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200 flex items-center justify-between">
+                        <span class="text-[10px] font-black text-emerald-950 uppercase tracking-tight flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[16px] text-emerald-600">brush</span> Estilo Título Turístico
+                        </span>
+                        <span class="text-[9px] bg-emerald-200/60 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Activo</span>
+                    </div>
+
+                    <!-- 1. Texto Cursivo Superior -->
+                    <div class="flex flex-col gap-1.5 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-zinc-600">1. Texto Cursivo Superior</label>
+                        <input type="text" id="touristCursiveInput" oninput="layoutUpdateTouristTitleText('cursive', this.value)" value="Mapa Turístico" placeholder="Ej: Mapa Turístico..." class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-[9px] font-bold text-zinc-500">Color Cursivo</span>
+                            <div class="flex items-center gap-1.5">
+                                <input type="color" id="touristCursiveColor" value="#2d5a27" oninput="layoutUpdateTouristTitleColor('cursive', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('cursive', '#2d5a27')" class="w-4 h-4 rounded-full bg-[#2d5a27] border border-zinc-300" title="Verde Bosque"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('cursive', '#0284c7')" class="w-4 h-4 rounded-full bg-[#0284c7] border border-zinc-300" title="Azul"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('cursive', '#ea580c')" class="w-4 h-4 rounded-full bg-[#ea580c] border border-zinc-300" title="Naranja"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('cursive', '#111115')" class="w-4 h-4 rounded-full bg-[#111115] border border-zinc-300" title="Negro"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Texto Principal (Bloque 3D) -->
+                    <div class="flex flex-col gap-1.5 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-zinc-600">2. Texto Principal (Bloque 3D)</label>
+                        <input type="text" id="touristBlockInput" oninput="layoutUpdateTouristTitleText('block', this.value)" value="REGIONAL" placeholder="Ej: REGIONAL..." class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none uppercase focus:ring-1 focus:ring-emerald-500">
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-[9px] font-bold text-zinc-500">Color Letras 3D</span>
+                            <div class="flex items-center gap-1.5">
+                                <input type="color" id="touristBlockColor" value="#48a942" oninput="layoutUpdateTouristTitleColor('block', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('block', '#48a942')" class="w-4 h-4 rounded-full bg-[#48a942] border border-zinc-300" title="Verde Pradera"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('block', '#fbb040')" class="w-4 h-4 rounded-full bg-[#fbb040] border border-zinc-300" title="Ocre"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('block', '#0284c7')" class="w-4 h-4 rounded-full bg-[#0284c7] border border-zinc-300" title="Azul"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('block', '#ef4444')" class="w-4 h-4 rounded-full bg-[#ef4444] border border-zinc-300" title="Rojo"></button>
+                                <button type="button" onclick="layoutUpdateTouristTitleColor('block', '#ffffff')" class="w-4 h-4 rounded-full bg-[#ffffff] border border-zinc-300" title="Blanco"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Tamaño del Título (Escala General) -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Tamaño General</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="touristTitleScaleSlider" min="20" max="72" value="42" oninput="document.getElementById('touristTitleScaleNum').value = this.value; layoutUpdateTouristTitleSize(this.value)" class="flex-1 accent-emerald-600 cursor-pointer">
+                            <input type="number" id="touristTitleScaleNum" value="42" min="20" max="72" oninput="document.getElementById('touristTitleScaleSlider').value = this.value; layoutUpdateTouristTitleSize(this.value)" class="w-14 bg-zinc-50 border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-center text-zinc-800 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- 4. Contorno y Sombra 3D -->
+                    <div class="grid grid-cols-2 gap-2 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8.5px] font-bold text-zinc-600">Color Borde 3D</label>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <input type="color" id="touristShadowColor" value="#111115" oninput="layoutUpdateTouristTitleColor('shadow', this.value)" class="w-7 h-7 rounded cursor-pointer border-0 p-0 bg-transparent">
+                                <span class="text-[9px] font-mono text-zinc-500">Sombra</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8.5px] font-bold text-zinc-600">Extrusión 3D</label>
+                            <input type="range" id="touristTitleDepthSlider" min="1" max="8" value="4" oninput="layoutUpdateTouristTitleDepth(this.value)" class="accent-emerald-600 cursor-pointer mt-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL ESTÁNDAR DE TÍTULO -->
+                <div id="props-title-standard" class="flex flex-col gap-4">
                 <div class="flex flex-col gap-1.5">
                     <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Texto del Título</label>
                     <input type="text" id="drawerTitleInput" oninput="layoutSyncTitleFromDrawer(this.value)" placeholder="Título del plano..." class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
@@ -5103,6 +5172,7 @@
                 <div class="flex flex-col gap-1.5">
                     <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Diseño de Norte</label>
                     <select onchange="layoutUpdateCompassStyle(this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none">
+                        <option value="tourist-rose">Rosa Turística Regional (Pastoral / Ghibli)</option>
                         <option value="modern">Moderno Minimalista</option>
                         <option value="classic">Clásico Náutico</option>
                         <option value="arrow">Flechas de Norte Simple</option>
@@ -15455,8 +15525,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 metadataContainer.style.border = '1.5px solid #2d5a27';
                 metadataContainer.style.borderRadius = '6px';
             }
+            if (compassEl) {
+                compassEl.style.top = '45mm';
+                compassEl.style.left = '165mm';
+                compassEl.style.width = '28mm';
+                compassEl.style.height = '28mm';
+                compassEl.style.display = 'flex';
+            }
             if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
-            layoutConfig.styles.compass.design = 'pop-geometric';
+            layoutConfig.styles.compass.design = 'tourist-rose';
             layoutConfig.styles.compass.color = '#2d5a27';
             if (!layoutConfig.grid) layoutConfig.grid = {};
             layoutConfig.grid.enabled = false;
@@ -16111,7 +16188,139 @@ async function deleteFromCloud(fileName, url, storagePath) {
         layoutOpenElementProps(key);
     }
 
-    function layoutOpenElementProps(key) {
+    
+    // ════════════ FUNCIONES PARA TÍTULO TURÍSTICO REGIONAL ════════════
+    function layoutSyncTouristTitleFromCanvas() {
+        const curCursive = document.getElementById('touristTitleCursive');
+        const curBlock = document.getElementById('touristTitleBlock');
+        const inputCursive = document.getElementById('touristCursiveInput');
+        const inputBlock = document.getElementById('touristBlockInput');
+        if (curCursive && inputCursive) inputCursive.value = curCursive.innerText.trim();
+        if (curBlock && inputBlock) inputBlock.value = curBlock.innerText.trim();
+    }
+
+    function layoutUpdateTouristTitleText(part, text) {
+        if (part === 'cursive') {
+            const el = document.getElementById('touristTitleCursive');
+            if (el) el.innerText = text;
+        } else if (part === 'block') {
+            const el = document.getElementById('touristTitleBlock');
+            if (el) el.innerText = text.toUpperCase();
+        }
+    }
+
+    function layoutUpdateTouristTitleColor(part, color) {
+        const wrapper = document.getElementById('touristTitleWrapper');
+        const cursive = document.getElementById('touristTitleCursive');
+        const block = document.getElementById('touristTitleBlock');
+
+        if (part === 'cursive') {
+            if (wrapper) wrapper.style.setProperty('--tourist-cursive-color', color);
+            if (cursive) cursive.style.color = color;
+            const input = document.getElementById('touristCursiveColor');
+            if (input) input.value = color;
+        } else if (part === 'block') {
+            if (wrapper) wrapper.style.setProperty('--tourist-block-color', color);
+            if (block) block.style.color = color;
+            const input = document.getElementById('touristBlockColor');
+            if (input) input.value = color;
+        } else if (part === 'shadow') {
+            if (wrapper) wrapper.style.setProperty('--tourist-shadow-color', color);
+            const input = document.getElementById('touristShadowColor');
+            if (input) input.value = color;
+            const depth = document.getElementById('touristTitleDepthSlider') ? document.getElementById('touristTitleDepthSlider').value : 4;
+            layoutUpdateTouristTitleDepth(depth);
+        }
+    }
+
+    function layoutUpdateTouristTitleSize(val) {
+        val = parseInt(val) || 42;
+        const wrapper = document.getElementById('touristTitleWrapper');
+        const cursive = document.getElementById('touristTitleCursive');
+        const block = document.getElementById('touristTitleBlock');
+        const cursiveSize = Math.max(16, Math.round(val * 0.62));
+        const strokeW = Math.max(1.2, (val * 0.05).toFixed(1));
+
+        if (wrapper) {
+            wrapper.style.setProperty('--tourist-block-size', val + 'px');
+            wrapper.style.setProperty('--tourist-cursive-size', cursiveSize + 'px');
+            wrapper.style.setProperty('--tourist-stroke-width', strokeW + 'px');
+        }
+        if (cursive) cursive.style.fontSize = cursiveSize + 'px';
+        if (block) {
+            block.style.fontSize = val + 'px';
+            block.style.webkitTextStroke = strokeW + 'px var(--tourist-shadow-color, #111115)';
+        }
+    }
+
+    function layoutUpdateTouristTitleDepth(depth) {
+        depth = parseInt(depth) || 4;
+        const block = document.getElementById('touristTitleBlock');
+        const shadowColor = document.getElementById('touristShadowColor') ? document.getElementById('touristShadowColor').value : '#111115';
+        if (!block) return;
+
+        let shadowStr = '';
+        for (let i = 1; i <= depth; i++) {
+            shadowStr += `${i}px ${i}px 0 ${shadowColor}, `;
+        }
+        shadowStr += `${depth}px ${depth + 3}px 10px rgba(0,0,0,0.3)`;
+        block.style.textShadow = shadowStr;
+    }
+
+    // ════════════ FUNCIONES PARA LISTA DE ATRACTIVOS Y CONVENCIONES ════════════
+    function layoutAddTouristPoi() {
+        const container = document.getElementById('touristPoiItemsContainer');
+        if (!container) return;
+        const count = container.children.length + 1;
+        const circNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+        const sym = circNums[count - 1] || `(${count})`;
+
+        const row = document.createElement('div');
+        row.className = 'tourist-poi-row group/poi';
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
+        row.innerHTML = `<span contenteditable="true" spellcheck="false" style="outline:none;">${sym} Nuevo Atractivo Turístico (${count})</span><button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-[8px] hidden group-hover/poi:inline font-bold px-0.5 pointer-events-auto">✕</button>`;
+        container.appendChild(row);
+        const span = row.querySelector('span');
+        if (span) span.focus();
+    }
+
+    function layoutAddTouristLegendItem() {
+        const container = document.getElementById('touristLegendItemsContainer');
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = 'tourist-leg-row group/leg';
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
+        row.innerHTML = `<span contenteditable="true" spellcheck="false" style="outline:none;">📌 Nuevo Servicio</span><button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-[8px] hidden group-hover/leg:inline font-bold px-0.5 pointer-events-auto">✕</button>`;
+        container.appendChild(row);
+        const span = row.querySelector('span');
+        if (span) span.focus();
+    }
+
+function layoutOpenElementProps(key) {
+        // Manejo específico si el tema activo es el Mapa Turístico Regional
+        if (key === 'title') {
+            const touristTitleEl = document.getElementById('touristMainTitle');
+            const touristPanel = document.getElementById('props-title-tourist');
+            const stdPanel = document.getElementById('props-title-standard');
+            if (touristTitleEl && touristPanel && stdPanel) {
+                touristPanel.classList.remove('hidden');
+                touristPanel.classList.add('flex');
+                stdPanel.classList.add('hidden');
+                // Sincronizar textos actuales
+                const curCursive = document.getElementById('touristTitleCursive');
+                const curBlock = document.getElementById('touristTitleBlock');
+                if (curCursive && document.getElementById('touristCursiveInput')) {
+                    document.getElementById('touristCursiveInput').value = curCursive.innerText.trim();
+                }
+                if (curBlock && document.getElementById('touristBlockInput')) {
+                    document.getElementById('touristBlockInput').value = curBlock.innerText.trim();
+                }
+            } else if (touristPanel && stdPanel) {
+                touristPanel.classList.add('hidden');
+                touristPanel.classList.remove('flex');
+                stdPanel.classList.remove('hidden');
+            }
+        }
         const drawer = document.getElementById('layoutElementPropsDrawer');
         if (!drawer) return;
         
@@ -16545,6 +16754,68 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <polygon points="50,5 57,28 50,24 43,28" fill="${darkColor}"/>
                     <circle cx="50" cy="50" r="3" fill="${darkColor}"/>
                     <text x="50" y="20" text-anchor="middle" font-size="11" font-family="monospace" font-weight="900" fill="#ffffff">N</text>
+                </svg>`;
+        } else if (design === 'tourist-rose') {
+            svg = `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="compassDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.25)"/>
+                        </filter>
+                    </defs>
+                    <!-- Fondo pergamino circular suave -->
+                    <circle cx="50" cy="50" r="46" fill="#fbf8f0" stroke="${darkColor}" stroke-width="1.8" filter="url(#compassDropShadow)"/>
+                    <!-- Doble aro concéntrico dorado / ocre -->
+                    <circle cx="50" cy="50" r="42.5" fill="none" stroke="#fbb040" stroke-width="1.2"/>
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="${darkColor}" stroke-width="0.7" stroke-dasharray="2 1.5"/>
+
+                    <!-- Marcas graduadas cada 30 y 90 grados -->
+                    <line x1="50" y1="4" x2="50" y2="9" stroke="${darkColor}" stroke-width="1.8"/>
+                    <line x1="50" y1="91" x2="50" y2="96" stroke="${darkColor}" stroke-width="1.5"/>
+                    <line x1="4" y1="50" x2="9" y2="50" stroke="${darkColor}" stroke-width="1.5"/>
+                    <line x1="91" y1="50" x2="96" y2="50" stroke="${darkColor}" stroke-width="1.5"/>
+                    <!-- Marcas diagonales -->
+                    <line x1="17.5" y1="17.5" x2="21" y2="21" stroke="#fbb040" stroke-width="1.2"/>
+                    <line x1="82.5" y1="17.5" x2="79" y2="21" stroke="#fbb040" stroke-width="1.2"/>
+                    <line x1="82.5" y1="82.5" x2="79" y2="79" stroke="#fbb040" stroke-width="1.2"/>
+                    <line x1="17.5" y1="82.5" x2="21" y2="79" stroke="#fbb040" stroke-width="1.2"/>
+
+                    <!-- 4 Puntas intermedias (NE, SE, SO, NO) a 2 tonos -->
+                    <polygon points="50,50 69,31 53,47" fill="${darkColor}" opacity="0.75"/>
+                    <polygon points="50,50 69,31 47,53" fill="#fbb040" opacity="0.75"/>
+                    <polygon points="50,50 69,69 53,53" fill="${darkColor}" opacity="0.75"/>
+                    <polygon points="50,50 69,69 47,47" fill="#fbb040" opacity="0.75"/>
+                    <polygon points="50,50 31,69 47,53" fill="${darkColor}" opacity="0.75"/>
+                    <polygon points="50,50 31,69 53,47" fill="#fbb040" opacity="0.75"/>
+                    <polygon points="50,50 31,31 47,47" fill="${darkColor}" opacity="0.75"/>
+                    <polygon points="50,50 31,31 53,53" fill="#fbb040" opacity="0.75"/>
+
+                    <!-- 4 Puntas cardinales principales -->
+                    <!-- Sur -->
+                    <polygon points="50,50 46,74 50,88" fill="#e2e8f0"/>
+                    <polygon points="50,50 54,74 50,88" fill="${darkColor}"/>
+                    <!-- Este -->
+                    <polygon points="50,50 74,46 88,50" fill="${darkColor}"/>
+                    <polygon points="50,50 74,54 88,50" fill="#e2e8f0"/>
+                    <!-- Oeste -->
+                    <polygon points="50,50 26,46 12,50" fill="#e2e8f0"/>
+                    <polygon points="50,50 26,54 12,50" fill="${darkColor}"/>
+
+                    <!-- Norte (Aguja principal verde bosque y ocre sol) -->
+                    <polygon points="50,50 45,26 50,7" fill="${darkColor}"/>
+                    <polygon points="50,50 55,26 50,7" fill="#fbb040"/>
+                    <polygon points="50,7 52.5,13 50,11.5 47.5,13" fill="${darkColor}"/>
+
+                    <!-- Botón / Joya central -->
+                    <circle cx="50" cy="50" r="7.5" fill="#ffffff" stroke="${darkColor}" stroke-width="1.5"/>
+                    <circle cx="50" cy="50" r="5" fill="#fbb040"/>
+                    <circle cx="50" cy="50" r="2.5" fill="${darkColor}"/>
+
+                    <!-- Letras cardinales clásicas con serif -->
+                    <text x="50" y="22" text-anchor="middle" font-size="12" font-family="'Georgia', serif" font-weight="900" fill="${darkColor}">N</text>
+                    <text x="50" y="84" text-anchor="middle" font-size="9" font-family="'Georgia', serif" font-weight="900" fill="${darkColor}" opacity="0.75">S</text>
+                    <text x="82" y="53.5" text-anchor="middle" font-size="9" font-family="'Georgia', serif" font-weight="900" fill="${darkColor}" opacity="0.75">E</text>
+                    <text x="18" y="53.5" text-anchor="middle" font-size="9" font-family="'Georgia', serif" font-weight="900" fill="${darkColor}" opacity="0.75">O</text>
                 </svg>`;
         } else if (design === 'pop-geometric' || design === 'squid-symbols') {
             svg = `
@@ -17046,6 +17317,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
                 </div>
                 <div class="flex items-center gap-1">
+                    ${l.id === 'touristMainTitle' ? `<button onclick="layoutOpenElementProps('title')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configurar Título"><span class="material-symbols-outlined text-[15px]">settings</span></button>` : ''}
                     <button onclick="layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
                         <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
                     </button>
@@ -22838,6 +23110,30 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.fillText('⛪ Iglesia       ⛽ Gasolina', legX + 5, legY + 23);
       ctx.fillText('🌉 Mirador       🍃 Sendero', legX + 5, legY + 30);
 
+      // ─── ROSA DE LOS VIENTOS TURÍSTICA EN PREVIEW CANVAS ───
+      const cx = mx + mw - 28;
+      const cy = my + 24;
+      ctx.save();
+      ctx.fillStyle = '#fcfaf4';
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#2d5a27'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = '#fbb040'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.stroke();
+      // Puntas norte y sur
+      ctx.fillStyle = '#2d5a27';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - 2.5, cy - 5); ctx.lineTo(cx, cy - 11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fbb040';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 2.5, cy - 5); ctx.lineTo(cx, cy - 11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2d5a27';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 2.5, cy + 5); ctx.lineTo(cx, cy + 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - 2.5, cy + 5); ctx.lineTo(cx, cy + 10); ctx.closePath(); ctx.fill();
+      // Joya central y letra N
+      ctx.fillStyle = '#fbb040'; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2d5a27'; ctx.font = 'bold 5px serif'; ctx.textAlign = 'center';
+      ctx.fillText('N', cx, cy - 12);
+      ctx.restore();
+
       // ─── 5. FRANJA AZUL INFERIOR CON DATOS & QR ───
       ctx.fillStyle = '#0f3b5c';
       ctx.fillRect(0, h * 0.89, w * 0.82, h * 0.11);
@@ -23063,7 +23359,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             metadata: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter' },
             legend: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#2d5a27', design: 'pop-geometric', rotation: 0, size: 28 }
+            compass: { color: '#2d5a27', design: 'tourist-rose', rotation: 0, size: 30 }
           },
           // Mapa central amplio para visualizar la ruta y el territorio
           mapFrame: { top: '38mm', left: '16mm', width: '178mm', height: '198mm', visible: true },
