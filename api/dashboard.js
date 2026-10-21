@@ -27,12 +27,13 @@ module.exports = async (req, res) => {
   let isAdmin = false;
   try {
     const userRes = await db.execute({
-      sql: 'SELECT id, email, role, token_expiry FROM users WHERE token = ?',
+      sql: 'SELECT id, email, token_expiry FROM users WHERE token = ?',
       args: [token]
     });
     if (userRes.rows && userRes.rows.length > 0) {
       const u = userRes.rows[0];
-      if (u.role === 'admin' || u.email === 'admin@aeromap.com' || u.email === 'comicsandroid63@gmail.com') {
+      const email = (u.email || '').toLowerCase().trim();
+      if (email === 'admin@aeromap.com' || email === 'comicsandroid63@gmail.com' || (process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL.toLowerCase().trim())) {
         isAdmin = true;
       }
     }

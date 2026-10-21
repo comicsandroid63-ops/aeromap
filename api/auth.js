@@ -100,10 +100,31 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Email y contraseña requeridos' });
       }
 
-      const result = await db.execute({
-        sql: 'SELECT id, email, password_hash, name, role FROM users WHERE email = ?',
-        args: [email]
+      const cleanEmail = String(email).trim().toLowerCase();
+
+      let result = await db.execute({
+        sql: 'SELECT id, email, password_hash, name FROM users WHERE lower(email) = ?',
+        args: [cleanEmail]
       });
+
+      // Auto-crear cuenta admin@aeromap.com si no existe aún en la base de datos
+      if ((!result.rows || result.rows.length === 0) && cleanEmail === 'admin@aeromap.com') {
+        const id = crypto.randomUUID();
+        const passwordHash = hashPassword('admin123456');
+        try {
+          await db.execute({
+            sql: 'INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)',
+            args: [id, 'admin@aeromap.com', passwordHash, 'Administrador']
+          });
+          result = await db.execute({
+            sql: 'SELECT id, email, password_hash, name FROM users WHERE lower(email) = ?',
+            args: ['admin@aeromap.com']
+          });
+        } catch (e) {
+          console.warn('[Auth] Error auto-seeding admin:', e.message);
+        }
+      }
+
       if (!result.rows || result.rows.length === 0) {
         return res.status(401).json({ error: 'Credenciales inválidas' });
       }
@@ -120,8 +141,10 @@ module.exports = async function handler(req, res) {
         args: [token, tokenExpiry, user.id]
       });
 
-      const isAdmin = user.role === 'admin' || user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com';
-      return res.json({ id: user.id, email: user.email, name: user.name, role: user.role || (isAdmin ? 'admin' : 'user'), isAdmin, token });
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const isAdmin = userEmail === 'admin@aeromap.com' || userEmail === 'comicsandroid63@gmail.com' || (process.env.ADMIN_EMAIL && userEmail === process.env.ADMIN_EMAIL.toLowerCase().trim());
+      const role = isAdmin ? 'admin' : 'user';
+      return res.json({ id: user.id, email: user.email, name: user.name, role, isAdmin, token });
     }
 
     if (action === 'verify') {
@@ -131,7 +154,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await db.execute({
-        sql: 'SELECT id, email, name, role, token_expiry FROM users WHERE token = ?',
+        sql: 'SELECT id, email, name, token_expiry FROM users WHERE token = ?',
         args: [token]
       });
       if (!result.rows || result.rows.length === 0) {
@@ -143,8 +166,10 @@ module.exports = async function handler(req, res) {
         return res.status(401).json({ error: 'Token expirado' });
       }
 
-      const isAdmin = user.role === 'admin' || user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com';
-      return res.json({ id: user.id, email: user.email, name: user.name, role: user.role || (isAdmin ? 'admin' : 'user'), isAdmin });
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const isAdmin = userEmail === 'admin@aeromap.com' || userEmail === 'comicsandroid63@gmail.com' || (process.env.ADMIN_EMAIL && userEmail === process.env.ADMIN_EMAIL.toLowerCase().trim());
+      const role = isAdmin ? 'admin' : 'user';
+      return res.json({ id: user.id, email: user.email, name: user.name, role, isAdmin });
     }
 
     if (action === 'logout') {
