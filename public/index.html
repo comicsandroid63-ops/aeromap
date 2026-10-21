@@ -4906,7 +4906,7 @@
         <!-- The "Paper" -->
         <div id="layoutPaper" onclick="onLayoutPaperClick(event)" ondragover="layoutResourceDragOver(event)" ondrop="layoutResourceDrop(event)" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
             <!-- Map Element -->
-            <div id="layoutMapFrame" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 170mm; height: 170mm; top: 20mm; left: 20mm; transition: all 0.3s; overflow: visible;">
+            <div id="layoutMapFrame" onclick="layoutSelectElement('mapFrame')" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 170mm; height: 170mm; top: 20mm; left: 20mm; transition: all 0.3s; overflow: visible;">
                 <!-- Floating Toolbar on Frame -->
                 <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-xl shadow-2xl border border-white/20 flex items-center gap-1 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
                     <button id="floatBtnModeContent" onclick="setLayoutMapMode('content')" class="px-2.5 py-1 bg-white text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all" title="Mover la vista del mapa desde dentro">
@@ -4991,7 +4991,7 @@
             <div id="layoutFooter" style="display: none"></div>
             
             <!-- Compass Element (Draggable) -->
-            <div id="layoutCompass" onclick="layoutOpenElementProps('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 30mm; height: 30mm; top: 220mm; left: 160mm;">
+            <div id="layoutCompass" onclick="layoutSelectElement('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 30mm; height: 30mm; top: 220mm; left: 160mm;">
                 <div id="layoutCompassContainer" class="w-full h-full relative flex items-center justify-center pointer-events-none">
                     <!-- Compass designs will be injected via JS -->
                 </div>
@@ -5392,7 +5392,98 @@
         </div>
       </div>
 
-      <!-- Settings Sidebar -->
+      
+            <!-- 7. PUNTOS DE INTERÉS PROPS -->
+            <div id="props-touristPoiList" class="hidden flex-col gap-4">
+                <div class="flex items-center justify-between p-2.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-emerald-900">Lista de Atractivos</span>
+                    <button type="button" onclick="layoutAddTouristPoi(); layoutSyncDrawerPoiList();" class="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded shadow" title="Añadir Atractivo">+ Añadir Parada</button>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Título de la Tarjeta</label>
+                    <input type="text" id="touristPoiHeaderTitleInput" oninput="const el = document.getElementById('touristPoiHeaderTitle'); if(el) el.innerText = this.value;" value="PUNTOS DE INTERÉS" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Paradas y Sitios (Editar o Eliminar)</label>
+                    <div id="touristPoiDrawerItems" class="flex flex-col gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
+                        <!-- Generado dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. CONVENCIONES Y SERVICIOS PROPS -->
+            <div id="props-touristLegendBox" class="hidden flex-col gap-4">
+                <div class="flex items-center justify-between p-2.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-emerald-900">Simbología del Mapa</span>
+                    <button type="button" onclick="layoutAddTouristLegendItem(); layoutSyncDrawerLegendList();" class="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded shadow" title="Añadir Convención">+ Añadir Servicio</button>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Título de Convenciones</label>
+                    <input type="text" id="touristLegendHeaderTitleInput" oninput="const el = document.getElementById('touristLegendHeaderTitle'); if(el) el.innerText = this.value;" value="CONVENCIONES" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Servicios y Convenciones</label>
+                    <div id="touristLegendDrawerItems" class="flex flex-col gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
+                        <!-- Generado dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 9. EMBLEMA TURÍSTICO PROPS -->
+            <div id="props-touristTopLogo" class="hidden flex-col gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Nombre de Entidad / Destino</label>
+                    <input type="text" id="touristLogoTitleInput" oninput="layoutUpdateTouristLogo('title', this.value)" value="EXPLORA TOLIMA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Subtítulo / Lema</label>
+                    <input type="text" id="touristLogoSubInput" oninput="layoutUpdateTouristLogo('subtitle', this.value)" value="CORPORACIÓN TURÍSTICA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Color de Texto</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" value="#1b3816" oninput="layoutUpdateTouristLogo('color', this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#1b3816')" class="w-4 h-4 rounded-full bg-[#1b3816] border border-zinc-300"></button>
+                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#0284c7')" class="w-4 h-4 rounded-full bg-[#0284c7] border border-zinc-300"></button>
+                            <button type="button" onclick="layoutUpdateTouristLogo('color', '#ea580c')" class="w-4 h-4 rounded-full bg-[#ea580c] border border-zinc-300"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10. FRANJA INFERIOR Y CONTACTO PROPS -->
+            <div id="props-touristFooterBanner" class="hidden flex-col gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Texto Promocional</label>
+                    <input type="text" id="touristFooterPromoInput" oninput="layoutUpdateTouristFooter('promo', this.value)" value="¿Quieres aparecer en el Mapa Turístico?" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Teléfono / Contacto</label>
+                    <input type="text" id="touristFooterPhoneInput" oninput="layoutUpdateTouristFooter('phone', this.value)" value="📞 Comunícate: (+57) 312 549 1252" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Sitio Web / Enlace</label>
+                    <input type="text" id="touristFooterWebInput" oninput="layoutUpdateTouristFooter('web', this.value)" value="🌐 Visita nuestra página: corporacionturismo.org" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                </div>
+            </div>
+
+            <!-- 11. ACENTOS DE ESQUINA PROPS -->
+            <div id="props-touristCornerAccents" class="hidden flex-col gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Color de Formas Orgánicas</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" value="#fbb040" oninput="layoutUpdateTouristCornerColor(this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="layoutUpdateTouristCornerColor('#fbb040')" class="w-4 h-4 rounded-full bg-[#fbb040] border border-zinc-300" title="Ocre Sol"></button>
+                            <button type="button" onclick="layoutUpdateTouristCornerColor('#72bde8')" class="w-4 h-4 rounded-full bg-[#72bde8] border border-zinc-300" title="Celeste"></button>
+                            <button type="button" onclick="layoutUpdateTouristCornerColor('#48a942')" class="w-4 h-4 rounded-full bg-[#48a942] border border-zinc-300" title="Verde Pradera"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+<!-- Settings Sidebar -->
       <aside class="w-80 bg-white border-l border-zinc-100 flex flex-col overflow-y-auto custom-scrollbar p-6 gap-8 shadow-[-10px_0_40px_rgba(0,0,0,0.02)]">
         <div>
             <span class="text-[10px] font-bold text-primary-fixed uppercase tracking-tighter mb-4 block underline underline-offset-8 decoration-2">Propiedades del Elemento</span>
@@ -5407,7 +5498,7 @@
                     
                     <div class="space-y-1.5" id="layoutElementsList">
                         <!-- Marco de Mapa -->
-                        <div class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group">
+                        <div onclick="layoutSelectElement('mapFrame')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer">
                            <div class="flex items-center gap-3">
                                <span class="material-symbols-outlined text-[16px] text-zinc-500">map</span>
                                <span class="text-[10px] font-bold uppercase tracking-tight">Marco de Mapa</span>
@@ -5423,7 +5514,7 @@
                         </div>
 
                         <!-- Título Principal -->
-                        <div class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group">
+                        <div onclick="layoutSelectElement('title')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer">
                            <div class="flex items-center gap-3">
                                <span class="material-symbols-outlined text-[16px] text-zinc-500">title</span>
                                <span class="text-[10px] font-bold uppercase tracking-tight">Título Principal</span>
@@ -5471,7 +5562,7 @@
                         </div>
 
                         <!-- Escala Visual -->
-                        <div class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group">
+                        <div onclick="layoutSelectElement('scale')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer">
                            <div class="flex items-center gap-3">
                                <span class="material-symbols-outlined text-[16px] text-zinc-500">linear_scale</span>
                                <span class="text-[10px] font-bold uppercase tracking-tight">Escala Visual</span>
@@ -15337,7 +15428,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             decor.innerHTML = `
                 <!-- 1. CAPA FONDOS: Formas Curvas de Esquina (Amarillo Ámbar y Celeste Pastoral) -->
-                <div id="touristCornerAccents" class="layout-draggable-item group z-[2]" style="position:absolute;inset:0;pointer-events:auto;cursor:move;" title="Fondo: Formas Orgánicas de Esquina (Arrastrar o redimensionar)">
+                <div id="touristCornerAccents" onclick="layoutSelectElement('touristCornerAccents')" class="layout-draggable-item group z-[2]" style="position:absolute;inset:0;pointer-events:auto;cursor:move;" title="Fondo: Formas Orgánicas de Esquina (Arrastrar o redimensionar)">
                     <svg viewBox="0 0 210 297" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
                         <!-- Curva esquina superior izquierda (Ocre cálido / sol) -->
                         <path d="M 0,0 L 75,0 Q 45,30 20,45 Q 5,55 0,70 Z" fill="#fbb040" opacity="0.95" />
@@ -15389,7 +15480,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 </div>
 
                 <!-- 4. CAPA LISTA POIs: Lista Numerada de Atractivos (1 al 14) -->
-                <div id="touristPoiList" class="layout-draggable-item group z-[24]" style="position:absolute;top:52mm;left:134mm;width:70mm;cursor:move;pointer-events:auto;padding:2px;" title="Lista Numerada de Atractivos Turísticos (Arrastrar o editar)">
+                <div id="touristPoiList" onclick="layoutSelectElement('touristPoiList')" class="layout-draggable-item group z-[24]" style="position:absolute;top:52mm;left:134mm;width:70mm;cursor:move;pointer-events:auto;padding:2px;" title="Lista Numerada de Atractivos Turísticos (Arrastrar o editar)">
                     <div class="tmpl-drag-handle absolute -top-3.5 right-0 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Lista
                     </div>
@@ -15437,7 +15528,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 </div>
 
                 <!-- 6. CAPA PIE: Franja Inferior de Contacto, Redes & QR (Exacto a images (4).jpg) -->
-                <div id="touristFooterBanner" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto &amp; QR (Arrastrar o redimensionar)">
+                <div id="touristFooterBanner" onclick="layoutSelectElement('touristFooterBanner')" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto &amp; QR (Arrastrar o redimensionar)">
                     <div class="tmpl-drag-handle absolute -top-3.5 left-6 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Franja Inferior
                     </div>
@@ -15445,9 +15536,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <div style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;justify-content:space-between;padding:0 10mm;color:#ffffff;font-family:Inter,sans-serif;">
                         <!-- Bloque Izquierdo: Teléfono y Web -->
                         <div style="display:flex;flex-direction:column;gap:2px;max-width:85mm;">
-                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
-                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
-                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
+                            <span id="touristFooterPromoText" contenteditable="true" spellcheck="false" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
+                            <span id="touristFooterPhoneText" contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
+                            <span id="touristFooterWebText" contenteditable="true" spellcheck="false" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
                         </div>
 
                         <!-- Bloque Central: Códigos QR estilizados -->
@@ -16296,6 +16387,129 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (span) span.focus();
     }
 
+
+    // ════════════ SELECCIÓN ACTIVA DE ELEMENTOS (Comportamiento rueda de configuración) ════════════
+    function layoutSelectElement(key) {
+        if (!key) return;
+        
+        // 1. Quitar selección de cualquier elemento previo en el papel
+        document.querySelectorAll('.layout-element-selected').forEach(el => {
+            el.classList.remove('layout-element-selected');
+            el.style.outline = 'none';
+            el.style.boxShadow = '';
+        });
+
+        // 2. Mapear clave al elemento visual en el lienzo
+        const elementIdMap = {
+            title: (document.getElementById('touristMainTitle') && layoutConfig.theme === 'ghibli') ? 'touristMainTitle' : 'layoutTitleContainer',
+            compass: 'layoutCompass',
+            mapFrame: 'layoutMapFrame',
+            metadata: 'layoutMetadataContainer',
+            legend: (document.getElementById('touristLegendBox') && layoutConfig.theme === 'ghibli') ? 'touristLegendBox' : 'layoutLegendContainer',
+            scale: 'layoutScaleContainer',
+            touristPoiList: 'touristPoiList',
+            touristLegendBox: 'touristLegendBox',
+            touristTopLogo: 'touristTopLogo',
+            touristFooterBanner: 'touristFooterBanner',
+            touristCornerAccents: 'touristCornerAccents'
+        };
+
+        const targetId = elementIdMap[key] || key;
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+            targetEl.classList.add('layout-element-selected');
+            targetEl.style.outline = '2px solid #10b981';
+            targetEl.style.outlineOffset = '2px';
+            targetEl.style.borderRadius = '6px';
+        }
+
+        // 3. Abrir automáticamente el panel de configuración como la rueda
+        layoutOpenElementProps(key);
+    }
+    window.layoutSelectElement = layoutSelectElement;
+
+    // Sincronizaciones para Logo Turístico
+    function layoutUpdateTouristLogo(field, val) {
+        if (field === 'title') {
+            const el = document.getElementById('touristLogoTitle');
+            if (el) el.innerText = val;
+        } else if (field === 'subtitle') {
+            const el = document.getElementById('touristLogoSubtitle');
+            if (el) el.innerText = val;
+        } else if (field === 'color') {
+            const el1 = document.getElementById('touristLogoTitle');
+            if (el1) el1.style.color = val;
+        }
+    }
+
+    // Sincronizaciones para Footer Turístico
+    function layoutUpdateTouristFooter(field, val) {
+        const banner = document.getElementById('touristFooterBanner');
+        if (!banner) return;
+        if (field === 'promo') {
+            const el = document.getElementById('touristFooterPromoText');
+            if (el) el.innerText = val;
+        } else if (field === 'phone') {
+            const el = document.getElementById('touristFooterPhoneText');
+            if (el) el.innerText = val;
+        } else if (field === 'web') {
+            const el = document.getElementById('touristFooterWebText');
+            if (el) el.innerText = val;
+        }
+    }
+
+    // Sincronización para Acentos de Esquina
+    function layoutUpdateTouristCornerColor(color) {
+        const svg = document.querySelector('#touristCornerAccents svg');
+        if (svg) {
+            const paths = svg.querySelectorAll('path');
+            if (paths[0]) paths[0].setAttribute('fill', color);
+            if (paths[2]) paths[2].setAttribute('fill', color);
+        }
+    }
+
+    // Sincronización dinámica de inputs en el panel POI
+    function layoutSyncDrawerPoiList() {
+        const container = document.getElementById('touristPoiDrawerItems');
+        const domContainer = document.getElementById('touristPoiItemsContainer');
+        if (!container || !domContainer) return;
+        container.innerHTML = '';
+
+        const rows = domContainer.querySelectorAll('.tourist-poi-row');
+        rows.forEach((r, idx) => {
+            const span = r.querySelector('span');
+            if (!span) return;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex items-center gap-1.5';
+            itemDiv.innerHTML = `
+                <input type="text" value="${span.innerText.replace(/"/g, '&quot;')}" oninput="document.querySelectorAll('#touristPoiItemsContainer .tourist-poi-row span')[${idx}].innerText = this.value" class="flex-1 bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                <button type="button" onclick="document.querySelectorAll('#touristPoiItemsContainer .tourist-poi-row')[${idx}]?.remove(); layoutSyncDrawerPoiList();" class="text-red-500 hover:text-red-700 font-bold p-1 text-xs" title="Eliminar">✕</button>
+            `;
+            container.appendChild(itemDiv);
+        });
+    }
+
+    // Sincronización dinámica de inputs en el panel Leyenda / Convenciones
+    function layoutSyncDrawerLegendList() {
+        const container = document.getElementById('touristLegendDrawerItems');
+        const domContainer = document.getElementById('touristLegendItemsContainer');
+        if (!container || !domContainer) return;
+        container.innerHTML = '';
+
+        const rows = domContainer.querySelectorAll('.tourist-leg-row');
+        rows.forEach((r, idx) => {
+            const span = r.querySelector('span');
+            if (!span) return;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex items-center gap-1.5';
+            itemDiv.innerHTML = `
+                <input type="text" value="${span.innerText.replace(/"/g, '&quot;')}" oninput="document.querySelectorAll('#touristLegendItemsContainer .tourist-leg-row span')[${idx}].innerText = this.value" class="flex-1 bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                <button type="button" onclick="document.querySelectorAll('#touristLegendItemsContainer .tourist-leg-row')[${idx}]?.remove(); layoutSyncDrawerLegendList();" class="text-red-500 hover:text-red-700 font-bold p-1 text-xs" title="Eliminar">✕</button>
+            `;
+            container.appendChild(itemDiv);
+        });
+    }
+
 function layoutOpenElementProps(key) {
         // Manejo específico si el tema activo es el Mapa Turístico Regional
         if (key === 'title') {
@@ -16340,13 +16554,37 @@ function layoutOpenElementProps(key) {
         }
         
         const infoMap = {
-            title: { icon: 'title', title: 'Título Principal', subtitle: 'Estilo, tipografía y alineación' },
-            compass: { icon: 'explore', title: 'Rosa de los Vientos', subtitle: 'Diseño de norte y rotación' },
+            title: { icon: 'title', title: 'Título Principal', subtitle: 'Estilo, tipografía y relieve 3D' },
+            compass: { icon: 'explore', title: 'Rosa de los Vientos', subtitle: 'Diseño de norte, rotación y color' },
             mapFrame: { icon: 'map', title: 'Marco de Mapa', subtitle: 'Encuadre, zoom y cuadrícula' },
             metadata: { icon: 'info', title: 'Metadatos Espaciales', subtitle: 'Fecha, coordenadas y fuente' },
             legend: { icon: 'list_alt', title: 'Leyenda Activa', subtitle: 'Diseño, columnas y colores' },
-            scale: { icon: 'linear_scale', title: 'Escala Visual', subtitle: 'Regleta métrica y formato' }
+            scale: { icon: 'linear_scale', title: 'Escala Visual', subtitle: 'Regleta métrica y formato' },
+            touristPoiList: { icon: 'format_list_numbered', title: 'Puntos de Interés (POI)', subtitle: 'Atractivos, paradas turísticas y numeración' },
+            touristLegendBox: { icon: 'category', title: 'Convenciones y Servicios', subtitle: 'Iconografía y simbología del mapa' },
+            touristTopLogo: { icon: 'verified', title: 'Logo / Emblema Turístico', subtitle: 'Destino, corporación y subtítulo' },
+            touristFooterBanner: { icon: 'contact_page', title: 'Franja Inferior & Contacto', subtitle: 'Teléfono, portal web y códigos QR' },
+            touristCornerAccents: { icon: 'palette', title: 'Acentos Curvos de Fondo', subtitle: 'Formas orgánicas y colores de esquina' }
         };
+
+        // Disparar sincronización según el elemento abierto
+        if (key === 'touristPoiList' && typeof layoutSyncDrawerPoiList === 'function') {
+            layoutSyncDrawerPoiList();
+        } else if (key === 'touristLegendBox' && typeof layoutSyncDrawerLegendList === 'function') {
+            layoutSyncDrawerLegendList();
+        } else if (key === 'touristTopLogo') {
+            const tLogo = document.getElementById('touristLogoTitle');
+            const sLogo = document.getElementById('touristLogoSubtitle');
+            if (tLogo && document.getElementById('touristLogoTitleInput')) document.getElementById('touristLogoTitleInput').value = tLogo.innerText.trim();
+            if (sLogo && document.getElementById('touristLogoSubInput')) document.getElementById('touristLogoSubInput').value = sLogo.innerText.trim();
+        } else if (key === 'touristFooterBanner') {
+            const p = document.getElementById('touristFooterPromoText');
+            const ph = document.getElementById('touristFooterPhoneText');
+            const w = document.getElementById('touristFooterWebText');
+            if (p && document.getElementById('touristFooterPromoInput')) document.getElementById('touristFooterPromoInput').value = p.innerText.trim();
+            if (ph && document.getElementById('touristFooterPhoneInput')) document.getElementById('touristFooterPhoneInput').value = ph.innerText.trim();
+            if (w && document.getElementById('touristFooterWebInput')) document.getElementById('touristFooterWebInput').value = w.innerText.trim();
+        }
         
         const info = infoMap[key] || { icon: 'rectangle', title: 'Elemento de Diseño', subtitle: 'Ajustes del elemento' };
         
@@ -17310,14 +17548,31 @@ function layoutOpenElementProps(key) {
             const targetEl = document.getElementById(l.id);
             if (!targetEl) return;
             const row = document.createElement('div');
-            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5';
+            const elemKeyMap = {
+                touristMainTitle: 'title',
+                layoutCompass: 'compass',
+                touristPoiList: 'touristPoiList',
+                touristLegendBox: 'touristLegendBox',
+                touristTopLogo: 'touristTopLogo',
+                touristFooterBanner: 'touristFooterBanner',
+                touristCornerAccents: 'touristCornerAccents'
+            };
+            const propKey = elemKeyMap[l.id] || l.id;
+
+            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5 cursor-pointer';
+            row.onclick = function(e) {
+                if (e.target.closest('button')) return;
+                layoutSelectElement(propKey);
+            };
             row.innerHTML = `
-                <div class="flex items-center gap-2.5 truncate cursor-pointer" onclick="document.getElementById('${l.id}')?.scrollIntoView({behavior:'smooth',block:'center'});">
+                <div class="flex items-center gap-2.5 truncate cursor-pointer">
                     <span class="material-symbols-outlined text-[15px] text-zinc-400">${l.icon}</span>
                     <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    ${l.id === 'touristMainTitle' ? `<button onclick="layoutOpenElementProps('title')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configurar Título"><span class="material-symbols-outlined text-[15px]">settings</span></button>` : ''}
+                    <button onclick="layoutSelectElement('${propKey}')" id="gear-btn-${propKey}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configurar / Editar">
+                        <span class="material-symbols-outlined text-[15px]">settings</span>
+                    </button>
                     <button onclick="layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
                         <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
                     </button>
