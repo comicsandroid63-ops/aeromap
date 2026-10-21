@@ -1970,90 +1970,109 @@
       <div style="max-width:1200px;margin:0 auto;">
 
       <!-- Salidas Gráficas - Templates -->
-      <div class="mb-10">
-        <div class="flex items-center justify-between mb-6">
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="text-2xl font-bold" style="color:#1a1c1f;">Salidas Gráficas</h2>
-            <p class="text-sm" style="color:#666;">Plantillas de exportación profesional para tus mapas</p>
+            <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Salidas Gráficas</h2>
+            <p class="text-xs sm:text-sm" style="color:#666;">Plantillas de exportación profesional para tus mapas</p>
           </div>
-          <button onclick="createProject()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
-            <span class="material-symbols-outlined text-[18px]">add</span>
+          <button onclick="createProject()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
+            <span class="material-symbols-outlined text-[17px]">add</span>
             Nuevo Mapa
           </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="templateGrid">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="templateGrid">
           <!-- 1. Arquitectura Pop Geométrica -->
-          <div onclick="applyTemplate('pop_geometric')" class="template-card group cursor-pointer overflow-hidden rounded-2xl border-2 border-pink-400 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="pop_geometric">
-            <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-pink-300 flex items-center justify-center" id="templatePreview-pop_geometric">
-              <span class="template-badge absolute top-3 left-3 bg-[#111115] text-[#ff2a85] font-black tracking-widest text-[11px] px-3.5 py-1.5 rounded-full shadow-lg border border-[#ff2a85] z-10 flex items-center gap-1.5">
-                <span class="inline-block w-2.5 h-2.5 rounded-full border border-[#00a8e8]"></span>
-                <span class="inline-block w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[9px] border-b-[#ff2a85]"></span>
-                <span class="inline-block w-2.5 h-2.5 border border-[#fbb040]"></span>
+          <div onclick="applyTemplate('pop_geometric')" class="template-card group cursor-pointer overflow-hidden rounded-xl border border-pink-400/80 bg-white shadow-md hover:shadow-xl transition-all duration-300" data-template="pop_geometric">
+            <div class="template-preview relative h-36 sm:h-40 w-full overflow-hidden bg-pink-300 flex items-center justify-center" id="templatePreview-pop_geometric">
+              <span class="template-badge absolute top-2.5 left-2.5 bg-[#111115] text-[#ff2a85] font-black tracking-widest text-[9.5px] px-2.5 py-1 rounded-full shadow border border-[#ff2a85] z-10 flex items-center gap-1.5">
+                <span class="inline-block w-2 h-2 rounded-full border border-[#00a8e8]"></span>
+                <span class="inline-block w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[7px] border-b-[#ff2a85]"></span>
+                <span class="inline-block w-2 h-2 border border-[#fbb040]"></span>
                 POP GEOMÉTRICO
               </span>
-              <span class="absolute top-3 right-3 bg-[#008259] text-white font-extrabold text-[10px] px-2.5 py-1 rounded shadow-md z-10">
+              <span class="absolute top-2.5 right-2.5 bg-[#008259] text-white font-extrabold text-[9px] px-2 py-0.5 rounded shadow z-10">
                 A4 VERTICAL
               </span>
             </div>
-            <div class="p-4 sm:p-5 bg-gradient-to-r from-zinc-900 to-zinc-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t-4 border-[#ff2a85]">
-              <div>
-                <div class="flex items-center gap-2 mb-1">
-                  <h4 class="text-base sm:text-lg font-black tracking-wider text-white group-hover:text-[#ff2a85] transition-colors uppercase">
+            <div class="p-3 sm:p-3.5 bg-gradient-to-r from-zinc-900 to-zinc-950 text-white flex items-center justify-between gap-3 border-t-2 border-[#ff2a85]">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                  <h4 class="text-xs sm:text-sm font-black tracking-wide text-white group-hover:text-[#ff2a85] transition-colors uppercase truncate">
                     Arquitectura Pop Geométrica
                   </h4>
-                  <span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40">EDITORIAL</span>
+                  <span class="text-[8px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-400/40 shrink-0">EDITORIAL</span>
                 </div>
-                <p class="text-xs text-zinc-300 leading-snug">
-                  Estética cromática moderna: muros rosa chicle, escaleras celestes y doradas, marco verde esmeralda y membrete 100% editable.
+                <p class="text-[11px] text-zinc-300 truncate">
+                  Muros rosa, escaleras celestes/doradas y membrete editable
                 </p>
               </div>
-              <button class="shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs bg-[#ff2a85] hover:bg-[#e1146d] text-white shadow-lg transition-transform group-hover:scale-105 flex items-center gap-2">
-                <span>Usar Plantilla</span>
-                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+              <button class="shrink-0 px-3.5 py-1.5 rounded-lg font-bold text-xs bg-[#ff2a85] hover:bg-[#e1146d] text-white shadow transition-transform group-hover:scale-105 flex items-center gap-1.5">
+                <span>Usar</span>
+                <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Cartografía Editorial Pastoral -->
+          <div onclick="applyTemplate('ghibli')" class="template-card group cursor-pointer overflow-hidden rounded-xl border border-emerald-500/80 bg-white shadow-md hover:shadow-xl transition-all duration-300" data-template="ghibli">
+            <div class="template-preview relative h-36 sm:h-40 w-full overflow-hidden bg-sky-200 flex items-center justify-center" id="templatePreview-ghibli">
+              <span class="template-badge absolute top-2.5 left-2.5 bg-[#111115] text-[#4ade80] font-black tracking-widest text-[9.5px] px-2.5 py-1 rounded-full shadow border border-[#4ade80] z-10 flex items-center gap-1.5">
+                <span class="text-xs">🍃</span>
+                PASTORAL ILUSTRADO
+              </span>
+              <span class="absolute top-2.5 right-2.5 bg-[#15803d] text-white font-extrabold text-[9px] px-2 py-0.5 rounded shadow z-10">
+                A4 VERTICAL
+              </span>
+            </div>
+            <div class="p-3 sm:p-3.5 bg-gradient-to-r from-emerald-950 via-zinc-950 to-zinc-950 text-white flex items-center justify-between gap-3 border-t-2 border-[#22c55e]">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                  <h4 class="text-xs sm:text-sm font-black tracking-wide text-white group-hover:text-[#4ade80] transition-colors uppercase truncate">
+                    Cartografía Editorial Pastoral
+                  </h4>
+                  <span class="text-[8px] font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-400/40 shrink-0">PAISAJE</span>
+                </div>
+                <p class="text-[11px] text-zinc-300 truncate">
+                  Colinas verdes, cielo suave, árbol ancestral y tipografía editorial
+                </p>
+              </div>
+              <button class="shrink-0 px-3.5 py-1.5 rounded-lg font-bold text-xs bg-[#22c55e] hover:bg-[#16a34a] text-white shadow transition-transform group-hover:scale-105 flex items-center gap-1.5">
+                <span>Usar</span>
+                <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-
-
-          <!-- 2. Cartografía Editorial Pastoral -->
-          <div onclick="applyTemplate('ghibli')" class="template-card group cursor-pointer overflow-hidden rounded-2xl border-2 border-emerald-500 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="ghibli">
-            <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-sky-200 flex items-center justify-center" id="templatePreview-ghibli">
-              <span class="template-badge absolute top-3 left-3 bg-[#111115] text-[#4ade80] font-black tracking-widest text-[11px] px-3.5 py-1.5 rounded-full shadow-lg border border-[#4ade80] z-10 flex items-center gap-1.5">
-                <span class="text-sm">🍃</span>
-                PASTORAL ILUSTRADO
-              </span>
-              <span class="absolute top-3 right-3 bg-[#15803d] text-white font-extrabold text-[10px] px-2.5 py-1 rounded shadow-md z-10">
-                A4 VERTICAL
-              </span>
-            </div>
-            <div class="p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-zinc-950 to-zinc-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t-4 border-[#22c55e]">
-              <div>
-                <div class="flex items-center gap-2 mb-1">
-                  <h4 class="text-base sm:text-lg font-black tracking-wider text-white group-hover:text-[#4ade80] transition-colors uppercase">
-                    Cartografía Editorial Pastoral
-                  </h4>
-                  <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/40">PAISAJE &amp; NATURALEZA</span>
-                </div>
-                <p class="text-xs text-zinc-300 leading-snug">
-                  Estética editorial ilustrada: colinas verdes en degradado, cielo celeste con nubes suaves, árbol ancestral, marco botánico y tipografía editorial de libro de arte 100% editable.
-                </p>
-              </div>
-              <button class="shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs bg-[#22c55e] hover:bg-[#16a34a] text-white shadow-lg transition-transform group-hover:scale-105 flex items-center gap-2">
-                <span>Usar Plantilla</span>
-                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </button>
-            </div>
+      <!-- ═══════ MAP HISTORY ═══════ -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Map History</h2>
+            <p class="text-xs sm:text-sm" style="color:#666;">Diseña historias visuales para tus mapas con estilos minimalistas</p>
           </div>
+          <button onclick="openMapHistoryDesigner()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
+            <span class="material-symbols-outlined text-[17px]">auto_stories</span>
+            Crear Historia
+          </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="mapHistoryGrid">
+          <div onclick="openMapHistoryDesigner('oscuro')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0f0f0f 0%,#2a2a2a 50%,#1a1a2e 100%);">
+              <div style="text-align:center;color:#fff;">
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
+              </div>
+            </div>
             <div class="p-3">
               <h4 class="text-sm font-semibold" style="color:#1a1c1f;">Nocturno</h4>
               <p class="text-[11px]" style="color:#999;">Fondo oscuro · tonos azulados</p>
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('claro')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#f5f5f0 0%,#ffffff 50%,#e8e8e0 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#f5f5f0 0%,#ffffff 50%,#e8e8e0 100%);">
               <div style="text-align:center;color:#1a1c1f;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.4;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2065,7 +2084,7 @@
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('naturaleza')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#1a3c34 0%,#2d6a4f 50%,#40916c 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#1b3b22 0%,#2d5a35 50%,#4a7c59 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2077,7 +2096,7 @@
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('minimal')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#000000 0%,#333333 50%,#666666 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#000000 0%,#333333 50%,#666666 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2091,7 +2110,7 @@
         </div>
         <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div onclick="openMapHistoryDesigner('oceano')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 50%,#2d6a9f 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 50%,#2d6a9f 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2103,7 +2122,7 @@
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('atardecer')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#2d1b00 0%,#8b4513 50%,#d4a373 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#2d1b00 0%,#8b4513 50%,#d4a373 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2115,7 +2134,7 @@
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('bosque')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0b2b1a 0%,#1b5e3a 50%,#3b8b5e 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0b2b1a 0%,#1b5e3a 50%,#3b8b5e 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
@@ -2127,7 +2146,7 @@
             </div>
           </div>
           <div onclick="openMapHistoryDesigner('desierto')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
-            <div class="h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#5c4033 0%,#a0785a 50%,#d4b896 100%);">
+            <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#5c4033 0%,#a0785a 50%,#d4b896 100%);">
               <div style="text-align:center;color:#fff;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
