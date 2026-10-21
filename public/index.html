@@ -1200,7 +1200,14 @@
     }
     #viewModeToggle button:hover { background: #fff !important; border-color: #202124 !important; color: #202124 !important; box-shadow: 0 2px 6px rgba(0,0,0,.25) !important; }
     #viewModeToggle button:active { transform: scale(0.92); }
-  </style>
+  
+    .layout-element-selected {
+        outline: 2.5px solid #10b981 !important;
+        outline-offset: 2.5px !important;
+        box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.22) !important;
+        border-radius: 6px !important;
+    }
+</style>
 <style>
     /* Estilos para edición en tiempo real de todo el plano cartográfico */
     #layoutPaper [contenteditable="true"]:hover {
@@ -16389,23 +16396,38 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
 
     // ════════════ SELECCIÓN ACTIVA DE ELEMENTOS (Comportamiento rueda de configuración) ════════════
+    function getElementKeyFromTarget(target) {
+        if (!target) return null;
+        if (target.closest('#touristMainTitle') || target.closest('#layoutTitleContainer')) return 'title';
+        if (target.closest('#layoutCompass')) return 'compass';
+        if (target.closest('#touristPoiList')) return 'touristPoiList';
+        if (target.closest('#touristLegendBox')) return 'touristLegendBox';
+        if (target.closest('#touristTopLogo')) return 'touristTopLogo';
+        if (target.closest('#touristFooterBanner')) return 'touristFooterBanner';
+        if (target.closest('#touristCornerAccents')) return 'touristCornerAccents';
+        if (target.closest('#layoutScaleContainer')) return 'scale';
+        if (target.closest('#layoutLegendContainer')) return 'legend';
+        if (target.closest('#layoutMetadataContainer')) return 'metadata';
+        if (target.closest('#layoutMapFrame')) return 'mapFrame';
+        return null;
+    }
+    window.getElementKeyFromTarget = getElementKeyFromTarget;
+
     function layoutSelectElement(key) {
         if (!key) return;
         
-        // 1. Quitar selección de cualquier elemento previo en el papel
+        // 1. Quitar selección previa de todos los elementos
         document.querySelectorAll('.layout-element-selected').forEach(el => {
             el.classList.remove('layout-element-selected');
-            el.style.outline = 'none';
-            el.style.boxShadow = '';
         });
 
         // 2. Mapear clave al elemento visual en el lienzo
         const elementIdMap = {
-            title: (document.getElementById('touristMainTitle') && layoutConfig.theme === 'ghibli') ? 'touristMainTitle' : 'layoutTitleContainer',
+            title: (document.getElementById('touristMainTitle') && layoutConfig && layoutConfig.theme === 'ghibli') ? 'touristMainTitle' : 'layoutTitleContainer',
             compass: 'layoutCompass',
             mapFrame: 'layoutMapFrame',
             metadata: 'layoutMetadataContainer',
-            legend: (document.getElementById('touristLegendBox') && layoutConfig.theme === 'ghibli') ? 'touristLegendBox' : 'layoutLegendContainer',
+            legend: (document.getElementById('touristLegendBox') && layoutConfig && layoutConfig.theme === 'ghibli') ? 'touristLegendBox' : 'layoutLegendContainer',
             scale: 'layoutScaleContainer',
             touristPoiList: 'touristPoiList',
             touristLegendBox: 'touristLegendBox',
@@ -16418,12 +16440,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const targetEl = document.getElementById(targetId);
         if (targetEl) {
             targetEl.classList.add('layout-element-selected');
-            targetEl.style.outline = '2px solid #10b981';
-            targetEl.style.outlineOffset = '2px';
-            targetEl.style.borderRadius = '6px';
         }
 
-        // 3. Abrir automáticamente el panel de configuración como la rueda
+        // 3. Abrir automáticamente el panel de configuración (exactamente como la rueda)
         layoutOpenElementProps(key);
     }
     window.layoutSelectElement = layoutSelectElement;
@@ -16510,31 +16529,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         });
     }
 
-function layoutOpenElementProps(key) {
-        // Manejo específico si el tema activo es el Mapa Turístico Regional
-        if (key === 'title') {
-            const touristTitleEl = document.getElementById('touristMainTitle');
-            const touristPanel = document.getElementById('props-title-tourist');
-            const stdPanel = document.getElementById('props-title-standard');
-            if (touristTitleEl && touristPanel && stdPanel) {
-                touristPanel.classList.remove('hidden');
-                touristPanel.classList.add('flex');
-                stdPanel.classList.add('hidden');
-                // Sincronizar textos actuales
-                const curCursive = document.getElementById('touristTitleCursive');
-                const curBlock = document.getElementById('touristTitleBlock');
-                if (curCursive && document.getElementById('touristCursiveInput')) {
-                    document.getElementById('touristCursiveInput').value = curCursive.innerText.trim();
-                }
-                if (curBlock && document.getElementById('touristBlockInput')) {
-                    document.getElementById('touristBlockInput').value = curBlock.innerText.trim();
-                }
-            } else if (touristPanel && stdPanel) {
-                touristPanel.classList.add('hidden');
-                touristPanel.classList.remove('flex');
-                stdPanel.classList.remove('hidden');
-            }
-        }
+    function layoutOpenElementProps(key) {
         const drawer = document.getElementById('layoutElementPropsDrawer');
         if (!drawer) return;
         
@@ -16595,12 +16590,14 @@ function layoutOpenElementProps(key) {
         if (titleEl) titleEl.textContent = info.title;
         if (subEl) subEl.textContent = info.subtitle;
         
-        // Hide all props containers in drawer body
+        // Hide only direct child panels in drawer body so we don't break sub-panels
         const container = document.getElementById('layoutDrawerPropsBody');
         if (container) {
-            container.querySelectorAll('[id^="props-"]').forEach(p => {
-                p.classList.add('hidden');
-                p.classList.remove('flex');
+            Array.from(container.children).forEach(p => {
+                if (p.id && p.id.startsWith('props-')) {
+                    p.classList.add('hidden');
+                    p.classList.remove('flex');
+                }
             });
             const activeProp = document.getElementById(`props-${key}`);
             if (activeProp) {
@@ -16608,9 +16605,40 @@ function layoutOpenElementProps(key) {
                 activeProp.classList.add('flex');
             }
         }
+
+        // Sub-panel handling for Title
+        if (key === 'title') {
+            const isTourist = (document.getElementById('touristMainTitle') && layoutConfig && layoutConfig.theme === 'ghibli');
+            const touristPanel = document.getElementById('props-title-tourist');
+            const stdPanel = document.getElementById('props-title-standard');
+            if (touristPanel && stdPanel) {
+                if (isTourist) {
+                    touristPanel.classList.remove('hidden');
+                    touristPanel.classList.add('flex');
+                    stdPanel.classList.add('hidden');
+                    stdPanel.classList.remove('flex');
+                    // Sync values
+                    const curCursive = document.getElementById('touristTitleCursive');
+                    const curBlock = document.getElementById('touristTitleBlock');
+                    if (curCursive && document.getElementById('touristCursiveInput')) {
+                        document.getElementById('touristCursiveInput').value = curCursive.innerText.trim();
+                    }
+                    if (curBlock && document.getElementById('touristBlockInput')) {
+                        document.getElementById('touristBlockInput').value = curBlock.innerText.trim();
+                    }
+                } else {
+                    touristPanel.classList.add('hidden');
+                    touristPanel.classList.remove('flex');
+                    stdPanel.classList.remove('hidden');
+                    stdPanel.classList.add('flex');
+                }
+            }
+        }
         
         // Sync current values into the drawer inputs
-        layoutSyncDrawerValues(key);
+        if (typeof layoutSyncDrawerValues === 'function') {
+            layoutSyncDrawerValues(key);
+        }
         
         // Show drawer in the empty space
         drawer.classList.remove('hidden');
@@ -17585,6 +17613,25 @@ function layoutOpenElementProps(key) {
     window.layoutInitTemplateDraggables = layoutInitTemplateDraggables;
     window.layoutToggleTemplateLayer = layoutToggleTemplateLayer;
     window.layoutRefreshElementsList = layoutRefreshElementsList;
+
+    setTimeout(function() {
+        const paper = document.getElementById('layoutPaper');
+        if (paper && !paper._captureSelectionAttached) {
+            paper._captureSelectionAttached = true;
+            paper.addEventListener('pointerdown', function(e) {
+                if (e.target.closest('[id$="Resize"]') || (e.target.tagName === 'BUTTON' && e.target.textContent.trim() === '✕')) {
+                    return;
+                }
+                const key = getElementKeyFromTarget(e.target);
+                if (key) {
+                    layoutSelectElement(key);
+                } else if (!e.target.closest('.layout-draggable-item') && !e.target.closest('.layout-resource-item')) {
+                    document.querySelectorAll('.layout-element-selected').forEach(el => el.classList.remove('layout-element-selected'));
+                }
+            }, true);
+        }
+    }, 500);
+
 
     function layoutToggleMapBorder(enabled) {
         document.getElementById('layoutMapFrame').style.border = enabled ? '1px solid #000' : 'none';
