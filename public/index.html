@@ -15628,14 +15628,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             decor.innerHTML = `
                 <!-- 1. CAPA FONDOS: Formas Curvas de Esquina (Amarillo Ámbar y Celeste Pastoral) -->
-                <div id="touristCornerAccents" onclick="layoutSelectElement('touristCornerAccents')" class="layout-draggable-item group z-[2]" style="position:absolute;inset:0;pointer-events:auto;cursor:move;" title="Fondo: Formas Orgánicas de Esquina (Arrastrar o redimensionar)">
+                <div id="touristCornerAccents" class="layout-draggable-item group z-[2]" style="position:absolute;inset:0;pointer-events:none;" title="Fondo: Formas Orgánicas de Esquina (Arrastrar o redimensionar)">
                     <svg viewBox="0 0 210 297" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
                         <!-- Curva esquina superior izquierda (Ocre cálido / sol) -->
-                        <path d="M 0,0 L 75,0 Q 45,30 20,45 Q 5,55 0,70 Z" fill="#fbb040" opacity="0.95" />
-                        <path d="M 0,0 L 55,0 Q 35,22 15,35 Q 2,42 0,55 Z" fill="#f3a61c" opacity="0.4" />
+                        <path d="M 0,0 L 75,0 Q 45,30 20,45 Q 5,55 0,70 Z" fill="#fbb040" opacity="0.95" style="pointer-events:auto;cursor:pointer;" onclick="layoutSelectElement('touristCornerAccents')" />
+                        <path d="M 0,0 L 55,0 Q 35,22 15,35 Q 2,42 0,55 Z" fill="#f3a61c" opacity="0.4" style="pointer-events:auto;cursor:pointer;" onclick="layoutSelectElement('touristCornerAccents')" />
 
                         <!-- Franja esquina inferior derecha (Ocre cálido / curva) -->
-                        <path d="M 140,297 Q 165,265 190,260 Q 200,258 210,262 L 210,297 Z" fill="#fbb040" opacity="0.95" />
+                        <path d="M 140,297 Q 165,265 190,260 Q 200,258 210,262 L 210,297 Z" fill="#fbb040" opacity="0.95" style="pointer-events:auto;cursor:pointer;" onclick="layoutSelectElement('touristCornerAccents')" />
                     </svg>
                     <div id="touristCornerAccentsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
@@ -17802,13 +17802,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     compassEl.onmousedown = function(e) {
         if (e.target.id === 'layoutCompassResize') return;
+        layoutSelectElement('compass');
         dragEl = this;
         startX = e.clientX; startY = e.clientY;
         elementStartX = parseInt(dragEl.style.left) || 160;
         elementStartY = parseInt(dragEl.style.top) || 220;
         dragEl.style.transition = 'none'; 
-        e.preventDefault();
-        e.stopPropagation(); // Avoid triggering other drags
     };
 
     compassResizer.onmousedown = function(e) {
@@ -17833,10 +17832,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
     containers.forEach(c => {
         const el = document.getElementById(c.id);
         const resizer = document.getElementById(c.resizer);
+        if (!el) return;
 
         el.onmousedown = function(e) {
             if (e.target.id === c.resizer) return;
-            // Permitir edición y selección directa sin activar arrastre
+            layoutSelectElement(c.key);
+            // Permitir edición directa sin activar arrastre
             if (e.target.isContentEditable || e.target.closest('[contenteditable="true"]') || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
                 return;
             }
@@ -17845,7 +17846,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
             elementStartX = parseFloat(dragEl.style.left) || 0;
             elementStartY = parseFloat(dragEl.style.top) || 0;
             dragEl.style.transition = 'none'; 
-            e.preventDefault();
         };
 
         if (resizer) {
@@ -17866,6 +17866,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (e.target.id && e.target.id.startsWith('layoutMapResize')) return;
         if (e.target.closest('#layoutMapFloatingToolbar')) return;
 
+        layoutSelectElement('mapFrame');
+
         // Si estamos en modo 'content' (mover mapa) y el click fue sobre el mapa interactivo:
         const isInsideContainer = e.target.closest('#layoutMapContainer');
         if (layoutMapContent.activeMode === 'content' && isInsideContainer && window.layoutLeafletMap) {
@@ -17878,7 +17880,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
         elementStartX = parseFloat(dragEl.style.left) || 20;
         elementStartY = parseFloat(dragEl.style.top) || 20;
         dragEl.style.transition = 'none'; 
-        e.preventDefault();
     };
 
     function startResize(e, mode) {
@@ -17988,6 +17989,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 if (resizer && (e.target === resizer || resizer.contains(e.target))) return;
                 if (e.target.tagName === 'BUTTON' || (e.target.closest('button') && !e.target.closest('.tmpl-drag-handle'))) return;
 
+                // Seleccionar inmediatamente el elemento al hacer click / mousedown
+                const key = getElementKeyFromTarget(e.target) || getElementKeyFromTarget(this);
+                if (key) {
+                    layoutSelectElement(key);
+                }
+
+                // Si se hizo click específicamente en QR o Badges o Logo SVG, enfocar campo
+                if (e.target.closest('#touristFooterQrBlock')) {
+                    const qrInp = document.getElementById('touristQr1LabelInput');
+                    if (qrInp) qrInp.focus();
+                } else if (e.target.closest('#touristFooterBadgesBlock')) {
+                    const bSel = document.getElementById('touristBadge1Select');
+                    if (bSel) bSel.focus();
+                } else if (e.target.closest('#touristLogoEmblem')) {
+                    const lSel = document.getElementById('touristLogoEmblemType');
+                    if (lSel) lSel.focus();
+                }
+
                 const isHandle = e.target.classList.contains('tmpl-drag-handle') || e.target.closest('.tmpl-drag-handle');
                 const isEditable = e.target.isContentEditable || e.target.closest('[contenteditable="true"]');
                 if (isEditable && !isHandle) {
@@ -18015,8 +18034,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 elementStartX = curLeft;
                 elementStartY = curTop;
                 dragEl.style.transition = 'none';
-                e.preventDefault();
-                e.stopPropagation();
             };
 
             if (resizer) {
@@ -18048,7 +18065,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (eye) {
             const icon = eye.querySelector('.material-symbols-outlined');
             if (icon) icon.textContent = isHidden ? 'visibility' : 'visibility_off';
-            eye.classList.toggle('text-zinc-500', !isHidden);
+            eye.classList.toggle('text-zinc-500', isHidden);
+            eye.classList.toggle('text-white', !isHidden);
         }
     }
 
@@ -18068,7 +18086,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 { id: 'touristPoiList', name: 'Lista de Atractivos (1-14)', icon: 'format_list_numbered' },
                 { id: 'touristLegendBox', name: 'Leyenda de Servicios', icon: 'category' },
                 { id: 'touristFooterBanner', name: 'Franja Inferior & QR Codes', icon: 'contact_page' }
-            ];} else {
+            ];
+        } else {
             templateLayers = [
                 { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
                 { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
@@ -18113,7 +18132,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         <span class="material-symbols-outlined text-[15px]">settings</span>
                     </button>
                     <button type="button" onclick="event.stopPropagation(); layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
-                        <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
+                        <span class="material-symbols-outlined text-[15px]">visibility</span>
                     </button>
                 </div>
             `;
@@ -18129,20 +18148,29 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const paper = document.getElementById('layoutPaper');
         if (paper && !paper._captureSelectionAttached) {
             paper._captureSelectionAttached = true;
-            paper.addEventListener('pointerdown', function(e) {
-                if (e.target.closest('[id$="Resize"]') || (e.target.tagName === 'BUTTON' && e.target.textContent.trim() === '✕')) {
-                    return;
-                }
+
+            // Selección universal de elementos por click directo
+            paper.addEventListener('click', function(e) {
+                if (e.target.closest('[id$="Resize"]')) return;
                 const key = getElementKeyFromTarget(e.target);
                 if (key) {
                     layoutSelectElement(key);
-                } else if (!e.target.closest('.layout-draggable-item') && !e.target.closest('.layout-resource-item')) {
+                } else if (e.target === paper || e.target.id === 'layoutPaper') {
+                    document.querySelectorAll('.layout-element-selected').forEach(el => el.classList.remove('layout-element-selected'));
+                }
+            });
+
+            paper.addEventListener('pointerdown', function(e) {
+                if (e.target.closest('[id$="Resize"]')) return;
+                const key = getElementKeyFromTarget(e.target);
+                if (key) {
+                    layoutSelectElement(key);
+                } else if (e.target === paper || e.target.id === 'layoutPaper') {
                     document.querySelectorAll('.layout-element-selected').forEach(el => el.classList.remove('layout-element-selected'));
                 }
             }, true);
         }
-    }, 500);
-
+    }, 200);
 
     function layoutToggleMapBorder(enabled) {
         document.getElementById('layoutMapFrame').style.border = enabled ? '1px solid #000' : 'none';
