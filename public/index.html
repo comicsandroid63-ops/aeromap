@@ -15259,305 +15259,169 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (metadataContainer) metadataContainer.style.display = 'flex';
         if (compassEl) compassEl.style.display = 'flex';
 
-        // ═══ ESTILO STUDIO GHIBLI (El Mundo de Studio Ghibli / Totoro & Haku) ═══
+        // ═══ ESTILO PASTORAL CROMÁTICO (Colores Ghibli: Verde Pradera, Celeste Cielo, Ocre Tierra, Verde Bosque) ═══
         if (theme === 'ghibli') {
             layoutConfig.theme = 'ghibli';
-            paper.style.background = '#8ecae6';
+            const colors = layoutConfig.themeColors || { paper: '#5fa743', wall: '#72bde8', stairs: '#c98a58', frame: '#1b3816' };
+            paper.style.background = colors.paper || '#5fa743';
 
             decor.innerHTML = `
-                <!-- 1. CAPA CIELO & NUBES -->
-                <div id="ghibliSky" class="layout-draggable-item group z-[2]" style="position:absolute;top:0;left:0;width:210mm;height:165mm;pointer-events:auto;cursor:move;" title="Cielo y Nubes Ghibli (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 210 165" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <defs>
-                            <linearGradient id="ghibliSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#72bde8" />
-                                <stop offset="50%" stop-color="#a4dbf4" />
-                                <stop offset="100%" stop-color="#d6f0fa" />
-                            </linearGradient>
-                        </defs>
-                        <rect width="210" height="165" fill="url(#ghibliSkyGrad)" />
-                        <!-- Nubes flotantes estilo Ghibli -->
-                        <g fill="#ffffff" opacity="0.92">
-                            <ellipse cx="65" cy="55" rx="35" ry="14" />
-                            <ellipse cx="80" cy="50" rx="24" ry="16" />
-                            <ellipse cx="50" cy="54" rx="20" ry="12" />
-
-                            <ellipse cx="160" cy="65" rx="42" ry="16" />
-                            <ellipse cx="145" cy="60" rx="28" ry="18" />
-                            <ellipse cx="178" cy="62" rx="25" ry="14" />
-                        </g>
+                <!-- 1. CAPA FONDO: Muro Arquitectónico Azul Celeste Pastoral -->
+                <div id="pastoralWall" class="layout-draggable-item group z-[5]" style="position:absolute;top:0;left:0;width:68mm;height:190mm;pointer-events:auto;cursor:move;" title="Fondo: Muro Celeste Pastoral (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <polygon points="0,0 100,0 100,24 74,24 74,50 48,50 48,76 22,76 22,100 0,100" fill="${colors.wall || '#72bde8'}" />
                     </svg>
-                    <div id="ghibliSkyResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="pastoralWallResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 2. CAPA COLINAS Y PRADERA -->
-                <div id="ghibliHills" class="layout-draggable-item group z-[4]" style="position:absolute;top:130mm;left:0;width:210mm;height:167mm;pointer-events:auto;cursor:move;" title="Colinas y Pradera (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 210 167" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <defs>
-                            <linearGradient id="ghibliGrassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="#67b738" />
-                                <stop offset="35%" stop-color="#55a52a" />
-                                <stop offset="100%" stop-color="#3d821a" />
-                            </linearGradient>
-                        </defs>
-                        <!-- Colina media lejana -->
-                        <path d="M 0,28 Q 55,10 110,24 T 210,14 L 210,167 L 0,167 Z" fill="#88c84b" />
-                        <!-- Colina frontal principal donde descansa Totoro y los títulos -->
-                        <path d="M 0,42 Q 60,26 130,46 T 210,36 L 210,167 L 0,167 Z" fill="url(#ghibliGrassGrad)" />
-                        <!-- Briznas de hierba silueta -->
-                        <g stroke="#3d821a" stroke-width="0.8" opacity="0.6">
-                            <line x1="25" y1="42" x2="27" y2="39" />
-                            <line x1="45" y1="38" x2="47" y2="34" />
-                            <line x1="85" y1="39" x2="87" y2="36" />
-                            <line x1="160" y1="44" x2="162" y2="40" />
-                            <line x1="190" y1="38" x2="192" y2="35" />
-                        </g>
-                    </svg>
-                    <div id="ghibliHillsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                <!-- 2. CAPA PIN: Pin Decorativo Muro -->
+                <div id="pastoralWallPin" class="layout-draggable-item group z-[18]" style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#1b3816;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.3);cursor:move;pointer-events:auto;" title="Icono: Pin Muro (Arrastrar)">
+                    <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;pointer-events:none;"></span>
+                    <div id="pastoralWallPinResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 3. CAPA ÁRBOL SAGRADO Y KODAMAS (Árbol alcanforero de Totoro) -->
-                <div id="ghibliTree" class="layout-draggable-item group z-[6]" style="position:absolute;top:0;left:0;width:62mm;height:148mm;pointer-events:auto;cursor:move;" title="Árbol Sagrado &amp; Espíritus Kodama (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 100 240" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <!-- Tronco gnarled orgánico -->
-                        <path d="M 0,0 L 50,0 Q 42,45 35,90 Q 55,115 80,125 L 75,138 Q 45,128 28,105 Q 15,160 0,240 Z" fill="#a47148" />
-                        <!-- Textura vetas tronco -->
-                        <path d="M 12,20 Q 25,60 20,110 M 24,30 Q 32,70 26,105" stroke="#7d4e2d" stroke-width="2.5" fill="none" opacity="0.4" />
-                        <!-- Follaje copa del árbol -->
-                        <circle cx="25" cy="15" r="42" fill="#35682d" />
-                        <circle cx="55" cy="25" r="32" fill="#4d8c36" />
-                        <circle cx="20" cy="55" r="28" fill="#5fa743" />
-                        <circle cx="65" cy="115" r="22" fill="#4d8c36" />
-
-                        <!-- Kodama 1 (Espíritu del árbol sentado en la rama) -->
-                        <g transform="translate(42, 85)">
-                            <ellipse cx="6" cy="5" rx="5.5" ry="6" fill="#f8fafc" />
-                            <ellipse cx="6" cy="13" rx="4" ry="5.5" fill="#f8fafc" />
-                            <!-- Ojos y boca huecos Kodama -->
-                            <circle cx="4.2" cy="4.5" r="1.1" fill="#1e293b" />
-                            <circle cx="7.8" cy="4.5" r="1.1" fill="#1e293b" />
-                            <ellipse cx="6" cy="7.5" rx="0.9" ry="1.2" fill="#1e293b" />
-                        </g>
-
-                        <!-- Kodama 2 (Espíritu de pie en la rama superior) -->
-                        <g transform="translate(62, 98)">
-                            <ellipse cx="5" cy="4" rx="4.5" ry="5" fill="#f8fafc" />
-                            <ellipse cx="5" cy="11" rx="3.5" ry="4.5" fill="#f8fafc" />
-                            <circle cx="3.8" cy="3.5" r="0.9" fill="#1e293b" />
-                            <circle cx="6.5" cy="3.5" r="0.9" fill="#1e293b" />
-                            <ellipse cx="5.2" cy="6" rx="0.8" ry="1" fill="#1e293b" />
-                        </g>
-                    </svg>
-                    <div id="ghibliTreeResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 4. CAPA DRAGÓN HAKU EN EL CIELO -->
-                <div id="ghibliDragon" class="layout-draggable-item group z-[10]" style="position:absolute;top:6mm;left:75mm;width:84mm;height:42mm;pointer-events:auto;cursor:move;" title="Dragón Haku / Nigihayami (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 160 80" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <!-- Melena verde esmeralda flotante -->
-                        <path d="M 22,28 Q 45,18 70,30 T 110,24 T 145,18" stroke="#38b000" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85" />
-                        <path d="M 20,27 Q 44,16 68,28 T 108,22 T 142,16" stroke="#70e000" stroke-width="3.5" fill="none" stroke-linecap="round" />
-                        <!-- Cuerpo blanco sinuoso del dragón Haku -->
-                        <path d="M 18,30 Q 45,20 70,32 T 112,26 T 150,20" stroke="#f8fafc" stroke-width="6.5" fill="none" stroke-linecap="round" />
-                        <!-- Cabeza dragón con cuernos y bigote -->
-                        <ellipse cx="16" cy="30" rx="7" ry="5" fill="#f8fafc" />
-                        <!-- Ojo verde dragón -->
-                        <circle cx="14" cy="28.5" r="1.3" fill="#2d6a4f" />
-                        <!-- Cuernos -->
-                        <path d="M 20,27 L 26,18 M 22,27 L 27,22" stroke="#d4a373" stroke-width="1.8" stroke-linecap="round" />
-                        <!-- Patas y garras estilizadas -->
-                        <path d="M 55,27 L 50,38 M 53,38 L 47,40" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" />
-                        <path d="M 105,25 L 102,36 M 104,36 L 98,37" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" />
-                        <!-- Cola plumosa -->
-                        <path d="M 150,20 Q 158,15 155,25 Q 152,22 150,20" fill="#38b000" />
-                    </svg>
-                    <div id="ghibliDragonResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 5. CAPA CASTILLO AMBULANTE DE HOWL -->
-                <div id="ghibliCastle" class="layout-draggable-item group z-[7]" style="position:absolute;top:32mm;left:156mm;width:42mm;height:52mm;pointer-events:auto;cursor:move;" title="Castillo Ambulante de Howl (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 100 120" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <!-- Patas mecánicas de ave -->
-                        <g stroke="#4a3728" stroke-width="2.5" stroke-linecap="round">
-                            <line x1="30" y1="90" x2="25" y2="114" />
-                            <line x1="25" y1="114" x2="16" y2="118" />
-                            <line x1="45" y1="92" x2="42" y2="115" />
-                            <line x1="65" y1="92" x2="72" y2="114" />
-                            <line x1="72" y1="114" x2="80" y2="118" />
-                        </g>
-                        <!-- Masa principal del castillo (módulos superpuestos) -->
-                        <rect x="25" y="45" width="50" height="48" rx="8" fill="#a47148" />
-                        <rect x="18" y="55" width="30" height="32" rx="6" fill="#c68b59" />
-                        <rect x="48" y="40" width="35" height="40" rx="6" fill="#8d5b36" />
-                        <!-- Torrecillas y tejados -->
-                        <polygon points="22,55 33,35 44,55" fill="#e07a5f" />
-                        <polygon points="50,40 62,20 74,40" fill="#3d5a80" />
-                        <!-- Chimeneas con vapor suave -->
-                        <rect x="70" y="24" width="7" height="18" fill="#4a3728" />
-                        <circle cx="73" cy="18" r="4" fill="#ffffff" opacity="0.6" />
-                        <circle cx="76" cy="11" r="5" fill="#ffffff" opacity="0.4" />
-                        <!-- Ruedas y ojos mecánicos -->
-                        <circle cx="38" cy="72" r="7" fill="#2d3748" />
-                        <circle cx="38" cy="72" r="3" fill="#e2e8f0" />
-                        <circle cx="62" cy="70" r="5" fill="#4a5568" />
-                    </svg>
-                    <div id="ghibliCastleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 6. CAPA TOTORO DURMIENDO EN LA PRADERA -->
-                <div id="ghibliTotoro" class="layout-draggable-item group z-[12]" style="position:absolute;top:128mm;left:32mm;width:146mm;height:78mm;pointer-events:auto;cursor:move;" title="Totoro Durmiendo en la Pradera (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 320 170" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <!-- Sombra bajo Totoro -->
-                        <ellipse cx="160" cy="148" rx="135" ry="14" fill="#2d5e1a" opacity="0.5" />
-                        <!-- Cuerpo principal de Totoro acostado -->
-                        <ellipse cx="160" cy="100" rx="125" ry="52" fill="#3d5248" />
-                        <!-- Gran Barriga redonda crema -->
-                        <ellipse cx="178" cy="88" rx="76" ry="40" fill="#eee8da" />
-                        <!-- Marcas características chevron ^ en el pecho -->
-                        <g stroke="#3d5248" stroke-width="4.2" stroke-linecap="round" fill="none">
-                            <path d="M 145,74 Q 153,66 161,74" />
-                            <path d="M 172,74 Q 180,66 188,74" />
-                            <path d="M 199,74 Q 207,66 215,74" />
-                            <path d="M 158,88 Q 166,80 174,88" />
-                            <path d="M 186,88 Q 194,80 202,88" />
-                        </g>
-                        <!-- Cabeza en el extremo izquierdo -->
-                        <circle cx="78" cy="80" r="34" fill="#3d5248" />
-                        <!-- Orejas de Totoro -->
-                        <ellipse cx="56" cy="58" rx="8" ry="19" fill="#3d5248" transform="rotate(-35 56 58)" />
-                        <!-- Ojo durmiendo (curva de arco pacífica) -->
-                        <path d="M 72,68 Q 78,63 84,68" stroke="#1c2822" stroke-width="2.5" fill="none" stroke-linecap="round" />
-                        <!-- Nariz negra pequeña -->
-                        <ellipse cx="61" cy="74" rx="4" ry="3" fill="#1c2822" />
-                        <!-- Bigotes largos -->
-                        <g stroke="#1c2822" stroke-width="2.2" stroke-linecap="round">
-                            <line x1="68" y1="81" x2="44" y2="76" />
-                            <line x1="68" y1="85" x2="42" y2="86" />
-                            <line x1="68" y1="89" x2="45" y2="95" />
-                        </g>
-                        <!-- Brazo y garras descansando -->
-                        <ellipse cx="115" cy="105" rx="30" ry="16" fill="#304239" transform="rotate(18 115 105)" />
-                        <circle cx="145" cy="110" r="3" fill="#ffffff" />
-                        <circle cx="141" cy="114" r="3" fill="#ffffff" />
-                        <circle cx="136" cy="117" r="3" fill="#ffffff" />
-                        <!-- Garras de las patas traseras a la derecha -->
-                        <g fill="#ffffff">
-                            <circle cx="282" cy="100" r="3.5" />
-                            <circle cx="284" cy="106" r="3.5" />
-                            <circle cx="282" cy="112" r="3.5" />
-                        </g>
-                        <!-- Briznas de hierba cubriendo el contorno inferior -->
-                        <path d="M 50,140 L 55,126 L 60,140 L 90,142 L 95,129 L 100,142 M 160,145 L 165,132 L 170,145 M 240,142 L 245,130 L 250,142" stroke="#5fa743" stroke-width="3" fill="none" stroke-linecap="round" />
-                    </svg>
-                    <div id="ghibliTotoroResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 7. CAPA MINI TOTOROS (Chu-Totoro Azul y Chibi-Totoro Blanco) -->
-                <div id="ghibliMiniTotoros" class="layout-draggable-item group z-[14]" style="position:absolute;top:123mm;left:96mm;width:46mm;height:32mm;pointer-events:auto;cursor:move;" title="Mini Totoros sobre la barriga (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 110 80" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <!-- Chu-Totoro (Azul mediano) -->
-                        <ellipse cx="44" cy="46" rx="22" ry="25" fill="#2b6cb0" />
-                        <ellipse cx="44" cy="50" rx="13" ry="16" fill="#f8fafc" />
-                        <!-- Orejas azules -->
-                        <ellipse cx="36" cy="20" rx="4.5" ry="12" fill="#2b6cb0" transform="rotate(-10 36 20)" />
-                        <ellipse cx="52" cy="20" rx="4.5" ry="12" fill="#2b6cb0" transform="rotate(10 52 20)" />
-                        <!-- Ojos negros con pupila blanca -->
-                        <circle cx="38" cy="38" r="4" fill="#ffffff" />
-                        <circle cx="39" cy="38" r="2" fill="#0f172a" />
-                        <circle cx="50" cy="38" r="4" fill="#ffffff" />
-                        <circle cx="49" cy="38" r="2" fill="#0f172a" />
-                        <polygon points="42,42 46,42 44,44" fill="#0f172a" />
-                        <!-- Hoja verde o saco que lleva -->
-                        <path d="M 24,42 Q 18,32 26,26 Q 32,34 24,42" fill="#48bb78" />
-
-                        <!-- Chibi-Totoro (Pequeño blanco a la derecha) -->
-                        <ellipse cx="80" cy="54" rx="14" ry="16" fill="#f8fafc" />
-                        <ellipse cx="75" cy="36" rx="3" ry="8" fill="#f8fafc" transform="rotate(-8 75 36)" />
-                        <ellipse cx="85" cy="36" rx="3" ry="8" fill="#f8fafc" transform="rotate(8 85 36)" />
-                        <circle cx="76" cy="48" r="2" fill="#0f172a" />
-                        <circle cx="84" cy="48" r="2" fill="#0f172a" />
-                    </svg>
-                    <div id="ghibliMiniTotorosResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 8. CAPA TEXTO: Título Portada "EL MUNDO DE STUDIO GHIBLI" -->
-                <div id="ghibliMainTitle" class="layout-draggable-item group z-[25]" style="position:absolute;top:204mm;left:15mm;width:180mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Título Ghibli (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/90 text-white text-[8px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[11px]">drag_indicator</span> Mover Título
+                <!-- 3. CAPA TEXTO: Texto Elevación Muro -->
+                <div id="pastoralWallText" class="layout-draggable-item group z-[19]" style="position:absolute;top:54mm;left:10mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Elevación (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 -left-1 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-mono rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
                     </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:24px;font-weight:900;letter-spacing:0.2em;font-family:'Quicksand','Comfortaa',Inter,sans-serif;text-transform:uppercase;text-shadow:0 3px 6px rgba(0,0,0,0.32);line-height:1.15;cursor:text;display:block;">ESTUDIO DE PAISAJE</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:24px;font-weight:900;letter-spacing:0.2em;font-family:'Quicksand','Comfortaa',Inter,sans-serif;text-transform:uppercase;text-shadow:0 3px 6px rgba(0,0,0,0.32);line-height:1.15;cursor:text;display:block;margin-top:2px;">Y GESTIÓN TERRITORIAL</span>
+                    <div contenteditable="true" spellcheck="false" style="outline:none;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;cursor:text;background:rgba(27,56,22,0.65);padding:2px 6px;border-radius:3px;line-height:1.2;text-align:center;">
+                        ELEV: +2,640m // GRID: 100m
                     </div>
-                    <div id="ghibliMainTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="pastoralWallTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 9. CAPA TEXTO: Franja y Subtítulo de Autores / Membrete Cartográfico -->
-                <div id="ghibliSubBanner" class="layout-draggable-item group z-[26]" style="position:absolute;top:262mm;left:18mm;width:174mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Franja y Datos (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/90 text-white text-[8px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[11px]">drag_indicator</span> Mover Franja
-                    </div>
-                    <div style="width:100%;height:1.8px;background:rgba(252,251,247,0.85);margin-bottom:6px;border-radius:1px;"></div>
-                    <div style="text-align:center;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:8.5px;font-weight:800;letter-spacing:0.16em;font-family:Inter,sans-serif;text-transform:uppercase;text-shadow:0 1.5px 3px rgba(0,0,0,0.3);cursor:text;display:block;">LEVANTAMIENTO TOPOGRÁFICO &amp; PAISAJÍSTICO · ESCALA: 1:1,000</span>
-                    </div>
-                    <div id="ghibliSubBannerResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                <!-- 4. CAPA FONDO: Banner Superior Verde Bosque Profundo -->
+                <div id="pastoralTopBannerBg" class="layout-draggable-item group z-[12]" style="position:absolute;top:6mm;left:8mm;width:194mm;height:14mm;background:#1b3816;border-radius:4px;box-shadow:0 8px 20px rgba(0,0,0,0.25);border-bottom:3px solid #72bde8;cursor:move;pointer-events:auto;" title="Fondo: Barra Banner (Arrastrar o redimensionar)">
+                    <div id="pastoralTopBannerBgResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 10. CAPA TEXTO: Pie Editorial Estilo Minotauro -->
-                <div id="ghibliPublisher" class="layout-draggable-item group z-[27]" style="position:absolute;top:278mm;left:20mm;width:170mm;cursor:move;pointer-events:auto;text-align:center;padding:2px;" title="Capa Texto: Pie Editorial (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Pie
-                    </div>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;color:rgba(252,251,247,0.9);font-size:9.5px;font-weight:700;letter-spacing:0.16em;font-family:'Quicksand',Inter,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.25);cursor:text;display:inline-block;">dirección cartográfica · análisis territorial</span>
-                    <div id="ghibliPublisherResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                <!-- 5. CAPA FORMAS: Iconos Geométricos Banner -->
+                <div id="pastoralTopBannerIcons" class="layout-draggable-item group z-[22]" style="position:absolute;top:8.5mm;left:12mm;display:flex;gap:3mm;align-items:center;cursor:move;pointer-events:auto;" title="Formas: Iconos Geométricos (Arrastrar)">
+                    <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #72bde8;border-radius:50%;pointer-events:none;"></span>
+                    <span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #c98a58;pointer-events:none;"></span>
+                    <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #5fa743;pointer-events:none;"></span>
+                    <div id="pastoralTopBannerIconsResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 11. CAPA TEXTO: Insignias de Protección Ambiental -->
-                <div id="ghibliBadges" class="layout-draggable-item group z-[28]" style="position:absolute;top:8mm;left:135mm;display:flex;gap:3mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Insignias Ambientales (Arrastrar o editar)">
+                <!-- 6. CAPA TEXTO: Título Banner Superior -->
+                <div id="pastoralTopBannerText" class="layout-draggable-item group z-[23]" style="position:absolute;top:7.5mm;left:34mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Título Banner (Arrastrar o editar)">
                     <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
                     </div>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:rgba(45,90,39,0.88);color:#fcfbf7;font-size:7.5px;font-weight:800;font-family:Inter,sans-serif;display:inline-block;padding:2.5px 8px;border-radius:12px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.4);cursor:text;text-align:center;line-height:1.2;white-space:nowrap;backdrop-filter:blur(4px);">[ 🍃 ] RESERVA AMBIENTAL</span>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:rgba(255,255,255,0.92);color:#2d5a27;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2.5px 8px;border-radius:12px;letter-spacing:0.06em;border:1.2px solid #2d5a27;cursor:text;text-align:center;line-height:1.2;white-space:nowrap;">[ 🧭 ] DATUM WGS-84</span>
-                    <div id="ghibliBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div style="display:flex;flex-direction:column;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;line-height:1.2;display:block;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#a4dbf4;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;line-height:1.2;margin-top:1px;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN PASTORAL</span>
+                    </div>
+                    <div id="pastoralTopBannerTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 7. CAPA TEXTO: Insignias Banner -->
+                <div id="pastoralTopBannerBadges" class="layout-draggable-item group z-[24]" style="position:absolute;top:9.5mm;left:146mm;display:flex;align-items:center;gap:3mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Insignias Banner (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                    </div>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#2d5a27;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ 🍃 ] DATUM WGS-84</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#c98a58;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ 🧭 ] ZONA PROTEGIDA</span>
+                    <div id="pastoralTopBannerBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 8. CAPA FONDO: Escaleras Tierra / Ocre Cálido -->
+                <div id="pastoralStairs" class="layout-draggable-item group z-[8]" style="position:absolute;top:255mm;left:0;width:210mm;height:42mm;cursor:move;pointer-events:auto;box-shadow:0 -6px 20px rgba(0,0,0,0.15);" title="Fondo: Escaleras Ocre Cálido (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <polygon points="0,100 100,100 100,0 68,0 68,26 42,26 42,52 0,52" fill="${colors.stairs || '#c98a58'}" />
+                    </svg>
+                    <div id="pastoralStairsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 9. CAPA TEXTO: Membrete Detalle Izquierdo -->
+                <div id="pastoralStairsLeftBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:274mm;left:10mm;display:flex;flex-direction:column;gap:3px;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;padding:2px;" title="Capa Texto: Membrete Izquierdo (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                    </div>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;font-family:Inter,sans-serif;color:#1b3816;letter-spacing:0.12em;text-transform:uppercase;background:rgba(255,255,255,0.92);padding:2px 7px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;white-space:nowrap;text-align:center;vertical-align:middle;line-height:1.2;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;background:#1b3816;color:#ffffff;font-size:7px;font-weight:900;font-family:Inter,sans-serif;padding:2px 6px;letter-spacing:0.08em;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">ESCALA: 1:1,000</span>
+                        <span style="color:#72bde8;font-size:7.5px;font-weight:900;line-height:1.2;">|</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#1b3816;font-size:7px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:0.08em;background:rgba(255,255,255,0.92);padding:2px 6px;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">PROYECCIÓN UTM</span>
+                    </div>
+                    <div id="pastoralStairsLeftBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 10. CAPA TEXTO: Membrete Registral Derecho -->
+                <div id="pastoralStairsRightBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:270mm;left:145mm;background:#1b3816;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:2px;text-align:right;border-left:2.5px solid #72bde8;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Registral (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 right-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                    </div>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#72bde8;font-weight:900;font-size:7.5px;cursor:text;white-space:nowrap;line-height:1.2;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;white-space:nowrap;line-height:1.2;">FOLIO: REG-2026-PASTORAL · ORIGEN CENTRAL</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#4ade80;font-weight:800;cursor:text;white-space:nowrap;line-height:1.2;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
+                    <div id="pastoralStairsRightBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
             `;
 
-            // Marco del mapa orgánico tipo libro de arte de estudio
+            // Marco del mapa con el verde bosque profundo de la paleta
             if (mapFrame) {
-                mapFrame.style.borderColor = '#2d5a27';
+                mapFrame.style.borderColor = colors.frame || '#1b3816';
                 mapFrame.style.borderWidth = '3.5px';
                 mapFrame.style.borderStyle = 'solid';
-                mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(30,50,20,0.28)';
-                mapFrame.style.borderRadius = '12px';
+                mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(0,0,0,0.28)';
+                mapFrame.style.borderRadius = '4px';
             }
             if (mapContainer) {
-                mapContainer.style.filter = 'contrast(1.1) saturate(1.2) brightness(1.02)';
-                mapContainer.style.borderRadius = '9px';
+                mapContainer.style.filter = 'contrast(1.1) saturate(1.2)';
+            }
+            if (titleContainer) {
+                titleContainer.style.display = 'flex';
+                titleContainer.style.zIndex = '35';
+                titleContainer.style.top = layoutConfig.titleProps?.top || '174mm';
+                titleContainer.style.left = layoutConfig.titleProps?.left || '73mm';
+                titleContainer.style.width = layoutConfig.titleProps?.width || '127mm';
             }
             if (legendContainer) {
-                legendContainer.style.background = 'rgba(253, 252, 248, 0.94)';
-                legendContainer.style.border = '2px solid #3c7329';
-                legendContainer.style.borderRadius = '12px';
-                legendContainer.style.boxShadow = '0 8px 24px rgba(30,50,20,0.18)';
-                legendContainer.style.color = '#1e3a17';
+                legendContainer.style.top = layoutConfig.legend?.top || '174mm';
+                legendContainer.style.left = layoutConfig.legend?.left || '10mm';
+                legendContainer.style.width = layoutConfig.legend?.width || '58mm';
+                legendContainer.style.height = layoutConfig.legend?.height || '72mm';
+                legendContainer.style.background = '#ffffff';
+                legendContainer.style.border = '2px solid ' + (colors.frame || '#1b3816');
+                legendContainer.style.borderRadius = '8px';
+                legendContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+                legendContainer.style.color = '#111115';
             }
             if (scaleContainer) {
-                scaleContainer.style.background = 'rgba(253, 252, 248, 0.94)';
-                scaleContainer.style.border = '1.8px solid #2d5a27';
-                scaleContainer.style.borderRadius = '8px';
-                scaleContainer.style.color = '#1e3a17';
+                scaleContainer.style.top = layoutConfig.scale?.top || '202mm';
+                scaleContainer.style.left = layoutConfig.scale?.left || '73mm';
+                scaleContainer.style.width = layoutConfig.scale?.width || '61mm';
+                scaleContainer.style.height = layoutConfig.scale?.height || '20mm';
+                scaleContainer.style.background = '#ffffff';
+                scaleContainer.style.border = '1.5px solid #111115';
+                scaleContainer.style.borderRadius = '4px';
+                scaleContainer.style.color = '#111115';
             }
             if (metadataContainer) {
-                metadataContainer.style.background = 'rgba(253, 252, 248, 0.94)';
-                metadataContainer.style.border = '1.8px solid #2d5a27';
-                metadataContainer.style.borderRadius = '8px';
-                metadataContainer.style.color = '#1e3a17';
+                metadataContainer.style.top = layoutConfig.metadata?.top || '202mm';
+                metadataContainer.style.left = layoutConfig.metadata?.left || '139mm';
+                metadataContainer.style.width = layoutConfig.metadata?.width || '61mm';
+                metadataContainer.style.height = layoutConfig.metadata?.height || '20mm';
+            }
+            if (titleDisplay) {
+                titleDisplay.style.color = '#111115';
+                titleDisplay.style.fontFamily = 'Inter, sans-serif';
+                titleDisplay.style.fontWeight = '900';
+                titleDisplay.style.letterSpacing = '0.04em';
+                titleDisplay.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)';
+                titleDisplay.style.cursor = 'text';
+                titleDisplay.textContent = layoutConfig.titleText || 'PLANO CARTOGRÁFICO PASTORAL';
+                titleDisplay.oninput = function() {
+                    layoutConfig.titleText = this.textContent;
+                    const inp = document.getElementById('layoutTitleInput');
+                    if (inp) inp.value = this.textContent;
+                };
             }
             if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
-            layoutConfig.styles.compass.design = 'leaf-forest';
-            layoutConfig.styles.compass.color = '#2d5a27';
+            layoutConfig.styles.compass.design = 'pop-geometric';
+            layoutConfig.styles.compass.color = '#1b3816';
             if (!layoutConfig.grid) layoutConfig.grid = {};
             layoutConfig.grid.enabled = false;
 
@@ -17114,19 +16978,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
         let templateLayers = [];
         if (layoutConfig.theme === 'ghibli') {
             templateLayers = [
-                { id: 'ghibliSky', name: 'Cielo & Nubes (Fondo)', icon: 'cloud' },
-                { id: 'ghibliHills', name: 'Colinas & Pradera (Fondo)', icon: 'landscape' },
-                { id: 'ghibliTree', name: 'Árbol Ancestral & Flora', icon: 'park' },
-                { id: 'ghibliDragon', name: 'Fauna Aérea & Viento', icon: 'air' },
-                { id: 'ghibliCastle', name: 'Arquitectura Rural Lejana', icon: 'fort' },
-                { id: 'ghibliTotoro', name: 'Figura Paisajística en Pradera', icon: 'pets' },
-                { id: 'ghibliMiniTotoros', name: 'Detalles Fauna de Pradera', icon: 'cruelty_free' },
-                { id: 'ghibliMainTitle', name: 'Título: Estudio de Paisaje', icon: 'title' },
-                { id: 'ghibliSubBanner', name: 'Franja: Subtítulo & Escala', icon: 'short_text' },
-                { id: 'ghibliPublisher', name: 'Pie: Edición Territorial', icon: 'auto_stories' },
-                { id: 'ghibliBadges', name: 'Insignias Ambientales', icon: 'eco' }
-            ];
-        } else {
+                { id: 'pastoralWall', name: 'Muro Celeste (Fondo)', icon: 'palette' },
+                { id: 'pastoralWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
+                { id: 'pastoralWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
+                { id: 'pastoralTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
+                { id: 'pastoralTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
+                { id: 'pastoralTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
+                { id: 'pastoralTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
+                { id: 'pastoralStairs', name: 'Escaleras Tierra/Ocre (Fondo)', icon: 'stairs' },
+                { id: 'pastoralStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
+                { id: 'pastoralStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+            ];} else {
             templateLayers = [
                 { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
                 { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
@@ -22792,228 +22654,147 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     
     function renderGhibliTemplateCanvas(ctx, w, h) {
-      // 1. Cielo degradado Ghibli
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.55);
-      skyGrad.addColorStop(0, '#72bde8');
-      skyGrad.addColorStop(0.5, '#a4dbf4');
-      skyGrad.addColorStop(1, '#d6f0fa');
-      ctx.fillStyle = skyGrad;
+      if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
+
+      // ─── 1. BASE VERDE PRADERA PASTORAL (#5fa743) ───
+      ctx.fillStyle = '#5fa743';
       ctx.fillRect(0, 0, w, h);
 
-      // Nubes suaves
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      function drawCloud(cx, cy, r) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.arc(cx + r * 0.7, cy - r * 0.2, r * 0.8, 0, Math.PI * 2);
-        ctx.arc(cx - r * 0.7, cy + r * 0.1, r * 0.65, 0, Math.PI * 2);
-        ctx.arc(cx + r * 1.3, cy + r * 0.1, r * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      drawCloud(w * 0.32, h * 0.18, 22);
-      drawCloud(w * 0.78, h * 0.22, 28);
-      drawCloud(w * 0.55, h * 0.12, 16);
-
-      // 2. Dragón Haku en el cielo
-      ctx.strokeStyle = '#38b000';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(w * 0.38, h * 0.12);
-      ctx.quadraticCurveTo(w * 0.48, h * 0.06, w * 0.58, h * 0.12);
-      ctx.quadraticCurveTo(w * 0.68, h * 0.18, w * 0.76, h * 0.10);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#f8fafc';
-      ctx.lineWidth = 4.5;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.36, h * 0.13);
-      ctx.quadraticCurveTo(w * 0.48, h * 0.07, w * 0.58, h * 0.13);
-      ctx.quadraticCurveTo(w * 0.68, h * 0.19, w * 0.76, h * 0.11);
-      ctx.stroke();
-
-      // Cabeza dragón
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(w * 0.35, h * 0.13, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#2d6a4f';
-      ctx.beginPath(); ctx.arc(w * 0.34, h * 0.12, 1.2, 0, Math.PI * 2); ctx.fill();
-
-      // 3. Colina lejana
-      ctx.fillStyle = '#88c84b';
-      ctx.beginPath();
-      ctx.moveTo(0, h * 0.42);
-      ctx.quadraticCurveTo(w * 0.3, h * 0.32, w * 0.6, h * 0.38);
-      ctx.quadraticCurveTo(w * 0.85, h * 0.44, w, h * 0.34);
-      ctx.lineTo(w, h);
-      ctx.lineTo(0, h);
-      ctx.closePath();
-      ctx.fill();
-
-      // Castillo ambulante en la loma lejana derecha
-      ctx.fillStyle = '#a47148';
-      ctx.fillRect(w * 0.82, h * 0.28, 28, 24);
-      ctx.fillStyle = '#e07a5f';
-      ctx.beginPath();
-      ctx.moveTo(w * 0.82, h * 0.28);
-      ctx.lineTo(w * 0.87, h * 0.20);
-      ctx.lineTo(w * 0.92, h * 0.28);
-      ctx.fill();
-      ctx.strokeStyle = '#4a3728';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.84, h * 0.52); ctx.lineTo(w * 0.83, h * 0.58);
-      ctx.moveTo(w * 0.88, h * 0.52); ctx.lineTo(w * 0.89, h * 0.58);
-      ctx.stroke();
-
-      // 4. Árbol sagrado en el margen izquierdo
-      ctx.fillStyle = '#a47148';
+      // ─── 2. LABERINTO DE ESCALERAS AZUL CELESTE (#72bde8) ───
+      ctx.fillStyle = '#72bde8';
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(w * 0.18, 0);
-      ctx.quadraticCurveTo(w * 0.12, h * 0.25, w * 0.10, h * 0.50);
-      ctx.lineTo(0, h * 0.7);
+      ctx.lineTo(w * 0.36, 0);
+      ctx.lineTo(w * 0.36, h * 0.16);
+      ctx.lineTo(w * 0.27, h * 0.16);
+      ctx.lineTo(w * 0.27, h * 0.34);
+      ctx.lineTo(w * 0.19, h * 0.34);
+      ctx.lineTo(w * 0.19, h * 0.52);
+      ctx.lineTo(w * 0.10, h * 0.52);
+      ctx.lineTo(w * 0.10, h * 0.72);
+      ctx.lineTo(0, h * 0.72);
       ctx.closePath();
       ctx.fill();
-      // Rama extendida
-      ctx.fillStyle = '#8d5b36';
-      ctx.beginPath();
-      ctx.moveTo(w * 0.10, h * 0.22);
-      ctx.quadraticCurveTo(w * 0.20, h * 0.22, w * 0.26, h * 0.26);
-      ctx.lineTo(w * 0.25, h * 0.30);
-      ctx.quadraticCurveTo(w * 0.18, h * 0.26, w * 0.09, h * 0.27);
-      ctx.fill();
-      // Follaje árbol
-      ctx.fillStyle = '#35682d';
-      ctx.beginPath(); ctx.arc(w * 0.08, h * 0.08, 48, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#4d8c36';
-      ctx.beginPath(); ctx.arc(w * 0.18, h * 0.12, 34, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#5fa743';
-      ctx.beginPath(); ctx.arc(w * 0.06, h * 0.22, 28, 0, Math.PI * 2); ctx.fill();
-
-      // Kodama sentado en la rama
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.ellipse(w * 0.22, h * 0.23, 4.5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(w * 0.22, h * 0.28, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath(); ctx.arc(w * 0.21, h * 0.225, 0.9, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(w * 0.23, h * 0.225, 0.9, 0, Math.PI * 2); ctx.fill();
-
-      // 5. Pradera principal inferior
-      const grassGrad = ctx.createLinearGradient(0, h * 0.48, 0, h);
-      grassGrad.addColorStop(0, '#67b738');
-      grassGrad.addColorStop(0.3, '#55a52a');
-      grassGrad.addColorStop(1, '#3d821a');
-      ctx.fillStyle = grassGrad;
-      ctx.beginPath();
-      ctx.moveTo(0, h * 0.50);
-      ctx.quadraticCurveTo(w * 0.35, h * 0.42, w * 0.65, h * 0.52);
-      ctx.quadraticCurveTo(w * 0.85, h * 0.58, w, h * 0.48);
-      ctx.lineTo(w, h);
-      ctx.lineTo(0, h);
-      ctx.closePath();
-      ctx.fill();
-
-      // 6. Marco del Mapa Central
-      const mw = w * 0.46;
-      const mh = h * 0.44;
-      const mx = w * 0.27;
-      const my = h * 0.15;
-      
-      ctx.save();
-      ctx.shadowColor = 'rgba(20, 40, 15, 0.35)';
-      ctx.shadowBlur = 16;
-      ctx.shadowOffsetY = 8;
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#2d5a27';
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.roundRect(mx, my, mw, mh, 10);
-      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      ctx.restore();
 
-      // Interior mapa (simulación de relieve montañoso verde)
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(mx + 3, my + 3, mw - 6, mh - 6, 8);
-      ctx.clip();
-      ctx.fillStyle = '#e8f5e9';
-      ctx.fillRect(mx, my, mw, mh);
-      ctx.strokeStyle = '#81c784';
+      // Cotas y nivel en la pared celeste
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.lineWidth = 1;
-      for (let r = 20; r < 120; r += 16) {
+      for (let y = h * 0.08; y < h * 0.65; y += 22) {
         ctx.beginPath();
-        ctx.arc(mx + mw * 0.5, my + mh * 0.5, r, 0, Math.PI * 2);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w * 0.16, y);
         ctx.stroke();
       }
-      ctx.fillStyle = '#2e7d32';
-      ctx.font = 'bold 8px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('PAISAJE & ESTUDIO TERRITORIAL', mx + mw * 0.5, my + mh * 0.5 + 3);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(w * 0.23, h * 0.25, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('+2,640m', w * 0.23, h * 0.25 + 2);
+
+      // ─── 3. ESCALERAS ARQUITECTÓNICAS TIERRA / OCRE (#c98a58) ───
+      ctx.fillStyle = '#c98a58';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      ctx.lineTo(0, h * 0.86);
+      ctx.lineTo(w * 0.20, h * 0.86);
+      ctx.lineTo(w * 0.20, h * 0.78);
+      ctx.lineTo(w * 0.42, h * 0.78);
+      ctx.lineTo(w * 0.42, h * 0.70);
+      ctx.lineTo(w * 0.68, h * 0.70);
+      ctx.lineTo(w * 0.68, h * 0.62);
+      ctx.lineTo(w, h * 0.62);
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#a47148';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // ─── 4. MARCO CENTRAL DEL MAPA (Verde Bosque #1b3816) ───
+      const mw = w * 0.62;
+      const mh = h * 0.54;
+      const mx = w * 0.32;
+      const my = h * 0.10;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 6;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(mx, my, mw, mh);
       ctx.restore();
 
-      // 7. Totoro Durmiendo en la pradera
-      const tox = w * 0.50;
-      const toy = h * 0.68;
-      ctx.fillStyle = 'rgba(35, 75, 20, 0.45)';
-      ctx.beginPath(); ctx.ellipse(tox, toy + 24, 75, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#3d5248';
-      ctx.beginPath(); ctx.ellipse(tox, toy, 72, 28, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#eee8da';
-      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 6, 44, 21, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#3d5248';
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      ctx.moveTo(tox - 4, toy - 12); ctx.lineTo(tox, toy - 16); ctx.lineTo(tox + 4, toy - 12);
-      ctx.moveTo(tox + 10, toy - 12); ctx.lineTo(tox + 14, toy - 16); ctx.lineTo(tox + 18, toy - 12);
-      ctx.moveTo(tox + 24, toy - 12); ctx.lineTo(tox + 28, toy - 16); ctx.lineTo(tox + 32, toy - 12);
-      ctx.stroke();
-      ctx.fillStyle = '#3d5248';
-      ctx.beginPath(); ctx.arc(tox - 48, toy - 10, 18, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(tox - 58, toy - 22, 4, 10, -0.6, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1c2822';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(tox - 50, toy - 14, 3, Math.PI, 0);
-      ctx.moveTo(tox - 52, toy - 8); ctx.lineTo(tox - 66, toy - 11);
-      ctx.moveTo(tox - 52, toy - 6); ctx.lineTo(tox - 68, toy - 6);
-      ctx.stroke();
+      ctx.strokeStyle = '#1b3816';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(mx, my, mw, mh);
 
-      // Chu-Totoro Azul y Chibi-Totoro Blanco encima
-      ctx.fillStyle = '#2b6cb0';
-      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 24, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(tox + 26, toy - 21, 6, 7, 0, 0, Math.PI * 2); ctx.fill();
+      // Interior mapa cartográfico
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(mx, my, mw, mh);
+      ctx.clip();
+      ctx.fillStyle = '#f0fdf4';
+      ctx.fillRect(mx, my, mw, mh);
 
-      // 8. TÍTULO OFICIAL "EL MUNDO DE STUDIO GHIBLI"
-      ctx.fillStyle = '#fcfbf7';
-      ctx.font = '900 16px "Quicksand", "Comfortaa", Inter, sans-serif';
+      // Red ortogonal cartográfica
+      ctx.strokeStyle = 'rgba(27, 56, 22, 0.12)';
+      ctx.lineWidth = 0.8;
+      for (let x = mx; x < mx + mw; x += 24) {
+        ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, my + mh); ctx.stroke();
+      }
+      for (let y = my; y < my + mh; y += 24) {
+        ctx.beginPath(); ctx.moveTo(mx, y); ctx.lineTo(mx + mw, y); ctx.stroke();
+      }
+
+      // Polígonos de cuenca / relieve
+      ctx.fillStyle = '#72bde8';
+      ctx.fillRect(mx + mw * 0.15, my + mh * 0.2, mw * 0.45, mh * 0.35);
+      ctx.fillStyle = '#2d5a27';
+      ctx.font = 'bold 8px sans-serif';
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
-      ctx.fillText('ESTUDIO DE PAISAJE', w * 0.50, h * 0.84);
-      ctx.font = '900 17px "Quicksand", "Comfortaa", Inter, sans-serif';
-      ctx.fillText('Y GESTIÓN TERRITORIAL', w * 0.50, h * 0.90);
+      ctx.fillText('ESTUDIO TERRITORIAL Y AMBIENTAL', mx + mw * 0.5, my + mh * 0.45);
+      ctx.restore();
 
-      // Franja divisoria
-      ctx.strokeStyle = 'rgba(252, 251, 247, 0.85)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.22, h * 0.925);
-      ctx.lineTo(w * 0.78, h * 0.925);
-      ctx.stroke();
+      // ─── 5. BANNER SUPERIOR VERDE BOSQUE (#1b3816) ───
+      ctx.fillStyle = '#1b3816';
+      ctx.fillRect(w * 0.05, h * 0.02, w * 0.90, 16);
+      ctx.strokeStyle = '#72bde8';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(w * 0.05, h * 0.02, w * 0.90, 16);
 
-      // Subtítulo
-      ctx.font = 'bold 7px Inter, sans-serif';
-      ctx.fillText('LEVANTAMIENTO TOPOGRÁFICO & AMBIENTAL · ESCALA: 1:1,000', w * 0.50, h * 0.955);
-      ctx.font = '600 7.5px "Quicksand", sans-serif';
-      ctx.fillStyle = 'rgba(252, 251, 247, 0.9)';
-      ctx.fillText('minotauro · edición territorial', w * 0.50, h * 0.985);
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 7px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('SISTEMA CARTOGRÁFICO TERRITORIAL · EDICIÓN PASTORAL', w * 0.08, h * 0.02 + 11);
+
+      // ─── 6. MEMBRETES INFERIORES ───
+      const tx = w * 0.34;
+      const ty = h * 0.72;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.fillRect(tx, ty, w * 0.60, 36);
+      ctx.strokeStyle = '#1b3816';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(tx, ty, w * 0.60, 36);
+
+      ctx.fillStyle = '#1b3816';
+      ctx.font = '900 8.5px sans-serif';
+      ctx.fillText('PLANO CARTOGRÁFICO PASTORAL', tx + 8, ty + 14);
+      ctx.fillStyle = '#555555';
+      ctx.font = 'bold 6.5px sans-serif';
+      ctx.fillText('ESCALA 1:1,000 · DATUM WGS-84 · COORDENADAS UTM', tx + 8, ty + 26);
+
+      ctx.fillStyle = '#2d5a27';
+      ctx.fillRect(tx + w * 0.42, ty + 10, 48, 16);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 6.5px monospace';
+      ctx.fillText('✓ VALIDADO', tx + w * 0.42 + 6, ty + 21);
     }
-function renderTemplateCanvas(type, canvas) {
+
+    function renderTemplateCanvas(type, canvas) {
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -23206,22 +22987,22 @@ function renderTemplateCanvas(type, canvas) {
         ghibli: {
           theme: 'ghibli',
           paper: 'A4', orientation: 'portrait',
-          titleText: 'ESTUDIO DE PAISAJE Y GESTIÓN TERRITORIAL',
-          themeColors: { paper: '#8ecae6', wall: '#5fa743', stairs: '#438927', frame: '#2d5a27' },
+          titleText: 'Plano Cartográfico Pastoral',
+          themeColors: { paper: '#5fa743', wall: '#72bde8', stairs: '#c98a58', frame: '#1b3816' },
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
           styles: {
-            title: { fontSize: 20, color: '#fcfbf7', fontFamily: 'Inter', bold: true },
-            metadata: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter' },
-            legend: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter', design: 'classic' },
-            scale: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#2d5a27', design: 'leaf-forest', rotation: 0, size: 34 }
+            title: { fontSize: 20, color: '#111115', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter' },
+            legend: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'modern' },
+            compass: { color: '#1b3816', design: 'pop-geometric', rotation: 0, size: 34 }
           },
-          mapFrame: { top: '30mm', left: '46mm', width: '135mm', height: '115mm', visible: true },
+          mapFrame: { top: '30mm', left: '46mm', width: '135mm', height: '125mm', visible: true },
           compass: { top: '34mm', left: '146mm', width: '28mm', height: '28mm' },
-          titleProps: { top: '150mm', left: '20mm', width: '170mm', height: '18mm' },
-          legend: { top: '230mm', left: '10mm', width: '56mm', height: '56mm' },
-          scale: { top: '232mm', left: '70mm', width: '62mm', height: '20mm' },
-          metadata: { top: '232mm', left: '136mm', width: '64mm', height: '20mm' },
+          titleProps: { top: '174mm', left: '73mm', width: '127mm', height: '18mm' },
+          legend: { top: '174mm', left: '10mm', width: '58mm', height: '72mm' },
+          scale: { top: '202mm', left: '73mm', width: '61mm', height: '20mm' },
+          metadata: { top: '202mm', left: '139mm', width: '61mm', height: '20mm' },
           grid: { enabled: false }
         },
         
