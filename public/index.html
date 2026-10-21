@@ -1201,6 +1201,19 @@
     #viewModeToggle button:hover { background: #fff !important; border-color: #202124 !important; color: #202124 !important; box-shadow: 0 2px 6px rgba(0,0,0,.25) !important; }
     #viewModeToggle button:active { transform: scale(0.92); }
   </style>
+<style>
+    /* Estilos para edición en tiempo real de todo el plano cartográfico */
+    #layoutPaper [contenteditable="true"]:hover {
+        outline: 1px dashed rgba(59, 130, 246, 0.7) !important;
+        cursor: text !important;
+    }
+    #layoutPaper [contenteditable="true"]:focus {
+        outline: 2px solid #2563eb !important;
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        color: #111115 !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.15) !important;
+    }
+</style>
 </head>
 
 <body class="bg-surface text-on-surface font-body overflow-hidden">
@@ -4864,7 +4877,7 @@
 
             <!-- Title Box -->
             <div id="layoutTitleContainer" onclick="layoutOpenElementProps('title')" class="absolute cursor-move group z-30 flex items-center p-2 bg-transparent hover:bg-zinc-50/50 hover:border hover:border-dashed hover:border-zinc-300 rounded-lg min-h-[10mm]" style="width: 170mm; top: 10mm; left: 20mm;">
-                <h1 id="layoutTitleDisplay" class="text-3xl font-black text-black uppercase tracking-tighter leading-none w-full" contenteditable="true">Proyecto Zima Editor</h1>
+                <h1 id="layoutTitleDisplay" class="text-3xl font-black text-black uppercase tracking-tighter leading-none w-full outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-2 focus:ring-primary/40 rounded px-1 transition-all cursor-text" contenteditable="true" spellcheck="false">Proyecto Zima Editor</h1>
                 <div id="layoutTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
@@ -4872,12 +4885,12 @@
             <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-20 flex flex-col gap-2 p-2 bg-transparent hover:bg-zinc-50/50 hover:border hover:border-dashed hover:border-zinc-300 rounded-lg" style="width: 170mm; top: 200mm; left: 20mm;">
                 <div id="layoutMetadataDisplay" class="flex justify-between items-end w-full">
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400">Generado el</span>
-                        <span class="text-[10px] font-bold text-black" id="layoutDateDisplay">29 de Marzo, 2026</span>
+                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Generado el</span>
+                        <span contenteditable="true" spellcheck="false" class="text-[10px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutDateDisplay">29 de Marzo, 2026</span>
                     </div>
                     <div class="flex flex-col items-end">
-                        <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400">Referencia Espacial</span>
-                        <span class="text-[10px] font-bold text-black" id="layoutCoordDisplay">EPSG:4326 - WGS 84</span>
+                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Referencia Espacial</span>
+                        <span contenteditable="true" spellcheck="false" class="text-[10px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutCoordDisplay">EPSG:4326 - WGS 84</span>
                     </div>
                 </div>
                 <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
@@ -4886,7 +4899,7 @@
             <!-- Legend Box -->
             <div id="layoutLegendContainer" onclick="layoutOpenElementProps('legend')" class="absolute cursor-move group z-20 flex flex-col gap-3 p-4 bg-white/90 backdrop-blur-sm border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 60mm; top: 215mm; left: 20mm;">
                 <div id="layoutLegend" class="flex flex-col gap-3 w-full">
-                    <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400">Leyenda Activa</span>
+                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Leyenda Activa</span>
                     <div id="layoutLegendList" class="flex flex-wrap gap-x-6 gap-y-3">
                         <!-- Legend items injected here -->
                     </div>
@@ -4897,7 +4910,7 @@
             <!-- Scale Box -->
             <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-end gap-3 p-4 bg-white/90 backdrop-blur-sm border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 60mm; top: 215mm; left: 110mm;">
                 <div id="layoutScale" class="flex flex-col items-end gap-3 w-full">
-                    <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400">Escala Visual</span>
+                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
                     <div class="flex items-center gap-2">
                         <div id="layoutScaleBar" class="h-2 relative border-black shrink-0" style="width: 120px;">
                             <div class="absolute inset-0 flex">
@@ -4907,7 +4920,7 @@
                                 <div class="flex-1 bg-white"></div>
                             </div>
                         </div>
-                        <span class="text-[9px] font-bold text-black" id="layoutScaleDisplay">1:50,000</span>
+                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutScaleDisplay">1:50,000</span>
                     </div>
                 </div>
                 <div id="layoutScaleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
@@ -5357,6 +5370,82 @@
                                    <span class="material-symbols-outlined text-[18px]">visibility</span>
                                </button>
                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colores de Fondo y Tema Personalizables -->
+                <div class="flex flex-col gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-zinc-900 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[15px] text-pink-500">palette</span>
+                            Colores del Plano
+                        </span>
+                        <button onclick="layoutResetThemeColors()" class="text-[8px] font-bold text-zinc-400 hover:text-zinc-700 underline">Restablecer</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <!-- Fondo Papel -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">Fondo Papel</label>
+                            <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-zinc-200">
+                                <input type="color" id="layoutColorPaper" value="#f472b6" oninput="layoutSetThemeColor('paper', this.value)" class="w-6 h-6 rounded-lg border-none cursor-pointer p-0 bg-transparent">
+                                <span id="layoutColorPaperHex" class="text-[9px] font-mono font-bold text-zinc-700 uppercase">#F472B6</span>
+                            </div>
+                        </div>
+
+                        <!-- Muro Escalonado -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">Muro Escalonado</label>
+                            <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-zinc-200">
+                                <input type="color" id="layoutColorWall" value="#00a8e8" oninput="layoutSetThemeColor('wall', this.value)" class="w-6 h-6 rounded-lg border-none cursor-pointer p-0 bg-transparent">
+                                <span id="layoutColorWallHex" class="text-[9px] font-mono font-bold text-zinc-700 uppercase">#00A8E8</span>
+                            </div>
+                        </div>
+
+                        <!-- Grada Inferior -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">Grada Inferior</label>
+                            <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-zinc-200">
+                                <input type="color" id="layoutColorStairs" value="#fbb040" oninput="layoutSetThemeColor('stairs', this.value)" class="w-6 h-6 rounded-lg border-none cursor-pointer p-0 bg-transparent">
+                                <span id="layoutColorStairsHex" class="text-[9px] font-mono font-bold text-zinc-700 uppercase">#FBB040</span>
+                            </div>
+                        </div>
+
+                        <!-- Marco del Mapa -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">Marco del Mapa</label>
+                            <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-zinc-200">
+                                <input type="color" id="layoutColorFrame" value="#008259" oninput="layoutSetThemeColor('frame', this.value)" class="w-6 h-6 rounded-lg border-none cursor-pointer p-0 bg-transparent">
+                                <span id="layoutColorFrameHex" class="text-[9px] font-mono font-bold text-zinc-700 uppercase">#008259</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Paletas Rápidas -->
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200">
+                        <span class="text-[8px] font-black uppercase text-zinc-400">Paletas Pop:</span>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="layoutApplyPalette('#f472b6','#00a8e8','#fbb040','#008259')" title="Pop Original" class="w-5 h-5 rounded-full border-2 border-white shadow-sm flex overflow-hidden">
+                                <span style="background:#f472b6;width:50%;height:100%;"></span>
+                                <span style="background:#00a8e8;width:50%;height:100%;"></span>
+                            </button>
+                            <button onclick="layoutApplyPalette('#a7f3d0','#38bdf8','#f43f5e','#0f766e')" title="Menta & Coral" class="w-5 h-5 rounded-full border-2 border-white shadow-sm flex overflow-hidden">
+                                <span style="background:#a7f3d0;width:50%;height:100%;"></span>
+                                <span style="background:#f43f5e;width:50%;height:100%;"></span>
+                            </button>
+                            <button onclick="layoutApplyPalette('#e9d5ff','#818cf8','#fbbf24','#4338ca')" title="Lavanda & Sol" class="w-5 h-5 rounded-full border-2 border-white shadow-sm flex overflow-hidden">
+                                <span style="background:#e9d5ff;width:50%;height:100%;"></span>
+                                <span style="background:#fbbf24;width:50%;height:100%;"></span>
+                            </button>
+                            <button onclick="layoutApplyPalette('#fef3c7','#0284c7','#ea580c','#b45309')" title="Crema & Terracota" class="w-5 h-5 rounded-full border-2 border-white shadow-sm flex overflow-hidden">
+                                <span style="background:#fef3c7;width:50%;height:100%;"></span>
+                                <span style="background:#ea580c;width:50%;height:100%;"></span>
+                            </button>
+                            <button onclick="layoutApplyPalette('#18181b','#00f0ff','#ff2a85','#00e676')" title="Dark Pop Neón" class="w-5 h-5 rounded-full border-2 border-white shadow-sm flex overflow-hidden">
+                                <span style="background:#18181b;width:50%;height:100%;"></span>
+                                <span style="background:#00f0ff;width:50%;height:100%;"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -14469,6 +14558,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (typeof layoutSetOrientation === 'function') layoutSetOrientation(layoutConfig.orientation || 'portrait');
         if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
 
+        // Restore Theme Color Pickers
+        const tColors = layoutConfig.themeColors || { paper: '#f472b6', wall: '#00a8e8', stairs: '#fbb040', frame: '#008259' };
+        ['paper', 'wall', 'stairs', 'frame'].forEach(k => {
+            const input = document.getElementById('layoutColor' + k.charAt(0).toUpperCase() + k.slice(1));
+            const hex = document.getElementById('layoutColor' + k.charAt(0).toUpperCase() + k.slice(1) + 'Hex');
+            if (input && tColors[k]) input.value = tColors[k];
+            if (hex && tColors[k]) hex.textContent = tColors[k].toUpperCase();
+        });
+
         // Restore UI State
         document.getElementById('layoutTitleInput').value = layoutConfig.titleText || '';
         document.getElementById('layoutTitleDisplay').textContent = layoutConfig.titleText || '';
@@ -15092,14 +15190,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (compassEl) compassEl.style.display = 'flex';
 
         // ═══ ESTILO POP GEOMÉTRICO (Arquitectura Cromática) ═══
-        paper.style.background = '#f472b6';
+        const colors = layoutConfig.themeColors || { paper: '#f472b6', wall: '#00a8e8', stairs: '#fbb040', frame: '#008259' };
+        paper.style.background = colors.paper || '#f472b6';
+
         decor.innerHTML = `
-            <!-- Left Sky Blue Stepped Architectural Block -->
-            <div style="position:absolute;top:0;left:0;width:32%;height:68%;background:#00a8e8;clip-path:polygon(0 0, 100% 0, 100% 24%, 74% 24%, 74% 50%, 48% 50%, 48% 76%, 22% 76%, 22% 100%, 0 100%);pointer-events:none;box-shadow:inset -4px -4px 0 #0284c7;">
+            <!-- Left Stepped Architectural Block -->
+            <div id="layoutThemeWall" style="position:absolute;top:0;left:0;width:32%;height:68%;background:${colors.wall || '#00a8e8'};clip-path:polygon(0 0, 100% 0, 100% 24%, 74% 24%, 74% 50%, 48% 50%, 48% 76%, 22% 76%, 22% 100%, 0 100%);pointer-events:none;box-shadow:inset -4px -4px 0 rgba(0,0,0,0.15);transition:background 0.25s;">
                 <div style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#111115;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.4);">
                     <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;"></span>
                 </div>
-                <div style="position:absolute;top:48mm;left:4mm;font-family:monospace;font-size:6px;font-weight:bold;color:rgba(255,255,255,0.7);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:left top;">
+                <div contenteditable="true" spellcheck="false" style="outline:none;position:absolute;top:48mm;left:4mm;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:left top;cursor:text;pointer-events:auto;background:rgba(0,0,0,0.35);padding:1px 5px;border-radius:2px;">
                     ELEV: +2,640m // GRID: 100m
                 </div>
             </div>
@@ -15124,7 +15224,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- Bottom Stepped Yellow Staircase with Technical Membrete (100% Editable) -->
-            <div style="position:absolute;bottom:0;left:0;right:0;height:42mm;background:#fbb040;clip-path:polygon(0 100%, 100% 100%, 100% 0, 72% 0, 72% 28%, 46% 28%, 46% 60%, 20% 60%, 20% 100%);pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);">
+            <div id="layoutThemeStairs" style="position:absolute;bottom:0;left:0;right:0;height:42mm;background:${colors.stairs || '#fbb040'};clip-path:polygon(0 100%, 100% 100%, 100% 0, 72% 0, 72% 28%, 46% 28%, 46% 60%, 20% 60%, 20% 100%);pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);transition:background 0.25s;">
                 <div style="position:absolute;bottom:5mm;right:10mm;left:45mm;display:flex;justify-content:space-between;align-items:flex-end;font-family:Inter,sans-serif;">
                     <div style="display:flex;flex-direction:column;gap:3px;">
                         <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;color:#111115;letter-spacing:0.15em;text-transform:uppercase;background:rgba(255,255,255,0.65);padding:1px 6px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
@@ -15166,7 +15266,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
             };
         }
         if (mapFrame) {
-            mapFrame.style.border = '3.5px solid #008259';
+            mapFrame.style.borderColor = colors.frame || '#008259';
+            mapFrame.style.borderWidth = '3.5px';
+            mapFrame.style.borderStyle = 'solid';
             mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(0,0,0,0.28)';
             mapFrame.style.borderRadius = '4px';
         }
@@ -15175,7 +15277,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
         if (legendContainer) {
             legendContainer.style.background = '#ffffff';
-            legendContainer.style.border = '2px solid #008259';
+            legendContainer.style.border = '2px solid ' + (colors.frame || '#008259');
             legendContainer.style.borderRadius = '8px';
             legendContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
             legendContainer.style.color = '#111115';
@@ -15226,7 +15328,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             items.forEach(it => {
                 const item = document.createElement('div');
                 item.className = 'flex items-center gap-2';
-                item.innerHTML = `<span style="width:12px;height:7px;background:${it.color};display:inline-block;border-radius:1px;border:0.5px solid rgba(0,0,0,0.2);"></span><span class="text-[9px] font-bold text-zinc-700">${it.name}</span>`;
+                item.innerHTML = `<span style="width:12px;height:7px;background:${it.color};display:inline-block;border-radius:1px;border:0.5px solid rgba(0,0,0,0.2);"></span><span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-zinc-700 outline-none hover:bg-black/5 focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-text transition-all">${it.name}</span>`;
                 legendList.appendChild(item);
             });
             return;
@@ -15266,7 +15368,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             item.innerHTML = `
                 <div class="${iconClass}" style="background: ${l.type === 'vector' ? (l.color || '#555') : '#555'}"></div>
-                <span class="uppercase tracking-tight" style="${textStyle}">${l.name}</span>
+                <span contenteditable="true" spellcheck="false" class="uppercase tracking-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-text transition-all" style="${textStyle}">${l.name}</span>
             `;
             legendList.appendChild(item);
 
@@ -15513,9 +15615,67 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (b2) b2.textContent = text;
     }
 
+    function layoutSetThemeColor(key, val) {
+        if (!layoutConfig.themeColors) {
+            layoutConfig.themeColors = { paper: '#f472b6', wall: '#00a8e8', stairs: '#fbb040', frame: '#008259' };
+        }
+        layoutConfig.themeColors[key] = val;
+
+        const input = document.getElementById('layoutColor' + key.charAt(0).toUpperCase() + key.slice(1));
+        const hex = document.getElementById('layoutColor' + key.charAt(0).toUpperCase() + key.slice(1) + 'Hex');
+        if (input) input.value = val;
+        if (hex) hex.textContent = val.toUpperCase();
+
+        const paper = document.getElementById('layoutPaper');
+        if (!paper) return;
+
+        if (key === 'paper') {
+            paper.style.background = val;
+        } else if (key === 'frame') {
+            const mf = document.getElementById('layoutMapFrame');
+            if (mf) mf.style.borderColor = val;
+            const leg = document.getElementById('layoutLegendContainer');
+            if (leg) leg.style.borderColor = val;
+        } else if (key === 'wall') {
+            const wallEl = document.getElementById('layoutThemeWall');
+            if (wallEl) wallEl.style.background = val;
+        } else if (key === 'stairs') {
+            const stairsEl = document.getElementById('layoutThemeStairs');
+            if (stairsEl) stairsEl.style.background = val;
+        }
+    }
+
+    function layoutApplyPalette(paper, wall, stairs, frame) {
+        layoutSetThemeColor('paper', paper);
+        layoutSetThemeColor('wall', wall);
+        layoutSetThemeColor('stairs', stairs);
+        layoutSetThemeColor('frame', frame);
+    }
+
+    function layoutResetThemeColors() {
+        layoutApplyPalette('#f472b6', '#00a8e8', '#fbb040', '#008259');
+    }
+
     function setLayoutMapMode(mode) {
         layoutMapContent.activeMode = mode;
         const isContent = (mode === 'content');
+        const mapContainer = document.getElementById('layoutMapContainer');
+        const mapFrame = document.getElementById('layoutMapFrame');
+
+        // CRUCIAL: In 'frame' mode, disable pointer-events on container so clicks pass to mapFrame for dragging!
+        if (mapContainer) {
+            mapContainer.style.pointerEvents = isContent ? 'auto' : 'none';
+        }
+
+        if (mapFrame) {
+            mapFrame.style.cursor = isContent ? 'grab' : 'move';
+            mapFrame.style.zIndex = isContent ? '12' : '45';
+            if (!isContent) {
+                mapFrame.classList.add('ring-4', 'ring-blue-500/80', 'ring-offset-2');
+            } else {
+                mapFrame.classList.remove('ring-4', 'ring-blue-500/80', 'ring-offset-2');
+            }
+        }
 
         if (window.layoutLeafletMap) {
             if (isContent) {
@@ -15530,12 +15690,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 window.layoutLeafletMap.doubleClickZoom.disable();
             }
         }
-
-        const mapFrame = document.getElementById('layoutMapFrame');
-        if (mapFrame) {
-            mapFrame.style.cursor = isContent ? 'grab' : 'move';
-        }
-
         const fContent = document.getElementById('floatBtnModeContent');
         const fFrame = document.getElementById('floatBtnModeFrame');
         if (fContent && fFrame) {
@@ -16254,10 +16408,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
         el.onmousedown = function(e) {
             if (e.target.id === c.resizer) return;
+            // Permitir edición y selección directa sin activar arrastre
+            if (e.target.isContentEditable || e.target.closest('[contenteditable="true"]') || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+                return;
+            }
             dragEl = this;
             startX = e.clientX; startY = e.clientY;
-            elementStartX = parseInt(dragEl.style.left);
-            elementStartY = parseInt(dragEl.style.top);
+            elementStartX = parseFloat(dragEl.style.left) || 0;
+            elementStartY = parseFloat(dragEl.style.top) || 0;
             dragEl.style.transition = 'none'; 
             e.preventDefault();
         };
@@ -16277,21 +16435,20 @@ async function deleteFromCloud(fileName, url, storagePath) {
     });
 
     mapFrame.onmousedown = function(e) {
-        if (e.target.id.startsWith('layoutMapResize')) return;
+        if (e.target.id && e.target.id.startsWith('layoutMapResize')) return;
         if (e.target.closest('#layoutMapFloatingToolbar')) return;
 
         // Si estamos en modo 'content' (mover mapa) y el click fue sobre el mapa interactivo:
         const isInsideContainer = e.target.closest('#layoutMapContainer');
         if (layoutMapContent.activeMode === 'content' && isInsideContainer && window.layoutLeafletMap) {
-            // Leaflet gestiona el pan y zoom nativamente con acceso a teselas
             return;
         }
 
-        // Si estamos en modo 'frame' o se hizo click en el borde del marco:
         dragEl = this;
-        startX = e.clientX; startY = e.clientY;
-        elementStartX = parseInt(dragEl.style.left) || 20;
-        elementStartY = parseInt(dragEl.style.top) || 20;
+        startX = e.clientX; 
+        startY = e.clientY;
+        elementStartX = parseFloat(dragEl.style.left) || 20;
+        elementStartY = parseFloat(dragEl.style.top) || 20;
         dragEl.style.transition = 'none'; 
         e.preventDefault();
     };
@@ -16299,9 +16456,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function startResize(e, mode) {
         resizeEl = mapFrame;
         resizeMode = mode;
-        startX = e.clientX; startY = e.clientY;
-        startWidth = parseInt(resizeEl.style.width) || 170;
-        startHeight = parseInt(resizeEl.style.height) || 170;
+        startX = e.clientX; 
+        startY = e.clientY;
+        startWidth = parseFloat(resizeEl.style.width) || 135;
+        startHeight = parseFloat(resizeEl.style.height) || 130;
         resizeEl.style.transition = 'none';
         e.preventDefault();
         e.stopPropagation();
@@ -16312,26 +16470,32 @@ async function deleteFromCloud(fileName, url, storagePath) {
     resizeHeight.onmousedown = (e) => startResize(e, 'h');
 
     window.onmousemove = function(e) {
+        const paper = document.getElementById('layoutPaper');
+        let paperScale = 1;
+        if (paper && paper.offsetWidth > 0) {
+            paperScale = paper.getBoundingClientRect().width / paper.offsetWidth;
+        }
+        const mmPerPx = (25.4 / 96) / (paperScale || 1);
+
         if (dragEl) {
-            const dx = (e.clientX - startX) * (25.4 / 96);
-            const dy = (e.clientY - startY) * (25.4 / 96);
-            dragEl.style.left = (elementStartX + dx) + 'mm';
-            dragEl.style.top = (elementStartY + dy) + 'mm';
+            const dx = (e.clientX - startX) * mmPerPx;
+            const dy = (e.clientY - startY) * mmPerPx;
+            dragEl.style.left = (elementStartX + dx).toFixed(1) + 'mm';
+            dragEl.style.top = (elementStartY + dy).toFixed(1) + 'mm';
         }
         
         if (resizeEl) {
-            const dx = (e.clientX - startX) * (25.4 / 96);
-            const dy = (e.clientY - startY) * (25.4 / 96);
+            const dx = (e.clientX - startX) * mmPerPx;
+            const dy = (e.clientY - startY) * mmPerPx;
             
             if (resizeMode === 'both' || resizeMode === 'w') {
-                resizeEl.style.width = Math.max(20, startWidth + dx) + 'mm';
+                resizeEl.style.width = Math.max(20, startWidth + dx).toFixed(1) + 'mm';
             }
             if (resizeMode === 'both' || resizeMode === 'h') {
-                resizeEl.style.height = Math.max(20, startHeight + dy) + 'mm';
+                resizeEl.style.height = Math.max(20, startHeight + dy).toFixed(1) + 'mm';
             }
         }
     };
-
     window.onmouseup = function() {
         if (dragEl) {
             dragEl.style.transition = 'all 0.3s';
@@ -21951,7 +22115,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       ctx.fillText('EST-01', w * 0.82 + 7, h * 0.22 + 9);
 
       // ─── 4. VENTANA CARTOGRÁFICA CENTRAL (Tracksuit Emerald + Double White Line) ───
-      const mx = w * 0.20, my = h * 0.10, mw = w * 0.52, mh = h * 0.58;
+      const mx = w * 0.28, my = h * 0.13, mw = w * 0.44, mh = h * 0.48;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(mx - 4, my - 4, mw + 8, mh + 8);
       ctx.fillStyle = '#008259';
@@ -22068,24 +22232,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
           theme: 'pop_geometric',
           paper: 'A4', orientation: 'portrait',
           titleText: 'Plano Cartográfico Pop',
+          themeColors: { paper: '#f472b6', wall: '#00a8e8', stairs: '#fbb040', frame: '#008259' },
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
           styles: {
-            title: { fontSize: 22, color: '#111115', fontFamily: 'Inter', bold: true },
+            title: { fontSize: 20, color: '#111115', fontFamily: 'Inter', bold: true },
             metadata: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter' },
             legend: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#ff2a85', design: 'pop-geometric', rotation: 0, size: 36 }
+            compass: { color: '#ff2a85', design: 'pop-geometric', rotation: 0, size: 34 }
           },
-          mapFrame: { top: '22mm', left: '14mm', width: '182mm', height: '185mm', visible: true },
-          compass: { top: '28mm', left: '156mm', width: '32mm', height: '32mm' },
+          // Mapa por defecto más pequeño para resaltar el fondo y las escaleras arquitectónicas
+          mapFrame: { top: '25mm', left: '46mm', width: '135mm', height: '130mm', visible: true },
+          compass: { top: '28mm', left: '146mm', width: '30mm', height: '30mm' },
           titleProps: { top: '214mm', left: '42mm', width: '150mm', height: '14mm' },
           metadata: { top: '270mm', left: '42mm', width: '150mm', height: '10mm' },
-          legend: { top: '210mm', left: '14mm', width: '65mm', height: '70mm' },
+          legend: { top: '165mm', left: '14mm', width: '65mm', height: '70mm' },
           scale: { top: '252mm', left: '115mm', width: '80mm', height: '14mm' },
           grid: { enabled: false }
         }
       };
-
       const preset = presets[type] || presets.pop_geometric;
       if (!preset) return;
 
