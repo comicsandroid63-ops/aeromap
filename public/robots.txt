@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /api/
+
+Sitemap: https://aeromap-zeta.vercel.app/sitemap.xml
