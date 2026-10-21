@@ -2034,7 +2034,7 @@
                   <span class="text-[8px] font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-400/40 shrink-0">PAISAJE</span>
                 </div>
                 <p class="text-[11px] text-zinc-300 truncate">
-                  Colinas verdes, cielo suave, árbol ancestral y tipografía editorial
+                  Guía regional: ruta de atractivos, lista numerada, convenciones y códigos QR
                 </p>
               </div>
               <button class="shrink-0 px-3.5 py-1.5 rounded-lg font-bold text-xs bg-[#22c55e] hover:bg-[#16a34a] text-white shadow transition-transform group-hover:scale-105 flex items-center gap-1.5">
@@ -4807,8 +4807,8 @@
                             <div class="flex items-center gap-2.5">
                                 <span class="text-lg">🍃</span>
                                 <div>
-                                    <span class="text-xs font-bold text-emerald-950 block group-hover:text-emerald-700">Cartografía Editorial Pastoral</span>
-                                    <span class="text-[9px] text-emerald-600/80">A4 V · Paisaje &amp; Naturaleza · Estilo Ilustrado Orgánico</span>
+                                    <span class="text-xs font-bold text-emerald-950 block group-hover:text-emerald-700">Mapa Turístico Regional</span>
+                                    <span class="text-[9px] text-emerald-600/80">A4 V · Ruta de Atractivos · Guía y Servicios</span>
                                 </div>
                             </div>
                             <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Pastoral</span>
@@ -15259,169 +15259,205 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (metadataContainer) metadataContainer.style.display = 'flex';
         if (compassEl) compassEl.style.display = 'flex';
 
-        // ═══ ESTILO PASTORAL CROMÁTICO (Colores Ghibli: Verde Pradera, Celeste Cielo, Ocre Tierra, Verde Bosque) ═══
+        // ═══ ESTILO MAPA TURÍSTICO REGIONAL (Guía de Ruta Turística & Paleta Ghibli) ═══
         if (theme === 'ghibli') {
             layoutConfig.theme = 'ghibli';
-            const colors = layoutConfig.themeColors || { paper: '#5fa743', wall: '#72bde8', stairs: '#c98a58', frame: '#1b3816' };
-            paper.style.background = colors.paper || '#5fa743';
+            const colors = layoutConfig.themeColors || { paper: '#f7f4ec', wall: '#72bde8', stairs: '#f9b233', frame: '#2d5a27' };
+            paper.style.background = colors.paper || '#f7f4ec';
 
             decor.innerHTML = `
-                <!-- 1. CAPA FONDO: Muro Arquitectónico Azul Celeste Pastoral -->
-                <div id="pastoralWall" class="layout-draggable-item group z-[5]" style="position:absolute;top:0;left:0;width:68mm;height:190mm;pointer-events:auto;cursor:move;" title="Fondo: Muro Celeste Pastoral (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <polygon points="0,0 100,0 100,24 74,24 74,50 48,50 48,76 22,76 22,100 0,100" fill="${colors.wall || '#72bde8'}" />
+                <!-- 1. CAPA FONDOS: Formas Curvas de Esquina (Amarillo Ámbar y Celeste Pastoral) -->
+                <div id="touristCornerAccents" class="layout-draggable-item group z-[2]" style="position:absolute;inset:0;pointer-events:auto;cursor:move;" title="Fondo: Formas Orgánicas de Esquina (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 210 297" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Curva esquina superior izquierda (Ocre cálido / sol) -->
+                        <path d="M 0,0 L 75,0 Q 45,30 20,45 Q 5,55 0,70 Z" fill="#fbb040" opacity="0.95" />
+                        <path d="M 0,0 L 55,0 Q 35,22 15,35 Q 2,42 0,55 Z" fill="#f3a61c" opacity="0.4" />
+
+                        <!-- Franja esquina inferior derecha (Ocre cálido / curva) -->
+                        <path d="M 140,297 Q 165,265 190,260 Q 200,258 210,262 L 210,297 Z" fill="#fbb040" opacity="0.95" />
                     </svg>
-                    <div id="pastoralWallResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="touristCornerAccentsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 2. CAPA PIN: Pin Decorativo Muro -->
-                <div id="pastoralWallPin" class="layout-draggable-item group z-[18]" style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#1b3816;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.3);cursor:move;pointer-events:auto;" title="Icono: Pin Muro (Arrastrar)">
-                    <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;pointer-events:none;"></span>
-                    <div id="pastoralWallPinResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 3. CAPA TEXTO: Texto Elevación Muro -->
-                <div id="pastoralWallText" class="layout-draggable-item group z-[19]" style="position:absolute;top:54mm;left:10mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Elevación (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 -left-1 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-mono rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                <!-- 2. CAPA LOGO: Sello Corporación Turística Regional -->
+                <div id="touristTopLogo" class="layout-draggable-item group z-[20]" style="position:absolute;top:4mm;left:5mm;cursor:move;pointer-events:auto;padding:2px;" title="Logo / Emblema Turístico (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
                         <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
                     </div>
-                    <div contenteditable="true" spellcheck="false" style="outline:none;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;cursor:text;background:rgba(27,56,22,0.65);padding:2px 6px;border-radius:3px;line-height:1.2;text-align:center;">
-                        ELEV: +2,640m // GRID: 100m
+                    <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.92);padding:3px 7px;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,0.12);border:1px solid rgba(0,0,0,0.06);">
+                        <svg width="24" height="24" viewBox="0 0 40 40">
+                            <!-- Montañas verdes y sol dorado -->
+                            <polygon points="6,34 18,12 30,34" fill="#2d5a27" />
+                            <polygon points="18,34 27,18 36,34" fill="#5fa743" />
+                            <circle cx="28" cy="12" r="5" fill="#fbb040" />
+                            <path d="M 4,34 Q 20,31 36,34" stroke="#00a8e8" stroke-width="2.5" fill="none" />
+                        </svg>
+                        <div style="display:flex;flex-direction:column;line-height:1.1;">
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:900;color:#1b3816;letter-spacing:0.04em;text-transform:uppercase;">EXPLORA EL TERRITORIO</span>
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:700;color:#0284c7;letter-spacing:0.02em;">CORPORACIÓN TURÍSTICA</span>
+                        </div>
                     </div>
-                    <div id="pastoralWallTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="touristTopLogoResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 4. CAPA FONDO: Banner Superior Verde Bosque Profundo -->
-                <div id="pastoralTopBannerBg" class="layout-draggable-item group z-[12]" style="position:absolute;top:6mm;left:8mm;width:194mm;height:14mm;background:#1b3816;border-radius:4px;box-shadow:0 8px 20px rgba(0,0,0,0.25);border-bottom:3px solid #72bde8;cursor:move;pointer-events:auto;" title="Fondo: Barra Banner (Arrastrar o redimensionar)">
-                    <div id="pastoralTopBannerBgResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                <!-- 3. CAPA TÍTULO: "Mapa Turístico REGIONAL" (Exacto al póster) -->
+                <div id="touristMainTitle" class="layout-draggable-item group z-[22]" style="position:absolute;top:3mm;left:64mm;width:140mm;cursor:move;pointer-events:auto;padding:2px;" title="Título Principal: Mapa Turístico Regional (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Título
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+                        <!-- Texto Cursivo "Mapa Turístico" -->
+                        <span contenteditable="true" spellcheck="false" style="outline:none;font-family:'Caveat','Brush Script MT','Segoe Script',cursive,sans-serif;font-size:24px;font-weight:900;color:#2d5a27;letter-spacing:0.03em;line-height:1;display:block;transform:rotate(-3deg);text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff, 2px 2px 4px rgba(0,0,0,0.2);">
+                            Mapa Turístico
+                        </span>
+                        <!-- Texto Grueso Bloque "REGIONAL" -->
+                        <span contenteditable="true" spellcheck="false" style="outline:none;font-family:'Impact','Arial Black',sans-serif;font-size:42px;font-weight:900;letter-spacing:0.06em;color:#48a942;text-transform:uppercase;line-height:0.95;display:block;margin-top:-2px;-webkit-text-stroke:2px #111115;text-shadow:3.5px 3.5px 0 #111115, 4px 4px 10px rgba(0,0,0,0.25);">
+                            REGIONAL
+                        </span>
+                    </div>
+                    <div id="touristMainTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 5. CAPA FORMAS: Iconos Geométricos Banner -->
-                <div id="pastoralTopBannerIcons" class="layout-draggable-item group z-[22]" style="position:absolute;top:8.5mm;left:12mm;display:flex;gap:3mm;align-items:center;cursor:move;pointer-events:auto;" title="Formas: Iconos Geométricos (Arrastrar)">
-                    <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #72bde8;border-radius:50%;pointer-events:none;"></span>
-                    <span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #c98a58;pointer-events:none;"></span>
-                    <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #5fa743;pointer-events:none;"></span>
-                    <div id="pastoralTopBannerIconsResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                <!-- 4. CAPA LISTA POIs: Lista Numerada de Atractivos (1 al 14) -->
+                <div id="touristPoiList" class="layout-draggable-item group z-[24]" style="position:absolute;top:52mm;left:134mm;width:70mm;cursor:move;pointer-events:auto;padding:2px;" title="Lista Numerada de Atractivos Turísticos (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 right-0 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Lista
+                    </div>
+                    <div style="background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);border-radius:10px;padding:6px 9px;box-shadow:0 6px 18px rgba(0,0,0,0.12);border:1.5px solid #2d5a27;display:flex;flex-direction:column;gap:3px;font-family:Inter,sans-serif;">
+                        <div style="border-bottom:1.5px solid #2d5a27;padding-bottom:3px;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:8.5px;font-weight:900;color:#1b3816;text-transform:uppercase;letter-spacing:0.04em;">RUTA DE ATRACTIVOS</span>
+                            <span style="font-size:7px;font-weight:800;background:#2d5a27;color:#fff;padding:1px 5px;border-radius:4px;">14 PUNTOS</span>
+                        </div>
+                        <div contenteditable="true" spellcheck="false" style="outline:none;font-size:7.2px;font-weight:700;color:#111115;line-height:1.35;display:flex;flex-direction:column;gap:1.5px;">
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">①</span> Mirador El Tablón (1)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">②</span> Sendero Ecológico Kairos (2)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">③</span> Balneario Mango Biche (3)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">④</span> Café de Origen Monociclo (4)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑤</span> Finca Agroturística Payandé (5)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑥</span> Hotel Campestre Chicalá (6)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑦</span> Cascadas Naturales a 5km (7)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑧</span> Glamping El Refugio 4.2km (8)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑨</span> Reserva de Flora Villa María (9)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑩</span> Estadero Río Salas 3km (10)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑪</span> Santuario Histórico (11)</div>
+                            <div style="display:flex;align-items:center;gap:4px;"><span style="color:#0284c7;font-weight:900;">⑫</span> Parque Ecoturístico (12)</div>
+                        </div>
+                    </div>
+                    <div id="touristPoiListResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 6. CAPA TEXTO: Título Banner Superior -->
-                <div id="pastoralTopBannerText" class="layout-draggable-item group z-[23]" style="position:absolute;top:7.5mm;left:34mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Título Banner (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                <!-- 5. CAPA LEYENDA: Simbología y Servicios Turísticos -->
+                <div id="touristLegendBox" class="layout-draggable-item group z-[24]" style="position:absolute;top:186mm;left:6mm;width:58mm;cursor:move;pointer-events:auto;padding:2px;" title="Leyenda de Servicios Turísticos (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-0 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Leyenda
                     </div>
-                    <div style="display:flex;flex-direction:column;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;line-height:1.2;display:block;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#a4dbf4;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;line-height:1.2;margin-top:1px;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN PASTORAL</span>
+                    <div style="background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);border-radius:10px;padding:6px 8px;box-shadow:0 6px 18px rgba(0,0,0,0.12);border:1.5px solid #2d5a27;display:flex;flex-direction:column;gap:3px;font-family:Inter,sans-serif;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;font-size:8px;font-weight:900;color:#1b3816;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1.5px solid #2d5a27;padding-bottom:2px;margin-bottom:2px;">CONVENCIONES</span>
+                        <div contenteditable="true" spellcheck="false" style="outline:none;font-size:7px;font-weight:700;color:#111115;line-height:1.4;display:flex;flex-direction:column;gap:1.5px;">
+                            <div>🍸 Zona Gastronómica &amp; Restaurantes</div>
+                            <div>🏥 Puesto de Salud / Emergencias</div>
+                            <div>⛪ Parroquia / Patrimonio Cultural</div>
+                            <div>⛽ Estación de Servicio / Gasolina</div>
+                            <div>👮 Estación de Policía &amp; Seguridad</div>
+                            <div>🏫 Escuela / Centro Educativo</div>
+                            <div>🌉 Puente Panorámico Escénico</div>
+                        </div>
                     </div>
-                    <div id="pastoralTopBannerTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="touristLegendBoxResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 7. CAPA TEXTO: Insignias Banner -->
-                <div id="pastoralTopBannerBadges" class="layout-draggable-item group z-[24]" style="position:absolute;top:9.5mm;left:146mm;display:flex;align-items:center;gap:3mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Insignias Banner (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                <!-- 6. CAPA PIE: Franja Inferior de Contacto, Redes & QR (Exacto a images (4).jpg) -->
+                <div id="touristFooterBanner" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto &amp; QR (Arrastrar o redimensionar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-6 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Franja Inferior
                     </div>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#2d5a27;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ 🍃 ] DATUM WGS-84</span>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#c98a58;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ 🧭 ] ZONA PROTEGIDA</span>
-                    <div id="pastoralTopBannerBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
+                    <!-- Barra Azul Profunda / Verde Bosque con información -->
+                    <div style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;justify-content:space-between;padding:0 10mm;color:#ffffff;font-family:Inter,sans-serif;">
+                        <!-- Bloque Izquierdo: Teléfono y Web -->
+                        <div style="display:flex;flex-direction:column;gap:2px;max-width:85mm;">
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
+                            <span contenteditable="true" spellcheck="false" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
+                        </div>
 
-                <!-- 8. CAPA FONDO: Escaleras Tierra / Ocre Cálido -->
-                <div id="pastoralStairs" class="layout-draggable-item group z-[8]" style="position:absolute;top:255mm;left:0;width:210mm;height:42mm;cursor:move;pointer-events:auto;box-shadow:0 -6px 20px rgba(0,0,0,0.15);" title="Fondo: Escaleras Ocre Cálido (Arrastrar o redimensionar)">
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
-                        <polygon points="0,100 100,100 100,0 68,0 68,26 42,26 42,52 0,52" fill="${colors.stairs || '#c98a58'}" />
-                    </svg>
-                    <div id="pastoralStairsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
+                        <!-- Bloque Central: Códigos QR estilizados -->
+                        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);">
+                            <!-- QR 1 Redes -->
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                                <div style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
+                                    <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
+                                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
+                                    </svg>
+                                </div>
+                                <span style="font-size:5px;font-weight:800;color:#a4dbf4;">REDES</span>
+                            </div>
+                            <!-- QR 2 Web -->
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                                <div style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
+                                    <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
+                                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
+                                    </svg>
+                                </div>
+                                <span style="font-size:5px;font-weight:800;color:#a4dbf4;">PORTAL</span>
+                            </div>
+                        </div>
 
-                <!-- 9. CAPA TEXTO: Membrete Detalle Izquierdo -->
-                <div id="pastoralStairsLeftBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:274mm;left:10mm;display:flex;flex-direction:column;gap:3px;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;padding:2px;" title="Capa Texto: Membrete Izquierdo (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                        <!-- Bloque Derecho: Sellos Institucionales y Escudo -->
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <div style="width:22px;height:22px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.25);">
+                                <svg width="15" height="15" viewBox="0 0 24 24">
+                                    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#fbb040" />
+                                    <path d="M12 4.18L19 8.09V13c0 4.41-3 8.52-7 9.82-4-1.3-7-5.41-7-9.82V8.09l7-3.91z" fill="#2d5a27" />
+                                </svg>
+                            </div>
+                            <div style="width:20px;height:20px;border-radius:50%;background:#fbb040;border:1.5px solid #ffffff;display:flex;align-items:center;justify-content:center;color:#1b3816;font-size:9px;font-weight:900;">
+                                🍃
+                            </div>
+                        </div>
                     </div>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;font-family:Inter,sans-serif;color:#1b3816;letter-spacing:0.12em;text-transform:uppercase;background:rgba(255,255,255,0.92);padding:2px 7px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;white-space:nowrap;text-align:center;vertical-align:middle;line-height:1.2;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;background:#1b3816;color:#ffffff;font-size:7px;font-weight:900;font-family:Inter,sans-serif;padding:2px 6px;letter-spacing:0.08em;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">ESCALA: 1:1,000</span>
-                        <span style="color:#72bde8;font-size:7.5px;font-weight:900;line-height:1.2;">|</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#1b3816;font-size:7px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:0.08em;background:rgba(255,255,255,0.92);padding:2px 6px;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">PROYECCIÓN UTM</span>
-                    </div>
-                    <div id="pastoralStairsLeftBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
-                </div>
-
-                <!-- 10. CAPA TEXTO: Membrete Registral Derecho -->
-                <div id="pastoralStairsRightBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:270mm;left:145mm;background:#1b3816;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:2px;text-align:right;border-left:2.5px solid #72bde8;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Registral (Arrastrar o editar)">
-                    <div class="tmpl-drag-handle absolute -top-4 right-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
-                    </div>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#72bde8;font-weight:900;font-size:7.5px;cursor:text;white-space:nowrap;line-height:1.2;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;white-space:nowrap;line-height:1.2;">FOLIO: REG-2026-PASTORAL · ORIGEN CENTRAL</span>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#4ade80;font-weight:800;cursor:text;white-space:nowrap;line-height:1.2;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
-                    <div id="pastoralStairsRightBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                    <div id="touristFooterBannerResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
             `;
 
-            // Marco del mapa con el verde bosque profundo de la paleta
+            // Marco del mapa adaptado al estilo de mapa turístico regional
             if (mapFrame) {
-                mapFrame.style.borderColor = colors.frame || '#1b3816';
-                mapFrame.style.borderWidth = '3.5px';
+                mapFrame.style.borderColor = colors.frame || '#2d5a27';
+                mapFrame.style.borderWidth = '3px';
                 mapFrame.style.borderStyle = 'solid';
-                mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(0,0,0,0.28)';
-                mapFrame.style.borderRadius = '4px';
+                mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(0,0,0,0.18)';
+                mapFrame.style.borderRadius = '8px';
             }
             if (mapContainer) {
-                mapContainer.style.filter = 'contrast(1.1) saturate(1.2)';
+                mapContainer.style.filter = 'contrast(1.08) saturate(1.15)';
             }
             if (titleContainer) {
-                titleContainer.style.display = 'flex';
-                titleContainer.style.zIndex = '35';
-                titleContainer.style.top = layoutConfig.titleProps?.top || '174mm';
-                titleContainer.style.left = layoutConfig.titleProps?.left || '73mm';
-                titleContainer.style.width = layoutConfig.titleProps?.width || '127mm';
+                titleContainer.style.display = 'none'; // Reemplazado por el título turístico nativo
             }
             if (legendContainer) {
-                legendContainer.style.top = layoutConfig.legend?.top || '174mm';
-                legendContainer.style.left = layoutConfig.legend?.left || '10mm';
-                legendContainer.style.width = layoutConfig.legend?.width || '58mm';
-                legendContainer.style.height = layoutConfig.legend?.height || '72mm';
-                legendContainer.style.background = '#ffffff';
-                legendContainer.style.border = '2px solid ' + (colors.frame || '#1b3816');
-                legendContainer.style.borderRadius = '8px';
-                legendContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
-                legendContainer.style.color = '#111115';
+                legendContainer.style.display = 'none'; // Reemplazado por la leyenda turística
             }
             if (scaleContainer) {
-                scaleContainer.style.top = layoutConfig.scale?.top || '202mm';
-                scaleContainer.style.left = layoutConfig.scale?.left || '73mm';
-                scaleContainer.style.width = layoutConfig.scale?.width || '61mm';
-                scaleContainer.style.height = layoutConfig.scale?.height || '20mm';
-                scaleContainer.style.background = '#ffffff';
-                scaleContainer.style.border = '1.5px solid #111115';
-                scaleContainer.style.borderRadius = '4px';
+                scaleContainer.style.top = '248mm';
+                scaleContainer.style.left = '16mm';
+                scaleContainer.style.width = '55mm';
+                scaleContainer.style.height = '15mm';
+                scaleContainer.style.background = 'rgba(255,255,255,0.92)';
+                scaleContainer.style.border = '1.5px solid #2d5a27';
+                scaleContainer.style.borderRadius = '6px';
                 scaleContainer.style.color = '#111115';
             }
             if (metadataContainer) {
-                metadataContainer.style.top = layoutConfig.metadata?.top || '202mm';
-                metadataContainer.style.left = layoutConfig.metadata?.left || '139mm';
-                metadataContainer.style.width = layoutConfig.metadata?.width || '61mm';
-                metadataContainer.style.height = layoutConfig.metadata?.height || '20mm';
-            }
-            if (titleDisplay) {
-                titleDisplay.style.color = '#111115';
-                titleDisplay.style.fontFamily = 'Inter, sans-serif';
-                titleDisplay.style.fontWeight = '900';
-                titleDisplay.style.letterSpacing = '0.04em';
-                titleDisplay.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)';
-                titleDisplay.style.cursor = 'text';
-                titleDisplay.textContent = layoutConfig.titleText || 'PLANO CARTOGRÁFICO PASTORAL';
-                titleDisplay.oninput = function() {
-                    layoutConfig.titleText = this.textContent;
-                    const inp = document.getElementById('layoutTitleInput');
-                    if (inp) inp.value = this.textContent;
-                };
+                metadataContainer.style.top = '248mm';
+                metadataContainer.style.left = '74mm';
+                metadataContainer.style.width = '55mm';
+                metadataContainer.style.height = '15mm';
+                metadataContainer.style.background = 'rgba(255,255,255,0.92)';
+                metadataContainer.style.border = '1.5px solid #2d5a27';
+                metadataContainer.style.borderRadius = '6px';
             }
             if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
             layoutConfig.styles.compass.design = 'pop-geometric';
-            layoutConfig.styles.compass.color = '#1b3816';
+            layoutConfig.styles.compass.color = '#2d5a27';
             if (!layoutConfig.grid) layoutConfig.grid = {};
             layoutConfig.grid.enabled = false;
 
@@ -16978,16 +17014,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
         let templateLayers = [];
         if (layoutConfig.theme === 'ghibli') {
             templateLayers = [
-                { id: 'pastoralWall', name: 'Muro Celeste (Fondo)', icon: 'palette' },
-                { id: 'pastoralWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
-                { id: 'pastoralWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
-                { id: 'pastoralTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
-                { id: 'pastoralTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
-                { id: 'pastoralTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
-                { id: 'pastoralTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
-                { id: 'pastoralStairs', name: 'Escaleras Tierra/Ocre (Fondo)', icon: 'stairs' },
-                { id: 'pastoralStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
-                { id: 'pastoralStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+                { id: 'touristCornerAccents', name: 'Curvas de Esquina (Fondo)', icon: 'palette' },
+                { id: 'touristTopLogo', name: 'Logo / Emblema Turístico', icon: 'verified' },
+                { id: 'touristMainTitle', name: 'Título: Mapa Turístico Regional', icon: 'title' },
+                { id: 'touristPoiList', name: 'Lista de Atractivos (1-14)', icon: 'format_list_numbered' },
+                { id: 'touristLegendBox', name: 'Leyenda de Servicios', icon: 'category' },
+                { id: 'touristFooterBanner', name: 'Franja Inferior & QR Codes', icon: 'contact_page' }
             ];} else {
             templateLayers = [
                 { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
@@ -22657,141 +22689,177 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (!ctx) return;
       ctx.clearRect(0, 0, w, h);
 
-      // ─── 1. BASE VERDE PRADERA PASTORAL (#5fa743) ───
-      ctx.fillStyle = '#5fa743';
+      // ─── 1. BASE ARENA / PERGAMINO CLARO (#f7f4ec) ───
+      ctx.fillStyle = '#f7f4ec';
       ctx.fillRect(0, 0, w, h);
 
-      // ─── 2. LABERINTO DE ESCALERAS AZUL CELESTE (#72bde8) ───
-      ctx.fillStyle = '#72bde8';
+      // Curva superior izquierda amarilla / ámbar
+      ctx.fillStyle = '#fbb040';
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(w * 0.36, 0);
-      ctx.lineTo(w * 0.36, h * 0.16);
-      ctx.lineTo(w * 0.27, h * 0.16);
-      ctx.lineTo(w * 0.27, h * 0.34);
-      ctx.lineTo(w * 0.19, h * 0.34);
-      ctx.lineTo(w * 0.19, h * 0.52);
-      ctx.lineTo(w * 0.10, h * 0.52);
-      ctx.lineTo(w * 0.10, h * 0.72);
-      ctx.lineTo(0, h * 0.72);
+      ctx.lineTo(w * 0.40, 0);
+      ctx.quadraticCurveTo(w * 0.22, h * 0.18, 0, h * 0.28);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
 
-      // Cotas y nivel en la pared celeste
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 1;
-      for (let y = h * 0.08; y < h * 0.65; y += 22) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w * 0.16, y);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(w * 0.23, h * 0.25, 8, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('+2,640m', w * 0.23, h * 0.25 + 2);
-
-      // ─── 3. ESCALERAS ARQUITECTÓNICAS TIERRA / OCRE (#c98a58) ───
-      ctx.fillStyle = '#c98a58';
+      // Curva inferior derecha amarilla / ámbar
       ctx.beginPath();
-      ctx.moveTo(0, h);
-      ctx.lineTo(0, h * 0.86);
-      ctx.lineTo(w * 0.20, h * 0.86);
-      ctx.lineTo(w * 0.20, h * 0.78);
-      ctx.lineTo(w * 0.42, h * 0.78);
-      ctx.lineTo(w * 0.42, h * 0.70);
-      ctx.lineTo(w * 0.68, h * 0.70);
-      ctx.lineTo(w * 0.68, h * 0.62);
-      ctx.lineTo(w, h * 0.62);
+      ctx.moveTo(w * 0.70, h);
+      ctx.quadraticCurveTo(w * 0.82, h * 0.88, w, h * 0.85);
       ctx.lineTo(w, h);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#a47148';
-      ctx.lineWidth = 2;
-      ctx.stroke();
 
-      // ─── 4. MARCO CENTRAL DEL MAPA (Verde Bosque #1b3816) ───
-      const mw = w * 0.62;
-      const mh = h * 0.54;
-      const mx = w * 0.32;
-      const my = h * 0.10;
+      // ─── 2. EMBLEMA TURÍSTICO SUPERIOR IZQUIERDO ───
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fillRect(w * 0.03, h * 0.03, 76, 26);
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(w * 0.03, h * 0.03, 76, 26);
+
+      ctx.fillStyle = '#2d5a27';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.05, h * 0.03 + 20);
+      ctx.lineTo(w * 0.05 + 8, h * 0.03 + 6);
+      ctx.lineTo(w * 0.05 + 16, h * 0.03 + 20);
+      ctx.fill();
+      ctx.fillStyle = '#fbb040';
+      ctx.beginPath(); ctx.arc(w * 0.05 + 16, h * 0.03 + 8, 3.5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#1b3816';
+      ctx.font = 'bold 6px sans-serif';
+      ctx.fillText('EXPLORA TOLIMA', w * 0.05 + 20, h * 0.03 + 12);
+      ctx.fillStyle = '#0284c7';
+      ctx.font = 'bold 5px sans-serif';
+      ctx.fillText('CORPORACIÓN TURÍSTICA', w * 0.05 + 20, h * 0.03 + 20);
+
+      // ─── 3. TÍTULO "Mapa Turístico REGIONAL" ───
+      ctx.fillStyle = '#2d5a27';
+      ctx.font = 'italic bold 15px "Brush Script MT", cursive, sans-serif';
+      ctx.fillText('Mapa Turístico', w * 0.36, h * 0.10);
+
+      ctx.fillStyle = '#48a942';
+      ctx.font = '900 24px "Impact", "Arial Black", sans-serif';
+      ctx.strokeStyle = '#111115';
+      ctx.lineWidth = 2.5;
+      ctx.strokeText('REGIONAL', w * 0.36, h * 0.19);
+      ctx.fillText('REGIONAL', w * 0.36, h * 0.19);
+
+      // ─── 4. MARCO CENTRAL DEL MAPA Y RUTA ───
+      const mw = w * 0.88;
+      const mh = h * 0.64;
+      const mx = w * 0.06;
+      const my = h * 0.22;
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      ctx.shadowBlur = 14;
-      ctx.shadowOffsetY = 6;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+      ctx.shadowBlur = 10;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(mx, my, mw, mh);
       ctx.restore();
 
-      ctx.strokeStyle = '#1b3816';
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#2d5a27';
+      ctx.lineWidth = 2;
       ctx.strokeRect(mx, my, mw, mh);
 
-      // Interior mapa cartográfico
-      ctx.save();
+      // Trazo de la ruta turística principal (carretera negra sinuosa)
+      ctx.strokeStyle = '#111115';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.rect(mx, my, mw, mh);
-      ctx.clip();
-      ctx.fillStyle = '#f0fdf4';
-      ctx.fillRect(mx, my, mw, mh);
+      ctx.moveTo(mx + 20, my + 30);
+      ctx.lineTo(mx + 45, my + 25);
+      ctx.lineTo(mx + 60, my + 55);
+      ctx.lineTo(mx + 95, my + 70);
+      ctx.lineTo(mx + 120, my + 60);
+      ctx.lineTo(mx + 135, my + 90);
+      ctx.lineTo(mx + 140, my + 130);
+      ctx.lineTo(mx + 165, my + 145);
+      ctx.lineTo(mx + 210, my + 140);
+      ctx.stroke();
 
-      // Red ortogonal cartográfica
-      ctx.strokeStyle = 'rgba(27, 56, 22, 0.12)';
-      ctx.lineWidth = 0.8;
-      for (let x = mx; x < mx + mw; x += 24) {
-        ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, my + mh); ctx.stroke();
-      }
-      for (let y = my; y < my + mh; y += 24) {
-        ctx.beginPath(); ctx.moveTo(mx, y); ctx.lineTo(mx + mw, y); ctx.stroke();
-      }
+      // Nodos / puntos de interés con números
+      const pois = [
+        { x: mx + 20, y: my + 30, n: 1, c: '#0284c7' },
+        { x: mx + 60, y: my + 55, n: 3, c: '#5fa743' },
+        { x: mx + 95, y: my + 70, n: 5, c: '#e11d48' },
+        { x: mx + 135, y: my + 90, n: 8, c: '#fbb040' },
+        { x: mx + 140, y: my + 130, n: 11, c: '#2d5a27' },
+        { x: mx + 210, y: my + 140, n: 14, c: '#0284c7' },
+      ];
+      pois.forEach(p => {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = p.c;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.fillStyle = p.c;
+        ctx.font = 'bold 6.5px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.n, p.x, p.y + 2.5);
+      });
 
-      // Polígonos de cuenca / relieve
-      ctx.fillStyle = '#72bde8';
-      ctx.fillRect(mx + mw * 0.15, my + mh * 0.2, mw * 0.45, mh * 0.35);
-      ctx.fillStyle = '#2d5a27';
-      ctx.font = 'bold 8px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('ESTUDIO TERRITORIAL Y AMBIENTAL', mx + mw * 0.5, my + mh * 0.45);
-      ctx.restore();
-
-      // ─── 5. BANNER SUPERIOR VERDE BOSQUE (#1b3816) ───
-      ctx.fillStyle = '#1b3816';
-      ctx.fillRect(w * 0.05, h * 0.02, w * 0.90, 16);
-      ctx.strokeStyle = '#72bde8';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(w * 0.05, h * 0.02, w * 0.90, 16);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 7px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('SISTEMA CARTOGRÁFICO TERRITORIAL · EDICIÓN PASTORAL', w * 0.08, h * 0.02 + 11);
-
-      // ─── 6. MEMBRETES INFERIORES ───
-      const tx = w * 0.34;
-      const ty = h * 0.72;
+      // Lista lateral derecha de atractivos (tarjeta flotante)
+      const lw = w * 0.38;
+      const lx = mx + mw - lw - 8;
+      const ly = my + 12;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.fillRect(tx, ty, w * 0.60, 36);
-      ctx.strokeStyle = '#1b3816';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(tx, ty, w * 0.60, 36);
+      ctx.fillRect(lx, ly, lw, mh * 0.52);
+      ctx.strokeStyle = '#2d5a27';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(lx, ly, lw, mh * 0.52);
 
       ctx.fillStyle = '#1b3816';
-      ctx.font = '900 8.5px sans-serif';
-      ctx.fillText('PLANO CARTOGRÁFICO PASTORAL', tx + 8, ty + 14);
-      ctx.fillStyle = '#555555';
-      ctx.font = 'bold 6.5px sans-serif';
-      ctx.fillText('ESCALA 1:1,000 · DATUM WGS-84 · COORDENADAS UTM', tx + 8, ty + 26);
+      ctx.font = '900 6.5px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('PUNTOS DE INTERÉS', lx + 6, ly + 10);
+      ctx.strokeStyle = '#2d5a27'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(lx + 6, ly + 13); ctx.lineTo(lx + lw - 6, ly + 13); ctx.stroke();
 
-      ctx.fillStyle = '#2d5a27';
-      ctx.fillRect(tx + w * 0.42, ty + 10, 48, 16);
+      const items = ['① El Tablón (1)', '② Kairos Mirador (2)', '③ Balneario Río (3)', '④ Café Monociclo (4)', '⑤ Hotel Chicalá (5)', '⑥ Cascadas 5km (6)'];
+      ctx.font = 'bold 5.5px sans-serif';
+      ctx.fillStyle = '#333333';
+      items.forEach((it, idx) => {
+        ctx.fillText(it, lx + 6, ly + 21 + idx * 8.5);
+      });
+
+      // Leyenda inferior izquierda
+      const legX = mx + 10;
+      const legY = my + mh - 42;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fillRect(legX, legY, 78, 34);
+      ctx.strokeStyle = '#2d5a27'; ctx.lineWidth = 1;
+      ctx.strokeRect(legX, legY, 78, 34);
+      ctx.fillStyle = '#1b3816'; ctx.font = '900 5.5px sans-serif';
+      ctx.fillText('CONVENCIONES', legX + 5, legY + 8);
+      ctx.font = 'bold 5px sans-serif'; ctx.fillStyle = '#444';
+      ctx.fillText('🍸 Restaurante   🏥 Salud', legX + 5, legY + 16);
+      ctx.fillText('⛪ Iglesia       ⛽ Gasolina', legX + 5, legY + 23);
+      ctx.fillText('🌉 Mirador       🍃 Sendero', legX + 5, legY + 30);
+
+      // ─── 5. FRANJA AZUL INFERIOR CON DATOS & QR ───
+      ctx.fillStyle = '#0f3b5c';
+      ctx.fillRect(0, h * 0.89, w * 0.82, h * 0.11);
+
+      ctx.fillStyle = '#a4dbf4';
+      ctx.font = 'bold 6px sans-serif';
+      ctx.fillText('¿Quieres aparecer en el Mapa Turístico?', w * 0.04, h * 0.89 + 11);
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 6.5px monospace';
-      ctx.fillText('✓ VALIDADO', tx + w * 0.42 + 6, ty + 21);
+      ctx.font = 'bold 5.5px sans-serif';
+      ctx.fillText('📞 (+57) 312 549 1252 · corporacionturismo.org', w * 0.04, h * 0.89 + 21);
+
+      // Iconos QR simulados
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(w * 0.62, h * 0.89 + 5, 16, 16);
+      ctx.fillRect(w * 0.70, h * 0.89 + 5, 16, 16);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(w * 0.62 + 3, h * 0.89 + 8, 4, 4);
+      ctx.fillRect(w * 0.62 + 9, h * 0.89 + 8, 4, 4);
+      ctx.fillRect(w * 0.62 + 3, h * 0.89 + 14, 4, 4);
+      ctx.fillRect(w * 0.70 + 3, h * 0.89 + 8, 4, 4);
+      ctx.fillRect(w * 0.70 + 9, h * 0.89 + 8, 4, 4);
+      ctx.fillRect(w * 0.70 + 3, h * 0.89 + 14, 4, 4);
     }
 
     function renderTemplateCanvas(type, canvas) {
@@ -22987,22 +23055,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
         ghibli: {
           theme: 'ghibli',
           paper: 'A4', orientation: 'portrait',
-          titleText: 'Plano Cartográfico Pastoral',
-          themeColors: { paper: '#5fa743', wall: '#72bde8', stairs: '#c98a58', frame: '#1b3816' },
-          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          titleText: 'Mapa Turístico Regional',
+          themeColors: { paper: '#f7f4ec', wall: '#72bde8', stairs: '#f9b233', frame: '#2d5a27' },
+          elements: { mapFrame: true, title: false, metadata: false, legend: false, scale: false, compass: true },
           styles: {
-            title: { fontSize: 20, color: '#111115', fontFamily: 'Inter', bold: true },
+            title: { fontSize: 22, color: '#111115', fontFamily: 'Inter', bold: true },
             metadata: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter' },
             legend: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 8.5, color: '#111115', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#1b3816', design: 'pop-geometric', rotation: 0, size: 34 }
+            compass: { color: '#2d5a27', design: 'pop-geometric', rotation: 0, size: 28 }
           },
-          mapFrame: { top: '30mm', left: '46mm', width: '135mm', height: '125mm', visible: true },
-          compass: { top: '34mm', left: '146mm', width: '28mm', height: '28mm' },
-          titleProps: { top: '174mm', left: '73mm', width: '127mm', height: '18mm' },
-          legend: { top: '174mm', left: '10mm', width: '58mm', height: '72mm' },
-          scale: { top: '202mm', left: '73mm', width: '61mm', height: '20mm' },
-          metadata: { top: '202mm', left: '139mm', width: '61mm', height: '20mm' },
+          // Mapa central amplio para visualizar la ruta y el territorio
+          mapFrame: { top: '38mm', left: '16mm', width: '178mm', height: '198mm', visible: true },
+          compass: { top: '44mm', left: '158mm', width: '26mm', height: '26mm' },
+          titleProps: { top: '10mm', left: '72mm', width: '124mm', height: '28mm' },
+          legend: { top: '180mm', left: '16mm', width: '56mm', height: '54mm' },
+          scale: { top: '238mm', left: '72mm', width: '50mm', height: '16mm' },
+          metadata: { top: '238mm', left: '124mm', width: '50mm', height: '16mm' },
           grid: { enabled: false }
         },
         
