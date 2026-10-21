@@ -4724,9 +4724,9 @@
   </div>
 
   <!-- Layout Manager Modal (QGIS Style) -->
-  <div id="layoutModal" style="display: none" class="fixed inset-0 z-[8000] bg-zinc-900/40 backdrop-blur-md flex flex-col p-4">
+  <div id="layoutModal" style="display: none; height: 100vh; width: 100vw;" class="fixed inset-0 z-[8000] bg-zinc-900/60 backdrop-blur-md flex flex-col p-4 h-screen w-screen overflow-hidden">
     <!-- Header/Toolbar -->
-    <header class="bg-white rounded-t-3xl border-b border-zinc-100 p-4 flex justify-between items-center shadow-sm">
+    <header class="bg-white rounded-t-3xl border-b border-zinc-100 p-4 flex justify-between items-center shadow-sm shrink-0" style="flex-shrink: 0;">
       <div class="flex items-center gap-6">
         <div class="flex flex-col">
           <span class="text-[9px] font-bold text-primary-fixed uppercase tracking-widest">Diseñador de Impresión</span>
@@ -4907,9 +4907,9 @@
     </header>
 
     <!-- Main Workspace -->
-    <div class="flex-1 bg-zinc-100/50 flex flex-row flex-nowrap overflow-hidden rounded-b-3xl relative">
+    <div class="flex-1 min-h-0 bg-zinc-100 flex flex-row flex-nowrap overflow-hidden rounded-b-3xl relative" style="flex: 1 1 0%; min-height: 0; height: calc(100% - 68px);">
       <!-- Rulers Viewport Area -->
-      <div class="flex-1 overflow-auto p-8 flex justify-center items-start relative custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
+      <div class="flex-1 min-w-0 h-full overflow-auto p-8 flex justify-center items-start relative custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]" style="min-width: 0; height: 100%;">
         <!-- The "Paper" -->
         <div id="layoutPaper" onclick="onLayoutPaperClick(event)" ondragover="layoutResourceDragOver(event)" ondrop="layoutResourceDrop(event)" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
             <!-- Map Element -->
@@ -5014,7 +5014,7 @@
       </div>
 
       <!-- Element Properties Drawer (Opens in this empty space between canvas and sidebar) -->
-      <div id="layoutElementPropsDrawer" class="hidden w-80 bg-white border-l border-zinc-200/90 flex flex-col z-20 shrink-0 transition-all duration-200 overflow-hidden" style="width: 320px; min-width: 320px; max-width: 320px; flex-shrink: 0;">
+      <div id="layoutElementPropsDrawer" class="hidden w-80 bg-white border-l border-zinc-200/90 flex flex-col z-20 shrink-0 transition-all duration-200 overflow-hidden" style="width: 320px; min-width: 320px; max-width: 320px; height: 100%; flex-shrink: 0;">
         <!-- Header -->
         <div class="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
           <div class="flex items-center gap-2.5">
@@ -5492,7 +5492,7 @@
       </div>
 
       <!-- Settings Sidebar -->
-      <aside class="w-80 bg-white border-l border-zinc-100 flex flex-col overflow-y-auto custom-scrollbar p-6 gap-8 shadow-[-10px_0_40px_rgba(0,0,0,0.02)] shrink-0" style="width: 320px; min-width: 320px; max-width: 320px; flex-shrink: 0;">
+      <aside class="w-80 bg-white border-l border-zinc-100 flex flex-col overflow-y-auto custom-scrollbar p-6 gap-8 shadow-[-10px_0_40px_rgba(0,0,0,0.02)] shrink-0" style="width: 320px; min-width: 320px; max-width: 320px; height: 100%; flex-shrink: 0;">
         <div>
             <span class="text-[10px] font-bold text-primary-fixed uppercase tracking-tighter mb-4 block underline underline-offset-8 decoration-2">Propiedades del Elemento</span>
             
@@ -14770,6 +14770,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function openLayoutModal() {
         const modal = document.getElementById('layoutModal');
         modal.style.display = 'flex';
+        modal.style.height = '100vh';
+        modal.style.width = '100vw';
         
         setTimeout(() => {
             ensureLayoutMapInit();
@@ -14783,6 +14785,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }, 150);
         
         if (!layoutConfig.initialized) {
+            if (!layoutConfig.theme) layoutConfig.theme = 'ghibli';
             const topLayer = state.layers ? state.layers[0] : null;
             if (topLayer && !layoutConfig.titleText) layoutConfig.titleText = `Mapa: ${topLayer.name}`;
             layoutConfig.initialized = true;
