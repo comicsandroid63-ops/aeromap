@@ -5669,11 +5669,29 @@
                 </div>
             </div>
 
-            <!-- 10. FRANJA INFERIOR Y CONTACTO PROPS -->
+            <!-- 10. FRANJA INFERIOR (FONDO Y CONTACTO) PROPS -->
             <div id="props-touristFooterBanner" class="hidden flex-col gap-4">
+                <!-- Color y Estilo de la Franja -->
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Fondo de la Franja</span>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="touristFooterBgColor" value="#0f3b5c" oninput="layoutUpdateTouristFooterBg(this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#0f3b5c')" class="w-5 h-5 rounded-full bg-[#0f3b5c] border border-zinc-300" title="Azul Profundo"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#2d5a27')" class="w-5 h-5 rounded-full bg-[#2d5a27] border border-zinc-300" title="Verde Bosque"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#111115')" class="w-5 h-5 rounded-full bg-[#111115] border border-zinc-300" title="Negro Ébano"></button>
+                            <button type="button" onclick="layoutUpdateTouristFooterBg('#b45309')" class="w-5 h-5 rounded-full bg-[#b45309] border border-zinc-300" title="Terracota"></button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t border-zinc-200/60">
+                        <button type="button" onclick="layoutSetFooterStyle('gradient')" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-800">Degradado</button>
+                        <button type="button" onclick="layoutSetFooterStyle('solid')" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-800">Sólido</button>
+                    </div>
+                </div>
+
                 <!-- Textos de Contacto -->
                 <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
-                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Información y Contacto</span>
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Datos de Contacto</span>
                     <div class="flex flex-col gap-1">
                         <label class="text-[8px] font-black uppercase tracking-wider text-zinc-500">Texto Promocional</label>
                         <input type="text" id="touristFooterPromoInput" oninput="layoutUpdateTouristFooter('promo', this.value)" value="¿Quieres aparecer en el Mapa Turístico?" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
@@ -5687,11 +5705,13 @@
                         <input type="text" id="touristFooterWebInput" oninput="layoutUpdateTouristFooter('web', this.value)" value="🌐 Visita nuestra página: corporacionturismo.org" class="w-full bg-white border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
                     </div>
                 </div>
+            </div>
 
-                <!-- Códigos QR Estilizados (Image 2) -->
+            <!-- 10.B CÓDIGOS QR PROPS (INDIVIDUAL) -->
+            <div id="props-touristQrCodes" class="hidden flex-col gap-4">
                 <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
                     <div class="flex justify-between items-center">
-                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Códigos QR & Accesos Rápidos</span>
+                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Códigos QR (Info & Portal)</span>
                         <input type="checkbox" id="touristFooterShowQr" checked onchange="layoutToggleTouristFooterQr(this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer" title="Mostrar/Ocultar Códigos QR">
                     </div>
 
@@ -5728,27 +5748,39 @@
                                     <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Ícono / Tipo</label>
                                     <select id="touristQr2TypeSelect" onchange="layoutUpdateTouristQrIcon(2, this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-xs font-bold outline-none">
                                         <option value="qr" selected>Código QR</option>
-                                        <option value="web">Sitio Web</option>
-                                        <option value="hotel">Hotelería / Booking</option>
-                                        <option value="store">Tienda / Catálogo</option>
+                                        <option value="web">Web Corporativa</option>
+                                        <option value="hotel">Hospedaje</option>
+                                        <option value="store">Comercio</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Tamaño de Códigos QR -->
+                        <div class="flex flex-col gap-1 pt-1 border-t border-zinc-100">
+                            <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Tamaño de Códigos</label>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="layoutUpdateTouristQrSize(18)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-zinc-50 border border-zinc-200 hover:bg-zinc-100">Pequeño</button>
+                                <button type="button" onclick="layoutUpdateTouristQrSize(22)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100">Normal</button>
+                                <button type="button" onclick="layoutUpdateTouristQrSize(26)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-zinc-50 border border-zinc-200 hover:bg-zinc-100">Grande</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Sellos e Insignias Institucionales (Image 4) -->
+            <!-- 10.C INSIGNIAS Y SELLOS PROPS (INDIVIDUAL) -->
+            <div id="props-touristBadges" class="hidden flex-col gap-4">
                 <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
                     <div class="flex justify-between items-center">
-                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Sellos e Insignias (Derecha)</span>
-                        <input type="checkbox" id="touristFooterShowBadges" checked onchange="layoutToggleTouristFooterBadges(this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer" title="Mostrar/Ocultar Sellos">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Insignias & Sellos Oficiales</span>
+                        <input type="checkbox" id="touristFooterShowBadges" checked onchange="layoutToggleTouristFooterBadges(this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer" title="Mostrar/Ocultar Insignias">
                     </div>
 
                     <div id="touristFooterBadgesSettings" class="flex flex-col gap-2 pt-1 border-t border-zinc-200/60">
-                        <!-- Sello 1: Escudo / Institucional -->
+                        <!-- Sello 1: Escudo Institucional -->
                         <div class="flex flex-col gap-1.5 p-2 bg-white rounded-lg border border-zinc-200">
-                            <span class="text-[8px] font-black uppercase text-zinc-700">Sello 1: Escudo Institucional</span>
+                            <span class="text-[8px] font-black uppercase text-zinc-700">Sello 1: Distintivo Oficial</span>
                             <div class="grid grid-cols-2 gap-2">
                                 <div class="flex flex-col gap-0.5">
                                     <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Tipo</label>
@@ -5788,19 +5820,15 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Color de la Franja -->
-                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
-                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Color de la Franja</span>
-                    <div class="flex items-center gap-2">
-                        <input type="color" id="touristFooterBgColor" value="#0f3b5c" oninput="layoutUpdateTouristFooterBg(this.value)" class="w-8 h-8 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent">
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="layoutUpdateTouristFooterBg('#0f3b5c')" class="w-5 h-5 rounded-full bg-[#0f3b5c] border border-zinc-300" title="Azul Profundo"></button>
-                            <button type="button" onclick="layoutUpdateTouristFooterBg('#2d5a27')" class="w-5 h-5 rounded-full bg-[#2d5a27] border border-zinc-300" title="Verde Bosque"></button>
-                            <button type="button" onclick="layoutUpdateTouristFooterBg('#111115')" class="w-5 h-5 rounded-full bg-[#111115] border border-zinc-300" title="Negro Ébano"></button>
-                            <button type="button" onclick="layoutUpdateTouristFooterBg('#b45309')" class="w-5 h-5 rounded-full bg-[#b45309] border border-zinc-300" title="Terracota"></button>
+                        <!-- Tamaño de Insignias -->
+                        <div class="flex flex-col gap-1 pt-1 border-t border-zinc-100">
+                            <label class="text-[7.5px] font-bold text-zinc-500 uppercase">Tamaño de Insignias</label>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="layoutUpdateTouristBadgeSize(20)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-zinc-50 border border-zinc-200 hover:bg-zinc-100">20px</button>
+                                <button type="button" onclick="layoutUpdateTouristBadgeSize(24)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100">24px</button>
+                                <button type="button" onclick="layoutUpdateTouristBadgeSize(30)" class="flex-1 py-1 px-2 text-[8px] font-bold rounded bg-zinc-50 border border-zinc-200 hover:bg-zinc-100">30px</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -15730,56 +15758,69 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <div id="touristLegendBoxResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
 
-                <!-- 6. CAPA PIE: Franja Inferior de Contacto, Redes & QR (Exacto a images (4).jpg) -->
-                <div id="touristFooterBanner" onclick="layoutSelectElement('touristFooterBanner')" class="layout-draggable-item group z-[26]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior de Contacto & QR (Arrastrar o redimensionar)">
+                <!-- 6. CAPA PIE: Franja Inferior de Contacto & Fondo -->
+                <div id="touristFooterBanner" onclick="layoutSelectElement('touristFooterBanner')" class="layout-draggable-item group z-[24]" style="position:absolute;top:266mm;left:0;width:210mm;height:31mm;cursor:move;pointer-events:auto;" title="Franja Inferior: Fondo y Datos de Contacto (Arrastrar o redimensionar)">
                     <div class="tmpl-drag-handle absolute -top-3.5 left-6 px-2 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
-                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Franja Inferior
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Franja Inferior (Fondo)
                     </div>
-                    <!-- Barra Azul Profunda / Verde Bosque con información -->
-                    <div id="touristFooterBg" style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;justify-content:space-between;padding:0 10mm;color:#ffffff;font-family:Inter,sans-serif;">
+                    <!-- Barra Azul Profunda con información de contacto -->
+                    <div id="touristFooterBg" style="position:absolute;inset:0;background:linear-gradient(90deg,#0f3b5c 0%,#1b4965 65%,transparent 85%);display:flex;align-items:center;padding:0 8mm;color:#ffffff;font-family:Inter,sans-serif;">
                         <!-- Bloque Izquierdo: Teléfono y Web -->
-                        <div style="display:flex;flex-direction:column;gap:2px;max-width:85mm;">
+                        <div style="display:flex;flex-direction:column;gap:2px;max-width:92mm;">
                             <span id="touristFooterPromoText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterPromoInput')) document.getElementById('touristFooterPromoInput').value = this.innerText;" style="outline:none;font-size:8.5px;font-weight:900;color:#a4dbf4;letter-spacing:0.02em;">¿Quieres aparecer en el Mapa Turístico?</span>
                             <span id="touristFooterPhoneText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterPhoneInput')) document.getElementById('touristFooterPhoneInput').value = this.innerText;" style="outline:none;font-size:7.5px;font-weight:700;color:#ffffff;">📞 Comunícate: (+57) 312 549 1252</span>
                             <span id="touristFooterWebText" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristFooterWebInput')) document.getElementById('touristFooterWebInput').value = this.innerText;" style="outline:none;font-size:7px;font-weight:600;color:#e2e8f0;">🌐 Visita nuestra página: corporacionturismo.org</span>
                         </div>
-
-                        <!-- Bloque Central: Códigos QR estilizados (Image 2) -->
-                        <div id="touristFooterQrBlock" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);">
-                            <!-- QR 1 Redes -->
-                            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                                <div id="touristQr1Container" style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
-                                    <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
-                                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
-                                    </svg>
-                                </div>
-                                <span id="touristQr1Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr1LabelInput')) document.getElementById('touristQr1LabelInput').value = this.innerText;" style="font-size:5px;font-weight:800;color:#a4dbf4;">INFO</span>
-                            </div>
-                            <!-- QR 2 Portal -->
-                            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                                <div id="touristQr2Container" style="width:20px;height:20px;background:#ffffff;padding:1.5px;border-radius:2px;display:flex;align-items:center;justify-content:center;">
-                                    <svg viewBox="0 0 24 24" width="17" height="17" fill="#000">
-                                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
-                                    </svg>
-                                </div>
-                                <span id="touristQr2Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr2LabelInput')) document.getElementById('touristQr2LabelInput').value = this.innerText;" style="font-size:5px;font-weight:800;color:#a4dbf4;">PORTAL</span>
-                            </div>
-                        </div>
-
-                        <!-- Bloque Derecho: Sellos Institucionales y Escudo (Image 4) -->
-                        <div id="touristFooterBadgesBlock" style="display:flex;align-items:center;gap:6px;">
-                            <div id="touristBadge1Container" style="width:22px;height:22px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.25);">
-                                <svg id="touristBadge1Svg" width="15" height="15" viewBox="0 0 24 24">
-                                    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#fbb040" />
-                                    <path d="M12 4.18L19 8.09V13c0 4.41-3 8.52-7 9.82-4-1.3-7-5.41-7-9.82V8.09l7-3.91z" fill="#2d5a27" />
-                                </svg>
-                            </div>
-                            <div id="touristBadge2Container" style="width:20px;height:20px;border-radius:50%;background:#fbb040;border:1.5px solid #ffffff;display:flex;align-items:center;justify-content:center;color:#1b3816;font-size:9px;font-weight:900;">
-                                <span id="touristBadge2Icon">🍃</span>
-                            </div>
-                        </div>
                     </div>
                     <div id="touristFooterBannerResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 7. CAPA CÓDIGOS QR INDIVIDUAL (INFO & PORTAL) -->
+                <div id="touristQrCodes" onclick="layoutSelectElement('touristQrCodes')" class="layout-draggable-item group z-[27]" style="position:absolute;top:268.5mm;left:100mm;cursor:move;pointer-events:auto;" title="Códigos QR: INFO & PORTAL (Arrastrar o configurar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-2 px-1.5 py-0.5 bg-black/90 text-white text-[7px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[9px]">drag_indicator</span> Mover Códigos QR
+                    </div>
+                    <div id="touristFooterQrBlock" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.14);backdrop-filter:blur(4px);padding:4px 7px;border-radius:7px;border:1px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                        <!-- QR 1 Redes -->
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                            <div id="touristQr1Container" style="width:22px;height:22px;background:#ffffff;padding:1.5px;border-radius:3px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                <svg id="touristQr1Svg" viewBox="0 0 24 24" width="18" height="18" fill="#000">
+                                    <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
+                                </svg>
+                            </div>
+                            <span id="touristQr1Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr1LabelInput')) document.getElementById('touristQr1LabelInput').value = this.innerText;" style="outline:none;font-size:6px;font-weight:900;color:#ffffff;letter-spacing:0.04em;text-shadow:0 1px 2px rgba(0,0,0,0.5);">INFO</span>
+                        </div>
+                        <!-- QR 2 Portal -->
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                            <div id="touristQr2Container" style="width:22px;height:22px;background:#ffffff;padding:1.5px;border-radius:3px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                <svg id="touristQr2Svg" viewBox="0 0 24 24" width="18" height="18" fill="#000">
+                                    <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm10-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm14-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4 0h2v2h-2v-2zm4 2h2v2h-2v-2z" />
+                                </svg>
+                            </div>
+                            <span id="touristQr2Label" contenteditable="true" spellcheck="false" oninput="if(document.getElementById('touristQr2LabelInput')) document.getElementById('touristQr2LabelInput').value = this.innerText;" style="outline:none;font-size:6px;font-weight:900;color:#ffffff;letter-spacing:0.04em;text-shadow:0 1px 2px rgba(0,0,0,0.5);">PORTAL</span>
+                        </div>
+                    </div>
+                    <div id="touristQrCodesResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 8. CAPA INSIGNIAS Y SELLOS INSTITUCIONALES INDIVIDUAL -->
+                <div id="touristBadges" onclick="layoutSelectElement('touristBadges')" class="layout-draggable-item group z-[27]" style="position:absolute;top:268.5mm;left:156mm;cursor:move;pointer-events:auto;" title="Insignias Institucionales (Arrastrar o configurar)">
+                    <div class="tmpl-drag-handle absolute -top-3.5 left-2 px-1.5 py-0.5 bg-black/90 text-white text-[7px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[9px]">drag_indicator</span> Mover Insignias
+                    </div>
+                    <div id="touristFooterBadgesBlock" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);backdrop-filter:blur(4px);padding:4px 7px;border-radius:7px;border:1px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                        <!-- Sello 1: Escudo Institucional -->
+                        <div id="touristBadge1Container" style="width:24px;height:24px;border-radius:50%;background:#fbb040;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.25);border:1.5px solid #ffffff;">
+                            <svg id="touristBadge1Svg" viewBox="0 0 24 24" width="14" height="14" fill="#ffffff">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 9.04-7 10.15-3.87-1.11-7-5.48-7-10.15V6.3l7-3.12zM11 7v6l5-3-5-3z"/>
+                            </svg>
+                        </div>
+                        <!-- Sello 2: Hoja / Pastoral -->
+                        <div id="touristBadge2Container" style="width:24px;height:24px;border-radius:50%;background:#fbb040;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.25);border:1.5px solid #ffffff;">
+                            <span id="touristBadge2Icon" style="font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;">🍃</span>
+                        </div>
+                    </div>
+                    <div id="touristBadgesResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
                 </div>
                 </div>
             `;
@@ -16595,17 +16636,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
     // ════════════ SELECCIÓN ACTIVA DE ELEMENTOS (Comportamiento rueda de configuración) ════════════
     function getElementKeyFromTarget(target) {
         if (!target) return null;
-        if (target.closest('#touristMainTitle') || target.closest('#layoutTitleContainer')) return 'title';
-        if (target.closest('#layoutCompass')) return 'compass';
+        if (target.closest('#touristQrCodes')) return 'touristQrCodes';
+        if (target.closest('#touristBadges')) return 'touristBadges';
+        if (target.closest('#touristFooterBanner')) return 'touristFooterBanner';
+        if (target.closest('#touristTopLogo')) return 'touristTopLogo';
+        if (target.closest('#layoutMetadataContainer')) return 'metadata';
         if (target.closest('#touristPoiList')) return 'touristPoiList';
         if (target.closest('#touristLegendBox')) return 'touristLegendBox';
-        if (target.closest('#touristTopLogo')) return 'touristTopLogo';
-        if (target.closest('#touristFooterBanner')) return 'touristFooterBanner';
-        if (target.closest('#touristCornerAccents')) return 'touristCornerAccents';
+        if (target.closest('#touristMainTitle') || target.closest('#layoutTitleContainer')) return 'title';
+        if (target.closest('#layoutCompass')) return 'compass';
         if (target.closest('#layoutScaleContainer')) return 'scale';
         if (target.closest('#layoutLegendContainer')) return 'legend';
-        if (target.closest('#layoutMetadataContainer')) return 'metadata';
         if (target.closest('#layoutMapFrame')) return 'mapFrame';
+        if (target.closest('#touristCornerAccents')) return 'touristCornerAccents';
         return null;
     }
     window.getElementKeyFromTarget = getElementKeyFromTarget;
@@ -16621,6 +16664,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // 2. Mapear clave al elemento visual en el lienzo
         const elementIdMap = {
             title: (document.getElementById('touristMainTitle') && layoutConfig && layoutConfig.theme === 'ghibli') ? 'touristMainTitle' : 'layoutTitleContainer',
+            touristMainTitle: 'touristMainTitle',
             compass: 'layoutCompass',
             mapFrame: 'layoutMapFrame',
             metadata: 'layoutMetadataContainer',
@@ -16630,6 +16674,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             touristLegendBox: 'touristLegendBox',
             touristTopLogo: 'touristTopLogo',
             touristFooterBanner: 'touristFooterBanner',
+            touristQrCodes: 'touristQrCodes',
+            touristBadges: 'touristBadges',
             touristCornerAccents: 'touristCornerAccents'
         };
 
@@ -16852,8 +16898,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     // ════ QR CODES & SELLOS EDITABLES (Image 2 & Image 4) ════
     function layoutToggleTouristFooterQr(show) {
-        const block = document.getElementById('touristFooterQrBlock');
-        if (block) block.style.display = show ? 'flex' : 'none';
+        const block = document.getElementById('touristQrCodes') || document.getElementById('touristFooterQrBlock');
+        if (block) block.style.display = show ? '' : 'none';
     }
 
     function layoutUpdateTouristQrText(num, text) {
@@ -16886,8 +16932,55 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function layoutToggleTouristFooterBadges(show) {
-        const block = document.getElementById('touristFooterBadgesBlock');
-        if (block) block.style.display = show ? 'flex' : 'none';
+        const block = document.getElementById('touristBadges') || document.getElementById('touristFooterBadgesBlock');
+        if (block) block.style.display = show ? '' : 'none';
+    }
+
+    
+    function layoutUpdateTouristQrSize(sizePx) {
+        [1, 2].forEach(num => {
+            const box = document.getElementById(`touristQr${num}Container`);
+            if (box) {
+                box.style.width = `${sizePx}px`;
+                box.style.height = `${sizePx}px`;
+                const svg = box.querySelector('svg');
+                if (svg) {
+                    svg.setAttribute('width', `${sizePx - 4}`);
+                    svg.setAttribute('height', `${sizePx - 4}`);
+                }
+            }
+        });
+    }
+
+    function layoutUpdateTouristBadgeSize(sizePx) {
+        [1, 2].forEach(num => {
+            const box = document.getElementById(`touristBadge${num}Container`);
+            if (box) {
+                box.style.width = `${sizePx}px`;
+                box.style.height = `${sizePx}px`;
+                const svg = box.querySelector('svg');
+                if (svg) {
+                    svg.setAttribute('width', `${Math.round(sizePx * 0.6)}`);
+                    svg.setAttribute('height', `${Math.round(sizePx * 0.6)}`);
+                }
+                const icon = box.querySelector('#touristBadge2Icon');
+                if (icon) {
+                    icon.style.fontSize = `${Math.round(sizePx * 0.55)}px`;
+                }
+            }
+        });
+    }
+
+    function layoutSetFooterStyle(mode) {
+        const bg = document.getElementById('touristFooterBg');
+        if (!bg) return;
+        const colorInput = document.getElementById('touristFooterBgColor');
+        const color = colorInput ? colorInput.value : '#0f3b5c';
+        if (mode === 'gradient') {
+            bg.style.background = `linear-gradient(90deg, ${color} 0%, #1b4965 65%, transparent 85%)`;
+        } else {
+            bg.style.background = color;
+        }
     }
 
     function layoutUpdateTouristBadge(num, type) {
@@ -17041,13 +17134,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
             title: { icon: 'title', title: 'Título Principal', subtitle: 'Estilo, tipografía y relieve 3D' },
             compass: { icon: 'explore', title: 'Rosa de los Vientos', subtitle: 'Diseño de norte, rotación y color' },
             mapFrame: { icon: 'map', title: 'Marco de Mapa', subtitle: 'Encuadre, zoom y cuadrícula' },
-            metadata: { icon: 'info', title: 'Metadatos Espaciales', subtitle: 'Fecha, coordenadas y fuente' },
+            metadata: { icon: 'calendar_today', title: 'Tarjeta de Metadatos', subtitle: 'Fecha de emisión, coordenadas y borde verde' },
             legend: { icon: 'list_alt', title: 'Leyenda Activa', subtitle: 'Diseño, columnas y colores' },
             scale: { icon: 'linear_scale', title: 'Escala Visual', subtitle: 'Regleta métrica y formato' },
             touristPoiList: { icon: 'format_list_numbered', title: 'Puntos de Interés (POI)', subtitle: 'Atractivos, paradas turísticas y numeración' },
             touristLegendBox: { icon: 'category', title: 'Convenciones y Servicios', subtitle: 'Iconografía y simbología del mapa' },
-            touristTopLogo: { icon: 'verified', title: 'Logo / Emblema Turístico', subtitle: 'Destino, corporación y subtítulo' },
-            touristFooterBanner: { icon: 'contact_page', title: 'Franja Inferior & Contacto', subtitle: 'Teléfono, portal web y códigos QR' },
+            touristTopLogo: { icon: 'image', title: 'Logo / Emblema Turístico', subtitle: 'Emblema montañoso, relieve y tipografía' },
+            touristFooterBanner: { icon: 'rectangle', title: 'Franja Inferior (Contacto y Fondo)', subtitle: 'Fondo degradado, teléfono y portal web' },
+            touristQrCodes: { icon: 'qr_code_2', title: 'Códigos QR (Info & Portal)', subtitle: 'Accesos rápidos, etiquetas y enlaces' },
+            touristBadges: { icon: 'verified_user', title: 'Insignias y Sellos Institucionales', subtitle: 'Escudo oficial, distintivos y sellos' },
             touristCornerAccents: { icon: 'palette', title: 'Acentos Curvos de Fondo', subtitle: 'Formas orgánicas y colores de esquina' }
         };
 
@@ -17083,11 +17178,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const p = document.getElementById('touristFooterPromoText');
             const ph = document.getElementById('touristFooterPhoneText');
             const w = document.getElementById('touristFooterWebText');
-            const q1 = document.getElementById('touristQr1Label');
-            const q2 = document.getElementById('touristQr2Label');
             if (p && document.getElementById('touristFooterPromoInput')) document.getElementById('touristFooterPromoInput').value = p.innerText.trim();
             if (ph && document.getElementById('touristFooterPhoneInput')) document.getElementById('touristFooterPhoneInput').value = ph.innerText.trim();
             if (w && document.getElementById('touristFooterWebInput')) document.getElementById('touristFooterWebInput').value = w.innerText.trim();
+        } else if (key === 'touristQrCodes') {
+            const q1 = document.getElementById('touristQr1Label');
+            const q2 = document.getElementById('touristQr2Label');
             if (q1 && document.getElementById('touristQr1LabelInput')) document.getElementById('touristQr1LabelInput').value = q1.innerText.trim();
             if (q2 && document.getElementById('touristQr2LabelInput')) document.getElementById('touristQr2LabelInput').value = q2.innerText.trim();
         }
@@ -18057,7 +18153,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function layoutToggleTemplateLayer(id) {
-        const el = document.getElementById(id);
+        const idMap = {
+            'metadata': 'layoutMetadataContainer',
+            'touristMainTitle': 'touristMainTitle',
+            'touristTopLogo': 'touristTopLogo',
+            'touristFooterBanner': 'touristFooterBanner',
+            'touristQrCodes': 'touristQrCodes',
+            'touristBadges': 'touristBadges',
+            'touristPoiList': 'touristPoiList',
+            'touristLegendBox': 'touristLegendBox',
+            'touristCornerAccents': 'touristCornerAccents'
+        };
+        const targetId = idMap[id] || id;
+        const el = document.getElementById(targetId);
         if (!el) return;
         const isHidden = (el.style.display === 'none');
         el.style.display = isHidden ? '' : 'none';
@@ -18074,18 +18182,30 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const list = document.getElementById('layoutElementsList');
         if (!list) return;
 
-        const prevTmplItems = list.querySelectorAll('.tmpl-layer-item');
-        prevTmplItems.forEach(el => el.remove());
+        const idMap = {
+            'metadata': 'layoutMetadataContainer',
+            'touristMainTitle': 'touristMainTitle',
+            'touristTopLogo': 'touristTopLogo',
+            'touristFooterBanner': 'touristFooterBanner',
+            'touristQrCodes': 'touristQrCodes',
+            'touristBadges': 'touristBadges',
+            'touristPoiList': 'touristPoiList',
+            'touristLegendBox': 'touristLegendBox',
+            'touristCornerAccents': 'touristCornerAccents'
+        };
 
         let templateLayers = [];
         if (layoutConfig.theme === 'ghibli') {
             templateLayers = [
                 { id: 'touristCornerAccents', name: 'Curvas de Esquina (Fondo)', icon: 'palette' },
-                { id: 'touristTopLogo', name: 'Logo / Emblema Turístico', icon: 'verified' },
+                { id: 'touristTopLogo', name: 'Logo / Emblema Turístico', icon: 'image' },
                 { id: 'touristMainTitle', name: 'Título: Mapa Turístico Regional', icon: 'title' },
+                { id: 'metadata', name: 'Tarjeta de Metadatos (Fecha & Coords)', icon: 'calendar_today' },
                 { id: 'touristPoiList', name: 'Lista de Atractivos (1-14)', icon: 'format_list_numbered' },
                 { id: 'touristLegendBox', name: 'Leyenda de Servicios', icon: 'category' },
-                { id: 'touristFooterBanner', name: 'Franja Inferior & QR Codes', icon: 'contact_page' }
+                { id: 'touristFooterBanner', name: 'Franja Inferior (Contacto y Fondo)', icon: 'rectangle' },
+                { id: 'touristQrCodes', name: 'Códigos QR (Info & Portal)', icon: 'qr_code_2' },
+                { id: 'touristBadges', name: 'Insignias y Sellos Institucionales', icon: 'verified_user' }
             ];
         } else {
             templateLayers = [
@@ -18093,58 +18213,37 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
                 { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
                 { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
-                { id: 'layoutTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
-                { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
-                { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
-                { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
-                { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
-                { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+                { id: 'layoutTopBannerIcons', name: 'Banner Formas (Íconos)', icon: 'shapes' }
             ];
         }
 
+        list.innerHTML = '';
         templateLayers.forEach(l => {
-            const targetEl = document.getElementById(l.id);
+            const targetEl = document.getElementById(idMap[l.id] || l.id);
             if (!targetEl) return;
-            const row = document.createElement('div');
-            const elemKeyMap = {
-                touristMainTitle: 'title',
-                layoutCompass: 'compass',
-                touristPoiList: 'touristPoiList',
-                touristLegendBox: 'touristLegendBox',
-                touristTopLogo: 'touristTopLogo',
-                touristFooterBanner: 'touristFooterBanner',
-                touristCornerAccents: 'touristCornerAccents'
-            };
-            const propKey = elemKeyMap[l.id] || l.id;
+            const isHidden = (targetEl.style.display === 'none');
 
-            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5 cursor-pointer';
-            row.onclick = function(e) {
-                if (e.target.closest('button')) return;
-                layoutSelectElement(propKey);
-            };
-            row.innerHTML = `
-                <div class="flex items-center gap-2.5 truncate cursor-pointer" onclick="layoutSelectElement('${propKey}')">
-                    <span class="material-symbols-outlined text-[15px] text-zinc-400">${l.icon}</span>
-                    <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between p-2 rounded-lg bg-zinc-800/80 border border-zinc-700/50 hover:border-zinc-500 transition-colors cursor-pointer group';
+            item.onclick = () => layoutSelectElement(l.id);
+            item.innerHTML = `
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">${l.icon}</span>
+                    <span class="text-xs font-semibold text-zinc-200 truncate">${l.name}</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button type="button" onclick="event.stopPropagation(); layoutToggleElementProps('${propKey}')" id="gear-btn-${propKey}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configurar elemento">
+                    <button type="button" onclick="event.stopPropagation(); layoutOpenElementProps('${l.id}')" id="gear-btn-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 transition-colors" title="Propiedades">
                         <span class="material-symbols-outlined text-[15px]">settings</span>
                     </button>
-                    <button type="button" onclick="event.stopPropagation(); layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
-                        <span class="material-symbols-outlined text-[15px]">visibility</span>
+                    <button type="button" onclick="event.stopPropagation(); layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 ${isHidden ? 'text-zinc-500' : 'text-white'} transition-colors" title="Mostrar/Ocultar">
+                        <span class="material-symbols-outlined text-[15px]">${isHidden ? 'visibility_off' : 'visibility'}</span>
                     </button>
                 </div>
             `;
-            list.appendChild(row);
+            list.appendChild(item);
         });
-    }
 
-    window.layoutInitTemplateDraggables = layoutInitTemplateDraggables;
-    window.layoutToggleTemplateLayer = layoutToggleTemplateLayer;
-    window.layoutRefreshElementsList = layoutRefreshElementsList;
-
-    setTimeout(function() {
+        // Attach paper selection listeners
         const paper = document.getElementById('layoutPaper');
         if (paper && !paper._captureSelectionAttached) {
             paper._captureSelectionAttached = true;
