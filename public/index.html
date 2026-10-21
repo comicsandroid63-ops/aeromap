@@ -4760,6 +4760,13 @@
                         <button onclick="toggleLayoutTemplatesDropdown()" class="text-[12px] text-zinc-400 hover:text-black">✕</button>
                     </div>
                     <div class="flex flex-col gap-1.5">
+                        <button onclick="applyTemplateInModal('standard')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-200 bg-white">
+                            <div>
+                                <span class="text-xs font-bold text-zinc-900 block">Diseño Estándar (Sin Plantilla)</span>
+                                <span class="text-[9px] text-zinc-400">Limpio · Elementos Clásicos GIS · Sin decoraciones</span>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700">Original</span>
+                        </button>
                         <button onclick="applyTemplateInModal('cadastral')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
                             <div>
                                 <span class="text-xs font-bold text-zinc-900 block">Plano Catastral Oficial</span>
@@ -15002,7 +15009,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }, 150);
         
         if (!layoutConfig.initialized) {
-            if (!layoutConfig.theme) layoutConfig.theme = 'ghibli';
             const topLayer = state.layers ? state.layers[0] : null;
             if (topLayer && !layoutConfig.titleText) layoutConfig.titleText = `Mapa: ${topLayer.name}`;
             layoutConfig.initialized = true;
@@ -15087,6 +15093,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // Apply authentic theme styling to paper, borders, membrete and banners
         if (typeof layoutApplyTheme === 'function' && layoutConfig.theme) {
             layoutApplyTheme(layoutConfig.theme);
+        } else if (typeof layoutApplyTheme === 'function') {
+            layoutApplyTheme('standard');
         }
 
         // Restore each shape
@@ -18182,68 +18190,182 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const list = document.getElementById('layoutElementsList');
         if (!list) return;
 
-        const idMap = {
-            'metadata': 'layoutMetadataContainer',
-            'touristMainTitle': 'touristMainTitle',
-            'touristTopLogo': 'touristTopLogo',
-            'touristFooterBanner': 'touristFooterBanner',
-            'touristQrCodes': 'touristQrCodes',
-            'touristBadges': 'touristBadges',
-            'touristPoiList': 'touristPoiList',
-            'touristLegendBox': 'touristLegendBox',
-            'touristCornerAccents': 'touristCornerAccents'
-        };
+        // 1. Limpiar elementos temporales de plantilla previos (.tmpl-layer-item y .tmpl-layer-divider)
+        const prevTmplItems = list.querySelectorAll('.tmpl-layer-item, .tmpl-layer-divider');
+        prevTmplItems.forEach(el => el.remove());
 
-        let templateLayers = [];
-        if (layoutConfig.theme === 'ghibli') {
-            templateLayers = [
+        // Asegurar que los 6 elementos principales existan en el contenedor list
+        let mainContainer = document.getElementById('layoutMainElementsGroup');
+        if (!mainContainer) {
+            list.innerHTML = `
+                <div id="layoutMainElementsGroup" class="space-y-1.5">
+                    <!-- Marco de Mapa -->
+                    <div onclick="layoutSelectElement('mapFrame')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">map</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Marco de Mapa</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('mapFrame')" id="gear-btn-mapFrame" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración del Marco de Mapa">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('mapFrame')" id="eye-mapFrame" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Título Principal -->
+                    <div onclick="layoutSelectElement('title')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">title</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Título Principal</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('title')" id="gear-btn-title" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración del Título">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('title')" id="eye-title" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Metadatos (Coords/Fecha) -->
+                    <div onclick="layoutSelectElement('metadata')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">info</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Metadatos (Coords/Fecha)</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('metadata')" id="gear-btn-metadata" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Metadatos">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('metadata')" id="eye-metadata" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Leyenda activa -->
+                    <div onclick="layoutSelectElement('legend')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">list_alt</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Leyenda activa</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('legend')" id="gear-btn-legend" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Leyenda">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('legend')" id="eye-legend" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Rosa de los vientos -->
+                    <div onclick="layoutSelectElement('compass')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">explore</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Rosa de los vientos</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('compass')" id="gear-btn-compass" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Brújula">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('compass')" id="eye-compass" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Escala métrica -->
+                    <div onclick="layoutSelectElement('scale')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">linear_scale</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Escala métrica</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('scale')" id="gear-btn-scale" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Escala">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('scale')" id="eye-scale" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Sincronizar estado de los ojos de los 6 elementos principales
+        const mainKeys = ['mapFrame', 'title', 'metadata', 'legend', 'compass', 'scale'];
+        mainKeys.forEach(k => {
+            const vis = layoutConfig.elements ? layoutConfig.elements[k] !== false : true;
+            const eye = document.getElementById(`eye-${k}`);
+            if (eye) {
+                eye.innerHTML = `<span class="material-symbols-outlined ${vis ? 'text-emerald-400' : 'text-zinc-600'} text-[18px]">${vis ? 'visibility' : 'visibility_off'}</span>`;
+            }
+        });
+
+        // 2. Si hay plantilla turística activa ('ghibli'), agregar sección "Elementos de Diseño de la Plantilla"
+        if (layoutConfig && layoutConfig.theme === 'ghibli') {
+            const divider = document.createElement('div');
+            divider.className = 'tmpl-layer-divider pt-3 pb-1 border-t border-white/10 mt-3 flex items-center justify-between select-none';
+            divider.innerHTML = `
+                <span class="text-[9px] font-black uppercase tracking-widest text-emerald-400">Elementos de la Plantilla</span>
+                <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">Turística</span>
+            `;
+            list.appendChild(divider);
+
+            const templateLayers = [
                 { id: 'touristCornerAccents', name: 'Curvas de Esquina (Fondo)', icon: 'palette' },
                 { id: 'touristTopLogo', name: 'Logo / Emblema Turístico', icon: 'image' },
                 { id: 'touristMainTitle', name: 'Título: Mapa Turístico Regional', icon: 'title' },
-                { id: 'metadata', name: 'Tarjeta de Metadatos (Fecha & Coords)', icon: 'calendar_today' },
                 { id: 'touristPoiList', name: 'Lista de Atractivos (1-14)', icon: 'format_list_numbered' },
                 { id: 'touristLegendBox', name: 'Leyenda de Servicios', icon: 'category' },
                 { id: 'touristFooterBanner', name: 'Franja Inferior (Contacto y Fondo)', icon: 'rectangle' },
                 { id: 'touristQrCodes', name: 'Códigos QR (Info & Portal)', icon: 'qr_code_2' },
                 { id: 'touristBadges', name: 'Insignias y Sellos Institucionales', icon: 'verified_user' }
             ];
-        } else {
-            templateLayers = [
-                { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
-                { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
-                { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
-                { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
-                { id: 'layoutTopBannerIcons', name: 'Banner Formas (Íconos)', icon: 'shapes' }
-            ];
+
+            const idMap = {
+                'touristMainTitle': 'touristMainTitle',
+                'touristTopLogo': 'touristTopLogo',
+                'touristFooterBanner': 'touristFooterBanner',
+                'touristQrCodes': 'touristQrCodes',
+                'touristBadges': 'touristBadges',
+                'touristPoiList': 'touristPoiList',
+                'touristLegendBox': 'touristLegendBox',
+                'touristCornerAccents': 'touristCornerAccents'
+            };
+
+            templateLayers.forEach(l => {
+                const targetEl = document.getElementById(idMap[l.id] || l.id);
+                const isHidden = targetEl && (targetEl.style.display === 'none');
+
+                const item = document.createElement('div');
+                item.className = 'tmpl-layer-item flex items-center justify-between p-2 rounded-lg bg-zinc-800/80 border border-zinc-700/50 hover:border-zinc-500 transition-colors cursor-pointer group';
+                item.onclick = () => layoutSelectElement(l.id);
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">${l.icon}</span>
+                        <span class="text-xs font-semibold text-zinc-200 truncate">${l.name}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="event.stopPropagation(); layoutOpenElementProps('${l.id}')" id="gear-btn-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 transition-colors" title="Propiedades">
+                            <span class="material-symbols-outlined text-[15px]">settings</span>
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 ${isHidden ? 'text-zinc-500' : 'text-white'} transition-colors" title="Mostrar/Ocultar">
+                            <span class="material-symbols-outlined text-[15px]">${isHidden ? 'visibility_off' : 'visibility'}</span>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
         }
 
-        list.innerHTML = '';
-        templateLayers.forEach(l => {
-            const targetEl = document.getElementById(idMap[l.id] || l.id);
-            if (!targetEl) return;
-            const isHidden = (targetEl.style.display === 'none');
-
-            const item = document.createElement('div');
-            item.className = 'flex items-center justify-between p-2 rounded-lg bg-zinc-800/80 border border-zinc-700/50 hover:border-zinc-500 transition-colors cursor-pointer group';
-            item.onclick = () => layoutSelectElement(l.id);
-            item.innerHTML = `
-                <div class="flex items-center gap-2 overflow-hidden">
-                    <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">${l.icon}</span>
-                    <span class="text-xs font-semibold text-zinc-200 truncate">${l.name}</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <button type="button" onclick="event.stopPropagation(); layoutOpenElementProps('${l.id}')" id="gear-btn-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-zinc-400 transition-colors" title="Propiedades">
-                        <span class="material-symbols-outlined text-[15px]">settings</span>
-                    </button>
-                    <button type="button" onclick="event.stopPropagation(); layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 ${isHidden ? 'text-zinc-500' : 'text-white'} transition-colors" title="Mostrar/Ocultar">
-                        <span class="material-symbols-outlined text-[15px]">${isHidden ? 'visibility_off' : 'visibility'}</span>
-                    </button>
-                </div>
-            `;
-            list.appendChild(item);
-        });
-
-        // Attach paper selection listeners
+        // 3. Attach paper selection listeners
         const paper = document.getElementById('layoutPaper');
         if (paper && !paper._captureSelectionAttached) {
             paper._captureSelectionAttached = true;
@@ -24288,6 +24410,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function applyTemplate(type) {
       const presets = {
+        standard: {
+          theme: null,
+          paper: 'A4', orientation: 'portrait',
+          titleText: layoutConfig.titleText || 'Proyecto Zima Editor',
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 24, color: '#000000', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 9, color: '#000000', fontFamily: 'Inter' },
+            legend: { fontSize: 9, color: '#000000', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 9, color: '#000000', fontFamily: 'Inter', design: 'classic' },
+            compass: { color: '#000000', design: 'modern', rotation: 0, size: 25 }
+          },
+          mapFrame: { top: '20mm', left: '20mm', width: '170mm', height: '220mm', visible: true },
+          compass: { top: '220mm', left: '160mm', width: '25mm', height: '25mm' },
+          titleProps: { top: '10mm', left: '20mm', width: '120mm' },
+          metadata: { top: '238mm', left: '124mm', width: '50mm', height: '16mm' },
+          legend: { top: '180mm', left: '20mm', width: '50mm', height: '60mm' },
+          scale: { top: '235mm', left: '20mm', width: '45mm', height: '12mm' }
+        },
         ghibli: {
           theme: 'ghibli',
           paper: 'A4', orientation: 'portrait',
