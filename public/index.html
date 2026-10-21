@@ -14555,68 +14555,96 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }, 150);
         
         if (!layoutConfig.initialized) {
-            const topLayer = state.layers[0];
-            if (topLayer) layoutConfig.titleText = `Mapa: ${topLayer.name}`;
+            const topLayer = state.layers ? state.layers[0] : null;
+            if (topLayer && !layoutConfig.titleText) layoutConfig.titleText = `Mapa: ${topLayer.name}`;
             layoutConfig.initialized = true;
         }
 
+        // Restore Paper & Orientation
+        if (typeof layoutSetPaper === 'function') layoutSetPaper(layoutConfig.paper || 'A4');
+        if (typeof layoutSetOrientation === 'function') layoutSetOrientation(layoutConfig.orientation || 'portrait');
+        if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
+
         // Restore UI State
-        document.getElementById('layoutTitleInput').value = layoutConfig.titleText;
-        document.getElementById('layoutTitleDisplay').textContent = layoutConfig.titleText;
+        document.getElementById('layoutTitleInput').value = layoutConfig.titleText || '';
+        document.getElementById('layoutTitleDisplay').textContent = layoutConfig.titleText || '';
         
         const mf = document.getElementById('layoutMapFrame');
-        mf.style.top = layoutConfig.mapFrame.top;
-        mf.style.left = layoutConfig.mapFrame.left;
-        mf.style.width = layoutConfig.mapFrame.width;
-        mf.style.height = layoutConfig.mapFrame.height;
+        if (mf && layoutConfig.mapFrame) {
+            mf.style.top = layoutConfig.mapFrame.top;
+            mf.style.left = layoutConfig.mapFrame.left;
+            mf.style.width = layoutConfig.mapFrame.width;
+            mf.style.height = layoutConfig.mapFrame.height;
+        }
 
         const cp = document.getElementById('layoutCompass');
-        cp.style.top = layoutConfig.compass.top;
-        cp.style.left = layoutConfig.compass.left;
-        cp.style.width = layoutConfig.compass.width;
-        cp.style.height = layoutConfig.compass.height;
+        if (cp && layoutConfig.compass) {
+            cp.style.top = layoutConfig.compass.top;
+            cp.style.left = layoutConfig.compass.left;
+            cp.style.width = layoutConfig.compass.width;
+            cp.style.height = layoutConfig.compass.height;
+        }
 
         const tc = document.getElementById('layoutTitleContainer');
-        tc.style.top = layoutConfig.titleProps.top;
-        tc.style.left = layoutConfig.titleProps.left;
-        tc.style.width = layoutConfig.titleProps.width;
+        if (tc && layoutConfig.titleProps) {
+            tc.style.top = layoutConfig.titleProps.top;
+            tc.style.left = layoutConfig.titleProps.left;
+            tc.style.width = layoutConfig.titleProps.width;
+        }
 
         const mc = document.getElementById('layoutMetadataContainer');
-        mc.style.top = layoutConfig.metadata.top;
-        mc.style.left = layoutConfig.metadata.left;
-        mc.style.width = layoutConfig.metadata.width;
+        if (mc && layoutConfig.metadata) {
+            mc.style.top = layoutConfig.metadata.top;
+            mc.style.left = layoutConfig.metadata.left;
+            mc.style.width = layoutConfig.metadata.width;
+        }
 
         const lc = document.getElementById('layoutLegendContainer');
-        lc.style.top = layoutConfig.legend.top;
-        lc.style.left = layoutConfig.legend.left;
-        lc.style.width = layoutConfig.legend.width;
-        lc.style.height = layoutConfig.legend.height;
+        if (lc && layoutConfig.legend) {
+            lc.style.top = layoutConfig.legend.top;
+            lc.style.left = layoutConfig.legend.left;
+            lc.style.width = layoutConfig.legend.width;
+            lc.style.height = layoutConfig.legend.height;
+        }
 
         const sc = document.getElementById('layoutScaleContainer');
-        sc.style.top = layoutConfig.scale.top;
-        sc.style.left = layoutConfig.scale.left;
-        sc.style.width = layoutConfig.scale.width;
-        sc.style.height = layoutConfig.scale.height;
+        if (sc && layoutConfig.scale) {
+            sc.style.top = layoutConfig.scale.top;
+            sc.style.left = layoutConfig.scale.left;
+            sc.style.width = layoutConfig.scale.width;
+            sc.style.height = layoutConfig.scale.height;
+        }
         
         // Restore each element visibility and initial styles
-        Object.keys(layoutConfig.elements).forEach(key => {
-            layoutUpdateElementUI(key);
-            if (layoutConfig.styles[key]) {
-                Object.keys(layoutConfig.styles[key]).forEach(prop => {
-                    layoutApplyStyle(key, prop, layoutConfig.styles[key][prop]);
-                });
-            }
-        });
+        if (layoutConfig.elements) {
+            Object.keys(layoutConfig.elements).forEach(key => {
+                layoutUpdateElementUI(key);
+                if (layoutConfig.styles && layoutConfig.styles[key]) {
+                    Object.keys(layoutConfig.styles[key]).forEach(prop => {
+                        layoutApplyStyle(key, prop, layoutConfig.styles[key][prop]);
+                    });
+                }
+            });
+        }
+
+        // Apply authentic theme styling to paper, borders, membrete and banners
+        if (typeof layoutApplyTheme === 'function' && layoutConfig.theme) {
+            layoutApplyTheme(layoutConfig.theme);
+        }
 
         // Restore each shape
         const paper = document.getElementById('layoutPaper');
-        layoutConfig.shapes.forEach(sh => layoutRenderShape(sh));
+        if (layoutConfig.shapes && Array.isArray(layoutConfig.shapes)) {
+            layoutConfig.shapes.forEach(sh => layoutRenderShape(sh));
+        }
 
-        document.getElementById('layoutDateDisplay').textContent = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(new Date());
+        const dateEl = document.getElementById('layoutDateDisplay');
+        if (dateEl) dateEl.textContent = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(new Date());
         
         // Sync coords (Always update to current view center)
-        const center = state.map.getCenter();
-        document.getElementById('layoutCoordDisplay').textContent = `Centro: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)} (WGS84)`;
+        const center = (state.map && typeof state.map.getCenter === 'function') ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
+        const coordEl = document.getElementById('layoutCoordDisplay');
+        if (coordEl) coordEl.textContent = `Centro: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)} (WGS84)`;
         
         layoutUpdateLegend();
         updateZoomDisplay();
@@ -15107,7 +15135,361 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function applyTemplateInModal(type) {
         applyTemplate(type);
+        if (typeof layoutApplyTheme === 'function') layoutApplyTheme(type);
         toggleLayoutTemplatesDropdown();
+    }
+
+    function layoutApplyTheme(theme) {
+        const paper = document.getElementById('layoutPaper');
+        if (!paper) return;
+
+        let decor = document.getElementById('layoutThemeDecor');
+        if (!decor) {
+            decor = document.createElement('div');
+            decor.id = 'layoutThemeDecor';
+            decor.className = 'absolute inset-0 pointer-events-none z-[15]';
+            paper.appendChild(decor);
+        }
+        decor.innerHTML = '';
+
+        const mapFrame = document.getElementById('layoutMapFrame');
+        const mapContainer = document.getElementById('layoutMapContainer');
+        const titleContainer = document.getElementById('layoutTitleContainer');
+        const titleDisplay = document.getElementById('layoutTitleDisplay');
+        const legendContainer = document.getElementById('layoutLegendContainer');
+        const scaleContainer = document.getElementById('layoutScaleContainer');
+        const metadataContainer = document.getElementById('layoutMetadataContainer');
+        const compassEl = document.getElementById('layoutCompass');
+
+        // Reset paper & container styles
+        paper.style.background = '#ffffff';
+        paper.style.boxShadow = '0 20px 50px rgba(0,0,0,0.1)';
+        paper.style.border = 'none';
+        if (mapContainer) mapContainer.style.filter = 'none';
+        if (titleContainer) titleContainer.style.display = 'flex';
+        if (titleDisplay) {
+            titleDisplay.style.color = '#000000';
+            titleDisplay.style.fontFamily = 'Inter, sans-serif';
+            titleDisplay.style.textShadow = 'none';
+        }
+        if (legendContainer) {
+            legendContainer.style.display = 'flex';
+            legendContainer.style.background = 'rgba(255,255,255,0.92)';
+            legendContainer.style.borderColor = '#e5e7eb';
+            legendContainer.style.color = '#000000';
+        }
+        if (scaleContainer) {
+            scaleContainer.style.display = 'flex';
+            scaleContainer.style.background = 'rgba(255,255,255,0.92)';
+            scaleContainer.style.borderColor = '#e5e7eb';
+            scaleContainer.style.color = '#000000';
+        }
+        if (metadataContainer) metadataContainer.style.display = 'flex';
+        if (compassEl) compassEl.style.display = 'flex';
+
+        if (!theme || theme === 'default') return;
+
+        if (theme === 'cadastral') {
+            // ═══ 1. PLANO CATASTRAL OFICIAL ═══
+            paper.style.background = '#ffffff';
+            decor.innerHTML = `
+                <div style="position:absolute;inset:6mm;border:1.5px solid #0f172a;pointer-events:none;"></div>
+                <div style="position:absolute;inset:7.5mm;border:0.6px solid #0f172a;pointer-events:none;"></div>
+                <span style="position:absolute;top:6.5mm;left:9mm;font:bold 7px monospace;color:#0f172a;">1'102,400 N</span>
+                <span style="position:absolute;top:6.5mm;right:9mm;font:bold 7px monospace;color:#0f172a;">540,200 E</span>
+                <span style="position:absolute;bottom:32mm;left:9mm;font:bold 7px monospace;color:#0f172a;">1'101,800 N</span>
+                <span style="position:absolute;bottom:32mm;right:9mm;font:bold 7px monospace;color:#0f172a;">539,600 E</span>
+                <div style="position:absolute;bottom:8mm;left:8mm;right:8mm;height:24mm;background:#fff;border:1.2px solid #0f172a;pointer-events:auto;display:flex;flex-direction:column;font-family:Inter,sans-serif;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+                    <div style="background:#0f172a;color:#fff;padding:2px 8px;font-size:7.5px;font-weight:900;text-align:center;letter-spacing:0.08em;text-transform:uppercase;">
+                        REPÚBLICA DE COLOMBIA · INSTITUTO GEOGRÁFICO AGUSTÍN CODAZZI · SUBDIRECCIÓN DE CATASTRO
+                    </div>
+                    <div style="display:grid;grid-template-columns:1.8fr 1.2fr 1fr;flex:1;font-size:7px;border-top:1px solid #0f172a;">
+                        <div style="padding:4px 8px;border-right:1px solid #0f172a;display:flex;flex-direction:column;justify-content:center;">
+                            <span style="font-size:6px;color:#64748b;font-weight:700;text-transform:uppercase;">Tipo de Levantamiento</span>
+                            <span style="font-weight:900;font-size:8.5px;color:#0f172a;">PLANO CATASTRAL RURAL PREDIAL</span>
+                            <span style="font-size:6.5px;color:#334155;">PROYECTO: DELIMITACIÓN &amp; GEOREFERENCIACIÓN</span>
+                        </div>
+                        <div style="padding:4px 8px;border-right:1px solid #0f172a;display:flex;flex-direction:column;justify-content:center;gap:1px;">
+                            <span style="font-size:6.5px;color:#334155;"><strong style="color:#0f172a;">ESCALA:</strong> 1:1,000</span>
+                            <span style="font-size:6.5px;color:#334155;"><strong style="color:#0f172a;">DATUM:</strong> MAGNA-SIRGAS (WGS-84)</span>
+                            <span style="font-size:6.5px;color:#334155;"><strong style="color:#0f172a;">ORIGEN:</strong> CENTRAL (EPSG:3116)</span>
+                        </div>
+                        <div style="padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#f8fafc;">
+                            <span style="font-size:6px;color:#64748b;font-weight:700;">FOLIO REGISTRAL</span>
+                            <span style="font-size:8px;font-weight:900;color:#0f172a;">PC-2026-04</span>
+                            <span style="font-size:6.5px;font-weight:900;color:#16a34a;margin-top:1px;">✓ APROBADO</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (mapFrame) mapFrame.style.border = '1px solid #0f172a';
+            if (titleDisplay) {
+                titleDisplay.textContent = 'PLANO CATASTRAL OFICIAL';
+                titleDisplay.style.color = '#0f172a';
+                titleDisplay.style.fontWeight = '900';
+            }
+            layoutConfig.styles.compass.design = 'classic';
+            layoutConfig.styles.compass.color = '#0f172a';
+            layoutConfig.grid.enabled = true;
+            layoutConfig.grid.color = '#475569';
+            layoutConfig.grid.opacity = 0.55;
+        }
+        else if (theme === 'poster') {
+            // ═══ 2. MAPA POSTER PANORÁMICO ═══
+            paper.style.background = '#ffffff';
+            decor.innerHTML = `
+                <div style="position:absolute;top:8mm;left:10mm;right:10mm;height:18mm;background:linear-gradient(90deg,#0f172a 0%,#1e3a8a 100%);border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 12mm;box-shadow:0 4px 14px rgba(15,23,42,0.15);">
+                    <div>
+                        <h1 style="color:#ffffff;font-size:14px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;margin:0;font-family:Inter,sans-serif;">CARTOGRAFÍA METROPOLITANA</h1>
+                        <p style="color:#93c5fd;font-size:7.5px;font-weight:600;letter-spacing:0.06em;margin:2px 0 0;font-family:Inter,sans-serif;">SISTEMA INTEGRADO DE ANÁLISIS TERRITORIAL &amp; GEODATOS · EDICIÓN 2026</p>
+                    </div>
+                    <span style="border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:6.5px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;">Fine Print</span>
+                </div>
+            `;
+            if (titleContainer) titleContainer.style.display = 'none';
+            if (mapFrame) {
+                mapFrame.style.border = '1px solid #cbd5e1';
+                mapFrame.style.borderRadius = '4px';
+            }
+            if (legendContainer) {
+                legendContainer.style.background = 'rgba(255,255,255,0.92)';
+                legendContainer.style.backdropFilter = 'blur(10px)';
+                legendContainer.style.borderRadius = '12px';
+                legendContainer.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
+            }
+            layoutConfig.styles.compass.design = 'modern';
+            layoutConfig.styles.compass.color = '#0f172a';
+        }
+        else if (theme === 'dark_satellite') {
+            // ═══ 3. ATLAS SATELITAL DARK ═══
+            paper.style.background = '#070d19';
+            decor.innerHTML = `
+                <div style="position:absolute;inset:6mm;border:1.5px solid #00f0ff;box-shadow:inset 0 0 20px rgba(0,240,255,0.2), 0 0 10px rgba(0,240,255,0.25);border-radius:4px;pointer-events:none;"></div>
+                <div style="position:absolute;top:6.5mm;left:10mm;font:bold 7px monospace;color:#00f0ff;letter-spacing:0.06em;">HUD // SENTINEL-2 NDVI COMPOSITE</div>
+                <div style="position:absolute;top:6.5mm;right:10mm;font:bold 7px monospace;color:#00f0ff;">EPSG:3857 · WGS84</div>
+                <div style="position:absolute;bottom:8mm;left:10mm;right:10mm;display:flex;align-items:center;justify-content:space-between;font:6.5px monospace;color:#00f0ff;border-top:1px solid rgba(0,240,255,0.3);padding-top:4px;">
+                    <span>LAT: 04°38'12" N  LON: 74°05'22" W</span>
+                    <span>ALTITUDE: 786 KM // SENSOR: MULTISPECTRAL MSI</span>
+                    <span>SYSTEM STATUS: ONLINE ✓</span>
+                </div>
+            `;
+            if (titleDisplay) {
+                titleDisplay.textContent = 'ATLAS SATELITAL DARK · ORBITAL HUD';
+                titleDisplay.style.color = '#00f0ff';
+                titleDisplay.style.fontFamily = 'monospace';
+                titleDisplay.style.fontWeight = '900';
+                titleDisplay.style.textShadow = '0 0 10px rgba(0,240,255,0.6)';
+            }
+            if (mapFrame) {
+                mapFrame.style.border = '1.2px solid rgba(0, 240, 255, 0.6)';
+                mapFrame.style.boxShadow = '0 0 25px rgba(0, 240, 255, 0.15)';
+            }
+            if (legendContainer) {
+                legendContainer.style.background = 'rgba(7, 13, 25, 0.9)';
+                legendContainer.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+                legendContainer.style.color = '#00f0ff';
+            }
+            if (scaleContainer) {
+                scaleContainer.style.background = 'rgba(7, 13, 25, 0.9)';
+                scaleContainer.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+                scaleContainer.style.color = '#00f0ff';
+            }
+            if (metadataContainer) metadataContainer.style.color = '#94a3b8';
+            if (mapContainer) mapContainer.style.filter = 'contrast(1.15) brightness(0.9)';
+            layoutConfig.styles.compass.design = 'orbital-hud';
+            layoutConfig.styles.compass.color = '#00f0ff';
+            layoutConfig.grid.enabled = true;
+            layoutConfig.grid.color = '#00f0ff';
+            layoutConfig.grid.opacity = 0.35;
+        }
+        else if (theme === 'print') {
+            // ═══ 4. INFORME TÉCNICO AMBIENTAL ═══
+            paper.style.background = '#ffffff';
+            decor.innerHTML = `
+                <div style="position:absolute;inset:5mm;border:2px solid #064e3b;pointer-events:none;"></div>
+                <div style="position:absolute;top:8mm;left:8mm;right:8mm;height:18mm;background:#064e3b;border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 8mm;color:#fff;">
+                    <div>
+                        <h1 style="color:#ffffff;font-size:12px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;margin:0;font-family:Inter,sans-serif;">ESTUDIO DE IMPACTO AMBIENTAL (EIA)</h1>
+                        <p style="color:#a7f3d0;font-size:7px;font-weight:600;letter-spacing:0.04em;margin:2px 0 0;font-family:Inter,sans-serif;">EVALUACIÓN DE CUENCAS HÍDRICAS &amp; COBERTURA VEGETAL PROTEGIDA</p>
+                    </div>
+                    <div style="width:16mm;height:16mm;border:1.5px solid rgba(255,255,255,0.4);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:5.5px;font-weight:900;text-align:center;color:#a7f3d0;line-height:1.1;">
+                        <span>CERTIF</span>
+                        <span style="color:#fff;font-size:7px;">2026</span>
+                    </div>
+                </div>
+                <div style="position:absolute;bottom:8mm;right:10mm;width:24mm;height:14mm;border:1.2px solid #059669;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:bold 6px Inter,sans-serif;color:#064e3b;background:#f0fdf4;">
+                    <span style="font-size:5px;color:#059669;">DICTAMEN TÉCNICO</span>
+                    <span style="font-size:7px;color:#064e3b;font-weight:900;">VALIDADO ✓</span>
+                </div>
+            `;
+            if (titleContainer) titleContainer.style.display = 'none';
+            if (mapFrame) mapFrame.style.border = '1px solid #064e3b';
+            layoutConfig.styles.compass.design = 'classic';
+            layoutConfig.styles.compass.color = '#064e3b';
+            layoutConfig.grid.enabled = true;
+            layoutConfig.grid.color = '#064e3b';
+            layoutConfig.grid.opacity = 0.3;
+        }
+        else if (theme === 'vintage') {
+            // ═══ 5. CARTOGRAFÍA HISTÓRICA ═══
+            paper.style.background = 'radial-gradient(circle at center, #fbf4dc 0%, #f3e5c0 70%, #d5b984 100%)';
+            decor.innerHTML = `
+                <div style="position:absolute;inset:8mm;border:2px solid #452613;pointer-events:none;"></div>
+                <div style="position:absolute;inset:10mm;border:0.8px solid #452613;pointer-events:none;"></div>
+                <div style="position:absolute;top:8mm;left:8mm;width:8mm;height:8mm;border-right:1px solid #452613;border-bottom:1px solid #452613;"></div>
+                <div style="position:absolute;top:8mm;right:8mm;width:8mm;height:8mm;border-left:1px solid #452613;border-bottom:1px solid #452613;"></div>
+                <div style="position:absolute;bottom:8mm;left:8mm;width:8mm;height:8mm;border-right:1px solid #452613;border-top:1px solid #452613;"></div>
+                <div style="position:absolute;bottom:8mm;right:8mm;width:8mm;height:8mm;border-left:1px solid #452613;border-top:1px solid #452613;"></div>
+                <div style="position:absolute;top:12mm;left:50%;transform:translateX(-50%);background:#fefae0;border:1.2px solid #452613;padding:4px 20mm;box-shadow:2px 3px 0 rgba(69,38,19,0.2);display:flex;flex-direction:column;align-items:center;border-radius:2px;">
+                    <span style="font-family:Georgia,serif;font-style:italic;font-weight:900;font-size:13px;color:#452613;letter-spacing:0.12em;text-transform:uppercase;">NOVA TOTIUS TERRARUM TABULA</span>
+                    <span style="font-family:Georgia,serif;font-style:italic;font-size:7px;color:#654321;letter-spacing:0.06em;">Auctore Cartographico Zima · Anno Domini MMXXVI</span>
+                </div>
+            `;
+            if (titleContainer) titleContainer.style.display = 'none';
+            if (mapFrame) mapFrame.style.border = '1.5px solid #452613';
+            if (mapContainer) mapContainer.style.filter = 'sepia(0.85) contrast(1.1) brightness(0.95)';
+            if (legendContainer) {
+                legendContainer.style.background = '#fefae0';
+                legendContainer.style.borderColor = '#452613';
+                legendContainer.style.color = '#452613';
+            }
+            if (scaleContainer) {
+                scaleContainer.style.background = '#fefae0';
+                scaleContainer.style.borderColor = '#452613';
+                scaleContainer.style.color = '#452613';
+            }
+            layoutConfig.styles.compass.design = 'vintage-rose';
+            layoutConfig.styles.compass.color = '#7a2e1d';
+        }
+        else if (theme === 'blueprint') {
+            // ═══ 6. BLUEPRINT ARQUITECTÓNICO ═══
+            paper.style.background = '#0c3a5e';
+            decor.innerHTML = `
+                <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(18,76,122,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(18,76,122,0.6) 1px,transparent 1px);background-size:8mm 8mm;pointer-events:none;"></div>
+                <div style="position:absolute;inset:6mm;border:1.5px solid #ffffff;pointer-events:none;"></div>
+                <div style="position:absolute;inset:7mm;border:0.5px solid #38bdf8;pointer-events:none;"></div>
+                <div style="position:absolute;bottom:8mm;right:8mm;width:60mm;height:24mm;background:#08253d;border:1.2px solid #ffffff;color:#fff;font-family:Courier New,monospace;display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;">
+                    <div style="background:#0c3a5e;border-bottom:1px solid #ffffff;padding:2px 6px;font-size:7px;font-weight:900;color:#38bdf8;letter-spacing:0.04em;">
+                        ESTUDIO DE INGENIERÍA &amp; CAD
+                    </div>
+                    <div style="display:grid;grid-template-columns:1.4fr 1fr;flex:1;font-size:6px;">
+                        <div style="padding:3px 5px;border-right:1px solid #ffffff;display:flex;flex-direction:column;justify-content:center;">
+                            <span style="color:#bae6fd;">PLAN REGULADOR CAD</span>
+                            <span style="font-weight:bold;color:#fff;">MASTERPLAN URBANO</span>
+                            <span style="color:#38bdf8;">ESCALA: 1:500</span>
+                        </div>
+                        <div style="padding:3px 5px;display:flex;flex-direction:column;justify-content:center;background:#051a2c;">
+                            <span style="color:#bae6fd;">LAMINA: ARQ-01</span>
+                            <span style="color:#38bdf8;font-weight:bold;">REV: C</span>
+                            <span style="color:#fff;">FECHA: 2026-10</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (titleDisplay) {
+                titleDisplay.textContent = 'BLUEPRINT ARQUITECTÓNICO CAD';
+                titleDisplay.style.color = '#38bdf8';
+                titleDisplay.style.fontFamily = 'Courier New, monospace';
+                titleDisplay.style.fontWeight = '900';
+            }
+            if (mapFrame) mapFrame.style.border = '1.2px solid #38bdf8';
+            if (mapContainer) mapContainer.style.filter = 'invert(0.9) hue-rotate(185deg) brightness(0.85) contrast(1.3)';
+            if (legendContainer) {
+                legendContainer.style.background = '#08253d';
+                legendContainer.style.borderColor = '#38bdf8';
+                legendContainer.style.color = '#ffffff';
+            }
+            if (scaleContainer) {
+                scaleContainer.style.background = '#08253d';
+                scaleContainer.style.borderColor = '#38bdf8';
+                scaleContainer.style.color = '#ffffff';
+            }
+            layoutConfig.styles.compass.design = 'cad-crosshair';
+            layoutConfig.styles.compass.color = '#38bdf8';
+            layoutConfig.grid.enabled = true;
+            layoutConfig.grid.color = '#38bdf8';
+            layoutConfig.grid.opacity = 0.4;
+        }
+        else if (theme === 'urban') {
+            // ═══ 7. INFOGRAFÍA URBANA ═══
+            paper.style.background = '#ffffff';
+            decor.innerHTML = `
+                <div style="position:absolute;top:12mm;right:10mm;width:68mm;height:186mm;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:6mm;display:flex;flex-direction:column;gap:5mm;font-family:Inter,sans-serif;pointer-events:auto;">
+                    <div>
+                        <span style="font-size:7px;font-weight:900;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">PLAN DIRECTOR URBANO</span>
+                        <h3 style="font-size:11px;font-weight:900;color:#0f172a;margin:2px 0 0;">INDICADORES DE CIUDAD</h3>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:7.5px;font-weight:700;margin-bottom:2px;">
+                            <span style="color:#0f172a;">Tránsito Multimodal</span>
+                            <span style="color:#ef4444;">78%</span>
+                        </div>
+                        <div style="height:4px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+                            <div style="width:78%;height:100%;background:#ef4444;border-radius:99px;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:7.5px;font-weight:700;margin-bottom:2px;">
+                            <span style="color:#0f172a;">Espacios Verdes</span>
+                            <span style="color:#16a34a;">42%</span>
+                        </div>
+                        <div style="height:4px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+                            <div style="width:42%;height:100%;background:#16a34a;border-radius:99px;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:7.5px;font-weight:700;margin-bottom:2px;">
+                            <span style="color:#0f172a;">Cobertura Ciclovía</span>
+                            <span style="color:#06b6d4;">64%</span>
+                        </div>
+                        <div style="height:4px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+                            <div style="width:64%;height:100%;background:#06b6d4;border-radius:99px;"></div>
+                        </div>
+                    </div>
+                    <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:4mm;margin-top:auto;">
+                        <span style="font-size:6.5px;font-weight:700;color:#64748b;text-transform:uppercase;">Densidad Urbana</span>
+                        <p style="font-size:12px;font-weight:900;color:#6366f1;margin:1px 0 0;">5,420 hab/km²</p>
+                    </div>
+                </div>
+            `;
+            if (titleDisplay) {
+                titleDisplay.textContent = 'INFOGRAFÍA URBANA · PLAN DIRECTOR';
+                titleDisplay.style.color = '#18181b';
+                titleDisplay.style.fontWeight = '900';
+            }
+            if (mapFrame) {
+                mapFrame.style.border = '1px solid #e2e8f0';
+                mapFrame.style.borderRadius = '8px';
+            }
+            layoutConfig.styles.compass.design = 'modern';
+            layoutConfig.styles.compass.color = '#f43f5e';
+        }
+        else if (theme === 'minimal') {
+            // ═══ 8. GALERÍA MINIMALISTA ═══
+            paper.style.background = '#fafaf9';
+            decor.innerHTML = `
+                <div style="position:absolute;bottom:26mm;left:0;right:0;text-align:center;font-family:Inter,sans-serif;pointer-events:none;">
+                    <h1 style="font-size:18px;font-weight:900;color:#18181b;letter-spacing:0.35em;text-transform:uppercase;margin:0;">M E T R O P O L I S</h1>
+                    <p style="font-size:7.5px;font-weight:600;color:#71717a;letter-spacing:0.1em;margin:4px 0 0;">4° 35' 56" N  ·  74° 04' 51" W   |   EDICIÓN CARTOGRÁFICA LIMITADA</p>
+                    <div style="width:25mm;height:1px;background:#18181b;margin:5mm auto 2px;position:relative;">
+                        <div style="position:absolute;left:0;top:-2px;width:1px;height:5px;background:#18181b;"></div>
+                        <div style="position:absolute;right:0;top:-2px;width:1px;height:5px;background:#18181b;"></div>
+                    </div>
+                    <span style="font-size:6px;font-weight:600;color:#71717a;">5 km</span>
+                </div>
+            `;
+            if (titleContainer) titleContainer.style.display = 'none';
+            if (metadataContainer) metadataContainer.style.display = 'none';
+            if (scaleContainer) scaleContainer.style.display = 'none';
+            if (legendContainer) legendContainer.style.display = 'none';
+            if (compassEl) compassEl.style.display = 'none';
+            if (mapFrame) mapFrame.style.border = '1px solid #27272a';
+            if (mapContainer) mapContainer.style.filter = 'grayscale(1) contrast(1.15) brightness(0.98)';
+        }
+
+        if (typeof layoutUpdateCompassDesign === 'function') layoutUpdateCompassDesign();
+        if (typeof layoutDrawGrid === 'function' && layoutConfig.grid && layoutConfig.grid.enabled) layoutDrawGrid();
+        if (typeof layoutUpdateLegend === 'function') layoutUpdateLegend();
     }
 
     function layoutUpdateLegend() {
@@ -15122,6 +15504,58 @@ async function deleteFromCloud(fileName, url, storagePath) {
         legendList.className = 'flex flex-wrap gap-x-6 gap-y-3'; // Reset
         if (design === 'grid-compact') legendList.className = 'grid grid-cols-2 gap-4';
         else if (design === 'row-horizontal') legendList.className = 'flex flex-row gap-8 items-center';
+
+        const visibleLayers = (state.layers || []).filter(l => l.visible);
+        if (visibleLayers.length === 0 && layoutConfig && layoutConfig.theme) {
+            const themeLegends = {
+                cadastral: [
+                    { name: 'Predio Objeto (L-04)', color: '#dc2626' },
+                    { name: 'Predios Colindantes', color: '#3b82f6' },
+                    { name: 'Vía de Acceso', color: '#64748b' }
+                ],
+                poster: [
+                    { name: 'Autopista Principal', color: '#f59e0b' },
+                    { name: 'Cuenca / Litoral', color: '#2563eb' },
+                    { name: 'Reserva Natural', color: '#16a34a' }
+                ],
+                dark_satellite: [
+                    { name: 'AOI-07 Sentinel 2B', color: '#00f0ff' },
+                    { name: 'NDVI Cobertura Alta', color: '#10b981' },
+                    { name: 'Red Vial Nocturna', color: '#f59e0b' }
+                ],
+                print: [
+                    { name: 'Bosque Nativo Denso', color: '#059669' },
+                    { name: 'Humedal & Ronda Hídrica', color: '#0d9488' },
+                    { name: 'Zona de Amortiguamiento', color: '#dc2626' }
+                ],
+                vintage: [
+                    { name: 'Litoral Costero', color: '#452613' },
+                    { name: 'Relieve & Montañas', color: '#7a2e1d' },
+                    { name: 'Líneas de Rumbo', color: '#8b4513' }
+                ],
+                blueprint: [
+                    { name: 'Manzanas Proyectadas', color: '#38bdf8' },
+                    { name: 'Ejes Viales CAD', color: '#ffffff' },
+                    { name: 'Curvas de Nivel', color: '#0284c7' }
+                ],
+                urban: [
+                    { name: 'Línea Metro (Red)', color: '#ef4444' },
+                    { name: 'Línea Tranvía (Cyan)', color: '#06b6d4' },
+                    { name: 'Parque Central', color: '#16a34a' }
+                ],
+                minimal: [
+                    { name: 'Traza Urbana Minimal', color: '#27272a' }
+                ]
+            };
+            const items = themeLegends[layoutConfig.theme] || [];
+            items.forEach(it => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-2';
+                item.innerHTML = `<span style="width:12px;height:7px;background:${it.color};display:inline-block;border-radius:1px;border:0.5px solid rgba(0,0,0,0.2);"></span><span class="text-[9px] font-bold text-zinc-700">${it.name}</span>`;
+                legendList.appendChild(item);
+            });
+            return;
+        }
 
         state.layers.forEach(l => {
             if (!l.visible) return;
@@ -15279,15 +15713,19 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function syncLayoutMapLayers() {
         if (!window.layoutLeafletMap || !state.map) return;
 
-        // Actualizar URL de mapa base
+        // Actualizar URL de mapa base y basemap según tema
         const baseUrls = {
             satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
             dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
             light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
         };
-        const currentStyle = state.currentBaseStyle || 'satellite';
+        let targetStyle = state.currentBaseStyle || 'satellite';
+        if (layoutConfig && layoutConfig.theme) {
+            if (layoutConfig.theme === 'dark_satellite') targetStyle = 'dark';
+            else if (layoutConfig.theme === 'cadastral' || layoutConfig.theme === 'blueprint' || layoutConfig.theme === 'urban' || layoutConfig.theme === 'minimal') targetStyle = 'light';
+        }
         if (window.layoutBaseLayer) {
-            window.layoutBaseLayer.setUrl(baseUrls[currentStyle] || baseUrls.satellite);
+            window.layoutBaseLayer.setUrl(baseUrls[targetStyle] || baseUrls.satellite);
         }
 
         if (window.layoutLayersGroup) {
@@ -15296,6 +15734,32 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
         // Clonar capas visibles
         const visibleLayers = (state.layers || []).filter(l => l.visible).slice().reverse();
+
+        if (visibleLayers.length === 0 && layoutConfig && layoutConfig.theme && window.layoutLeafletMap) {
+            const c = (state.map && typeof state.map.getCenter === 'function' ? state.map.getCenter() : window.layoutLeafletMap.getCenter()) || { lat: 4.6097, lng: -74.0817 };
+            const d = 0.007;
+            if (layoutConfig.theme === 'cadastral') {
+                const p1 = [[c.lat + d*0.7, c.lng - d], [c.lat + d*0.7, c.lng - d*0.2], [c.lat + d*0.05, c.lng - d*0.2], [c.lat + d*0.05, c.lng - d]];
+                const p2 = [[c.lat + d*0.7, c.lng - d*0.1], [c.lat + d*0.7, c.lng + d*0.8], [c.lat + d*0.05, c.lng + d*0.8], [c.lat + d*0.05, c.lng - d*0.1]];
+                const p3 = [[c.lat - d*0.05, c.lng - d], [c.lat - d*0.05, c.lng - d*0.2], [c.lat - d*0.7, c.lng - d*0.2], [c.lat - d*0.7, c.lng - d]];
+                const p4 = [[c.lat - d*0.05, c.lng - d*0.1], [c.lat - d*0.05, c.lng + d*0.8], [c.lat - d*0.7, c.lng + d*0.8], [c.lat - d*0.7, c.lng - d*0.1]];
+
+                L.polygon(p1, { color: '#334155', weight: 1.5, fillColor: '#f1f5f9', fillOpacity: 0.7 }).bindTooltip('LOTE 01 · 520 m²', { permanent: true, direction: 'center', className: 'text-[9px] font-bold bg-white/90 border border-zinc-400 px-1 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
+                L.polygon(p2, { color: '#334155', weight: 1.5, fillColor: '#fef3c7', fillOpacity: 0.7 }).bindTooltip('LOTE 02 · 610 m²', { permanent: true, direction: 'center', className: 'text-[9px] font-bold bg-white/90 border border-zinc-400 px-1 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
+                L.polygon(p3, { color: '#dc2626', weight: 3, fillColor: '#fee2e2', fillOpacity: 0.8 }).bindTooltip('PREDIO 04 (OBJETO) · 1,240 m²', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-rose-700 bg-white border-2 border-rose-600 px-1.5 py-0.5 rounded shadow-md' }).addTo(window.layoutLayersGroup);
+                L.polygon(p4, { color: '#334155', weight: 1.5, fillColor: '#ecfdf5', fillOpacity: 0.7 }).bindTooltip('LOTE 05 · 780 m²', { permanent: true, direction: 'center', className: 'text-[9px] font-bold bg-white/90 border border-zinc-400 px-1 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
+                L.polyline([[c.lat + d*0.9, c.lng - d*0.15], [c.lat - d*0.9, c.lng - d*0.15]], { color: '#64748b', weight: 6, opacity: 0.8 }).bindTooltip('AV. PRINCIPAL', { permanent: true, direction: 'center', className: 'text-[8px] font-bold text-white bg-zinc-800 px-1 rounded' }).addTo(window.layoutLayersGroup);
+            } else if (layoutConfig.theme === 'dark_satellite') {
+                const aoi = [[c.lat + d*0.7, c.lng - d*0.8], [c.lat + d*0.7, c.lng + d*0.8], [c.lat - d*0.7, c.lng + d*0.8], [c.lat - d*0.7, c.lng - d*0.8]];
+                L.polygon(aoi, { color: '#00f0ff', weight: 2.5, fillColor: '#00f0ff', fillOpacity: 0.15, dashArray: '6, 4' }).bindTooltip('AOI-07 SENTINEL-2 (NDVI: 0.74)', { permanent: true, direction: 'center', className: 'text-[9px] font-mono font-bold text-cyan-300 bg-black/90 px-2 py-1 rounded border border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.4)]' }).addTo(window.layoutLayersGroup);
+            } else if (layoutConfig.theme === 'print') {
+                const b1 = [[c.lat + d*0.8, c.lng - d*0.8], [c.lat + d*0.8, c.lng], [c.lat, c.lng - d*0.3]];
+                const b2 = [[c.lat - d*0.1, c.lng + d*0.2], [c.lat - d*0.1, c.lng + d*0.8], [c.lat - d*0.8, c.lng + d*0.4]];
+                L.polygon(b1, { color: '#059669', weight: 2, fillColor: '#059669', fillOpacity: 0.5 }).bindTooltip('Bosque Nativo Denso', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-emerald-900 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-600' }).addTo(window.layoutLayersGroup);
+                L.polygon(b2, { color: '#0d9488', weight: 2, fillColor: '#0d9488', fillOpacity: 0.5 }).bindTooltip('Humedal & Ronda Hídrica', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-teal-900 bg-teal-50 px-1 py-0.5 rounded border border-teal-600' }).addTo(window.layoutLayersGroup);
+                L.polyline([[c.lat - d*0.9, c.lng - d*0.8], [c.lat, c.lng], [c.lat + d*0.9, c.lng + d*0.8]], { color: '#0284c7', weight: 4.5 }).bindTooltip('Cuenca Río Principal', { permanent: true, direction: 'center', className: 'text-[8px] font-bold text-white bg-blue-600 px-1 rounded' }).addTo(window.layoutLayersGroup);
+            }
+        }
 
         for (const l of visibleLayers) {
             try {
@@ -15845,6 +16309,44 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     <path d="M50 5 L50 50 L95 50 Z" fill="white" opacity="0.3"/>
                     <path d="M50 95 L50 50 L5 50 Z" fill="black" opacity="0.2"/>
                     <text x="50" y="35" text-anchor="middle" font-size="20" font-family="Inter" font-weight="900" fill="white">N</text>
+                </svg>`;
+        } else if (design === 'vintage-rose') {
+            svg = `
+                <svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="${darkColor}" stroke-width="1.5"/>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="${darkColor}" stroke-width="0.8" stroke-dasharray="2 2"/>
+                    <path d="M50 8 L55 45 L50 50 L45 45 Z" fill="${darkColor}"/>
+                    <path d="M50 92 L45 55 L50 50 L55 55 Z" fill="#b91c1c"/>
+                    <path d="M92 50 L55 55 L50 50 L55 45 Z" fill="${darkColor}"/>
+                    <path d="M8 50 L45 45 L50 50 L45 55 Z" fill="${darkColor}"/>
+                    <path d="M80 20 L55 47 L50 50 L52 44 Z" fill="#b91c1c"/>
+                    <path d="M20 80 L45 53 L50 50 L48 56 Z" fill="${darkColor}"/>
+                    <path d="M80 80 L53 55 L50 50 L56 52 Z" fill="${darkColor}"/>
+                    <path d="M20 20 L47 45 L50 50 L44 48 Z" fill="#b91c1c"/>
+                    <text x="50" y="24" text-anchor="middle" font-size="14" font-family="Georgia,serif" font-weight="900" fill="${darkColor}">N</text>
+                </svg>`;
+        } else if (design === 'orbital-hud') {
+            svg = `
+                <svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="${darkColor}" stroke-width="1.5" stroke-dasharray="6 3"/>
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="${darkColor}" stroke-width="0.8"/>
+                    <line x1="50" y1="5" x2="50" y2="20" stroke="${darkColor}" stroke-width="2"/>
+                    <line x1="50" y1="80" x2="50" y2="95" stroke="${darkColor}" stroke-width="1.5"/>
+                    <line x1="5" y1="50" x2="20" y2="50" stroke="${darkColor}" stroke-width="1.5"/>
+                    <line x1="80" y1="50" x2="95" y2="50" stroke="${darkColor}" stroke-width="1.5"/>
+                    <polygon points="50,15 55,30 50,26 45,30" fill="${darkColor}"/>
+                    <text x="50" y="47" text-anchor="middle" font-size="9" font-family="monospace" font-weight="900" fill="${darkColor}">358°</text>
+                    <text x="50" y="58" text-anchor="middle" font-size="10" font-family="monospace" font-weight="900" fill="${darkColor}">N</text>
+                </svg>`;
+        } else if (design === 'cad-crosshair') {
+            svg = `
+                <svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="${darkColor}" stroke-width="1.2"/>
+                    <line x1="50" y1="0" x2="50" y2="100" stroke="${darkColor}" stroke-width="1" stroke-dasharray="4 2"/>
+                    <line x1="0" y1="50" x2="100" y2="50" stroke="${darkColor}" stroke-width="1" stroke-dasharray="4 2"/>
+                    <polygon points="50,5 57,28 50,24 43,28" fill="${darkColor}"/>
+                    <circle cx="50" cy="50" r="3" fill="${darkColor}"/>
+                    <text x="50" y="20" text-anchor="middle" font-size="11" font-family="monospace" font-weight="900" fill="#ffffff">N</text>
                 </svg>`;
         }
         
@@ -16858,7 +17360,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 useCORS: true,
                 allowTaint: false,
                 scale: exactScale,
-                backgroundColor: '#ffffff',
+                backgroundColor: null,
                 logging: false
             });
 
@@ -21048,10 +21550,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
           await loadProjectLayers().then(() => startCollab()).catch(e => { startCollab(); });
         }
         if (_pendingTemplate) {
-          Object.assign(layoutConfig, _pendingTemplate);
-          layoutConfig.initialized = false;
+          const tmpl = _pendingTemplate;
+          Object.assign(layoutConfig, tmpl);
+          layoutConfig.initialized = true;
           _pendingTemplate = null;
-          setTimeout(openLayoutModal, 500);
+          setTimeout(() => {
+            if (typeof layoutSetPaper === 'function') layoutSetPaper(tmpl.paper || 'A4');
+            if (typeof layoutSetOrientation === 'function') layoutSetOrientation(tmpl.orientation || 'portrait');
+            if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
+            openLayoutModal();
+            if (typeof layoutApplyTheme === 'function') layoutApplyTheme(tmpl.theme);
+          }, 450);
         }
       } catch (e) {
         toast('Error: ' + e.message, 'error');
@@ -22217,6 +22726,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     function applyTemplate(type) {
       const presets = {
         cadastral: {
+          theme: 'cadastral',
           paper: 'A4', orientation: 'portrait',
           titleText: 'Plano Catastral Oficial',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22225,7 +22735,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             metadata: { fontSize: 9, color: '#374151', fontFamily: 'Inter' },
             legend: { fontSize: 9, color: '#111827', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 9, color: '#111827', fontFamily: 'Inter', design: 'classic' },
-            compass: { color: '#111827', design: 'classic', rotation: 0, size: 28 }
+            compass: { color: '#0f172a', design: 'cad-crosshair', rotation: 0, size: 28 }
           },
           mapFrame: { top: '15mm', left: '15mm', width: '180mm', height: '185mm', visible: true },
           compass: { top: '20mm', left: '160mm', width: '28mm', height: '28mm' },
@@ -22236,6 +22746,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: true, auto: true, color: '#475569', opacity: 0.5, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#111827', fontFamily: 'Inter' }
         },
         poster: {
+          theme: 'poster',
           paper: 'A3', orientation: 'landscape',
           titleText: 'Mapa Poster Panorámico',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22255,6 +22766,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: false }
         },
         dark_satellite: {
+          theme: 'dark_satellite',
           paper: 'A3', orientation: 'landscape',
           titleText: 'Atlas Satelital Dark',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22263,7 +22775,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             metadata: { fontSize: 9, color: '#94a3b8', fontFamily: 'Inter' },
             legend: { fontSize: 9, color: '#ffffff', fontFamily: 'Inter', design: 'modern' },
             scale: { fontSize: 9, color: '#00f0ff', fontFamily: 'Inter', design: 'modern' },
-            compass: { color: '#00f0ff', design: 'modern', rotation: 0, size: 30 }
+            compass: { color: '#00f0ff', design: 'orbital-hud', rotation: 0, size: 30 }
           },
           mapFrame: { top: '18mm', left: '15mm', width: '390mm', height: '245mm', visible: true },
           compass: { top: '25mm', left: '360mm', width: '30mm', height: '30mm' },
@@ -22274,6 +22786,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: true, auto: true, color: '#00f0ff', opacity: 0.35, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#00f0ff', fontFamily: 'Inter' }
         },
         print: {
+          theme: 'print',
           paper: 'A4', orientation: 'portrait',
           titleText: 'Informe Técnico Ambiental',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22293,6 +22806,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: true, auto: true, color: '#064e3b', opacity: 0.25, intervalLat: 0.5, intervalLng: 0.5, showLabels: true, fontSize: 8, fontColor: '#064e3b', fontFamily: 'Inter' }
         },
         vintage: {
+          theme: 'vintage',
           paper: 'A3', orientation: 'landscape',
           titleText: 'Nova Totius Terrarum Tabula',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22301,7 +22815,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             metadata: { fontSize: 9, color: '#654321', fontFamily: 'Georgia' },
             legend: { fontSize: 9, color: '#452613', fontFamily: 'Georgia', design: 'classic' },
             scale: { fontSize: 9, color: '#452613', fontFamily: 'Georgia', design: 'classic' },
-            compass: { color: '#7a2e1d', design: 'classic', rotation: 0, size: 34 }
+            compass: { color: '#7a2e1d', design: 'vintage-rose', rotation: 0, size: 34 }
           },
           mapFrame: { top: '20mm', left: '18mm', width: '384mm', height: '235mm', visible: true },
           compass: { top: '25mm', left: '350mm', width: '35mm', height: '35mm' },
@@ -22312,6 +22826,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: false }
         },
         blueprint: {
+          theme: 'blueprint',
           paper: 'A3', orientation: 'landscape',
           titleText: 'Blueprint Arquitectónico CAD',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22320,7 +22835,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             metadata: { fontSize: 9, color: '#e0f2fe', fontFamily: 'Courier New' },
             legend: { fontSize: 9, color: '#ffffff', fontFamily: 'Courier New', design: 'classic' },
             scale: { fontSize: 9, color: '#38bdf8', fontFamily: 'Courier New', design: 'modern' },
-            compass: { color: '#38bdf8', design: 'modern', rotation: 0, size: 28 }
+            compass: { color: '#38bdf8', design: 'cad-crosshair', rotation: 0, size: 28 }
           },
           mapFrame: { top: '15mm', left: '15mm', width: '390mm', height: '240mm', visible: true },
           compass: { top: '22mm', left: '360mm', width: '28mm', height: '28mm' },
@@ -22331,6 +22846,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: true, auto: true, color: '#38bdf8', opacity: 0.35, intervalLat: 0.25, intervalLng: 0.25, showLabels: true, fontSize: 8, fontColor: '#38bdf8', fontFamily: 'Courier New' }
         },
         urban: {
+          theme: 'urban',
           paper: 'A4', orientation: 'landscape',
           titleText: 'Plan Director Urbano',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
@@ -22350,6 +22866,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           grid: { enabled: false }
         },
         minimal: {
+          theme: 'minimal',
           paper: 'A3', orientation: 'landscape',
           titleText: 'Metrópolis Fine Art',
           elements: { mapFrame: true, title: true, metadata: true, legend: false, scale: true, compass: false },
@@ -22372,14 +22889,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const inWorkspace = document.getElementById('workspace') && !document.getElementById('workspace').classList.contains('hidden');
       if (_currentProject && inWorkspace) {
         Object.assign(layoutConfig, JSON.parse(JSON.stringify(preset)));
+        layoutConfig.theme = preset.theme || type;
         layoutConfig.initialized = true;
         if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
         openLayoutModal();
+        if (typeof layoutApplyTheme === 'function') layoutApplyTheme(layoutConfig.theme);
         if (typeof toast === 'function') toast(`Plantilla "${preset.titleText || type}" aplicada.`);
         return;
       }
 
-      _pendingTemplate = preset;
+      _pendingTemplate = Object.assign({ theme: type }, preset);
       createProject();
     }
 
