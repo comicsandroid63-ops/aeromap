@@ -15238,7 +15238,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- 3. CAPA TEXTO: Texto Elevación Muro -->
-            <div id="layoutThemeWallText" class="layout-draggable-item group z-[19]" style="position:absolute;top:54mm;left:10mm;cursor:move;pointer-events:auto;" title="Capa Texto: Elevación (Arrastrar o editar)">
+            <div id="layoutThemeWallText" class="layout-draggable-item group z-[19]" style="position:absolute;top:54mm;left:10mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Elevación (Arrastrar o editar)">
+                <div class="tmpl-drag-handle absolute -top-4 -left-1 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-mono rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                    <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                </div>
                 <div contenteditable="true" spellcheck="false" style="outline:none;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;cursor:text;background:rgba(0,0,0,0.45);padding:2px 6px;border-radius:3px;line-height:1.2;text-align:center;">
                     ELEV: +2,640m // GRID: 100m
                 </div>
@@ -15259,7 +15262,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- 6. CAPA TEXTO: Título Banner Superior -->
-            <div id="layoutTopBannerText" class="layout-draggable-item group z-[23]" style="position:absolute;top:7.5mm;left:34mm;cursor:move;pointer-events:auto;" title="Capa Texto: Título Banner (Arrastrar o editar)">
+            <div id="layoutTopBannerText" class="layout-draggable-item group z-[23]" style="position:absolute;top:7.5mm;left:34mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Título Banner (Arrastrar o editar)">
+                <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                    <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                </div>
                 <div style="display:flex;flex-direction:column;">
                     <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;line-height:1.2;display:block;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
                     <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#f472b6;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;line-height:1.2;margin-top:1px;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN POP</span>
@@ -15268,7 +15274,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- 7. CAPA TEXTO: Insignias Banner -->
-            <div id="layoutTopBannerBadges" class="layout-draggable-item group z-[24]" style="position:absolute;top:9.5mm;left:146mm;display:flex;align-items:center;gap:3mm;cursor:move;pointer-events:auto;" title="Capa Texto: Insignias Banner (Arrastrar o editar)">
+            <div id="layoutTopBannerBadges" class="layout-draggable-item group z-[24]" style="position:absolute;top:9.5mm;left:146mm;display:flex;align-items:center;gap:3mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Insignias Banner (Arrastrar o editar)">
+                <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                    <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                </div>
                 <span contenteditable="true" spellcheck="false" style="outline:none;background:#008259;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ O ] DATUM WGS-84</span>
                 <span contenteditable="true" spellcheck="false" style="outline:none;background:#e11d48;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ X ] ZONA RESTRINGIDA</span>
                 <div id="layoutTopBannerBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
@@ -15283,7 +15292,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- 9. CAPA TEXTO: Membrete Detalle Escaleras Izquierdo -->
-            <div id="layoutStairsLeftBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:274mm;left:10mm;display:flex;flex-direction:column;gap:3px;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Izquierdo (Arrastrar o editar)">
+            <div id="layoutStairsLeftBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:274mm;left:10mm;display:flex;flex-direction:column;gap:3px;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;padding:2px;" title="Capa Texto: Membrete Izquierdo (Arrastrar o editar)">
+                <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                    <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                </div>
                 <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;font-family:Inter,sans-serif;color:#111115;letter-spacing:0.12em;text-transform:uppercase;background:rgba(255,255,255,0.85);padding:2px 7px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;white-space:nowrap;text-align:center;vertical-align:middle;line-height:1.2;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <span contenteditable="true" spellcheck="false" style="outline:none;background:#111115;color:#ffffff;font-size:7px;font-weight:900;font-family:Inter,sans-serif;padding:2px 6px;letter-spacing:0.08em;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">ESCALA: 1:1,000</span>
@@ -15295,12 +15307,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
             <!-- 10. CAPA TEXTO: Membrete Registral Escaleras Derecho -->
             <div id="layoutStairsRightBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:270mm;left:145mm;background:#111115;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:2px;text-align:right;border-left:2.5px solid #008259;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Registral (Arrastrar o editar)">
+                <div class="tmpl-drag-handle absolute -top-4 right-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                    <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                </div>
                 <span contenteditable="true" spellcheck="false" style="outline:none;color:#f472b6;font-weight:900;font-size:7.5px;cursor:text;white-space:nowrap;line-height:1.2;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
                 <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;white-space:nowrap;line-height:1.2;">FOLIO: REG-2026-POP · ORIGEN CENTRAL</span>
                 <span contenteditable="true" spellcheck="false" style="outline:none;color:#38bdf8;font-weight:800;cursor:text;white-space:nowrap;line-height:1.2;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
                 <div id="layoutStairsRightBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
             </div>
-        `;;
+        `;
 
         // Configure Title Element to be 100% editable and visible
         if (titleContainer) {
@@ -16631,7 +16646,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             } else if (dragEl.id === 'layoutScaleContainer') {
                 layoutConfig.scale.top = dragEl.style.top;
                 layoutConfig.scale.left = dragEl.style.left;
-            } else {
+            } else if (dragEl === mapFrame) {
                 layoutConfig.mapFrame.top = dragEl.style.top;
                 layoutConfig.mapFrame.left = dragEl.style.left;
             }
@@ -16657,13 +16672,144 @@ async function deleteFromCloud(fileName, url, storagePath) {
             } else if (resizeEl.id === 'layoutScaleContainer') {
                 layoutConfig.scale.width = resizeEl.style.width;
                 layoutConfig.scale.height = resizeEl.style.height;
-            } else {
+            } else if (resizeEl === mapFrame) {
                 layoutConfig.mapFrame.width = resizeEl.style.width;
                 layoutConfig.mapFrame.height = resizeEl.style.height;
             }
         }
         dragEl = null; resizeEl = null;
     };
+
+    function layoutInitTemplateDraggables() {
+        const templateItems = [
+            { id: 'layoutThemeWall', resizer: 'layoutThemeWallResize' },
+            { id: 'layoutThemeWallPin', resizer: 'layoutThemeWallPinResize' },
+            { id: 'layoutThemeWallText', resizer: 'layoutThemeWallTextResize' },
+            { id: 'layoutTopBannerBg', resizer: 'layoutTopBannerBgResize' },
+            { id: 'layoutTopBannerIcons', resizer: 'layoutTopBannerIconsResize' },
+            { id: 'layoutTopBannerText', resizer: 'layoutTopBannerTextResize' },
+            { id: 'layoutTopBannerBadges', resizer: 'layoutTopBannerBadgesResize' },
+            { id: 'layoutThemeStairs', resizer: 'layoutThemeStairsResize' },
+            { id: 'layoutStairsLeftBadge', resizer: 'layoutStairsLeftBadgeResize' },
+            { id: 'layoutStairsRightBadge', resizer: 'layoutStairsRightBadgeResize' }
+        ];
+
+        templateItems.forEach(item => {
+            const el = document.getElementById(item.id);
+            if (!el) return;
+            const resizer = item.resizer ? document.getElementById(item.resizer) : null;
+
+            el.onmousedown = function(e) {
+                if (resizer && (e.target === resizer || resizer.contains(e.target))) return;
+                if (e.target.tagName === 'BUTTON' || (e.target.closest('button') && !e.target.closest('.tmpl-drag-handle'))) return;
+
+                const isHandle = e.target.classList.contains('tmpl-drag-handle') || e.target.closest('.tmpl-drag-handle');
+                const isEditable = e.target.isContentEditable || e.target.closest('[contenteditable="true"]');
+                if (isEditable && !isHandle) {
+                    return; // Edición directa del texto
+                }
+
+                dragEl = this;
+                startX = e.clientX; 
+                startY = e.clientY;
+
+                const paper = document.getElementById('layoutPaper');
+                let paperScale = 1;
+                if (paper && paper.offsetWidth > 0) {
+                    paperScale = paper.getBoundingClientRect().width / paper.offsetWidth;
+                }
+
+                let curLeft = parseFloat(dragEl.style.left);
+                let curTop = parseFloat(dragEl.style.top);
+                if (isNaN(curLeft) || isNaN(curTop)) {
+                    const paperRect = paper ? paper.getBoundingClientRect() : { left: 0, top: 0 };
+                    const elRect = dragEl.getBoundingClientRect();
+                    curLeft = ((elRect.left - paperRect.left) / (paperScale || 1)) * (25.4 / 96);
+                    curTop = ((elRect.top - paperRect.top) / (paperScale || 1)) * (25.4 / 96);
+                }
+                elementStartX = curLeft;
+                elementStartY = curTop;
+                dragEl.style.transition = 'none';
+                e.preventDefault();
+                e.stopPropagation();
+            };
+
+            if (resizer) {
+                resizer.onmousedown = function(e) {
+                    resizeEl = el;
+                    resizeMode = 'both';
+                    startX = e.clientX; 
+                    startY = e.clientY;
+                    const parsedW = parseFloat(resizeEl.style.width);
+                    const parsedH = parseFloat(resizeEl.style.height);
+                    const paper = document.getElementById('layoutPaper');
+                    const scale = (paper && paper.offsetWidth > 0) ? (paper.getBoundingClientRect().width / paper.offsetWidth) : 1;
+                    startWidth = !isNaN(parsedW) ? parsedW : ((resizeEl.offsetWidth / scale) * (25.4 / 96));
+                    startHeight = !isNaN(parsedH) ? parsedH : ((resizeEl.offsetHeight / scale) * (25.4 / 96));
+                    resizeEl.style.transition = 'none';
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+            }
+        });
+    }
+
+    function layoutToggleTemplateLayer(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const isHidden = (el.style.display === 'none');
+        el.style.display = isHidden ? '' : 'none';
+        const eye = document.getElementById('eye-' + id);
+        if (eye) {
+            const icon = eye.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isHidden ? 'visibility' : 'visibility_off';
+            eye.classList.toggle('text-zinc-500', !isHidden);
+        }
+    }
+
+    function layoutRefreshElementsList() {
+        const list = document.getElementById('layoutElementsList');
+        if (!list) return;
+
+        const prevTmplItems = list.querySelectorAll('.tmpl-layer-item');
+        prevTmplItems.forEach(el => el.remove());
+
+        const templateLayers = [
+            { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
+            { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
+            { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
+            { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
+            { id: 'layoutTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
+            { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
+            { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
+            { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
+            { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
+            { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+        ];
+
+        templateLayers.forEach(l => {
+            const targetEl = document.getElementById(l.id);
+            if (!targetEl) return;
+            const row = document.createElement('div');
+            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5';
+            row.innerHTML = `
+                <div class="flex items-center gap-2.5 truncate cursor-pointer" onclick="document.getElementById('${l.id}')?.scrollIntoView({behavior:'smooth',block:'center'});">
+                    <span class="material-symbols-outlined text-[15px] text-zinc-400">${l.icon}</span>
+                    <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
+                        <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                </div>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    window.layoutInitTemplateDraggables = layoutInitTemplateDraggables;
+    window.layoutToggleTemplateLayer = layoutToggleTemplateLayer;
+    window.layoutRefreshElementsList = layoutRefreshElementsList;
 
     function layoutToggleMapBorder(enabled) {
         document.getElementById('layoutMapFrame').style.border = enabled ? '1px solid #000' : 'none';
@@ -25497,102 +25643,3 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
 
 
 </html>
-
-    function layoutInitTemplateDraggables() {
-        const templateItems = [
-            { id: 'layoutThemeWall', resizer: 'layoutThemeWallResize' },
-            { id: 'layoutThemeWallPin', resizer: 'layoutThemeWallPinResize' },
-            { id: 'layoutThemeWallText', resizer: 'layoutThemeWallTextResize' },
-            { id: 'layoutTopBannerBg', resizer: 'layoutTopBannerBgResize' },
-            { id: 'layoutTopBannerIcons', resizer: 'layoutTopBannerIconsResize' },
-            { id: 'layoutTopBannerText', resizer: 'layoutTopBannerTextResize' },
-            { id: 'layoutTopBannerBadges', resizer: 'layoutTopBannerBadgesResize' },
-            { id: 'layoutThemeStairs', resizer: 'layoutThemeStairsResize' },
-            { id: 'layoutStairsLeftBadge', resizer: 'layoutStairsLeftBadgeResize' },
-            { id: 'layoutStairsRightBadge', resizer: 'layoutStairsRightBadgeResize' }
-        ];
-
-        templateItems.forEach(item => {
-            const el = document.getElementById(item.id);
-            if (!el) return;
-            const resizer = document.getElementById(item.resizer);
-
-            el.onmousedown = function(e) {
-                if (resizer && e.target === resizer) return;
-                if (e.target.isContentEditable || e.target.closest('[contenteditable="true"]')) {
-                    return; // Permitir escribir sin arrastrar
-                }
-                dragEl = this;
-                startX = e.clientX; startY = e.clientY;
-                elementStartX = parseFloat(dragEl.style.left) || 0;
-                elementStartY = parseFloat(dragEl.style.top) || 0;
-                dragEl.style.transition = 'none';
-                e.preventDefault();
-            };
-
-            if (resizer) {
-                resizer.onmousedown = function(e) {
-                    resizeEl = el;
-                    resizeMode = 'both';
-                    startX = e.clientX; startY = e.clientY;
-                    startWidth = parseFloat(resizeEl.style.width) || parseFloat(resizeEl.offsetWidth * (25.4 / 96));
-                    startHeight = parseFloat(resizeEl.style.height) || parseFloat(resizeEl.offsetHeight * (25.4 / 96));
-                    resizeEl.style.transition = 'none';
-                    e.preventDefault();
-                    e.stopPropagation();
-                };
-            }
-        });
-    }
-
-    function layoutToggleTemplateLayer(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const isHidden = (el.style.display === 'none');
-        el.style.display = isHidden ? '' : 'none';
-        const eye = document.getElementById('eye-' + id);
-        if (eye) {
-            const icon = eye.querySelector('.material-symbols-outlined');
-            if (icon) icon.textContent = isHidden ? 'visibility' : 'visibility_off';
-            eye.classList.toggle('text-zinc-500', !isHidden);
-        }
-    }
-
-    function layoutRefreshElementsList() {
-        const list = document.getElementById('layoutElementsList');
-        if (!list) return;
-
-        // Limpiar elementos adicionales previos de plantilla
-        const prevTmplItems = list.querySelectorAll('.tmpl-layer-item');
-        prevTmplItems.forEach(el => el.remove());
-
-        const templateLayers = [
-            { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
-            { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
-            { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
-            { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
-            { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
-            { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
-            { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
-            { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
-        ];
-
-        templateLayers.forEach(l => {
-            const targetEl = document.getElementById(l.id);
-            if (!targetEl) return;
-            const row = document.createElement('div');
-            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5';
-            row.innerHTML = `
-                <div class="flex items-center gap-2.5 truncate cursor-pointer" onclick="document.getElementById('${l.id}')?.scrollIntoView({behavior:'smooth',block:'center'});">
-                    <span class="material-symbols-outlined text-[15px] text-zinc-400">${l.icon}</span>
-                    <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <button onclick="layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
-                        <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
-                    </button>
-                </div>
-            `;
-            list.appendChild(row);
-        });
-    }
