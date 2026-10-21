@@ -4876,28 +4876,31 @@
             </div>
 
             <!-- Title Box -->
-            <div id="layoutTitleContainer" onclick="layoutOpenElementProps('title')" class="absolute cursor-move group z-30 flex items-center p-2 bg-transparent hover:bg-zinc-50/50 hover:border hover:border-dashed hover:border-zinc-300 rounded-lg min-h-[10mm]" style="width: 170mm; top: 10mm; left: 20mm;">
-                <h1 id="layoutTitleDisplay" class="text-3xl font-black text-black uppercase tracking-tighter leading-none w-full outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-2 focus:ring-primary/40 rounded px-1 transition-all cursor-text" contenteditable="true" spellcheck="false">Proyecto Zima Editor</h1>
+            <div id="layoutTitleContainer" onclick="layoutOpenElementProps('title')" class="absolute cursor-move group z-30 flex items-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 124mm; top: 174mm; left: 78mm;">
+                <div class="flex flex-col w-full">
+                    <h1 id="layoutTitleDisplay" class="text-xl font-black text-black uppercase tracking-tight leading-none outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 transition-all cursor-text" contenteditable="true" spellcheck="false">Plano Cartográfico Pop</h1>
+                    <span contenteditable="true" spellcheck="false" class="text-[8px] font-bold text-zinc-500 tracking-wider uppercase mt-1 outline-none px-1 cursor-text">Levantamiento Territorial & Análisis de Geodatos</span>
+                </div>
                 <div id="layoutTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
             <!-- Metadata/Details -->
-            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-35 flex flex-col gap-1.5 p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[14mm]" style="width: 92mm; top: 250mm; left: 14mm;">
-                <div id="layoutMetadataDisplay" class="flex justify-between items-end w-full">
-                    <div class="flex flex-col">
-                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Generado el</span>
-                        <span contenteditable="true" spellcheck="false" class="text-[10px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutDateDisplay">29 de Marzo, 2026</span>
+            <div id="layoutMetadataContainer" onclick="layoutOpenElementProps('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 64mm; top: 202mm; left: 138mm;">
+                <div id="layoutMetadataDisplay" class="flex flex-col gap-1 w-full text-left">
+                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 border-b border-zinc-100 pb-0.5">
+                        <span class="uppercase tracking-wider">Fecha:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text" id="layoutDateDisplay">21 de Octubre, 2026</span>
                     </div>
-                    <div class="flex flex-col items-end">
-                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Referencia Espacial</span>
-                        <span contenteditable="true" spellcheck="false" class="text-[10px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutCoordDisplay">EPSG:4326 - WGS 84</span>
+                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500">
+                        <span class="uppercase tracking-wider">Centro:</span>
+                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text" id="layoutCoordDisplay">Centro: WGS-84</span>
                     </div>
                 </div>
                 <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
             <!-- Legend Box -->
-            <div id="layoutLegendContainer" onclick="layoutOpenElementProps('legend')" class="absolute cursor-move group z-20 flex flex-col gap-3 p-4 bg-white/90 backdrop-blur-sm border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 60mm; top: 215mm; left: 20mm;">
+            <div id="layoutLegendContainer" onclick="layoutOpenElementProps('legend')" class="absolute cursor-move group z-20 flex flex-col gap-2.5 p-3.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 58mm; top: 174mm; left: 14mm;">
                 <div id="layoutLegend" class="flex flex-col gap-3 w-full">
                     <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Leyenda Activa</span>
                     <div id="layoutLegendList" class="flex flex-wrap gap-x-6 gap-y-3">
@@ -4908,7 +4911,7 @@
             </div>
 
             <!-- Scale Box -->
-            <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[14mm]" style="width: 84mm; top: 250mm; left: 112mm;">
+            <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 56mm; top: 202mm; left: 78mm;">
                 <div id="layoutScale" class="flex flex-col items-center justify-center gap-1 w-full text-center">
                     <span contenteditable="true" spellcheck="false" class="text-[8px] font-black uppercase tracking-widest text-zinc-500 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
                     <div id="layoutScaleBar" class="h-2 relative border border-black/80 shrink-0 mx-auto" style="width: 100px;">
@@ -16716,8 +16719,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const pxH = container.clientHeight || container.offsetHeight || 490;
 
         // Márgenes físicos generosos alrededor del marco para alojar ticks y rótulos sin recortar
-        const padX = 80;
-        const padY = 55;
+        const padX = 90;
+        const padY = 70;
         const totalW = pxW + padX * 2;
         const totalH = pxH + padY * 2;
 
@@ -16852,7 +16855,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                         drawCoordBadge(labelText, offset, y, isLatVert);
                         drawCoordBadge(labelText, pxW - offset, y, isLatVert);
                     } else {
-                        const offset = isLatVert ? 15 : (badgeW / 2 + 8);
+                        const offset = isLatVert ? 18 : (badgeW / 2 + 9);
                         drawCoordBadge(labelText, -offset, y, isLatVert);
                         drawCoordBadge(labelText, pxW + offset, y, isLatVert);
                     }
@@ -22351,12 +22354,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
             compass: { color: '#ff2a85', design: 'pop-geometric', rotation: 0, size: 34 }
           },
           // Mapa por defecto más pequeño para resaltar el fondo y las escaleras arquitectónicas
-          mapFrame: { top: '25mm', left: '46mm', width: '135mm', height: '130mm', visible: true },
-          compass: { top: '28mm', left: '146mm', width: '30mm', height: '30mm' },
-          titleProps: { top: '172mm', left: '84mm', width: '118mm', height: '16mm' },
-          legend: { top: '172mm', left: '14mm', width: '64mm', height: '74mm' },
-          metadata: { top: '202mm', left: '144mm', width: '58mm', height: '18mm' },
-          scale: { top: '202mm', left: '84mm', width: '55mm', height: '18mm' },
+          mapFrame: { top: '30mm', left: '46mm', width: '135mm', height: '125mm', visible: true },
+          compass: { top: '34mm', left: '146mm', width: '28mm', height: '28mm' },
+          titleProps: { top: '174mm', left: '78mm', width: '124mm', height: '18mm' },
+          legend: { top: '174mm', left: '14mm', width: '58mm', height: '72mm' },
+          scale: { top: '202mm', left: '78mm', width: '56mm', height: '20mm' },
+          metadata: { top: '202mm', left: '138mm', width: '64mm', height: '20mm' },
           grid: { enabled: false }
         }
       };
