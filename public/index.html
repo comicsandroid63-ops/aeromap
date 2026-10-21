@@ -4909,19 +4909,17 @@
 
             <!-- Scale Box -->
             <div id="layoutScaleContainer" onclick="layoutOpenElementProps('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[14mm]" style="width: 84mm; top: 250mm; left: 112mm;">
-                <div id="layoutScale" class="flex flex-col items-center gap-1.5 w-full">
-                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
-                    <div class="flex items-center gap-2">
-                        <div id="layoutScaleBar" class="h-2 relative border-black shrink-0" style="width: 120px;">
-                            <div class="absolute inset-0 flex">
-                                <div class="flex-1 bg-black"></div>
-                                <div class="flex-1 bg-white"></div>
-                                <div class="flex-1 bg-black"></div>
-                                <div class="flex-1 bg-white"></div>
-                            </div>
+                <div id="layoutScale" class="flex flex-col items-center justify-center gap-1 w-full text-center">
+                    <span contenteditable="true" spellcheck="false" class="text-[8px] font-black uppercase tracking-widest text-zinc-500 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
+                    <div id="layoutScaleBar" class="h-2 relative border border-black/80 shrink-0 mx-auto" style="width: 100px;">
+                        <div class="absolute inset-0 flex">
+                            <div class="flex-1 bg-black"></div>
+                            <div class="flex-1 bg-white"></div>
+                            <div class="flex-1 bg-black"></div>
+                            <div class="flex-1 bg-white"></div>
                         </div>
-                        <span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutScaleDisplay">1:50,000</span>
                     </div>
+                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutScaleDisplay">1:50,000</span>
                 </div>
                 <div id="layoutScaleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
@@ -15201,7 +15199,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
         decor.innerHTML = `
             <!-- Left Stepped Architectural Block -->
-            <div id="layoutThemeWall" style="position:absolute;top:0;left:0;width:32%;height:68%;background:${colors.wall || '#00a8e8'};clip-path:polygon(0 0, 100% 0, 100% 24%, 74% 24%, 74% 50%, 48% 50%, 48% 76%, 22% 76%, 22% 100%, 0 100%);pointer-events:none;box-shadow:inset -4px -4px 0 rgba(0,0,0,0.15);transition:background 0.25s;">
+            <div id="layoutThemeWall" style="position:absolute;top:0;left:0;width:32%;height:68%;pointer-events:none;transition:background 0.25s;">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                    <polygon points="0,0 100,0 100,24 74,24 74,50 48,50 48,76 22,76 22,100 0,100" fill="${colors.wall || '#00a8e8'}" />
+                </svg>
                 <div style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#111115;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.4);">
                     <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;"></span>
                 </div>
@@ -15230,7 +15231,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             </div>
 
             <!-- Bottom Stepped Yellow Staircase with Technical Membrete (100% Editable) -->
-            <div id="layoutThemeStairs" style="position:absolute;bottom:0;left:0;right:0;height:42mm;background:${colors.stairs || '#fbb040'};clip-path:polygon(0 100%, 100% 100%, 100% 0, 72% 0, 72% 28%, 46% 28%, 46% 60%, 20% 60%, 20% 100%);pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);transition:background 0.25s;">
+            <div id="layoutThemeStairs" style="position:absolute;bottom:0;left:0;right:0;height:42mm;pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);transition:background 0.25s;">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                    <polygon points="0,100 100,100 100,0 72,0 72,28 46,28 46,60 20,60 20,100" fill="${colors.stairs || '#fbb040'}" />
+                </svg>
                 <div style="position:absolute;bottom:5mm;right:10mm;left:45mm;display:flex;justify-content:space-between;align-items:flex-end;font-family:Inter,sans-serif;">
                     <div style="display:flex;flex-direction:column;gap:3px;">
                         <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;color:#111115;letter-spacing:0.15em;text-transform:uppercase;background:rgba(255,255,255,0.65);padding:1px 6px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
@@ -15845,6 +15849,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function layoutSyncDrawerValues(key) {
+        if (key === 'mapFrame' || key === 'grid') {
+            const chkAuto = document.getElementById('chkLayoutGridAuto');
+            if (chkAuto && layoutConfig.grid) chkAuto.checked = layoutConfig.grid.auto;
+            const inpLat = document.getElementById('layoutGridIntervalLat');
+            const inpLng = document.getElementById('layoutGridIntervalLng');
+            if (inpLat && layoutConfig.grid) inpLat.value = layoutConfig.grid.intervalLat;
+            if (inpLng && layoutConfig.grid) inpLng.value = layoutConfig.grid.intervalLng;
+        }
         if (key === 'title') {
             const drawerTitle = document.getElementById('drawerTitleInput');
             if (drawerTitle) drawerTitle.value = layoutConfig.titleText || 'Proyecto Zima Editor';
@@ -16666,7 +16678,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const m = window.layoutLeafletMap || state.map;
         if (!m) return;
 
-        // Sincronizar dimensiones exactas de Leaflet
         if (typeof m.invalidateSize === 'function') {
             m.invalidateSize({ animate: false });
         }
@@ -16680,14 +16691,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const pxW = container.clientWidth || container.offsetWidth || 510;
         const pxH = container.clientHeight || container.offsetHeight || 490;
 
-        // SVG con las líneas internas del mapa (estrictamente confinadas dentro del marco)
+        // SVG con las líneas internas del mapa
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.id = 'layoutGridOverlay';
         svg.setAttribute("viewBox", `0 0 ${pxW} ${pxH}`);
         svg.setAttribute("preserveAspectRatio", "none");
         svg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:500; pointer-events:none; overflow:visible;';
 
-        // Capa HTML de etiquetas de coordenadas (100% nítidas en exportación 300 DPI y editables)
+        // Capa HTML de etiquetas de coordenadas
         const labelsOverlay = document.createElement('div');
         labelsOverlay.id = 'layoutGridLabelsOverlay';
         labelsOverlay.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:510; pointer-events:none; overflow:visible;';
@@ -16695,6 +16706,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const strokeColor = config.color || '#333333';
         const lineOpacity = (typeof config.opacity === 'number' && !isNaN(config.opacity)) ? Math.max(0.15, config.opacity) : 0.45;
         const isInside = config.position === 'inside';
+        const isLatVert = (config.orientLat === 'vertical');
+        const isLngVert = (config.orientLng === 'vertical');
 
         const formatCoord = (val, step, isLat) => {
             const dec = step >= 1 ? 0 : Math.min(6, Math.max(1, -Math.floor(Math.log10(step)) + 1));
@@ -16710,7 +16723,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             return s;
         };
 
-        const fontSize = Math.max(8.5, (config.fontSize || 8) * 1.3);
+        const fontSize = Math.max(8, (config.fontSize || 8) * 1.25);
         const fFam = (config.fontFamily || 'Inter') + ', sans-serif';
         const fCol = config.fontColor || '#111115';
 
@@ -16722,7 +16735,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const y = Math.round(p.y);
 
             if (y >= 0 && y <= pxH) {
-                // Línea de cuadrícula interna
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", "0"); line.setAttribute("y1", y);
                 line.setAttribute("x2", pxW); line.setAttribute("y2", y);
@@ -16731,7 +16743,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
 
-                // Ticks en bordes izquierdo y derecho
                 const tickL = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 tickL.setAttribute("x1", isInside ? "0" : "-5"); tickL.setAttribute("y1", y);
                 tickL.setAttribute("x2", isInside ? "6" : "0"); tickL.setAttribute("y2", y);
@@ -16754,9 +16765,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     leftDiv.className = 'pointer-events-auto cursor-text select-text';
                     leftDiv.textContent = labelText;
                     if (isInside) {
-                        leftDiv.style.cssText = `position:absolute; left:8px; top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                        const tr = isLatVert ? 'translateY(-50%) rotate(-90deg)' : 'translateY(-50%)';
+                        leftDiv.style.cssText = `position:absolute; left:7px; top:${y}px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
                     } else {
-                        leftDiv.style.cssText = `position:absolute; right:calc(100% + 7px); top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const tr = isLatVert ? 'translateY(-50%) rotate(-90deg)' : 'translateY(-50%)';
+                        const orig = isLatVert ? 'right center' : 'center center';
+                        leftDiv.style.cssText = `position:absolute; right:calc(100% + 7px); top:${y}px; transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
                     }
                     labelsOverlay.appendChild(leftDiv);
 
@@ -16767,9 +16781,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     rightDiv.className = 'pointer-events-auto cursor-text select-text';
                     rightDiv.textContent = labelText;
                     if (isInside) {
-                        rightDiv.style.cssText = `position:absolute; right:8px; top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                        const tr = isLatVert ? 'translateY(-50%) rotate(90deg)' : 'translateY(-50%)';
+                        rightDiv.style.cssText = `position:absolute; right:7px; top:${y}px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
                     } else {
-                        rightDiv.style.cssText = `position:absolute; left:calc(100% + 7px); top:${y}px; transform:translateY(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const tr = isLatVert ? 'translateY(-50%) rotate(90deg)' : 'translateY(-50%)';
+                        const orig = isLatVert ? 'left center' : 'center center';
+                        rightDiv.style.cssText = `position:absolute; left:calc(100% + 7px); top:${y}px; transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
                     }
                     labelsOverlay.appendChild(rightDiv);
                 }
@@ -16785,7 +16802,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const x = Math.round(p.x);
 
             if (x >= 0 && x <= pxW) {
-                // Línea de cuadrícula interna
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", x); line.setAttribute("y1", "0");
                 line.setAttribute("x2", x); line.setAttribute("y2", pxH);
@@ -16794,7 +16810,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 line.setAttribute("opacity", lineOpacity);
                 svg.appendChild(line);
 
-                // Ticks en bordes superior e inferior
                 const tickT = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 tickT.setAttribute("x1", x); tickT.setAttribute("y1", isInside ? "0" : "-5");
                 tickT.setAttribute("x2", x); tickT.setAttribute("y2", isInside ? "6" : "0");
@@ -16817,9 +16832,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     topDiv.className = 'pointer-events-auto cursor-text select-text';
                     topDiv.textContent = labelText;
                     if (isInside) {
-                        topDiv.style.cssText = `position:absolute; left:${x}px; top:8px; transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                        const tr = isLngVert ? 'translateX(-50%) rotate(-90deg)' : 'translateX(-50%)';
+                        topDiv.style.cssText = `position:absolute; left:${x}px; top:8px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
                     } else {
-                        topDiv.style.cssText = `position:absolute; left:${x}px; bottom:calc(100% + 7px); transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const tr = isLngVert ? 'translateX(-50%) rotate(-90deg)' : 'translateX(-50%)';
+                        const orig = isLngVert ? 'center bottom' : 'center center';
+                        topDiv.style.cssText = `position:absolute; left:${x}px; bottom:calc(100% + 7px); transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
                     }
                     labelsOverlay.appendChild(topDiv);
 
@@ -16830,9 +16848,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     botDiv.className = 'pointer-events-auto cursor-text select-text';
                     botDiv.textContent = labelText;
                     if (isInside) {
-                        botDiv.style.cssText = `position:absolute; left:${x}px; bottom:8px; transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15);`;
+                        const tr = isLngVert ? 'translateX(-50%) rotate(90deg)' : 'translateX(-50%)';
+                        botDiv.style.cssText = `position:absolute; left:${x}px; bottom:8px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
                     } else {
-                        botDiv.style.cssText = `position:absolute; left:${x}px; top:calc(100% + 7px); transform:translateX(-50%); font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const tr = isLngVert ? 'translateX(-50%) rotate(90deg)' : 'translateX(-50%)';
+                        const orig = isLngVert ? 'center top' : 'center center';
+                        botDiv.style.cssText = `position:absolute; left:${x}px; top:calc(100% + 7px); transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
                     }
                     labelsOverlay.appendChild(botDiv);
                 }
@@ -22275,10 +22296,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
           // Mapa por defecto más pequeño para resaltar el fondo y las escaleras arquitectónicas
           mapFrame: { top: '25mm', left: '46mm', width: '135mm', height: '130mm', visible: true },
           compass: { top: '28mm', left: '146mm', width: '30mm', height: '30mm' },
-          titleProps: { top: '165mm', left: '88mm', width: '115mm', height: '16mm' },
-          legend: { top: '165mm', left: '14mm', width: '68mm', height: '78mm' },
-          metadata: { top: '250mm', left: '14mm', width: '92mm', height: '14mm' },
-          scale: { top: '250mm', left: '112mm', width: '84mm', height: '14mm' },
+          titleProps: { top: '172mm', left: '84mm', width: '118mm', height: '16mm' },
+          legend: { top: '172mm', left: '14mm', width: '64mm', height: '74mm' },
+          metadata: { top: '202mm', left: '144mm', width: '58mm', height: '18mm' },
+          scale: { top: '202mm', left: '84mm', width: '55mm', height: '18mm' },
           grid: { enabled: false }
         }
       };
