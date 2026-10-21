@@ -1879,6 +1879,10 @@
         <span class="text-[11px] px-3 py-1 rounded-full" style="background:#f0f0eb;color:#666;">Professional GIS Editor</span>
       </div>
       <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="flex items-center gap-2 text-xs px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-semibold transition-all shadow-sm" title="Ver cuántos usuarios tiene la página y listado de cuentas">
+          <span class="material-symbols-outlined text-[16px] text-blue-600">manage_accounts</span>
+          Ver Cuentas y Usuarios
+        </a>
         <button onclick="signOut()" class="flex items-center gap-2 text-xs px-4 py-2 rounded-lg hover:bg-zinc-100 transition-colors" style="color:#666;">
           <span class="material-symbols-outlined text-[16px]">logout</span>
           Cerrar sesión
@@ -2223,7 +2227,10 @@
           class="material-symbols-outlined text-zinc-500 cursor-pointer hover:text-zinc-900 transition-colors">account_circle</span>
         <div id="userMenu" class="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-2 min-w-[200px] hidden group-hover:block">
           <div class="px-3 py-2 text-[11px] text-zinc-500 font-medium border-b border-zinc-100" id="userEmailDisplay">Invitado</div>
-          <a href="/dashboard.html" class="block w-full text-left px-3 py-2 text-[11px] text-zinc-700 hover:bg-zinc-50 rounded-xl font-semibold mt-1 transition-colors">Dashboard</a>
+          <a href="/dashboard.html" class="flex items-center gap-2 w-full text-left px-3 py-2 text-[11px] text-zinc-700 hover:bg-zinc-50 rounded-xl font-semibold mt-1 transition-colors">
+            <span class="material-symbols-outlined text-[16px] text-blue-600">manage_accounts</span>
+            Cuentas y Usuarios
+          </a>
           <button onclick="signOut()" class="w-full text-left px-3 py-2 text-[11px] text-red-500 hover:bg-red-50 rounded-xl font-semibold mt-1 transition-colors">Cerrar sesión</button>
         </div>
       </div>
@@ -21566,6 +21573,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (!nav) return;
       if (_currentUser && _currentUser.token) {
         nav.innerHTML = `
+          <a href="/dashboard.html" class="btn-ghost hidden sm:inline-flex" style="text-decoration:none;" title="Ver cuántos usuarios tiene la página y las cuentas">Usuarios</a>
           <button class="btn-ghost" onclick="goToProjects()">Mis Proyectos</button>
           <button class="btn-primary" onclick="goToProjects()">Editor</button>
         `;

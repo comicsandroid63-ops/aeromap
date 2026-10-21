@@ -80,16 +80,81 @@ module.exports = async (req, res) => {
       console.warn('[Dashboard] Error counting recent projects:', e.message);
     }
 
-    // 7) Top users by layers
+    // 7) New users this week (last 7 days)
+    let newUsersThisWeek = 0;
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { rows } = await db.execute({ sql: 'SELECT COUNT(*) as count FROM users WHERE created_at >= ?', args: [sevenDaysAgo] });
+      newUsersThisWeek = rows[0]?.count || 0;
+    } catch (e) {
+      console.warn('[Dashboard] Error counting new users:', e.message);
+    }
+
+    // 8) All user accounts with activity & metrics
+    let usersList = [];
+    try {
+      const { rows } = await db.execute(`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.name, 
+          u.created_at,
+          u.token_expiry,
+          CASE 
+            WHEN u.token IS NOT NULL AND (u.token_expiry IS NULL OR u.token_expiry >= datetime('now')) THEN 1 
+            ELSE 0 
+          END as is_active_session,
+          (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) as projects_count,
+          (SELECT COUNT(*) FROM layers l WHERE l.user_id = u.id) as layers_count
+        FROM users u
+        ORDER BY u.created_at DESC
+      `);
+      usersList = (rows || []).map(r => ({
+        id: r.id,
+        email: r.email,
+        name: r.name || '',
+        createdAt: r.created_at,
+        isOnline: Boolean(r.is_active_session),
+        projectsCount: Number(r.projects_count) || 0,
+        layersCount: Number(r.layers_count) || 0,
+      }));
+    } catch (e) {
+      console.warn('[Dashboard] Complex users query failed, trying simple query:', e.message);
+      try {
+        const { rows } = await db.execute('SELECT id, email, name, created_at FROM users ORDER BY created_at DESC');
+        usersList = (rows || []).map(r => ({
+          id: r.id,
+          email: r.email,
+          name: r.name || '',
+          createdAt: r.created_at,
+          isOnline: false,
+          projectsCount: 0,
+          layersCount: 0,
+        }));
+      } catch (e2) {
+        console.warn('[Dashboard] Error querying users accounts:', e2.message);
+      }
+    }
+
+    if (totalUsers === 0 && usersList.length > 0) {
+      totalUsers = usersList.length;
+    }
+
+    // 9) Top users by layers
     let topUsers = [];
     try {
       const { rows } = await db.execute('SELECT user_id, COUNT(*) as layers, MAX(created_at) as lastActive FROM layers GROUP BY user_id ORDER BY layers DESC LIMIT 5');
-      topUsers = rows.map(r => ({
-        userId: r.user_id,
-        layers: r.layers,
-        files: 0,
-        lastActive: r.lastActive,
-      }));
+      topUsers = rows.map(r => {
+        const matchUser = usersList.find(u => u.id === r.user_id);
+        return {
+          userId: r.user_id,
+          userName: matchUser ? (matchUser.name || matchUser.email) : r.user_id,
+          userEmail: matchUser ? matchUser.email : '',
+          layers: r.layers,
+          files: 0,
+          lastActive: r.lastActive,
+        };
+      });
     } catch (e) {
       console.warn('[Dashboard] Error getting top users:', e.message);
     }
@@ -97,6 +162,7 @@ module.exports = async (req, res) => {
     res.json({
       totalUsers,
       activeUsers,
+      newUsersThisWeek,
       totalProjects,
       totalLayers,
       totalFiles,
@@ -104,6 +170,7 @@ module.exports = async (req, res) => {
       storageSizeMB: Math.round((storageSizeBytes / (1024 * 1024)) * 100) / 100,
       recentProjects,
       topUsers,
+      users: usersList,
     });
   } catch (err) {
     console.error('[Dashboard] Error:', err.message);

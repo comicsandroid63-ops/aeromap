@@ -3,348 +3,1061 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - AeroMap</title>
+  <title>Cuentas y Dashboard - AeroMap</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #090d16;
       color: #e2e8f0;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
+
+    /* Navbar */
     .navbar {
-      background: #1e293b;
-      padding: 16px 32px;
+      background: #0f172a;
+      padding: 14px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid #334155;
+      border-bottom: 1px solid #1e293b;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    .navbar h1 { font-size: 20px; font-weight: 600; color: #f8fafc; }
-    .navbar .brand { display: flex; align-items: center; gap: 12px; }
-    .navbar .brand svg { width: 28px; height: 28px; }
-    .navbar a {
+    .navbar .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .navbar .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+    }
+    .navbar .brand-icon span { font-size: 22px; color: #fff; }
+    .navbar .brand-info h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+    .navbar .brand-info p {
+      font-size: 11px;
       color: #94a3b8;
-      text-decoration: none;
-      font-size: 14px;
-      padding: 6px 16px;
-      border-radius: 6px;
-      transition: all .2s;
     }
-    .navbar a:hover { background: #334155; color: #f8fafc; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
-    .header { margin-bottom: 32px; }
-    .header h2 { font-size: 24px; font-weight: 600; }
-    .header p { color: #94a3b8; margin-top: 4px; font-size: 14px; }
+    .navbar .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-btn {
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .15s ease;
+      cursor: pointer;
+    }
+    .nav-btn:hover {
+      background: #334155;
+      color: #fff;
+      border-color: #475569;
+    }
+    .nav-btn.primary {
+      background: #2563eb;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+    .nav-btn.primary:hover {
+      background: #1d4ed8;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1340px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+      flex: 1;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .header-title h2 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-title p {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .last-updated {
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
       margin-bottom: 32px;
     }
     .stat-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
       padding: 20px;
-      transition: transform .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, border-color .2s;
     }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
-    .stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
-    .stat-card .value { font-size: 36px; font-weight: 700; margin-top: 8px; line-height: 1; }
-    .stat-card .sub { font-size: 13px; color: #64748b; margin-top: 6px; }
-    .stat-card .icon { float: right; opacity: .3; }
-    .stat-card.users .value { color: #60a5fa; }
-    .stat-card.projects .value { color: #a78bfa; }
-    .stat-card.layers .value { color: #34d399; }
-    .stat-card.files .value { color: #fbbf24; }
-    .stat-card.storage .value { color: #f472b6; }
-    .stat-card.active .value { color: #2dd4bf; }
-    .charts-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 32px;
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: #334155;
     }
-    @media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } }
-    .chart-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 20px;
-    }
-    .chart-card h3 { font-size: 14px; font-weight: 500; color: #94a3b8; margin-bottom: 16px; }
-    .chart-card canvas { max-height: 280px; }
-    .top-users {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 20px;
-    }
-    .top-users h3 { font-size: 14px; font-weight: 500; color: #94a3b8; margin-bottom: 16px; }
-    .top-users table { width: 100%; border-collapse: collapse; }
-    .top-users th {
-      text-align: left;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      color: #64748b;
-      padding: 8px 12px;
-      border-bottom: 1px solid #334155;
-    }
-    .top-users td {
-      padding: 10px 12px;
-      font-size: 14px;
-      border-bottom: 1px solid #1e293b;
-    }
-    .top-users tr:hover td { background: #334155; }
-    .badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 500;
-    }
-    .badge.active { background: #065f46; color: #6ee7b7; }
-    .loading {
-      text-align: center;
-      padding: 60px;
-      color: #64748b;
-    }
-    .loading .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid #334155;
-      border-top-color: #60a5fa;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-      margin: 0 auto 12px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error-state {
-      text-align: center;
-      padding: 60px;
-      color: #f87171;
-    }
-    .refresh-btn {
-      background: #334155;
-      border: none;
-      color: #e2e8f0;
-      padding: 8px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: background .2s;
-    }
-    .refresh-btn:hover { background: #475569; }
-    .last-updated { font-size: 12px; color: #64748b; }
-    .footer-bar {
+    .stat-card .header-sub {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
     }
+    .stat-card .label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #94a3b8;
+    }
+    .stat-card .icon-wrapper {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stat-card .icon-wrapper span { font-size: 20px; }
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      color: #f8fafc;
+      margin-bottom: 8px;
+    }
+    .stat-card .subtext {
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Card color variations */
+    .stat-card.users .icon-wrapper { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .stat-card.users .value { color: #60a5fa; }
+    .stat-card.active-users .icon-wrapper { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .stat-card.active-users .value { color: #34d399; }
+    .stat-card.projects .icon-wrapper { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+    .stat-card.projects .value { color: #c084fc; }
+    .stat-card.layers .icon-wrapper { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .stat-card.layers .value { color: #fbbf24; }
+    .stat-card.storage .icon-wrapper { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+    .stat-card.storage .value { color: #f472b6; }
+
+    /* Tabs & Section Header */
+    .section-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .section-head {
+      padding: 20px 24px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      background: #111a2e;
+    }
+    .section-head-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-head-title h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .section-head-title .badge-count {
+      background: #1e293b;
+      color: #60a5fa;
+      border: 1px solid #334155;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 9999px;
+    }
+
+    /* Filters Bar */
+    .filters-bar {
+      padding: 14px 24px;
+      background: #0d1526;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .search-input-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 260px;
+      max-width: 440px;
+    }
+    .search-input-wrapper span {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 18px;
+    }
+    .search-input {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 14px 8px 38px;
+      color: #f1f5f9;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-input:focus {
+      border-color: #3b82f6;
+    }
+    .search-input::placeholder {
+      color: #64748b;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-select {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e2e8f0;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter-select:focus {
+      border-color: #3b82f6;
+    }
+
+    /* Accounts Table */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    table.data-table th {
+      background: #0f172a;
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #64748b;
+      border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
+    }
+    table.data-table td {
+      padding: 14px 20px;
+      font-size: 13px;
+      color: #cbd5e1;
+      border-bottom: 1px solid #172136;
+      vertical-align: middle;
+    }
+    table.data-table tbody tr:hover td {
+      background: #152238;
+    }
+    table.data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* User item */
+    .user-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .user-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .user-name {
+      font-weight: 600;
+      color: #f8fafc;
+      font-size: 14px;
+    }
+    .user-id-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #64748b;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .user-id-code:hover {
+      color: #94a3b8;
+    }
+
+    /* Pill Badges */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-pill.online {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-pill.offline {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #1e293b;
+      color: #94a3b8;
+    }
+    .count-pill.has-items {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    /* Charts Row */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 900px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    .chart-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 22px;
+    }
+    .chart-card h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-card canvas {
+      max-height: 260px;
+    }
+
+    /* Loading and Error states */
+    .state-box {
+      text-align: center;
+      padding: 80px 20px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+    }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid #1e293b;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid #1e293b;
+      padding: 20px 28px;
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0b1120;
+    }
+
+    /* Toast */
+    #toastNotice {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid #3b82f6;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      z-index: 9999;
+      display: none;
+      animation: fadeIn .2s;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
+
+  <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="brand">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-      <h1>AeroMap</h1>
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">map</span>
+      </div>
+      <div class="brand-info">
+        <h1>AeroMap Pro</h1>
+        <p>Panel de Administración & Cuentas</p>
+      </div>
     </div>
-    <div>
-      <a href="/">Volver al mapa</a>
+    <div class="nav-actions">
+      <a href="/" class="nav-btn primary">
+        <span class="material-symbols-outlined" style="font-size:18px">map</span>
+        Ir al Mapa
+      </a>
+      <a href="/#projects" class="nav-btn">
+        <span class="material-symbols-outlined" style="font-size:18px">folder_open</span>
+        Mis Proyectos
+      </a>
     </div>
   </nav>
 
+  <!-- Container -->
   <div class="container">
-    <div class="header">
-      <div class="footer-bar">
-        <div>
-          <h2>Dashboard de administración</h2>
-          <p>Resumen de usuarios, proyectos y almacenamiento en la nube</p>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span class="last-updated" id="lastUpdated">—</span>
-          <button class="refresh-btn" onclick="loadDashboard()">Actualizar</button>
-        </div>
+
+    <!-- Header Bar -->
+    <div class="header-bar">
+      <div class="header-title">
+        <h2>
+          <span class="material-symbols-outlined" style="color:#60a5fa;font-size:30px">manage_accounts</span>
+          Cuentas Registradas y Estadísticas
+        </h2>
+        <p>Consulta en tiempo real los usuarios registrados en el sistema, proyectos creados y métricas de almacenamiento.</p>
+      </div>
+      <div class="header-controls">
+        <span class="last-updated" id="lastUpdated">—</span>
+        <button class="nav-btn" onclick="loadDashboard()">
+          <span class="material-symbols-outlined" id="refreshIcon" style="font-size:18px">refresh</span>
+          Actualizar
+        </button>
       </div>
     </div>
 
-    <div id="loading" class="loading">
+    <!-- Loading State -->
+    <div id="loadingBox" class="state-box">
       <div class="spinner"></div>
-      <p>Cargando datos del dashboard...</p>
+      <p style="color:#94a3b8;font-size:15px;font-weight:500">Cargando usuarios y estadísticas del servidor...</p>
     </div>
 
-    <div id="content" style="display:none">
-      <div class="stats-grid" id="statsGrid"></div>
+    <!-- Error State -->
+    <div id="errorBox" class="state-box" style="display:none">
+      <span class="material-symbols-outlined" style="font-size:48px;color:#f87171;margin-bottom:12px">error_outline</span>
+      <h3 style="color:#f8fafc;font-size:18px;margin-bottom:8px">Error al cargar la información</h3>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:20px" id="errorMessage">No se pudo conectar con el endpoint de administración.</p>
+      <button class="nav-btn primary" onclick="loadDashboard()">Reintentar</button>
+    </div>
+
+    <!-- Main Content -->
+    <div id="dashboardContent" style="display:none">
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- Will be populated dynamically -->
+      </div>
+
+      <!-- User Accounts Section -->
+      <div class="section-box">
+        <div class="section-head">
+          <div class="section-head-title">
+            <span class="material-symbols-outlined" style="color:#60a5fa;font-size:24px">group</span>
+            <h3>Cuentas de Usuarios Registradas</h3>
+            <span class="badge-count" id="usersCountBadge">0 cuentas</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="nav-btn" onclick="exportUsersToCSV()" title="Descargar listado en formato CSV">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#34d399">download</span>
+              Descargar CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter and Search -->
+        <div class="filters-bar">
+          <div class="search-input-wrapper">
+            <span class="material-symbols-outlined">search</span>
+            <input type="text" id="userSearchInput" class="search-input" placeholder="Buscar por nombre, email o ID de cuenta..." oninput="filterUsers()" />
+          </div>
+          <div class="filter-group">
+            <select id="userFilterStatus" class="filter-select" onchange="filterUsers()">
+              <option value="all">Todos los estados</option>
+              <option value="online">En línea / Sesión Activa</option>
+              <option value="offline">Desconectados</option>
+              <option value="has_projects">Con proyectos</option>
+            </select>
+            <select id="userSortOrder" class="filter-select" onchange="filterUsers()">
+              <option value="newest">Más recientes primero</option>
+              <option value="oldest">Más antiguos primero</option>
+              <option value="projects">Mayor número de proyectos</option>
+              <option value="name">Nombre (A - Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Accounts Table -->
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Correo Electrónico</th>
+                <th>Fecha de Registro</th>
+                <th>Proyectos</th>
+                <th>Capas</th>
+                <th>Estado de Sesión</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Charts & Additional Metrics -->
       <div class="charts-row">
         <div class="chart-card">
-          <h3>Distribución general</h3>
+          <h4>
+            <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">pie_chart</span>
+            Distribución General de la Plataforma
+          </h4>
           <canvas id="distributionChart"></canvas>
         </div>
         <div class="chart-card">
-          <h3>Actividad vs. total</h3>
+          <h4>
+            <span class="material-symbols-outlined" style="color:#34d399;font-size:20px">bar_chart</span>
+            Actividad de Usuarios y Proyectos
+          </h4>
           <canvas id="activityChart"></canvas>
         </div>
       </div>
-      <div class="top-users" id="topUsersSection">
-        <h3>Usuarios con más capas</h3>
-        <table>
-          <thead><tr><th>Usuario</th><th>Capas</th><th>Archivos</th><th>Última actividad</th><th>Estado</th></tr></thead>
-          <tbody id="topUsersBody"></tbody>
-        </table>
-      </div>
+
     </div>
 
-    <div id="error" class="error-state" style="display:none">
-      <p>Error al cargar los datos del dashboard.</p>
-      <button class="refresh-btn" onclick="loadDashboard()" style="margin-top:12px">Reintentar</button>
-    </div>
   </div>
 
+  <!-- Footer -->
+  <footer>
+    <div>AeroMap GIS Platform · Portal de Administración y Cuentas</div>
+    <div id="footerSummary">Total de usuarios: —</div>
+  </footer>
+
+  <div id="toastNotice">Copiado al portapapeles</div>
+
   <script>
+    let _allUsers = [];
+    let _dashboardData = null;
     let distChart = null;
     let actChart = null;
 
+    const AVATAR_COLORS = [
+      'linear-gradient(135deg, #2563eb, #3b82f6)',
+      'linear-gradient(135deg, #7c3aed, #a855f7)',
+      'linear-gradient(135deg, #059669, #10b981)',
+      'linear-gradient(135deg, #d97706, #f59e0b)',
+      'linear-gradient(135deg, #db2777, #ec4899)',
+      'linear-gradient(135deg, #0891b2, #06b6d4)',
+      'linear-gradient(135deg, #4f46e5, #6366f1)'
+    ];
+
+    function getInitials(name, email) {
+      if (name && name.trim()) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return parts[0].slice(0, 2).toUpperCase();
+      }
+      if (email) return email.slice(0, 2).toUpperCase();
+      return 'US';
+    }
+
+    function getAvatarBg(str) {
+      let hash = 0;
+      for (let i = 0; i < (str || '').length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const idx = Math.abs(hash) % AVATAR_COLORS.length;
+      return AVATAR_COLORS[idx];
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return { full: '—', relative: 'Fecha no registrada' };
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return { full: dateStr, relative: '—' };
+        
+        const full = d.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
+        const now = Date.now();
+        const diffMs = now - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHrs = Math.floor(diffMin / 60);
+        const diffDays = Math.floor(diffHrs / 24);
+
+        let relative = 'Ahora mismo';
+        if (diffDays > 30) relative = `Hace ${Math.floor(diffDays / 30)} meses`;
+        else if (diffDays >= 1) relative = `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+        else if (diffHrs >= 1) relative = `Hace ${diffHrs} hora${diffHrs > 1 ? 's' : ''}`;
+        else if (diffMin >= 1) relative = `Hace ${diffMin} minuto${diffMin > 1 ? 's' : ''}`;
+
+        return { full, relative };
+      } catch (e) {
+        return { full: dateStr, relative: '—' };
+      }
+    }
+
     function formatBytes(bytes) {
-      if (bytes === 0) return '0 B';
+      if (!bytes || bytes === 0) return '0 B';
       const k = 1024;
       const sizes = ['B', 'KB', 'MB', 'GB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    function timeAgo(dateStr) {
-      if (!dateStr) return '—';
-      const now = Date.now();
-      const d = new Date(dateStr).getTime();
-      const diff = now - d;
-      const mins = Math.floor(diff / 60000);
-      if (mins < 1) return 'Ahora';
-      if (mins < 60) return mins + 'm';
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return hrs + 'h';
-      const days = Math.floor(hrs / 24);
-      if (days < 30) return days + 'd';
-      return new Date(dateStr).toLocaleDateString();
+    function copyToClipboard(text, label = 'Copiado') {
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('toastNotice');
+        toast.textContent = `${label}: ${text}`;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2500);
+      }).catch(() => {
+        alert(text);
+      });
     }
 
     async function loadDashboard() {
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('content').style.display = 'none';
-      document.getElementById('error').style.display = 'none';
+      const loadingBox = document.getElementById('loadingBox');
+      const errorBox = document.getElementById('errorBox');
+      const content = document.getElementById('dashboardContent');
+      const refreshIcon = document.getElementById('refreshIcon');
+
+      loadingBox.style.display = 'block';
+      errorBox.style.display = 'none';
+      content.style.display = 'none';
+      if (refreshIcon) refreshIcon.style.animation = 'spin 1s linear infinite';
 
       try {
         const res = await fetch('/api/admin/dashboard');
-        if (!res.ok) throw new Error('Error HTTP ' + res.status);
+        if (!res.ok) throw new Error('Error al consultar el servidor (HTTP ' + res.status + ')');
         const data = await res.json();
+        _dashboardData = data;
+        _allUsers = data.users || [];
+
         renderDashboard(data);
-        document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
-      } catch (e) {
-        console.error('Dashboard error:', e);
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
+        filterUsers();
+
+        document.getElementById('lastUpdated').textContent = 'Última sinc.: ' + new Date().toLocaleTimeString();
+        document.getElementById('footerSummary').textContent = `Total de usuarios: ${data.totalUsers || _allUsers.length} · Proyectos: ${data.totalProjects || 0}`;
+        
+        loadingBox.style.display = 'none';
+        content.style.display = 'block';
+      } catch (err) {
+        console.error('[Dashboard] Error:', err);
+        loadingBox.style.display = 'none';
+        errorBox.style.display = 'block';
+        document.getElementById('errorMessage').textContent = err.message || 'Error de conexión.';
+      } finally {
+        if (refreshIcon) refreshIcon.style.animation = 'none';
       }
     }
 
     function renderDashboard(d) {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('content').style.display = 'block';
+      const totalUsers = d.totalUsers || (_allUsers ? _allUsers.length : 0);
+      const activeUsers = d.activeUsers || 0;
+      const newThisWeek = d.newUsersThisWeek || 0;
 
-      const stats = [
-        { cls: 'users', label: 'Usuarios registrados', value: d.totalUsers, sub: d.activeUsers + ' activos con proyectos', icon: '👥' },
-        { cls: 'projects', label: 'Proyectos', value: d.totalProjects, sub: d.recentProjects + ' en los últimos 7 días', icon: '📁' },
-        { cls: 'layers', label: 'Capas (Layers)', value: d.totalLayers, sub: 'en todos los proyectos', icon: '🗺️' },
-        { cls: 'files', label: 'Archivos en la nube', value: d.totalFiles, sub: 'en bucket ' + (d.totalFiles > 0 ? 'shapefiles' : '—'), icon: '☁️' },
-        { cls: 'storage', label: 'Almacenamiento', value: d.storageSizeMB >= 1000 ? (d.storageSizeMB / 1024).toFixed(2) + ' GB' : d.storageSizeMB + ' MB', sub: formatBytes(d.storageSizeBytes), icon: '💾' },
-        { cls: 'active', label: 'Usuarios activos', value: d.activeUsers, sub: 'con al menos 1 proyecto', icon: '⚡' },
+      const statCards = [
+        {
+          cls: 'users',
+          icon: 'group',
+          label: 'Total de Usuarios',
+          value: totalUsers,
+          sub: `${newThisWeek} registrado${newThisWeek === 1 ? '' : 's'} esta semana`
+        },
+        {
+          cls: 'active-users',
+          icon: 'how_to_reg',
+          label: 'Usuarios Activos',
+          value: activeUsers,
+          sub: 'Con al menos 1 proyecto creado'
+        },
+        {
+          cls: 'projects',
+          icon: 'folder_open',
+          label: 'Proyectos Totales',
+          value: d.totalProjects || 0,
+          sub: `${d.recentProjects || 0} actualizados recientemente`
+        },
+        {
+          cls: 'layers',
+          icon: 'layers',
+          label: 'Capas en Proyectos',
+          value: d.totalLayers || 0,
+          sub: 'Vectores y rásteres cargados'
+        },
+        {
+          cls: 'storage',
+          icon: 'cloud_done',
+          label: 'Almacenamiento Cloud',
+          value: (d.storageSizeMB >= 1000 ? (d.storageSizeMB / 1024).toFixed(2) + ' GB' : (d.storageSizeMB || 0) + ' MB'),
+          sub: `${d.totalFiles || 0} archivos GeoTIFF optimizados`
+        }
       ];
 
-      document.getElementById('statsGrid').innerHTML = stats.map(s => `
-        <div class="stat-card ${s.cls}">
-          <span class="icon">${s.icon}</span>
-          <div class="label">${s.label}</div>
-          <div class="value">${s.value}</div>
-          <div class="sub">${s.sub}</div>
+      document.getElementById('statsGrid').innerHTML = statCards.map(c => `
+        <div class="stat-card ${c.cls}">
+          <div class="header-sub">
+            <span class="label">${c.label}</span>
+            <div class="icon-wrapper">
+              <span class="material-symbols-outlined">${c.icon}</span>
+            </div>
+          </div>
+          <div class="value">${c.value}</div>
+          <div class="subtext">${c.sub}</div>
         </div>
       `).join('');
 
-      // Distribution chart (Doughnut)
-      const distCtx = document.getElementById('distributionChart').getContext('2d');
-      if (distChart) distChart.destroy();
-      distChart = new Chart(distCtx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Usuarios', 'Proyectos', 'Capas', 'Archivos'],
-          datasets: [{
-            data: [d.totalUsers, d.totalProjects, d.totalLayers, d.totalFiles],
-            backgroundColor: ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24'],
-            borderColor: '#1e293b',
-            borderWidth: 3,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } }
-          }
-        }
-      });
+      renderCharts(d);
+    }
 
-      // Activity chart (Bar)
-      const actCtx = document.getElementById('activityChart').getContext('2d');
-      if (actChart) actChart.destroy();
-      actChart = new Chart(actCtx, {
-        type: 'bar',
-        data: {
-          labels: ['Usuarios activos', 'Proyectos recientes'],
-          datasets: [{
-            label: 'Con actividad (7 días)',
-            data: [d.activeUsers, d.recentProjects],
-            backgroundColor: ['#2dd4bf', '#a78bfa'],
-            borderRadius: 6,
-          }, {
-            label: 'Totales',
-            data: [d.totalUsers, d.totalProjects],
-            backgroundColor: ['#0f172a', '#0f172a'],
-            borderColor: ['#2dd4bf', '#a78bfa'],
-            borderWidth: 2,
-            borderRadius: 6,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } }
-          },
-          scales: {
-            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true }
-          }
-        }
-      });
+    function filterUsers() {
+      const q = (document.getElementById('userSearchInput').value || '').trim().toLowerCase();
+      const statusFilter = document.getElementById('userFilterStatus').value;
+      const sortOrder = document.getElementById('userSortOrder').value;
 
-      // Top users table
-      const tbody = document.getElementById('topUsersBody');
-      if (d.topUsers && d.topUsers.length > 0) {
-        tbody.innerHTML = d.topUsers.map(u => `
+      let list = [..._allUsers];
+
+      // Filter by search
+      if (q) {
+        list = list.filter(u => 
+          (u.name && u.name.toLowerCase().includes(q)) ||
+          (u.email && u.email.toLowerCase().includes(q)) ||
+          (u.id && u.id.toLowerCase().includes(q))
+        );
+      }
+
+      // Filter by status
+      if (statusFilter === 'online') {
+        list = list.filter(u => u.isOnline);
+      } else if (statusFilter === 'offline') {
+        list = list.filter(u => !u.isOnline);
+      } else if (statusFilter === 'has_projects') {
+        list = list.filter(u => (u.projectsCount || 0) > 0);
+      }
+
+      // Sort
+      if (sortOrder === 'newest') {
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      } else if (sortOrder === 'oldest') {
+        list.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      } else if (sortOrder === 'projects') {
+        list.sort((a, b) => (b.projectsCount || 0) - (a.projectsCount || 0));
+      } else if (sortOrder === 'name') {
+        list.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
+      }
+
+      // Update badge
+      document.getElementById('usersCountBadge').textContent = `${list.length} de ${_allUsers.length} cuentas`;
+
+      // Render table
+      const tbody = document.getElementById('usersTableBody');
+      if (list.length === 0) {
+        tbody.innerHTML = `
           <tr>
-            <td style="font-family:monospace;font-size:13px">${u.userId.length > 20 ? u.userId.slice(0, 20) + '...' : u.userId}</td>
-            <td>${u.layers}</td>
-            <td>${u.files}</td>
-            <td>${timeAgo(u.lastActive)}</td>
-            <td><span class="badge active">Activo</span></td>
+            <td colspan="6" style="text-align:center;padding:48px 16px;color:#64748b;">
+              <span class="material-symbols-outlined" style="font-size:36px;opacity:0.6;margin-bottom:8px;display:block">person_search</span>
+              No se encontraron cuentas que coincidan con la búsqueda.
+            </td>
           </tr>
-        `).join('');
-      } else {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">Sin datos de usuarios</td></tr>';
+        `;
+        return;
+      }
+
+      tbody.innerHTML = list.map(u => {
+        const initials = getInitials(u.name, u.email);
+        const bg = getAvatarBg(u.id || u.email);
+        const dateObj = formatDate(u.createdAt);
+        const displayName = u.name && u.name.trim() ? u.name : (u.email ? u.email.split('@')[0] : 'Sin nombre');
+        const shortId = u.id ? (u.id.length > 12 ? u.id.slice(0, 8) + '...' : u.id) : '—';
+
+        return `
+          <tr>
+            <td>
+              <div class="user-cell">
+                <div class="user-avatar" style="background:${bg}">${initials}</div>
+                <div class="user-details">
+                  <span class="user-name">${escapeHtml(displayName)}</span>
+                  <span class="user-id-code" onclick="copyToClipboard('${escapeHtml(u.id)}', 'ID de Usuario')" title="Haga clic para copiar ID completo">
+                    ${escapeHtml(shortId)}
+                    <span class="material-symbols-outlined" style="font-size:13px">content_copy</span>
+                  </span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="color:#f1f5f9;font-weight:500">${escapeHtml(u.email || '—')}</span>
+                ${u.email ? `<span class="material-symbols-outlined" style="font-size:14px;color:#64748b;cursor:pointer" onclick="copyToClipboard('${escapeHtml(u.email)}', 'Email')" title="Copiar correo">content_copy</span>` : ''}
+              </div>
+            </td>
+            <td>
+              <div style="color:#f1f5f9;font-size:13px">${dateObj.full}</div>
+              <div style="font-size:11px;color:#64748b">${dateObj.relative}</div>
+            </td>
+            <td>
+              <span class="count-pill ${u.projectsCount > 0 ? 'has-items' : ''}">
+                ${u.projectsCount || 0} ${u.projectsCount === 1 ? 'proyecto' : 'proyectos'}
+              </span>
+            </td>
+            <td>
+              <span class="count-pill ${u.layersCount > 0 ? 'has-items' : ''}">
+                ${u.layersCount || 0} ${u.layersCount === 1 ? 'capa' : 'capas'}
+              </span>
+            </td>
+            <td>
+              ${u.isOnline ? `
+                <span class="status-pill online">
+                  <span class="status-dot"></span> En línea
+                </span>
+              ` : `
+                <span class="status-pill offline">
+                  <span class="status-dot"></span> Registrado
+                </span>
+              `}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderCharts(d) {
+      // Distribution chart
+      const distCanvas = document.getElementById('distributionChart');
+      if (distCanvas) {
+        const distCtx = distCanvas.getContext('2d');
+        if (distChart) distChart.destroy();
+        distChart = new Chart(distCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Usuarios Registrados', 'Proyectos Creados', 'Capas GIS', 'Archivos'],
+            datasets: [{
+              data: [d.totalUsers || _allUsers.length, d.totalProjects || 0, d.totalLayers || 0, d.totalFiles || 0],
+              backgroundColor: ['#3b82f6', '#c084fc', '#fbbf24', '#f472b6'],
+              borderColor: '#0f172a',
+              borderWidth: 4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#94a3b8', padding: 14, font: { size: 12 } }
+              }
+            }
+          }
+        });
+      }
+
+      // Activity chart
+      const actCanvas = document.getElementById('activityChart');
+      if (actCanvas) {
+        const actCtx = actCanvas.getContext('2d');
+        if (actChart) actChart.destroy();
+        actChart = new Chart(actCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Usuarios Activos', 'Proyectos Recientes (7d)', 'Nuevos Usuarios (7d)'],
+            datasets: [{
+              label: 'Actividad Reciente',
+              data: [d.activeUsers || 0, d.recentProjects || 0, d.newUsersThisWeek || 0],
+              backgroundColor: ['#10b981', '#a855f7', '#3b82f6'],
+              borderRadius: 8,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#94a3b8', font: { size: 11 } },
+                grid: { display: false }
+              },
+              y: {
+                ticks: { color: '#94a3b8', stepSize: 1 },
+                grid: { color: '#1e293b' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
       }
     }
 
+    function exportUsersToCSV() {
+      if (!_allUsers || _allUsers.length === 0) {
+        alert('No hay usuarios para exportar');
+        return;
+      }
+      const headers = ['ID', 'Nombre', 'Email', 'Fecha de Registro', 'Proyectos', 'Capas', 'En Linea'];
+      const rows = _allUsers.map(u => [
+        `"${(u.id || '').replace(/"/g, '""')}"`,
+        `"${(u.name || '').replace(/"/g, '""')}"`,
+        `"${(u.email || '').replace(/"/g, '""')}"`,
+        `"${(u.createdAt || '').replace(/"/g, '""')}"`,
+        u.projectsCount || 0,
+        u.layersCount || 0,
+        u.isOnline ? 'SI' : 'NO'
+      ]);
+
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `aeromap_usuarios_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Auto-load on startup
     loadDashboard();
   </script>
 </body>
