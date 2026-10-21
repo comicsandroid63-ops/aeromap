@@ -20556,14 +20556,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (cached) {
           const user = JSON.parse(cached);
           if (user && user.token) {
-            if (user.email === 'admin@aeromap.com' || user.email === 'comicsandroid63@gmail.com' || user.role === 'admin') {
-              user.isAdmin = true;
-              user.role = 'admin';
-            }
+            const isAdm = Boolean(user.email && (user.email.toLowerCase() === 'admin@aeromap.com' || user.email.toLowerCase() === 'comicsandroid63@gmail.com'));
+            user.isAdmin = isAdm;
+            user.role = isAdm ? 'admin' : 'user';
             _currentUser = user;
             // Asegurar persistencia en ambos
             try { localStorage.setItem('aeromap_user', JSON.stringify(user)); } catch(_) {}
             setAuthNav();
+            updateAdminUI();
             // Si NO hay invite activo en la URL, borrar cualquier _pendingSharedProject
             // sobrante para evitar falsos logins obligatorios en visitas normales
             if (!window.__hasPendingInvite) {
@@ -20626,13 +20626,15 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');
 
-        const isAdmin = Boolean(data.isAdmin || data.role === 'admin' || data.email === 'admin@aeromap.com' || data.email === 'comicsandroid63@gmail.com');
-        _currentUser = { id: data.id, email: data.email, name: data.name, token: data.token, role: data.role || (isAdmin ? 'admin' : 'user'), isAdmin };
+        const userEmail = (data.email || '').toLowerCase().trim();
+        const isAdmin = userEmail === 'admin@aeromap.com' || userEmail === 'comicsandroid63@gmail.com';
+        _currentUser = { id: data.id, email: data.email, name: data.name, token: data.token, role: isAdmin ? 'admin' : 'user', isAdmin };
         const userStr = JSON.stringify(_currentUser);
         localStorage.setItem('aeromap_user', userStr);
         sessionStorage.setItem('aeromap_user', userStr);
         document.getElementById('loginDashboard').classList.add('hidden');
         setAuthNav();
+        updateAdminUI();
 
         // Recuperar proyecto compartido pendiente desde sessionStorage si no está en memoria
         if (!_pendingSharedProject) {
@@ -20686,6 +20688,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     let _currentProject = null;
 
     async function loadProjects() {
+      updateAdminUI();
       const container = document.getElementById('projectsList');
       try {
         const uid = _currentUser?.id || 'guest';
@@ -21574,17 +21577,23 @@ async function deleteFromCloud(fileName, url, storagePath) {
       setAuthNav();
     }
 
+    function isUserAdmin(u) {
+      if (!u || !u.email) return false;
+      const em = String(u.email).toLowerCase().trim();
+      return em === 'admin@aeromap.com' || em === 'comicsandroid63@gmail.com';
+    }
+
     function updateAdminUI() {
-      const isAdmin = Boolean(_currentUser && (_currentUser.isAdmin || _currentUser.role === 'admin' || _currentUser.email === 'admin@aeromap.com' || _currentUser.email === 'comicsandroid63@gmail.com'));
+      const isAdmin = isUserAdmin(_currentUser);
       
       const adminDashBtn = document.getElementById('adminDashboardBtn');
       if (adminDashBtn) {
         if (isAdmin) {
           adminDashBtn.classList.remove('hidden');
-          adminDashBtn.style.display = 'inline-flex';
+          adminDashBtn.style.setProperty('display', 'inline-flex', 'important');
         } else {
           adminDashBtn.classList.add('hidden');
-          adminDashBtn.style.display = 'none';
+          adminDashBtn.style.setProperty('display', 'none', 'important');
         }
       }
 
@@ -21592,10 +21601,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
       if (userMenuAdminLink) {
         if (isAdmin) {
           userMenuAdminLink.classList.remove('hidden');
-          userMenuAdminLink.style.display = 'flex';
+          userMenuAdminLink.style.setProperty('display', 'flex', 'important');
         } else {
           userMenuAdminLink.classList.add('hidden');
-          userMenuAdminLink.style.display = 'none';
+          userMenuAdminLink.style.setProperty('display', 'none', 'important');
         }
       }
     }
@@ -21628,6 +21637,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       const email = _currentUser?.email || 'Invitado';
       const el = document.getElementById('userEmailDisplay');
       if (el) el.textContent = email;
+      updateAdminUI();
       loadProjects();
     }
 
@@ -21892,8 +21902,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
           const user = JSON.parse(saved);
           if (user && user.token) {
             _currentUser = user;
-            try { localStorage.setItem('aeromap_user', saved); } catch(_) {}
+            _currentUser.isAdmin = isUserAdmin(user);
+            _currentUser.role = _currentUser.isAdmin ? 'admin' : 'user';
+            try { localStorage.setItem('aeromap_user', JSON.stringify(_currentUser)); } catch(_) {}
             setAuthNav();
+            updateAdminUI();
             // Si hay invite pendiente en la URL, dejar que initCollabFromURL lo maneje
             // Si no hay invite, ir directo al dashboard de proyectos
             if (!window.__hasPendingInvite) {
@@ -21909,6 +21922,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
               if (loginEl)   loginEl.classList.add('hidden');
               if (dashEl)    dashEl.classList.remove('hidden');
               if (emailEl)   emailEl.textContent = user.email || '';
+              updateAdminUI();
               // Diferir loadProjects para asegurar que esté definida al momento de ejecutar
               setTimeout(() => { if (typeof loadProjects === 'function') loadProjects(); }, 0);
             }
