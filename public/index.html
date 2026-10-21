@@ -1981,9 +1981,9 @@
             Nuevo Mapa
           </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="templateGrid">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="templateGrid">
           <!-- 1. Arquitectura Pop Geométrica -->
-          <div onclick="applyTemplate('pop_geometric')" class="template-card group col-span-1 md:col-span-2 lg:col-span-2 cursor-pointer overflow-hidden rounded-2xl border-2 border-pink-400 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="pop_geometric">
+          <div onclick="applyTemplate('pop_geometric')" class="template-card group cursor-pointer overflow-hidden rounded-2xl border-2 border-pink-400 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="pop_geometric">
             <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-pink-300 flex items-center justify-center" id="templatePreview-pop_geometric">
               <span class="template-badge absolute top-3 left-3 bg-[#111115] text-[#ff2a85] font-black tracking-widest text-[11px] px-3.5 py-1.5 rounded-full shadow-lg border border-[#ff2a85] z-10 flex items-center gap-1.5">
                 <span class="inline-block w-2.5 h-2.5 rounded-full border border-[#00a8e8]"></span>
@@ -2016,7 +2016,37 @@
         </div>
       </div>
 
-      <!-- ═══════ MAP HISTORY ═══════ -->
+      <!-
+
+          <!-- 2. El Mundo de Studio Ghibli -->
+          <div onclick="applyTemplate('ghibli')" class="template-card group cursor-pointer overflow-hidden rounded-2xl border-2 border-emerald-500 bg-white shadow-xl hover:shadow-2xl transition-all duration-300" data-template="ghibli">
+            <div class="template-preview relative h-72 sm:h-80 w-full overflow-hidden bg-sky-200 flex items-center justify-center" id="templatePreview-ghibli">
+              <span class="template-badge absolute top-3 left-3 bg-[#111115] text-[#4ade80] font-black tracking-widest text-[11px] px-3.5 py-1.5 rounded-full shadow-lg border border-[#4ade80] z-10 flex items-center gap-1.5">
+                <span class="text-sm">🍃</span>
+                STUDIO GHIBLI
+              </span>
+              <span class="absolute top-3 right-3 bg-[#15803d] text-white font-extrabold text-[10px] px-2.5 py-1 rounded shadow-md z-10">
+                A4 VERTICAL
+              </span>
+            </div>
+            <div class="p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-zinc-950 to-zinc-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t-4 border-[#22c55e]">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <h4 class="text-base sm:text-lg font-black tracking-wider text-white group-hover:text-[#4ade80] transition-colors uppercase">
+                    El Mundo de Studio Ghibli
+                  </h4>
+                  <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/40">PAISAJE &amp; NATURALEZA</span>
+                </div>
+                <p class="text-xs text-zinc-300 leading-snug">
+                  Estética editorial pastoral: colinas verdes, árbol alcanforero con Kodamas, dragón Haku, Totoro durmiendo y tipografía Minotauro 100% editable.
+                </p>
+              </div>
+              <button class="shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs bg-[#22c55e] hover:bg-[#16a34a] text-white shadow-lg transition-transform group-hover:scale-105 flex items-center gap-2">
+                <span>Usar Plantilla</span>
+                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </button>
+            </div>
+          </div>- ═══════ MAP HISTORY ═══════ -->
       <div class="mb-10">
         <div class="flex items-center justify-between mb-6">
           <div>
@@ -22743,7 +22773,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     function renderAllTemplateCanvasPreviews() {
-      const types = ['pop_geometric'];
+      const types = ['pop_geometric', 'ghibli'];
       types.forEach(type => {
         const preview = document.getElementById('templatePreview-' + type);
         if (!preview) return;
@@ -22760,13 +22790,241 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
     const generateTemplatePreviews = renderAllTemplateCanvasPreviews;
 
-    function renderTemplateCanvas(type, canvas) {
+    
+    function renderGhibliTemplateCanvas(ctx, w, h) {
+      // 1. Cielo degradado Ghibli
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.55);
+      skyGrad.addColorStop(0, '#72bde8');
+      skyGrad.addColorStop(0.5, '#a4dbf4');
+      skyGrad.addColorStop(1, '#d6f0fa');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Nubes suaves
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      function drawCloud(cx, cy, r) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.arc(cx + r * 0.7, cy - r * 0.2, r * 0.8, 0, Math.PI * 2);
+        ctx.arc(cx - r * 0.7, cy + r * 0.1, r * 0.65, 0, Math.PI * 2);
+        ctx.arc(cx + r * 1.3, cy + r * 0.1, r * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      drawCloud(w * 0.32, h * 0.18, 22);
+      drawCloud(w * 0.78, h * 0.22, 28);
+      drawCloud(w * 0.55, h * 0.12, 16);
+
+      // 2. Dragón Haku en el cielo
+      ctx.strokeStyle = '#38b000';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.38, h * 0.12);
+      ctx.quadraticCurveTo(w * 0.48, h * 0.06, w * 0.58, h * 0.12);
+      ctx.quadraticCurveTo(w * 0.68, h * 0.18, w * 0.76, h * 0.10);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.36, h * 0.13);
+      ctx.quadraticCurveTo(w * 0.48, h * 0.07, w * 0.58, h * 0.13);
+      ctx.quadraticCurveTo(w * 0.68, h * 0.19, w * 0.76, h * 0.11);
+      ctx.stroke();
+
+      // Cabeza dragón
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(w * 0.35, h * 0.13, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2d6a4f';
+      ctx.beginPath(); ctx.arc(w * 0.34, h * 0.12, 1.2, 0, Math.PI * 2); ctx.fill();
+
+      // 3. Colina lejana
+      ctx.fillStyle = '#88c84b';
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.42);
+      ctx.quadraticCurveTo(w * 0.3, h * 0.32, w * 0.6, h * 0.38);
+      ctx.quadraticCurveTo(w * 0.85, h * 0.44, w, h * 0.34);
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Castillo ambulante en la loma lejana derecha
+      ctx.fillStyle = '#a47148';
+      ctx.fillRect(w * 0.82, h * 0.28, 28, 24);
+      ctx.fillStyle = '#e07a5f';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.82, h * 0.28);
+      ctx.lineTo(w * 0.87, h * 0.20);
+      ctx.lineTo(w * 0.92, h * 0.28);
+      ctx.fill();
+      ctx.strokeStyle = '#4a3728';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.84, h * 0.52); ctx.lineTo(w * 0.83, h * 0.58);
+      ctx.moveTo(w * 0.88, h * 0.52); ctx.lineTo(w * 0.89, h * 0.58);
+      ctx.stroke();
+
+      // 4. Árbol sagrado en el margen izquierdo
+      ctx.fillStyle = '#a47148';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w * 0.18, 0);
+      ctx.quadraticCurveTo(w * 0.12, h * 0.25, w * 0.10, h * 0.50);
+      ctx.lineTo(0, h * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      // Rama extendida
+      ctx.fillStyle = '#8d5b36';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.10, h * 0.22);
+      ctx.quadraticCurveTo(w * 0.20, h * 0.22, w * 0.26, h * 0.26);
+      ctx.lineTo(w * 0.25, h * 0.30);
+      ctx.quadraticCurveTo(w * 0.18, h * 0.26, w * 0.09, h * 0.27);
+      ctx.fill();
+      // Follaje árbol
+      ctx.fillStyle = '#35682d';
+      ctx.beginPath(); ctx.arc(w * 0.08, h * 0.08, 48, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4d8c36';
+      ctx.beginPath(); ctx.arc(w * 0.18, h * 0.12, 34, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#5fa743';
+      ctx.beginPath(); ctx.arc(w * 0.06, h * 0.22, 28, 0, Math.PI * 2); ctx.fill();
+
+      // Kodama sentado en la rama
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(w * 0.22, h * 0.23, 4.5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.22, h * 0.28, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.arc(w * 0.21, h * 0.225, 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w * 0.23, h * 0.225, 0.9, 0, Math.PI * 2); ctx.fill();
+
+      // 5. Pradera principal inferior
+      const grassGrad = ctx.createLinearGradient(0, h * 0.48, 0, h);
+      grassGrad.addColorStop(0, '#67b738');
+      grassGrad.addColorStop(0.3, '#55a52a');
+      grassGrad.addColorStop(1, '#3d821a');
+      ctx.fillStyle = grassGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.50);
+      ctx.quadraticCurveTo(w * 0.35, h * 0.42, w * 0.65, h * 0.52);
+      ctx.quadraticCurveTo(w * 0.85, h * 0.58, w, h * 0.48);
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // 6. Marco del Mapa Central
+      const mw = w * 0.46;
+      const mh = h * 0.44;
+      const mx = w * 0.27;
+      const my = h * 0.15;
+      
+      ctx.save();
+      ctx.shadowColor = 'rgba(20, 40, 15, 0.35)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 8;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#2d5a27';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.roundRect(mx, my, mw, mh, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Interior mapa (simulación de relieve montañoso verde)
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(mx + 3, my + 3, mw - 6, mh - 6, 8);
+      ctx.clip();
+      ctx.fillStyle = '#e8f5e9';
+      ctx.fillRect(mx, my, mw, mh);
+      ctx.strokeStyle = '#81c784';
+      ctx.lineWidth = 1;
+      for (let r = 20; r < 120; r += 16) {
+        ctx.beginPath();
+        ctx.arc(mx + mw * 0.5, my + mh * 0.5, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#2e7d32';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAISAJE & ESTUDIO TERRITORIAL', mx + mw * 0.5, my + mh * 0.5 + 3);
+      ctx.restore();
+
+      // 7. Totoro Durmiendo en la pradera
+      const tox = w * 0.50;
+      const toy = h * 0.68;
+      ctx.fillStyle = 'rgba(35, 75, 20, 0.45)';
+      ctx.beginPath(); ctx.ellipse(tox, toy + 24, 75, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3d5248';
+      ctx.beginPath(); ctx.ellipse(tox, toy, 72, 28, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#eee8da';
+      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 6, 44, 21, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#3d5248';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(tox - 4, toy - 12); ctx.lineTo(tox, toy - 16); ctx.lineTo(tox + 4, toy - 12);
+      ctx.moveTo(tox + 10, toy - 12); ctx.lineTo(tox + 14, toy - 16); ctx.lineTo(tox + 18, toy - 12);
+      ctx.moveTo(tox + 24, toy - 12); ctx.lineTo(tox + 28, toy - 16); ctx.lineTo(tox + 32, toy - 12);
+      ctx.stroke();
+      ctx.fillStyle = '#3d5248';
+      ctx.beginPath(); ctx.arc(tox - 48, toy - 10, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(tox - 58, toy - 22, 4, 10, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1c2822';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(tox - 50, toy - 14, 3, Math.PI, 0);
+      ctx.moveTo(tox - 52, toy - 8); ctx.lineTo(tox - 66, toy - 11);
+      ctx.moveTo(tox - 52, toy - 6); ctx.lineTo(tox - 68, toy - 6);
+      ctx.stroke();
+
+      // Chu-Totoro Azul y Chibi-Totoro Blanco encima
+      ctx.fillStyle = '#2b6cb0';
+      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 24, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath(); ctx.ellipse(tox + 12, toy - 22, 5, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(tox + 26, toy - 21, 6, 7, 0, 0, Math.PI * 2); ctx.fill();
+
+      // 8. TÍTULO OFICIAL "EL MUNDO DE STUDIO GHIBLI"
+      ctx.fillStyle = '#fcfbf7';
+      ctx.font = '900 16px "Quicksand", "Comfortaa", Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText('EL MUNDO DE', w * 0.50, h * 0.84);
+      ctx.font = '900 17px "Quicksand", "Comfortaa", Inter, sans-serif';
+      ctx.fillText('STUDIO GHIBLI', w * 0.50, h * 0.90);
+
+      // Franja divisoria
+      ctx.strokeStyle = 'rgba(252, 251, 247, 0.85)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.22, h * 0.925);
+      ctx.lineTo(w * 0.78, h * 0.925);
+      ctx.stroke();
+
+      // Subtítulo
+      ctx.font = 'bold 7px Inter, sans-serif';
+      ctx.fillText('LEVANTAMIENTO TOPOGRÁFICO & AMBIENTAL · ESCALA: 1:1,000', w * 0.50, h * 0.955);
+      ctx.font = '600 7.5px "Quicksand", sans-serif';
+      ctx.fillStyle = 'rgba(252, 251, 247, 0.9)';
+      ctx.fillText('minotauro · edición territorial', w * 0.50, h * 0.985);
+      ctx.shadowBlur = 0;
+    }
+function renderTemplateCanvas(type, canvas) {
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
+
+      if (type === 'ghibli') {
+        renderGhibliTemplateCanvas(ctx, w, h);
+        return;
+      }
 
       // ─── 1. BASE ROSA CHICLE (Bubblegum Pink Wall) ───
       ctx.fillStyle = '#f472b6';
