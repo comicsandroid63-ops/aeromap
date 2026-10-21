@@ -4772,6 +4772,17 @@
                             </div>
                             <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">Urbanismo</span>
                         </button>
+                        <!-- Plantilla Studio Ghibli -->
+                        <button onclick="applyTemplateInModal('ghibli')" class="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-50/70 transition-colors text-left border border-emerald-100 bg-gradient-to-r from-emerald-50/30 to-sky-50/20 group">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-lg">🍃</span>
+                                <div>
+                                    <span class="text-xs font-bold text-emerald-950 block group-hover:text-emerald-700">El Mundo de Studio Ghibli</span>
+                                    <span class="text-[9px] text-emerald-600/80">A4 V · Totoro &amp; Haku · Paisaje Pastoral Orgánico</span>
+                                </div>
+                            </div>
+                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Ghibli</span>
+                        </button>
                         <button onclick="applyTemplateInModal('minimal')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
                             <div>
                                 <span class="text-xs font-bold text-zinc-900 block">Galería Minimalista</span>
@@ -15218,6 +15229,316 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (metadataContainer) metadataContainer.style.display = 'flex';
         if (compassEl) compassEl.style.display = 'flex';
 
+        // ═══ ESTILO STUDIO GHIBLI (El Mundo de Studio Ghibli / Totoro & Haku) ═══
+        if (theme === 'ghibli') {
+            layoutConfig.theme = 'ghibli';
+            paper.style.background = '#8ecae6';
+
+            decor.innerHTML = `
+                <!-- 1. CAPA CIELO & NUBES -->
+                <div id="ghibliSky" class="layout-draggable-item group z-[2]" style="position:absolute;top:0;left:0;width:210mm;height:165mm;pointer-events:auto;cursor:move;" title="Cielo y Nubes Ghibli (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 210 165" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <defs>
+                            <linearGradient id="ghibliSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#72bde8" />
+                                <stop offset="50%" stop-color="#a4dbf4" />
+                                <stop offset="100%" stop-color="#d6f0fa" />
+                            </linearGradient>
+                        </defs>
+                        <rect width="210" height="165" fill="url(#ghibliSkyGrad)" />
+                        <!-- Nubes flotantes estilo Ghibli -->
+                        <g fill="#ffffff" opacity="0.92">
+                            <ellipse cx="65" cy="55" rx="35" ry="14" />
+                            <ellipse cx="80" cy="50" rx="24" ry="16" />
+                            <ellipse cx="50" cy="54" rx="20" ry="12" />
+
+                            <ellipse cx="160" cy="65" rx="42" ry="16" />
+                            <ellipse cx="145" cy="60" rx="28" ry="18" />
+                            <ellipse cx="178" cy="62" rx="25" ry="14" />
+                        </g>
+                    </svg>
+                    <div id="ghibliSkyResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 2. CAPA COLINAS Y PRADERA -->
+                <div id="ghibliHills" class="layout-draggable-item group z-[4]" style="position:absolute;top:130mm;left:0;width:210mm;height:167mm;pointer-events:auto;cursor:move;" title="Colinas y Pradera (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 210 167" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <defs>
+                            <linearGradient id="ghibliGrassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#67b738" />
+                                <stop offset="35%" stop-color="#55a52a" />
+                                <stop offset="100%" stop-color="#3d821a" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Colina media lejana -->
+                        <path d="M 0,28 Q 55,10 110,24 T 210,14 L 210,167 L 0,167 Z" fill="#88c84b" />
+                        <!-- Colina frontal principal donde descansa Totoro y los títulos -->
+                        <path d="M 0,42 Q 60,26 130,46 T 210,36 L 210,167 L 0,167 Z" fill="url(#ghibliGrassGrad)" />
+                        <!-- Briznas de hierba silueta -->
+                        <g stroke="#3d821a" stroke-width="0.8" opacity="0.6">
+                            <line x1="25" y1="42" x2="27" y2="39" />
+                            <line x1="45" y1="38" x2="47" y2="34" />
+                            <line x1="85" y1="39" x2="87" y2="36" />
+                            <line x1="160" y1="44" x2="162" y2="40" />
+                            <line x1="190" y1="38" x2="192" y2="35" />
+                        </g>
+                    </svg>
+                    <div id="ghibliHillsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 3. CAPA ÁRBOL SAGRADO Y KODAMAS (Árbol alcanforero de Totoro) -->
+                <div id="ghibliTree" class="layout-draggable-item group z-[6]" style="position:absolute;top:0;left:0;width:62mm;height:148mm;pointer-events:auto;cursor:move;" title="Árbol Sagrado &amp; Espíritus Kodama (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 100 240" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Tronco gnarled orgánico -->
+                        <path d="M 0,0 L 50,0 Q 42,45 35,90 Q 55,115 80,125 L 75,138 Q 45,128 28,105 Q 15,160 0,240 Z" fill="#a47148" />
+                        <!-- Textura vetas tronco -->
+                        <path d="M 12,20 Q 25,60 20,110 M 24,30 Q 32,70 26,105" stroke="#7d4e2d" stroke-width="2.5" fill="none" opacity="0.4" />
+                        <!-- Follaje copa del árbol -->
+                        <circle cx="25" cy="15" r="42" fill="#35682d" />
+                        <circle cx="55" cy="25" r="32" fill="#4d8c36" />
+                        <circle cx="20" cy="55" r="28" fill="#5fa743" />
+                        <circle cx="65" cy="115" r="22" fill="#4d8c36" />
+
+                        <!-- Kodama 1 (Espíritu del árbol sentado en la rama) -->
+                        <g transform="translate(42, 85)">
+                            <ellipse cx="6" cy="5" rx="5.5" ry="6" fill="#f8fafc" />
+                            <ellipse cx="6" cy="13" rx="4" ry="5.5" fill="#f8fafc" />
+                            <!-- Ojos y boca huecos Kodama -->
+                            <circle cx="4.2" cy="4.5" r="1.1" fill="#1e293b" />
+                            <circle cx="7.8" cy="4.5" r="1.1" fill="#1e293b" />
+                            <ellipse cx="6" cy="7.5" rx="0.9" ry="1.2" fill="#1e293b" />
+                        </g>
+
+                        <!-- Kodama 2 (Espíritu de pie en la rama superior) -->
+                        <g transform="translate(62, 98)">
+                            <ellipse cx="5" cy="4" rx="4.5" ry="5" fill="#f8fafc" />
+                            <ellipse cx="5" cy="11" rx="3.5" ry="4.5" fill="#f8fafc" />
+                            <circle cx="3.8" cy="3.5" r="0.9" fill="#1e293b" />
+                            <circle cx="6.5" cy="3.5" r="0.9" fill="#1e293b" />
+                            <ellipse cx="5.2" cy="6" rx="0.8" ry="1" fill="#1e293b" />
+                        </g>
+                    </svg>
+                    <div id="ghibliTreeResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 4. CAPA DRAGÓN HAKU EN EL CIELO -->
+                <div id="ghibliDragon" class="layout-draggable-item group z-[10]" style="position:absolute;top:6mm;left:75mm;width:84mm;height:42mm;pointer-events:auto;cursor:move;" title="Dragón Haku / Nigihayami (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 160 80" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Melena verde esmeralda flotante -->
+                        <path d="M 22,28 Q 45,18 70,30 T 110,24 T 145,18" stroke="#38b000" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85" />
+                        <path d="M 20,27 Q 44,16 68,28 T 108,22 T 142,16" stroke="#70e000" stroke-width="3.5" fill="none" stroke-linecap="round" />
+                        <!-- Cuerpo blanco sinuoso del dragón Haku -->
+                        <path d="M 18,30 Q 45,20 70,32 T 112,26 T 150,20" stroke="#f8fafc" stroke-width="6.5" fill="none" stroke-linecap="round" />
+                        <!-- Cabeza dragón con cuernos y bigote -->
+                        <ellipse cx="16" cy="30" rx="7" ry="5" fill="#f8fafc" />
+                        <!-- Ojo verde dragón -->
+                        <circle cx="14" cy="28.5" r="1.3" fill="#2d6a4f" />
+                        <!-- Cuernos -->
+                        <path d="M 20,27 L 26,18 M 22,27 L 27,22" stroke="#d4a373" stroke-width="1.8" stroke-linecap="round" />
+                        <!-- Patas y garras estilizadas -->
+                        <path d="M 55,27 L 50,38 M 53,38 L 47,40" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" />
+                        <path d="M 105,25 L 102,36 M 104,36 L 98,37" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" />
+                        <!-- Cola plumosa -->
+                        <path d="M 150,20 Q 158,15 155,25 Q 152,22 150,20" fill="#38b000" />
+                    </svg>
+                    <div id="ghibliDragonResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 5. CAPA CASTILLO AMBULANTE DE HOWL -->
+                <div id="ghibliCastle" class="layout-draggable-item group z-[7]" style="position:absolute;top:32mm;left:156mm;width:42mm;height:52mm;pointer-events:auto;cursor:move;" title="Castillo Ambulante de Howl (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 100 120" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Patas mecánicas de ave -->
+                        <g stroke="#4a3728" stroke-width="2.5" stroke-linecap="round">
+                            <line x1="30" y1="90" x2="25" y2="114" />
+                            <line x1="25" y1="114" x2="16" y2="118" />
+                            <line x1="45" y1="92" x2="42" y2="115" />
+                            <line x1="65" y1="92" x2="72" y2="114" />
+                            <line x1="72" y1="114" x2="80" y2="118" />
+                        </g>
+                        <!-- Masa principal del castillo (módulos superpuestos) -->
+                        <rect x="25" y="45" width="50" height="48" rx="8" fill="#a47148" />
+                        <rect x="18" y="55" width="30" height="32" rx="6" fill="#c68b59" />
+                        <rect x="48" y="40" width="35" height="40" rx="6" fill="#8d5b36" />
+                        <!-- Torrecillas y tejados -->
+                        <polygon points="22,55 33,35 44,55" fill="#e07a5f" />
+                        <polygon points="50,40 62,20 74,40" fill="#3d5a80" />
+                        <!-- Chimeneas con vapor suave -->
+                        <rect x="70" y="24" width="7" height="18" fill="#4a3728" />
+                        <circle cx="73" cy="18" r="4" fill="#ffffff" opacity="0.6" />
+                        <circle cx="76" cy="11" r="5" fill="#ffffff" opacity="0.4" />
+                        <!-- Ruedas y ojos mecánicos -->
+                        <circle cx="38" cy="72" r="7" fill="#2d3748" />
+                        <circle cx="38" cy="72" r="3" fill="#e2e8f0" />
+                        <circle cx="62" cy="70" r="5" fill="#4a5568" />
+                    </svg>
+                    <div id="ghibliCastleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 6. CAPA TOTORO DURMIENDO EN LA PRADERA -->
+                <div id="ghibliTotoro" class="layout-draggable-item group z-[12]" style="position:absolute;top:128mm;left:32mm;width:146mm;height:78mm;pointer-events:auto;cursor:move;" title="Totoro Durmiendo en la Pradera (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 320 170" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Sombra bajo Totoro -->
+                        <ellipse cx="160" cy="148" rx="135" ry="14" fill="#2d5e1a" opacity="0.5" />
+                        <!-- Cuerpo principal de Totoro acostado -->
+                        <ellipse cx="160" cy="100" rx="125" ry="52" fill="#3d5248" />
+                        <!-- Gran Barriga redonda crema -->
+                        <ellipse cx="178" cy="88" rx="76" ry="40" fill="#eee8da" />
+                        <!-- Marcas características chevron ^ en el pecho -->
+                        <g stroke="#3d5248" stroke-width="4.2" stroke-linecap="round" fill="none">
+                            <path d="M 145,74 Q 153,66 161,74" />
+                            <path d="M 172,74 Q 180,66 188,74" />
+                            <path d="M 199,74 Q 207,66 215,74" />
+                            <path d="M 158,88 Q 166,80 174,88" />
+                            <path d="M 186,88 Q 194,80 202,88" />
+                        </g>
+                        <!-- Cabeza en el extremo izquierdo -->
+                        <circle cx="78" cy="80" r="34" fill="#3d5248" />
+                        <!-- Orejas de Totoro -->
+                        <ellipse cx="56" cy="58" rx="8" ry="19" fill="#3d5248" transform="rotate(-35 56 58)" />
+                        <!-- Ojo durmiendo (curva de arco pacífica) -->
+                        <path d="M 72,68 Q 78,63 84,68" stroke="#1c2822" stroke-width="2.5" fill="none" stroke-linecap="round" />
+                        <!-- Nariz negra pequeña -->
+                        <ellipse cx="61" cy="74" rx="4" ry="3" fill="#1c2822" />
+                        <!-- Bigotes largos -->
+                        <g stroke="#1c2822" stroke-width="2.2" stroke-linecap="round">
+                            <line x1="68" y1="81" x2="44" y2="76" />
+                            <line x1="68" y1="85" x2="42" y2="86" />
+                            <line x1="68" y1="89" x2="45" y2="95" />
+                        </g>
+                        <!-- Brazo y garras descansando -->
+                        <ellipse cx="115" cy="105" rx="30" ry="16" fill="#304239" transform="rotate(18 115 105)" />
+                        <circle cx="145" cy="110" r="3" fill="#ffffff" />
+                        <circle cx="141" cy="114" r="3" fill="#ffffff" />
+                        <circle cx="136" cy="117" r="3" fill="#ffffff" />
+                        <!-- Garras de las patas traseras a la derecha -->
+                        <g fill="#ffffff">
+                            <circle cx="282" cy="100" r="3.5" />
+                            <circle cx="284" cy="106" r="3.5" />
+                            <circle cx="282" cy="112" r="3.5" />
+                        </g>
+                        <!-- Briznas de hierba cubriendo el contorno inferior -->
+                        <path d="M 50,140 L 55,126 L 60,140 L 90,142 L 95,129 L 100,142 M 160,145 L 165,132 L 170,145 M 240,142 L 245,130 L 250,142" stroke="#5fa743" stroke-width="3" fill="none" stroke-linecap="round" />
+                    </svg>
+                    <div id="ghibliTotoroResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 7. CAPA MINI TOTOROS (Chu-Totoro Azul y Chibi-Totoro Blanco) -->
+                <div id="ghibliMiniTotoros" class="layout-draggable-item group z-[14]" style="position:absolute;top:123mm;left:96mm;width:46mm;height:32mm;pointer-events:auto;cursor:move;" title="Mini Totoros sobre la barriga (Arrastrar o redimensionar)">
+                    <svg viewBox="0 0 110 80" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+                        <!-- Chu-Totoro (Azul mediano) -->
+                        <ellipse cx="44" cy="46" rx="22" ry="25" fill="#2b6cb0" />
+                        <ellipse cx="44" cy="50" rx="13" ry="16" fill="#f8fafc" />
+                        <!-- Orejas azules -->
+                        <ellipse cx="36" cy="20" rx="4.5" ry="12" fill="#2b6cb0" transform="rotate(-10 36 20)" />
+                        <ellipse cx="52" cy="20" rx="4.5" ry="12" fill="#2b6cb0" transform="rotate(10 52 20)" />
+                        <!-- Ojos negros con pupila blanca -->
+                        <circle cx="38" cy="38" r="4" fill="#ffffff" />
+                        <circle cx="39" cy="38" r="2" fill="#0f172a" />
+                        <circle cx="50" cy="38" r="4" fill="#ffffff" />
+                        <circle cx="49" cy="38" r="2" fill="#0f172a" />
+                        <polygon points="42,42 46,42 44,44" fill="#0f172a" />
+                        <!-- Hoja verde o saco que lleva -->
+                        <path d="M 24,42 Q 18,32 26,26 Q 32,34 24,42" fill="#48bb78" />
+
+                        <!-- Chibi-Totoro (Pequeño blanco a la derecha) -->
+                        <ellipse cx="80" cy="54" rx="14" ry="16" fill="#f8fafc" />
+                        <ellipse cx="75" cy="36" rx="3" ry="8" fill="#f8fafc" transform="rotate(-8 75 36)" />
+                        <ellipse cx="85" cy="36" rx="3" ry="8" fill="#f8fafc" transform="rotate(8 85 36)" />
+                        <circle cx="76" cy="48" r="2" fill="#0f172a" />
+                        <circle cx="84" cy="48" r="2" fill="#0f172a" />
+                    </svg>
+                    <div id="ghibliMiniTotorosResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 8. CAPA TEXTO: Título Portada "EL MUNDO DE STUDIO GHIBLI" -->
+                <div id="ghibliMainTitle" class="layout-draggable-item group z-[25]" style="position:absolute;top:204mm;left:15mm;width:180mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Título Ghibli (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/90 text-white text-[8px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[11px]">drag_indicator</span> Mover Título
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:24px;font-weight:900;letter-spacing:0.2em;font-family:'Quicksand','Comfortaa',Inter,sans-serif;text-transform:uppercase;text-shadow:0 3px 6px rgba(0,0,0,0.32);line-height:1.15;cursor:text;display:block;">EL MUNDO DE</span>
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:24px;font-weight:900;letter-spacing:0.2em;font-family:'Quicksand','Comfortaa',Inter,sans-serif;text-transform:uppercase;text-shadow:0 3px 6px rgba(0,0,0,0.32);line-height:1.15;cursor:text;display:block;margin-top:2px;">STUDIO GHIBLI</span>
+                    </div>
+                    <div id="ghibliMainTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 9. CAPA TEXTO: Franja y Subtítulo de Autores / Membrete Cartográfico -->
+                <div id="ghibliSubBanner" class="layout-draggable-item group z-[26]" style="position:absolute;top:262mm;left:18mm;width:174mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Franja y Datos (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/90 text-white text-[8px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[11px]">drag_indicator</span> Mover Franja
+                    </div>
+                    <div style="width:100%;height:1.8px;background:rgba(252,251,247,0.85);margin-bottom:6px;border-radius:1px;"></div>
+                    <div style="text-align:center;">
+                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#fcfbf7;font-size:8.5px;font-weight:800;letter-spacing:0.16em;font-family:Inter,sans-serif;text-transform:uppercase;text-shadow:0 1.5px 3px rgba(0,0,0,0.3);cursor:text;display:block;">LEVANTAMIENTO TOPOGRÁFICO &amp; PAISAJÍSTICO · ESCALA: 1:1,000</span>
+                    </div>
+                    <div id="ghibliSubBannerResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 10. CAPA TEXTO: Pie Editorial Estilo Minotauro -->
+                <div id="ghibliPublisher" class="layout-draggable-item group z-[27]" style="position:absolute;top:278mm;left:20mm;width:170mm;cursor:move;pointer-events:auto;text-align:center;padding:2px;" title="Capa Texto: Pie Editorial (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover Pie
+                    </div>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:rgba(252,251,247,0.9);font-size:9.5px;font-weight:700;letter-spacing:0.16em;font-family:'Quicksand',Inter,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.25);cursor:text;display:inline-block;">minotauro · edición territorial</span>
+                    <div id="ghibliPublisherResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+
+                <!-- 11. CAPA TEXTO: Insignias de Protección Ambiental -->
+                <div id="ghibliBadges" class="layout-draggable-item group z-[28]" style="position:absolute;top:8mm;left:135mm;display:flex;gap:3mm;cursor:move;pointer-events:auto;padding:2px;" title="Capa Texto: Insignias Ambientales (Arrastrar o editar)">
+                    <div class="tmpl-drag-handle absolute -top-4 left-0 px-1.5 py-0.5 bg-black/90 text-white text-[7.5px] font-sans font-bold rounded cursor-move hidden group-hover:flex items-center gap-1 select-none pointer-events-auto z-30 shadow border border-white/20">
+                        <span class="material-symbols-outlined text-[10px]">drag_indicator</span> Mover
+                    </div>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:rgba(45,90,39,0.88);color:#fcfbf7;font-size:7.5px;font-weight:800;font-family:Inter,sans-serif;display:inline-block;padding:2.5px 8px;border-radius:12px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.4);cursor:text;text-align:center;line-height:1.2;white-space:nowrap;backdrop-filter:blur(4px);">[ 🍃 ] RESERVA AMBIENTAL</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:rgba(255,255,255,0.92);color:#2d5a27;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2.5px 8px;border-radius:12px;letter-spacing:0.06em;border:1.2px solid #2d5a27;cursor:text;text-align:center;line-height:1.2;white-space:nowrap;">[ 🧭 ] DATUM WGS-84</span>
+                    <div id="ghibliBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+                </div>
+            `;
+
+            // Marco del mapa orgánico tipo libro de arte de estudio
+            if (mapFrame) {
+                mapFrame.style.borderColor = '#2d5a27';
+                mapFrame.style.borderWidth = '3.5px';
+                mapFrame.style.borderStyle = 'solid';
+                mapFrame.style.boxShadow = '0 0 0 2px #ffffff, 0 14px 40px rgba(30,50,20,0.28)';
+                mapFrame.style.borderRadius = '12px';
+            }
+            if (mapContainer) {
+                mapContainer.style.filter = 'contrast(1.1) saturate(1.2) brightness(1.02)';
+                mapContainer.style.borderRadius = '9px';
+            }
+            if (legendContainer) {
+                legendContainer.style.background = 'rgba(253, 252, 248, 0.94)';
+                legendContainer.style.border = '2px solid #3c7329';
+                legendContainer.style.borderRadius = '12px';
+                legendContainer.style.boxShadow = '0 8px 24px rgba(30,50,20,0.18)';
+                legendContainer.style.color = '#1e3a17';
+            }
+            if (scaleContainer) {
+                scaleContainer.style.background = 'rgba(253, 252, 248, 0.94)';
+                scaleContainer.style.border = '1.8px solid #2d5a27';
+                scaleContainer.style.borderRadius = '8px';
+                scaleContainer.style.color = '#1e3a17';
+            }
+            if (metadataContainer) {
+                metadataContainer.style.background = 'rgba(253, 252, 248, 0.94)';
+                metadataContainer.style.border = '1.8px solid #2d5a27';
+                metadataContainer.style.borderRadius = '8px';
+                metadataContainer.style.color = '#1e3a17';
+            }
+            if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
+            layoutConfig.styles.compass.design = 'leaf-forest';
+            layoutConfig.styles.compass.color = '#2d5a27';
+            if (!layoutConfig.grid) layoutConfig.grid = {};
+            layoutConfig.grid.enabled = false;
+
+            if (typeof layoutUpdateCompassDesign === 'function') layoutUpdateCompassDesign();
+            if (typeof layoutDrawGrid === 'function' && layoutConfig.grid && layoutConfig.grid.enabled) layoutDrawGrid();
+            if (typeof layoutUpdateLegend === 'function') layoutUpdateLegend();
+            if (typeof layoutInitTemplateDraggables === 'function') layoutInitTemplateDraggables();
+            if (typeof layoutRefreshElementsList === 'function') layoutRefreshElementsList();
+            return;
+        }
+
         // ═══ ESTILO POP GEOMÉTRICO (Arquitectura Cromática) ═══
         const colors = layoutConfig.themeColors || { paper: '#f472b6', wall: '#00a8e8', stairs: '#fbb040', frame: '#008259' };
         paper.style.background = colors.paper || '#f472b6';
@@ -16681,23 +17002,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
     };
 
     function layoutInitTemplateDraggables() {
-        const templateItems = [
-            { id: 'layoutThemeWall', resizer: 'layoutThemeWallResize' },
-            { id: 'layoutThemeWallPin', resizer: 'layoutThemeWallPinResize' },
-            { id: 'layoutThemeWallText', resizer: 'layoutThemeWallTextResize' },
-            { id: 'layoutTopBannerBg', resizer: 'layoutTopBannerBgResize' },
-            { id: 'layoutTopBannerIcons', resizer: 'layoutTopBannerIconsResize' },
-            { id: 'layoutTopBannerText', resizer: 'layoutTopBannerTextResize' },
-            { id: 'layoutTopBannerBadges', resizer: 'layoutTopBannerBadgesResize' },
-            { id: 'layoutThemeStairs', resizer: 'layoutThemeStairsResize' },
-            { id: 'layoutStairsLeftBadge', resizer: 'layoutStairsLeftBadgeResize' },
-            { id: 'layoutStairsRightBadge', resizer: 'layoutStairsRightBadgeResize' }
-        ];
-
-        templateItems.forEach(item => {
-            const el = document.getElementById(item.id);
-            if (!el) return;
-            const resizer = item.resizer ? document.getElementById(item.resizer) : null;
+        const allDraggables = document.querySelectorAll('#layoutThemeDecor .layout-draggable-item');
+        allDraggables.forEach(el => {
+            const resizer = el.querySelector('[id$="Resize"]');
 
             el.onmousedown = function(e) {
                 if (resizer && (e.target === resizer || resizer.contains(e.target))) return;
@@ -16774,18 +17081,35 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const prevTmplItems = list.querySelectorAll('.tmpl-layer-item');
         prevTmplItems.forEach(el => el.remove());
 
-        const templateLayers = [
-            { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
-            { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
-            { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
-            { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
-            { id: 'layoutTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
-            { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
-            { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
-            { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
-            { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
-            { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
-        ];
+        let templateLayers = [];
+        if (layoutConfig.theme === 'ghibli') {
+            templateLayers = [
+                { id: 'ghibliSky', name: 'Cielo & Nubes (Fondo)', icon: 'cloud' },
+                { id: 'ghibliHills', name: 'Colinas & Pradera (Fondo)', icon: 'landscape' },
+                { id: 'ghibliTree', name: 'Árbol Sagrado & Kodamas', icon: 'park' },
+                { id: 'ghibliDragon', name: 'Dragón Haku en el Cielo', icon: 'air' },
+                { id: 'ghibliCastle', name: 'Castillo Ambulante Howl', icon: 'fort' },
+                { id: 'ghibliTotoro', name: 'Totoro Durmiendo', icon: 'pets' },
+                { id: 'ghibliMiniTotoros', name: 'Mini Totoros en Barriga', icon: 'cruelty_free' },
+                { id: 'ghibliMainTitle', name: 'Título: El Mundo de Studio Ghibli', icon: 'title' },
+                { id: 'ghibliSubBanner', name: 'Franja: Subtítulo & Escala', icon: 'short_text' },
+                { id: 'ghibliPublisher', name: 'Pie: Minotauro Editorial', icon: 'auto_stories' },
+                { id: 'ghibliBadges', name: 'Insignias Ambientales', icon: 'eco' }
+            ];
+        } else {
+            templateLayers = [
+                { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
+                { id: 'layoutThemeWallPin', name: 'Muro Pin (Ícono)', icon: 'location_on' },
+                { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
+                { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
+                { id: 'layoutTopBannerIcons', name: 'Banner Formas (Ícono)', icon: 'category' },
+                { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
+                { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
+                { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
+                { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
+                { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+            ];
+        }
 
         templateLayers.forEach(l => {
             const targetEl = document.getElementById(l.id);
@@ -22621,6 +22945,28 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
     function applyTemplate(type) {
       const presets = {
+        ghibli: {
+          theme: 'ghibli',
+          paper: 'A4', orientation: 'portrait',
+          titleText: 'EL MUNDO DE STUDIO GHIBLI',
+          themeColors: { paper: '#8ecae6', wall: '#5fa743', stairs: '#438927', frame: '#2d5a27' },
+          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          styles: {
+            title: { fontSize: 20, color: '#fcfbf7', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter' },
+            legend: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 8.5, color: '#1e3a17', fontFamily: 'Inter', design: 'modern' },
+            compass: { color: '#2d5a27', design: 'leaf-forest', rotation: 0, size: 34 }
+          },
+          mapFrame: { top: '30mm', left: '46mm', width: '135mm', height: '115mm', visible: true },
+          compass: { top: '34mm', left: '146mm', width: '28mm', height: '28mm' },
+          titleProps: { top: '150mm', left: '20mm', width: '170mm', height: '18mm' },
+          legend: { top: '230mm', left: '10mm', width: '56mm', height: '56mm' },
+          scale: { top: '232mm', left: '70mm', width: '62mm', height: '20mm' },
+          metadata: { top: '232mm', left: '136mm', width: '64mm', height: '20mm' },
+          grid: { enabled: false }
+        },
+        
         pop_geometric: {
           theme: 'pop_geometric',
           paper: 'A4', orientation: 'portrait',
