@@ -15944,7 +15944,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
         layoutUpdateScaleDesign();
     }
 
+    function layoutUpdateCoordDisplay() {
+        const coordEl = document.getElementById('layoutCoordDisplay');
+        if (!coordEl) return;
+        if (layoutConfig.customCoord) {
+            coordEl.textContent = layoutConfig.customCoord;
+            return;
+        }
+        const m = window.layoutLeafletMap || state.map;
+        if (m && typeof m.getCenter === 'function') {
+            const center = m.getCenter();
+            const latStr = Math.abs(center.lat).toFixed(4) + '° ' + (center.lat >= 0 ? 'N' : 'S');
+            const lngStr = Math.abs(center.lng).toFixed(4) + '° ' + (center.lng >= 0 ? 'E' : 'W');
+            coordEl.textContent = `Centro: ${latStr}, ${lngStr} (WGS84)`;
+        }
+    }
+
     function layoutUpdateScaleText() {
+        layoutUpdateCoordDisplay();
         if (!layoutConfig.snapshotCenter || !layoutConfig.snapshotZoom) return;
 
         const lat = layoutConfig.snapshotCenter.lat;
@@ -16660,20 +16677,27 @@ async function deleteFromCloud(fileName, url, storagePath) {
         layoutDrawGrid();
     }
 
-    function layoutDrawGrid() {
+    function layoutDrawGrid(customScale = null) {
         const frame = document.getElementById('layoutMapFrame');
         const container = document.getElementById('layoutMapContainer');
         if (!frame || !container) return;
         
-        // Eliminar cuadrícula y etiquetas previas
+        // Eliminar elementos previos
         const existingSvg = document.getElementById('layoutGridOverlay');
         if (existingSvg) existingSvg.remove();
         const existingLabels = document.getElementById('layoutGridLabelsOverlay');
         if (existingLabels) existingLabels.remove();
+        let canvas = document.getElementById('layoutGridCanvas');
 
         const config = layoutConfig.grid;
-        if (!config || !config.enabled) return;
-        if (!config.intervalLat || config.intervalLat <= 0 || !config.intervalLng || config.intervalLng <= 0) return;
+        if (!config || !config.enabled) {
+            if (canvas) canvas.remove();
+            return;
+        }
+        if (!config.intervalLat || config.intervalLat <= 0 || !config.intervalLng || config.intervalLng <= 0) {
+            if (canvas) canvas.remove();
+            return;
+        }
 
         const m = window.layoutLeafletMap || state.map;
         if (!m) return;
@@ -16691,17 +16715,30 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const pxW = container.clientWidth || container.offsetWidth || 510;
         const pxH = container.clientHeight || container.offsetHeight || 490;
 
-        // SVG con las líneas internas del mapa
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.id = 'layoutGridOverlay';
-        svg.setAttribute("viewBox", `0 0 ${pxW} ${pxH}`);
-        svg.setAttribute("preserveAspectRatio", "none");
-        svg.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:500; pointer-events:none; overflow:visible;';
+        // Márgenes físicos generosos alrededor del marco para alojar ticks y rótulos sin recortar
+        const padX = 80;
+        const padY = 55;
+        const totalW = pxW + padX * 2;
+        const totalH = pxH + padY * 2;
 
-        // Capa HTML de etiquetas de coordenadas
-        const labelsOverlay = document.createElement('div');
-        labelsOverlay.id = 'layoutGridLabelsOverlay';
-        labelsOverlay.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:510; pointer-events:none; overflow:visible;';
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.id = 'layoutGridCanvas';
+            frame.appendChild(canvas);
+        }
+
+        const dpr = customScale || (window.devicePixelRatio || 1);
+        canvas.width = Math.round(totalW * dpr);
+        canvas.height = Math.round(totalH * dpr);
+        canvas.style.cssText = `position:absolute; top:-${padY}px; left:-${padX}px; width:${totalW}px; height:${totalH}px; z-index:500; pointer-events:none;`;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.translate(padX, padY);
 
         const strokeColor = config.color || '#333333';
         const lineOpacity = (typeof config.opacity === 'number' && !isNaN(config.opacity)) ? Math.max(0.15, config.opacity) : 0.45;
@@ -16724,10 +16761,55 @@ async function deleteFromCloud(fileName, url, storagePath) {
         };
 
         const fontSize = Math.max(8, (config.fontSize || 8) * 1.25);
-        const fFam = (config.fontFamily || 'Inter') + ', sans-serif';
+        const fFam = (config.fontFamily || 'Inter') + ', -apple-system, sans-serif';
         const fCol = config.fontColor || '#111115';
 
-        // ─── Líneas de Latitud (Horizontales) ───
+        // Función para dibujar badge redondeado y nítido
+        function drawCoordBadge(text, cx, cy, isVertical) {
+            ctx.save();
+            ctx.font = `bold ${fontSize}px ${fFam}`;
+            const textWidth = ctx.measureText(text).width;
+            const badgeW = textWidth + 10;
+            const badgeH = fontSize + 6;
+
+            ctx.translate(cx, cy);
+            if (isVertical) {
+                ctx.rotate(-Math.PI / 2);
+            }
+
+            const bx = -badgeW / 2;
+            const by = -badgeH / 2;
+
+            // Sombra suave
+            ctx.shadowColor = 'rgba(0,0,0,0.18)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 1;
+
+            // Fondo blanco nítido
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(bx, by, badgeW, badgeH, 3);
+            } else {
+                ctx.rect(bx, by, badgeW, badgeH);
+            }
+            ctx.fill();
+
+            // Borde tenue
+            ctx.shadowColor = 'transparent';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Texto centrado
+            ctx.fillStyle = fCol;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 0, 0.5);
+            ctx.restore();
+        }
+
+        // ─── 1. Líneas de Latitud (Horizontales) ───
         const latStep = config.intervalLat;
         let lat = Math.round((Math.ceil(minLat / latStep) * latStep) * 1e8) / 1e8;
         while (lat <= maxLat + (latStep * 0.02)) {
@@ -16735,66 +16817,51 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const y = Math.round(p.y);
 
             if (y >= 0 && y <= pxH) {
-                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", "0"); line.setAttribute("y1", y);
-                line.setAttribute("x2", pxW); line.setAttribute("y2", y);
-                line.setAttribute("stroke", strokeColor);
-                line.setAttribute("stroke-width", "1.2");
-                line.setAttribute("opacity", lineOpacity);
-                svg.appendChild(line);
+                // Línea interna estricta
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(pxW, y);
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = lineOpacity;
+                ctx.stroke();
+                ctx.restore();
 
-                const tickL = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickL.setAttribute("x1", isInside ? "0" : "-5"); tickL.setAttribute("y1", y);
-                tickL.setAttribute("x2", isInside ? "6" : "0"); tickL.setAttribute("y2", y);
-                tickL.setAttribute("stroke", strokeColor); tickL.setAttribute("stroke-width", "1.5");
-                svg.appendChild(tickL);
-
-                const tickR = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickR.setAttribute("x1", isInside ? (pxW - 6) : pxW); tickR.setAttribute("y1", y);
-                tickR.setAttribute("x2", isInside ? pxW : (pxW + 5)); tickR.setAttribute("y2", y);
-                tickR.setAttribute("stroke", strokeColor); tickR.setAttribute("stroke-width", "1.5");
-                svg.appendChild(tickR);
+                // Ticks exteriores o interiores
+                ctx.save();
+                ctx.beginPath();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.5;
+                // Izquierdo
+                ctx.moveTo(isInside ? 0 : -5, y);
+                ctx.lineTo(isInside ? 6 : 0, y);
+                // Derecho
+                ctx.moveTo(isInside ? pxW - 6 : pxW, y);
+                ctx.lineTo(isInside ? pxW : pxW + 5, y);
+                ctx.stroke();
+                ctx.restore();
 
                 if (config.showLabels) {
                     const labelText = formatCoord(lat, latStep, true);
+                    ctx.font = `bold ${fontSize}px ${fFam}`;
+                    const badgeW = ctx.measureText(labelText).width + 10;
 
-                    // Etiqueta Izquierda
-                    const leftDiv = document.createElement('div');
-                    leftDiv.contentEditable = "true";
-                    leftDiv.spellcheck = false;
-                    leftDiv.className = 'pointer-events-auto cursor-text select-text';
-                    leftDiv.textContent = labelText;
                     if (isInside) {
-                        const tr = isLatVert ? 'translateY(-50%) rotate(-90deg)' : 'translateY(-50%)';
-                        leftDiv.style.cssText = `position:absolute; left:7px; top:${y}px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
+                        const offset = isLatVert ? 15 : (badgeW / 2 + 6);
+                        drawCoordBadge(labelText, offset, y, isLatVert);
+                        drawCoordBadge(labelText, pxW - offset, y, isLatVert);
                     } else {
-                        const tr = isLatVert ? 'translateY(-50%) rotate(-90deg)' : 'translateY(-50%)';
-                        const orig = isLatVert ? 'right center' : 'center center';
-                        leftDiv.style.cssText = `position:absolute; right:calc(100% + 7px); top:${y}px; transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const offset = isLatVert ? 15 : (badgeW / 2 + 8);
+                        drawCoordBadge(labelText, -offset, y, isLatVert);
+                        drawCoordBadge(labelText, pxW + offset, y, isLatVert);
                     }
-                    labelsOverlay.appendChild(leftDiv);
-
-                    // Etiqueta Derecha
-                    const rightDiv = document.createElement('div');
-                    rightDiv.contentEditable = "true";
-                    rightDiv.spellcheck = false;
-                    rightDiv.className = 'pointer-events-auto cursor-text select-text';
-                    rightDiv.textContent = labelText;
-                    if (isInside) {
-                        const tr = isLatVert ? 'translateY(-50%) rotate(90deg)' : 'translateY(-50%)';
-                        rightDiv.style.cssText = `position:absolute; right:7px; top:${y}px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
-                    } else {
-                        const tr = isLatVert ? 'translateY(-50%) rotate(90deg)' : 'translateY(-50%)';
-                        const orig = isLatVert ? 'left center' : 'center center';
-                        rightDiv.style.cssText = `position:absolute; left:calc(100% + 7px); top:${y}px; transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
-                    }
-                    labelsOverlay.appendChild(rightDiv);
                 }
             }
             lat = Math.round((lat + latStep) * 1e8) / 1e8;
         }
 
-        // ─── Líneas de Longitud (Verticales) ───
+        // ─── 2. Líneas de Longitud (Verticales) ───
         const lngStep = config.intervalLng;
         let lng = Math.round((Math.ceil(minLng / lngStep) * lngStep) * 1e8) / 1e8;
         while (lng <= maxLng + (lngStep * 0.02)) {
@@ -16802,67 +16869,51 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const x = Math.round(p.x);
 
             if (x >= 0 && x <= pxW) {
-                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", x); line.setAttribute("y1", "0");
-                line.setAttribute("x2", x); line.setAttribute("y2", pxH);
-                line.setAttribute("stroke", strokeColor);
-                line.setAttribute("stroke-width", "1.2");
-                line.setAttribute("opacity", lineOpacity);
-                svg.appendChild(line);
+                // Línea interna estricta
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, pxH);
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = lineOpacity;
+                ctx.stroke();
+                ctx.restore();
 
-                const tickT = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickT.setAttribute("x1", x); tickT.setAttribute("y1", isInside ? "0" : "-5");
-                tickT.setAttribute("x2", x); tickT.setAttribute("y2", isInside ? "6" : "0");
-                tickT.setAttribute("stroke", strokeColor); tickT.setAttribute("stroke-width", "1.5");
-                svg.appendChild(tickT);
-
-                const tickB = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                tickB.setAttribute("x1", x); tickB.setAttribute("y1", isInside ? (pxH - 6) : pxH);
-                tickB.setAttribute("x2", x); tickB.setAttribute("y2", isInside ? pxH : (pxH + 5));
-                tickB.setAttribute("stroke", strokeColor); tickB.setAttribute("stroke-width", "1.5");
-                svg.appendChild(tickB);
+                // Ticks exteriores o interiores
+                ctx.save();
+                ctx.beginPath();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1.5;
+                // Superior
+                ctx.moveTo(x, isInside ? 0 : -5);
+                ctx.lineTo(x, isInside ? 6 : 0);
+                // Inferior
+                ctx.moveTo(x, isInside ? pxH - 6 : pxH);
+                ctx.lineTo(x, isInside ? pxH : pxH + 5);
+                ctx.stroke();
+                ctx.restore();
 
                 if (config.showLabels) {
                     const labelText = formatCoord(lng, lngStep, false);
+                    ctx.font = `bold ${fontSize}px ${fFam}`;
+                    const badgeW = ctx.measureText(labelText).width + 10;
 
-                    // Etiqueta Superior
-                    const topDiv = document.createElement('div');
-                    topDiv.contentEditable = "true";
-                    topDiv.spellcheck = false;
-                    topDiv.className = 'pointer-events-auto cursor-text select-text';
-                    topDiv.textContent = labelText;
                     if (isInside) {
-                        const tr = isLngVert ? 'translateX(-50%) rotate(-90deg)' : 'translateX(-50%)';
-                        topDiv.style.cssText = `position:absolute; left:${x}px; top:8px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
+                        const offset = isLngVert ? (badgeW / 2 + 6) : 15;
+                        drawCoordBadge(labelText, x, offset, isLngVert);
+                        drawCoordBadge(labelText, x, pxH - offset, isLngVert);
                     } else {
-                        const tr = isLngVert ? 'translateX(-50%) rotate(-90deg)' : 'translateX(-50%)';
-                        const orig = isLngVert ? 'center bottom' : 'center center';
-                        topDiv.style.cssText = `position:absolute; left:${x}px; bottom:calc(100% + 7px); transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
+                        const offset = isLngVert ? (badgeW / 2 + 8) : 15;
+                        drawCoordBadge(labelText, x, -offset, isLngVert);
+                        drawCoordBadge(labelText, x, pxH + offset, isLngVert);
                     }
-                    labelsOverlay.appendChild(topDiv);
-
-                    // Etiqueta Inferior
-                    const botDiv = document.createElement('div');
-                    botDiv.contentEditable = "true";
-                    botDiv.spellcheck = false;
-                    botDiv.className = 'pointer-events-auto cursor-text select-text';
-                    botDiv.textContent = labelText;
-                    if (isInside) {
-                        const tr = isLngVert ? 'translateX(-50%) rotate(90deg)' : 'translateX(-50%)';
-                        botDiv.style.cssText = `position:absolute; left:${x}px; bottom:8px; transform:${tr}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; background:rgba(255,255,255,0.88); padding:1.5px 5px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 1px 3px rgba(0,0,0,0.15); white-space:nowrap;`;
-                    } else {
-                        const tr = isLngVert ? 'translateX(-50%) rotate(90deg)' : 'translateX(-50%)';
-                        const orig = isLngVert ? 'center top' : 'center center';
-                        botDiv.style.cssText = `position:absolute; left:${x}px; top:calc(100% + 7px); transform:${tr}; transform-origin:${orig}; font-family:${fFam}; font-size:${fontSize}px; font-weight:800; color:${fCol}; white-space:nowrap; background:rgba(255,255,255,0.96); padding:1.5px 6px; border-radius:3px; border:1px solid rgba(0,0,0,0.25); box-shadow:0 1px 4px rgba(0,0,0,0.15);`;
-                    }
-                    labelsOverlay.appendChild(botDiv);
                 }
             }
             lng = Math.round((lng + lngStep) * 1e8) / 1e8;
         }
 
-        frame.appendChild(svg);
-        frame.appendChild(labelsOverlay);
+        ctx.restore();
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -17229,6 +17280,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const targetZoom = +(currentZoom + Math.log2(exactScale)).toFixed(4);
 
             try {
+                if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
+                    layoutDrawGrid(exactScale);
+                }
                 const mapCanvas = await renderHighResMapSnapshot(targetMapPxW, targetMapPxH, currentCenter, targetZoom);
                 if (mapCanvas) {
                     highResMapImg = document.createElement('img');
@@ -17336,6 +17390,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
             console.error('Export Error:', err);
             toast('Error al generar la exportación: ' + (err.message || err), 'error');
         } finally {
+            if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
+                layoutDrawGrid(window.devicePixelRatio || 1);
+            }
             // Eliminar imagen de alta resolución temporal
             if (highResMapImg && highResMapImg.parentNode) {
                 highResMapImg.parentNode.removeChild(highResMapImg);
