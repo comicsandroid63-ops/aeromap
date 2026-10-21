@@ -1215,6 +1215,18 @@
     }
 </style>
   <style>
+    /* Soporte para que todas las capas (fondos y textos) sean movibles y editables independientemente */
+    .layout-draggable-item {
+      cursor: move;
+      transition: outline 0.15s;
+    }
+    .layout-draggable-item:hover {
+      outline: 1.5px dashed rgba(59, 130, 246, 0.7) !important;
+      outline-offset: 1px;
+    }
+    .layout-draggable-item [contenteditable="true"]:hover {
+      outline: 1px solid rgba(236, 72, 153, 0.8) !important;
+    }
     /* Corrección de línea base y desfase vertical de html2canvas provocado por Tailwind CSS preflight */
     #layoutPaper img, #layoutPaper svg, #layoutPaper canvas {
       display: inline-block;
@@ -15211,60 +15223,84 @@ async function deleteFromCloud(fileName, url, storagePath) {
         paper.style.background = colors.paper || '#f472b6';
 
         decor.innerHTML = `
-            <!-- Left Stepped Architectural Block -->
-            <div id="layoutThemeWall" style="position:absolute;top:0;left:0;width:32%;height:68%;pointer-events:none;transition:background 0.25s;">
+            <!-- 1. CAPA FONDO: Muro Arquitectónico Azul -->
+            <div id="layoutThemeWall" class="layout-draggable-item group z-[5]" style="position:absolute;top:0;left:0;width:68mm;height:190mm;pointer-events:auto;cursor:move;" title="Fondo: Muro Azul (Arrastrar o redimensionar)">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
                     <polygon points="0,0 100,0 100,24 74,24 74,50 48,50 48,76 22,76 22,100 0,100" fill="${colors.wall || '#00a8e8'}" />
                 </svg>
-                <div style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#111115;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.4);">
-                    <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;"></span>
-                </div>
-                <div contenteditable="true" spellcheck="false" style="outline:none;position:absolute;top:54mm;left:10mm;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;cursor:text;pointer-events:auto;background:rgba(0,0,0,0.45);padding:2px 6px;border-radius:3px;line-height:1.2;text-align:center;">
+                <div id="layoutThemeWallResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 2. CAPA PIN: Pin Decorativo Muro -->
+            <div id="layoutThemeWallPin" class="layout-draggable-item group z-[18]" style="position:absolute;top:26mm;left:10mm;width:8mm;height:8mm;background:#111115;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,0.4);cursor:move;pointer-events:auto;" title="Icono: Pin Muro (Arrastrar)">
+                <span style="width:4.5mm;height:4.5mm;border:1.2px solid #ffffff;border-radius:50%;display:inline-block;pointer-events:none;"></span>
+                <div id="layoutThemeWallPinResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 3. CAPA TEXTO: Texto Elevación Muro -->
+            <div id="layoutThemeWallText" class="layout-draggable-item group z-[19]" style="position:absolute;top:54mm;left:10mm;cursor:move;pointer-events:auto;" title="Capa Texto: Elevación (Arrastrar o editar)">
+                <div contenteditable="true" spellcheck="false" style="outline:none;font-family:monospace;font-size:6.5px;font-weight:bold;color:rgba(255,255,255,0.95);letter-spacing:0.05em;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;cursor:text;background:rgba(0,0,0,0.45);padding:2px 6px;border-radius:3px;line-height:1.2;text-align:center;">
                     ELEV: +2,640m // GRID: 100m
                 </div>
+                <div id="layoutThemeWallTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
             </div>
 
-            <!-- Top Header Banner (Matte Black with Geometric Elements - 100% Editable) -->
-            <div style="position:absolute;top:6mm;left:8mm;right:8mm;height:14mm;background:#111115;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 8mm;box-shadow:0 8px 20px rgba(0,0,0,0.3);border-bottom:3px solid #ff2a85;pointer-events:auto;z-index:22;">
-                <div style="display:flex;align-items:center;gap:6mm;">
-                    <div style="display:flex;gap:3mm;align-items:center;">
-                        <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #00a8e8;border-radius:50%;"></span>
-                        <span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #ff2a85;"></span>
-                        <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #fbb040;"></span>
-                    </div>
-                    <div>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#f472b6;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN POP</span>
-                    </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:3mm;">
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#008259;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ O ] DATUM WGS-84</span>
-                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#e11d48;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ X ] ZONA RESTRINGIDA</span>
-                </div>
+            <!-- 4. CAPA FONDO: Banner Superior Negro -->
+            <div id="layoutTopBannerBg" class="layout-draggable-item group z-[12]" style="position:absolute;top:6mm;left:8mm;width:194mm;height:14mm;background:#111115;border-radius:4px;box-shadow:0 8px 20px rgba(0,0,0,0.3);border-bottom:3px solid #ff2a85;cursor:move;pointer-events:auto;" title="Fondo: Barra Banner (Arrastrar o redimensionar)">
+                <div id="layoutTopBannerBgResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
             </div>
 
-            <!-- Bottom Stepped Yellow Staircase with Technical Membrete (100% Editable) -->
-            <div id="layoutThemeStairs" style="position:absolute;bottom:0;left:0;right:0;height:42mm;pointer-events:auto;z-index:20;box-shadow:0 -6px 20px rgba(0,0,0,0.15);transition:background 0.25s;">
+            <!-- 5. CAPA FORMAS: Iconos Geométricos Banner -->
+            <div id="layoutTopBannerIcons" class="layout-draggable-item group z-[22]" style="position:absolute;top:8.5mm;left:12mm;display:flex;gap:3mm;align-items:center;cursor:move;pointer-events:auto;" title="Formas: Iconos Geométricos (Arrastrar)">
+                <span style="display:inline-block;width:15px;height:15px;border:2.5px solid #00a8e8;border-radius:50%;pointer-events:none;"></span>
+                <span style="display:inline-block;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid #ff2a85;pointer-events:none;"></span>
+                <span style="display:inline-block;width:14px;height:14px;border:2.5px solid #fbb040;pointer-events:none;"></span>
+                <div id="layoutTopBannerIconsResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 6. CAPA TEXTO: Título Banner Superior -->
+            <div id="layoutTopBannerText" class="layout-draggable-item group z-[23]" style="position:absolute;top:7.5mm;left:34mm;cursor:move;pointer-events:auto;" title="Capa Texto: Título Banner (Arrastrar o editar)">
+                <div style="display:flex;flex-direction:column;">
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#ffffff;font-size:11px;font-weight:900;letter-spacing:0.18em;font-family:Inter,sans-serif;text-transform:uppercase;cursor:text;line-height:1.2;display:block;">SISTEMA CARTOGRÁFICO TERRITORIAL</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;display:block;color:#f472b6;font-size:6.5px;font-weight:700;letter-spacing:0.12em;font-family:Inter,sans-serif;cursor:text;line-height:1.2;margin-top:1px;">LEVANTAMIENTO &amp; ANÁLISIS GEODATOS · EDICIÓN POP</span>
+                </div>
+                <div id="layoutTopBannerTextResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 7. CAPA TEXTO: Insignias Banner -->
+            <div id="layoutTopBannerBadges" class="layout-draggable-item group z-[24]" style="position:absolute;top:9.5mm;left:146mm;display:flex;align-items:center;gap:3mm;cursor:move;pointer-events:auto;" title="Capa Texto: Insignias Banner (Arrastrar o editar)">
+                <span contenteditable="true" spellcheck="false" style="outline:none;background:#008259;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.3);cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ O ] DATUM WGS-84</span>
+                <span contenteditable="true" spellcheck="false" style="outline:none;background:#e11d48;color:#fff;font-size:7.5px;font-weight:900;font-family:Inter,sans-serif;display:inline-block;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;cursor:text;text-align:center;vertical-align:middle;line-height:1.2;white-space:nowrap;">[ X ] ZONA RESTRINGIDA</span>
+                <div id="layoutTopBannerBadgesResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 8. CAPA FONDO: Escaleras Amarillas Arquitectónicas -->
+            <div id="layoutThemeStairs" class="layout-draggable-item group z-[8]" style="position:absolute;top:255mm;left:0;width:210mm;height:42mm;cursor:move;pointer-events:auto;box-shadow:0 -6px 20px rgba(0,0,0,0.15);" title="Fondo: Escaleras Amarillas (Arrastrar o redimensionar)">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
                     <polygon points="0,100 100,100 100,0 68,0 68,26 42,26 42,52 0,52" fill="${colors.stairs || '#fbb040'}" />
                 </svg>
-                <div style="position:absolute;bottom:4mm;right:10mm;left:10mm;display:flex;justify-content:space-between;align-items:flex-end;font-family:Inter,sans-serif;">
-                    <div style="display:flex;flex-direction:column;gap:3px;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;font-family:Inter,sans-serif;color:#111115;letter-spacing:0.12em;text-transform:uppercase;background:rgba(255,255,255,0.85);padding:2px 7px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;white-space:nowrap;text-align:center;vertical-align:middle;line-height:1.2;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span contenteditable="true" spellcheck="false" style="outline:none;background:#111115;color:#ffffff;font-size:7px;font-weight:900;font-family:Inter,sans-serif;padding:2px 6px;letter-spacing:0.08em;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">ESCALA: 1:1,000</span>
-                            <span style="color:#b91c1c;font-size:7.5px;font-weight:900;line-height:1.2;">|</span>
-                            <span contenteditable="true" spellcheck="false" style="outline:none;color:#111115;font-size:7px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:0.08em;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">PROYECCIÓN UTM</span>
-                        </div>
-                    </div>
-                    <div style="background:#111115;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:2px;text-align:right;border-left:2.5px solid #008259;">
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#f472b6;font-weight:900;font-size:7.5px;cursor:text;white-space:nowrap;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;white-space:nowrap;">FOLIO: REG-2026-POP · ORIGEN CENTRAL</span>
-                        <span contenteditable="true" spellcheck="false" style="outline:none;color:#38bdf8;font-weight:800;cursor:text;white-space:nowrap;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
-                    </div>
-                </div>
+                <div id="layoutThemeStairsResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
             </div>
-        `;
+
+            <!-- 9. CAPA TEXTO: Membrete Detalle Escaleras Izquierdo -->
+            <div id="layoutStairsLeftBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:274mm;left:10mm;display:flex;flex-direction:column;gap:3px;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Izquierdo (Arrastrar o editar)">
+                <span contenteditable="true" spellcheck="false" style="outline:none;font-size:6.5px;font-weight:900;font-family:Inter,sans-serif;color:#111115;letter-spacing:0.12em;text-transform:uppercase;background:rgba(255,255,255,0.85);padding:2px 7px;border-radius:2px;display:inline-block;width:fit-content;cursor:text;white-space:nowrap;text-align:center;vertical-align:middle;line-height:1.2;">ESTUDIO GEOGRÁFICO DE DETALLE</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span contenteditable="true" spellcheck="false" style="outline:none;background:#111115;color:#ffffff;font-size:7px;font-weight:900;font-family:Inter,sans-serif;padding:2px 6px;letter-spacing:0.08em;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">ESCALA: 1:1,000</span>
+                    <span style="color:#b91c1c;font-size:7.5px;font-weight:900;line-height:1.2;">|</span>
+                    <span contenteditable="true" spellcheck="false" style="outline:none;color:#111115;font-size:7px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:0.08em;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:2px;cursor:text;white-space:nowrap;display:inline-block;text-align:center;vertical-align:middle;line-height:1.2;">PROYECCIÓN UTM</span>
+                </div>
+                <div id="layoutStairsLeftBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+
+            <!-- 10. CAPA TEXTO: Membrete Registral Escaleras Derecho -->
+            <div id="layoutStairsRightBadge" class="layout-draggable-item group z-[26]" style="position:absolute;top:270mm;left:145mm;background:#111115;color:#fff;border-radius:4px;padding:4px 9px;font-size:6.5px;display:flex;flex-direction:column;gap:2px;text-align:right;border-left:2.5px solid #008259;cursor:move;pointer-events:auto;font-family:Inter,sans-serif;" title="Capa Texto: Membrete Registral (Arrastrar o editar)">
+                <span contenteditable="true" spellcheck="false" style="outline:none;color:#f472b6;font-weight:900;font-size:7.5px;cursor:text;white-space:nowrap;line-height:1.2;">PROYECTO CARTOGRÁFICO REGISTRAL</span>
+                <span contenteditable="true" spellcheck="false" style="outline:none;color:#e4e4e7;cursor:text;white-space:nowrap;line-height:1.2;">FOLIO: REG-2026-POP · ORIGEN CENTRAL</span>
+                <span contenteditable="true" spellcheck="false" style="outline:none;color:#38bdf8;font-weight:800;cursor:text;white-space:nowrap;line-height:1.2;">✓ VALIDADO &amp; GEOREFERENCIADO</span>
+                <div id="layoutStairsRightBadgeResize" class="absolute -bottom-1 -right-1 w-2 h-2 bg-primary border border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block pointer-events-auto"></div>
+            </div>
+        `;;
 
         // Configure Title Element to be 100% editable and visible
         if (titleContainer) {
@@ -15338,6 +15374,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (typeof layoutUpdateCompassDesign === 'function') layoutUpdateCompassDesign();
         if (typeof layoutDrawGrid === 'function' && layoutConfig.grid && layoutConfig.grid.enabled) layoutDrawGrid();
         if (typeof layoutUpdateLegend === 'function') layoutUpdateLegend();
+        if (typeof layoutInitTemplateDraggables === 'function') layoutInitTemplateDraggables();
+        if (typeof layoutRefreshElementsList === 'function') layoutRefreshElementsList();
     }
 
     function layoutUpdateLegend() {
@@ -22471,6 +22509,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
         if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
         openLayoutModal();
         if (typeof layoutApplyTheme === 'function') layoutApplyTheme(layoutConfig.theme);
+        if (typeof layoutInitTemplateDraggables === 'function') layoutInitTemplateDraggables();
+        if (typeof layoutRefreshElementsList === 'function') layoutRefreshElementsList();
         if (typeof layoutSyncGridUI === 'function') layoutSyncGridUI();
         if (typeof toast === 'function') toast(`Plantilla "${preset.titleText}" aplicada.`);
         return;
@@ -25457,3 +25497,102 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
 
 
 </html>
+
+    function layoutInitTemplateDraggables() {
+        const templateItems = [
+            { id: 'layoutThemeWall', resizer: 'layoutThemeWallResize' },
+            { id: 'layoutThemeWallPin', resizer: 'layoutThemeWallPinResize' },
+            { id: 'layoutThemeWallText', resizer: 'layoutThemeWallTextResize' },
+            { id: 'layoutTopBannerBg', resizer: 'layoutTopBannerBgResize' },
+            { id: 'layoutTopBannerIcons', resizer: 'layoutTopBannerIconsResize' },
+            { id: 'layoutTopBannerText', resizer: 'layoutTopBannerTextResize' },
+            { id: 'layoutTopBannerBadges', resizer: 'layoutTopBannerBadgesResize' },
+            { id: 'layoutThemeStairs', resizer: 'layoutThemeStairsResize' },
+            { id: 'layoutStairsLeftBadge', resizer: 'layoutStairsLeftBadgeResize' },
+            { id: 'layoutStairsRightBadge', resizer: 'layoutStairsRightBadgeResize' }
+        ];
+
+        templateItems.forEach(item => {
+            const el = document.getElementById(item.id);
+            if (!el) return;
+            const resizer = document.getElementById(item.resizer);
+
+            el.onmousedown = function(e) {
+                if (resizer && e.target === resizer) return;
+                if (e.target.isContentEditable || e.target.closest('[contenteditable="true"]')) {
+                    return; // Permitir escribir sin arrastrar
+                }
+                dragEl = this;
+                startX = e.clientX; startY = e.clientY;
+                elementStartX = parseFloat(dragEl.style.left) || 0;
+                elementStartY = parseFloat(dragEl.style.top) || 0;
+                dragEl.style.transition = 'none';
+                e.preventDefault();
+            };
+
+            if (resizer) {
+                resizer.onmousedown = function(e) {
+                    resizeEl = el;
+                    resizeMode = 'both';
+                    startX = e.clientX; startY = e.clientY;
+                    startWidth = parseFloat(resizeEl.style.width) || parseFloat(resizeEl.offsetWidth * (25.4 / 96));
+                    startHeight = parseFloat(resizeEl.style.height) || parseFloat(resizeEl.offsetHeight * (25.4 / 96));
+                    resizeEl.style.transition = 'none';
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+            }
+        });
+    }
+
+    function layoutToggleTemplateLayer(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const isHidden = (el.style.display === 'none');
+        el.style.display = isHidden ? '' : 'none';
+        const eye = document.getElementById('eye-' + id);
+        if (eye) {
+            const icon = eye.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = isHidden ? 'visibility' : 'visibility_off';
+            eye.classList.toggle('text-zinc-500', !isHidden);
+        }
+    }
+
+    function layoutRefreshElementsList() {
+        const list = document.getElementById('layoutElementsList');
+        if (!list) return;
+
+        // Limpiar elementos adicionales previos de plantilla
+        const prevTmplItems = list.querySelectorAll('.tmpl-layer-item');
+        prevTmplItems.forEach(el => el.remove());
+
+        const templateLayers = [
+            { id: 'layoutThemeWall', name: 'Muro Azul (Fondo)', icon: 'palette' },
+            { id: 'layoutThemeWallText', name: 'Muro Elevación (Texto)', icon: 'title' },
+            { id: 'layoutTopBannerBg', name: 'Banner Superior (Fondo)', icon: 'rectangle' },
+            { id: 'layoutTopBannerText', name: 'Banner Título (Texto)', icon: 'title' },
+            { id: 'layoutTopBannerBadges', name: 'Banner Insignias (Texto)', icon: 'label' },
+            { id: 'layoutThemeStairs', name: 'Escaleras Amarillas (Fondo)', icon: 'stairs' },
+            { id: 'layoutStairsLeftBadge', name: 'Membrete Detalle (Texto)', icon: 'short_text' },
+            { id: 'layoutStairsRightBadge', name: 'Membrete Registral (Texto)', icon: 'verified' }
+        ];
+
+        templateLayers.forEach(l => {
+            const targetEl = document.getElementById(l.id);
+            if (!targetEl) return;
+            const row = document.createElement('div');
+            row.className = 'tmpl-layer-item flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group text-white border-t border-white/5';
+            row.innerHTML = `
+                <div class="flex items-center gap-2.5 truncate cursor-pointer" onclick="document.getElementById('${l.id}')?.scrollIntoView({behavior:'smooth',block:'center'});">
+                    <span class="material-symbols-outlined text-[15px] text-zinc-400">${l.icon}</span>
+                    <span class="text-[9.5px] font-bold tracking-tight truncate">${l.name}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="layoutToggleTemplateLayer('${l.id}')" id="eye-${l.id}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors" title="Mostrar/Ocultar">
+                        <span class="material-symbols-outlined text-[16px]">${targetEl.style.display === 'none' ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                </div>
+            `;
+            list.appendChild(row);
+        });
+    }
