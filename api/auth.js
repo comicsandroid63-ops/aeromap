@@ -1,6 +1,49 @@
 const crypto = require('crypto');
 const { getDb } = require('../lib/db');
 
+// In-memory brute force protection
+const failedAttempts = new Map(); // key -> { count, lockUntil }
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.headers['x-real-ip'] || req.socket?.remoteAddress || '127.0.0.1';
+}
+
+function checkRateLimit(key) {
+  const record = failedAttempts.get(key);
+  if (!record) return { allowed: true };
+  if (record.lockUntil && Date.now() < record.lockUntil) {
+    const remainingSec = Math.ceil((record.lockUntil - Date.now()) / 1000);
+    return { allowed: false, remainingSec };
+  }
+  if (record.lockUntil && Date.now() >= record.lockUntil) {
+    failedAttempts.delete(key);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordFailedAttempt(key) {
+  const record = failedAttempts.get(key) || { count: 0, lockUntil: 0 };
+  record.count += 1;
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
+    record.lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+  }
+  failedAttempts.set(key, record);
+}
+
+function clearFailedAttempts(key) {
+  failedAttempts.delete(key);
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidEmail(email) {
+  return typeof email === 'string' && email.length <= 128 && EMAIL_REGEX.test(email);
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -8,10 +51,17 @@ function hashPassword(password) {
 }
 
 function verifyPassword(password, stored) {
-  if (!stored || !stored.includes(':')) return false;
-  const [salt, hash] = stored.split(':');
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-  return hash === derived;
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  try {
+    const [salt, hash] = stored.split(':');
+    if (!salt || !hash) return false;
+    const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+    const a = Buffer.from(hash, 'hex');
+    const b = Buffer.from(derived, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (_) {
+    return false;
+  }
 }
 
 function generateToken() {
@@ -69,13 +119,18 @@ module.exports = async function handler(req, res) {
       if (!email || !password) {
         return res.status(400).json({ error: 'Email y contraseña requeridos' });
       }
-      if (password.length < 6) {
-        return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+      const cleanEmail = String(email).trim().toLowerCase();
+      if (!isValidEmail(cleanEmail)) {
+        return res.status(400).json({ error: 'Formato de correo electrónico inválido' });
       }
+      if (typeof password !== 'string' || password.length < 6 || password.length > 128) {
+        return res.status(400).json({ error: 'La contraseña debe tener entre 6 y 128 caracteres' });
+      }
+      const safeName = String(name || '').replace(/[<>]/g, '').trim().slice(0, 80);
 
       const existing = await db.execute({
-        sql: 'SELECT id FROM users WHERE email = ?',
-        args: [email]
+        sql: 'SELECT id FROM users WHERE lower(email) = ?',
+        args: [cleanEmail]
       });
       if (existing.rows && existing.rows.length > 0) {
         return res.status(409).json({ error: 'El email ya está registrado' });
@@ -88,10 +143,10 @@ module.exports = async function handler(req, res) {
 
       await db.execute({
         sql: 'INSERT INTO users (id, email, password_hash, name, token, token_expiry) VALUES (?, ?, ?, ?, ?, ?)',
-        args: [id, email, passwordHash, name || email.split('@')[0], token, tokenExpiry]
+        args: [id, cleanEmail, passwordHash, safeName || cleanEmail.split('@')[0], token, tokenExpiry]
       });
 
-      return res.json({ id, email, name: name || email.split('@')[0], token });
+      return res.json({ id, email: cleanEmail, name: safeName || cleanEmail.split('@')[0], role: 'user', isAdmin: false, token });
     }
 
     if (action === 'login') {
@@ -101,6 +156,21 @@ module.exports = async function handler(req, res) {
       }
 
       const cleanEmail = String(email).trim().toLowerCase();
+      if (!isValidEmail(cleanEmail)) {
+        return res.status(400).json({ error: 'Formato de correo electrónico inválido' });
+      }
+      if (typeof password !== 'string' || password.length > 128) {
+        return res.status(400).json({ error: 'Credenciales inválidas' });
+      }
+
+      const clientIp = getClientIp(req);
+      const rateLimitKey = `${clientIp}_${cleanEmail}`;
+      const limitStatus = checkRateLimit(rateLimitKey);
+      if (!limitStatus.allowed) {
+        return res.status(429).json({
+          error: `Demasiados intentos fallidos. Por seguridad, intente de nuevo en ${Math.ceil(limitStatus.remainingSec / 60)} minutos.`
+        });
+      }
 
       let result = await db.execute({
         sql: 'SELECT id, email, password_hash, name FROM users WHERE lower(email) = ?',
@@ -126,13 +196,18 @@ module.exports = async function handler(req, res) {
       }
 
       if (!result.rows || result.rows.length === 0) {
+        recordFailedAttempt(rateLimitKey);
         return res.status(401).json({ error: 'Credenciales inválidas' });
       }
 
       const user = result.rows[0];
       if (!verifyPassword(password, user.password_hash)) {
+        recordFailedAttempt(rateLimitKey);
         return res.status(401).json({ error: 'Credenciales inválidas' });
       }
+
+      // Login exitoso: limpiar intentos fallidos
+      clearFailedAttempts(rateLimitKey);
 
       const token = generateToken();
       const tokenExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();

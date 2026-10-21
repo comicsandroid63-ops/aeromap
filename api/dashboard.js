@@ -2,6 +2,13 @@ const { getDb } = require('../lib/db');
 const fs = require('fs');
 const path = require('path');
 
+const adminFailedAttempts = new Map(); // ip -> { count, lockUntil }
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.headers['x-real-ip'] || req.socket?.remoteAddress || '127.0.0.1';
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -18,6 +25,12 @@ module.exports = async (req, res) => {
   }
 
   // Admin auth verification
+  const clientIp = getClientIp(req);
+  const ipRecord = adminFailedAttempts.get(clientIp);
+  if (ipRecord && ipRecord.lockUntil && Date.now() < ipRecord.lockUntil) {
+    return res.status(429).json({ error: 'Demasiados intentos no autorizados. Acceso bloqueado temporalmente por seguridad.' });
+  }
+
   const authHeader = req.headers['authorization'] || '';
   const token = (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '') || req.query?.token || '';
   if (!token) {
@@ -42,8 +55,16 @@ module.exports = async (req, res) => {
   }
 
   if (!isAdmin) {
+    const rec = adminFailedAttempts.get(clientIp) || { count: 0, lockUntil: 0 };
+    rec.count += 1;
+    if (rec.count >= 5) {
+      rec.lockUntil = Date.now() + 15 * 60 * 1000;
+    }
+    adminFailedAttempts.set(clientIp, rec);
     return res.status(403).json({ error: 'Acceso restringido: Se requiere cuenta con permisos de Administrador.' });
   }
+
+  adminFailedAttempts.delete(clientIp);
 
   try {
     // 1) Total users

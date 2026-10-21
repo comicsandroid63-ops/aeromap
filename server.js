@@ -48,6 +48,13 @@ try {
   console.warn('[WATCHDOG] Could not watch compressed/:', e.message);
 }
 app.use(cors());
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
@@ -1574,7 +1581,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
 
 // ─── /api/metadata/:filename — TIFF metadata (bounds, size) via gdalinfo ───
 app.get('/api/metadata/:filename', async (req, res) => {
-  const { filename } = req.params;
+  const filename = path.basename(req.params.filename || '');
   let filePath = path.join(UPLOADS, filename);
   if (!fs.existsSync(filePath)) filePath = path.join(COMPRESSED, filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
@@ -1612,7 +1619,7 @@ app.get('/api/metadata/:filename', async (req, res) => {
 
 // ─── /api/render-preview/:filename — fallback preview PNG for ungeoreferenced TIFFs ───
 app.get('/api/render-preview/:filename', async (req, res) => {
-  const { filename } = req.params;
+  const filename = path.basename(req.params.filename || '');
   let filePath = path.join(UPLOADS, filename);
   if (!fs.existsSync(filePath)) filePath = path.join(COMPRESSED, filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
@@ -1640,7 +1647,7 @@ app.get('/api/render-preview/:filename', async (req, res) => {
 
 // ─── /api/stats/:filename — cached global stats for GeoTIFF.js client ───
 app.get('/api/stats/:filename', async (req, res) => {
-  const filePath = path.join(UPLOADS, req.params.filename);
+  const filePath = path.join(UPLOADS, path.basename(req.params.filename || ''));
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
   const stats = await getGlobalStats(filePath);
   if (!stats) return res.status(500).json({ error: 'Failed to compute stats' });
@@ -1648,7 +1655,7 @@ app.get('/api/stats/:filename', async (req, res) => {
 });
 // ─── /api/file-exists/:filename — check if a file exists on disk ───
 app.head('/api/file-exists/:filename', (req, res) => {
-  const { filename } = req.params;
+  const filename = path.basename(req.params.filename || '');
   const uploadPath = path.join(UPLOADS, filename);
   const compressedPath = path.join(COMPRESSED, filename);
   if (fs.existsSync(uploadPath) || fs.existsSync(compressedPath)) {

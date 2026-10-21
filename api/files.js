@@ -45,11 +45,17 @@ module.exports = async (req, res) => {
     
     if (!name) return res.status(400).json({ error: 'name is required' });
     
-    const filePath = storagePath || name;
-    const fullPath = path.join(UPLOADS_DIR, filePath);
+    const filePath = String(storagePath || name || '').replace(/\\/g, '/');
+    const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
+    const fullPath = path.resolve(UPLOADS_DIR, safePath);
+    
+    // Verificación estricta contra Path Traversal
+    if (!fullPath.startsWith(path.resolve(UPLOADS_DIR))) {
+      return res.status(400).json({ error: 'Ruta no permitida' });
+    }
     
     if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+      try { fs.unlinkSync(fullPath); } catch (_) {}
     }
 
     if (storagePath) {
