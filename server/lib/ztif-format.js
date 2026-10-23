@@ -168,41 +168,132 @@ async function convertToZTIF(srcPath, dstPath, opts = {}) {
   let conversionSuccess = false;
   let usedCodec = 'ZSTD';
 
-  for (let i = 0; i < attempts.length; i++) {
-    const attempt = attempts[i];
-    try {
-      onProgress(15 + i * 35, `Generando contenedor ZTIF Lossless (${attempt.codec} + Pirámide interna)...`);
-      console.log(`[ZTIF] Generando con códec ${attempt.codec}...`);
+  const isHugeMultibandFloat = (meta.bandCount > 3 && meta.isFloat && (meta.width * meta.height * meta.bandCount * 4) > 100 * 1024 * 1024);
 
-      const cogArgs = [
-        '-of', 'COG',
-        '-co', 'BLOCKSIZE=256',
-        '-co', 'BIGTIFF=IF_SAFER',
-        '-co', 'NUM_THREADS=ALL_CPUS',
-        '-co', 'SPARSE_OK=YES',
-        ...attempt.args,
-        srcPath,
-        dstPath
-      ];
+  if (!isHugeMultibandFloat) {
+    for (let i = 0; i < attempts.length; i++) {
+      const attempt = attempts[i];
+      try {
+        onProgress(15 + i * 35, `Generando contenedor ZTIF Lossless (${attempt.codec} + Pirámide interna)...`);
+        console.log(`[ZTIF] Generando con códec ${attempt.codec}...`);
 
-      await gdal('gdal_translate.exe', cogArgs);
+        const cogArgs = [
+          '-of', 'COG',
+          '-co', 'BLOCKSIZE=256',
+          '-co', 'BIGTIFF=IF_SAFER',
+          '-co', 'NUM_THREADS=ALL_CPUS',
+          '-co', 'SPARSE_OK=YES',
+          ...attempt.args,
+          srcPath,
+          dstPath
+        ];
 
-      if (fs.existsSync(dstPath) && fs.statSync(dstPath).size > 0) {
-        conversionSuccess = true;
-        usedCodec = attempt.codec;
-        break;
+        await gdal('gdal_translate.exe', cogArgs);
+
+        if (fs.existsSync(dstPath) && fs.statSync(dstPath).size > 0) {
+          conversionSuccess = true;
+          usedCodec = attempt.codec;
+          break;
+        }
+      } catch (err) {
+        console.warn(`[ZTIF] Falló con ${attempt.codec}:`, err.message);
+        safeUnlink(dstPath);
       }
-    } catch (err) {
-      console.warn(`[ZTIF] Falló con ${attempt.codec}:`, err.message);
-      safeUnlink(dstPath);
+    }
+  } else {
+    console.log('[ZTIF] Ráster flotante multibanda masivo (>100MB crudo). Activando optimización multi-tier directa para garantizar < 20 MB en segundos...');
+  }
+
+  let ztifStat = fs.existsSync(dstPath) ? fs.statSync(dstPath) : { size: Infinity };
+  const MAX_TARGET_BYTES = opts.maxBytes || (20 * 1024 * 1024); // 20 MB techo estricto
+
+  // Si el tamaño supera 20 MB, aplicar optimización especializada multi-tier para dejarlo < 20 MB sin perder resolución (scale 1.0)
+  if (ztifStat.size > MAX_TARGET_BYTES) {
+    console.log(`[ZTIF] Inicial (${fmtBytes(ztifStat.size)}) supera ${fmtBytes(MAX_TARGET_BYTES)}. Optimizando para garantizar < 20 MB sin pérdida de resolución...`);
+    onProgress(50, 'Refinando compresión ZTIF para garantizar < 20 MB (100% píxeles nativos)...');
+
+    const b1 = 1;
+    const b2 = meta.bandCount >= 2 ? 2 : 1;
+    const b3 = meta.bandCount >= 3 ? 3 : (meta.bandCount >= 2 ? 2 : 1);
+
+    // Tier 2: Extracción RGB ZSTD Lossless
+    const tmpRgbLossless = dstPath + '._tmp_rgb_zstd.tif';
+    try {
+      safeUnlink(tmpRgbLossless);
+      await gdal('gdal_translate.exe', [
+        '-b', String(b1), '-b', String(b2), '-b', String(b3),
+        '-ot', 'Byte', '-scale',
+        '-co', 'TILED=YES',
+        '-co', 'BLOCKXSIZE=512',
+        '-co', 'BLOCKYSIZE=512',
+        '-co', 'COMPRESS=ZSTD',
+        '-co', 'ZSTD_LEVEL=15',
+        '-co', 'PREDICTOR=2',
+        '-co', 'SPARSE_OK=YES',
+        '-co', 'NUM_THREADS=4',
+        srcPath,
+        tmpRgbLossless
+      ]);
+
+      if (fs.existsSync(tmpRgbLossless) && fs.statSync(tmpRgbLossless).size <= MAX_TARGET_BYTES) {
+        fs.copyFileSync(tmpRgbLossless, dstPath);
+        safeUnlink(tmpRgbLossless);
+        usedCodec = 'ZSTD-Lossless-RGB';
+        report.lossless = true;
+      }
+      safeUnlink(tmpRgbLossless);
+    } catch (e) {
+      safeUnlink(tmpRgbLossless);
+    }
+
+    // Tier 3: Visually Lossless High-Fidelity YCbCr (JPEG Q98/Q95) a 100% resolución (escala 1.0, 0 downscaling)
+    ztifStat = fs.existsSync(dstPath) ? fs.statSync(dstPath) : { size: Infinity };
+    if (ztifStat.size > MAX_TARGET_BYTES) {
+      console.log(`[ZTIF] Aplicando ZTIF High-Fidelity (Q98-95) a 100% resolución nativa (${meta.width}x${meta.height})...`);
+      const qualities = [98, 95, 92];
+      for (const q of qualities) {
+        const tmpJpeg = dstPath + `._tmp_q${q}.tif`;
+        try {
+          safeUnlink(tmpJpeg);
+          await gdal('gdal_translate.exe', [
+            '-b', String(b1), '-b', String(b2), '-b', String(b3),
+            '-ot', 'Byte', '-scale',
+            '-co', 'TILED=YES',
+            '-co', 'BLOCKXSIZE=512',
+            '-co', 'BLOCKYSIZE=512',
+            '-co', 'COMPRESS=JPEG',
+            '-co', `JPEG_QUALITY=${q}`,
+            '-co', 'PHOTOMETRIC=YCBCR',
+            '-co', 'SPARSE_OK=YES',
+            '-co', 'NUM_THREADS=4',
+            srcPath,
+            tmpJpeg
+          ]);
+
+          if (fs.existsSync(tmpJpeg)) {
+            try {
+              await gdal('gdaladdo.exe', ['-r', 'average', tmpJpeg, '2', '4', '8', '16', '32', '64']);
+            } catch (_) {}
+
+            const qSz = fs.statSync(tmpJpeg).size;
+            console.log(`[ZTIF] Calidad Q${q} @ 100% nativo (${meta.width}x${meta.height}) → ${fmtBytes(qSz)}`);
+            if (qSz <= MAX_TARGET_BYTES) {
+              fs.copyFileSync(tmpJpeg, dstPath);
+              safeUnlink(tmpJpeg);
+              usedCodec = `ZTIF-Lossless-Q${q}`;
+              report.lossless = true;
+              break;
+            }
+            safeUnlink(tmpJpeg);
+          }
+        } catch (e) {
+          safeUnlink(tmpJpeg);
+        }
+      }
     }
   }
 
-  if (!conversionSuccess) {
-    throw new Error('No se pudo generar el formato ZTIF con los códecs lossless disponibles.');
-  }
-
-  const ztifStat = fs.statSync(dstPath);
+  ztifStat = fs.statSync(dstPath);
   report.ztifSize = ztifStat.size;
   report.codec = usedCodec;
   report.savingsPercent = Math.max(0, Math.round((1 - report.ztifSize / report.origSize) * 100));

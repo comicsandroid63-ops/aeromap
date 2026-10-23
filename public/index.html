@@ -10363,8 +10363,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
 
       try {
         if (window.GeoTIFF) {
-          const ab = await file.arrayBuffer();
-          const clientTiff = await GeoTIFF.fromArrayBuffer(ab);
+          let clientTiff = null;
+          try {
+            clientTiff = await GeoTIFF.fromBlob(file);
+          } catch (_) {
+            if (file.size < 50 * 1024 * 1024) {
+              const ab = await file.arrayBuffer();
+              clientTiff = await GeoTIFF.fromArrayBuffer(ab);
+            }
+          }
+          if (clientTiff) {
           const clientImg = await clientTiff.getImage();
           clientWidth = clientImg.getWidth();
           clientHeight = clientImg.getHeight();
@@ -10389,6 +10397,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             }
           }
           clientGeo = { tiff: clientTiff, image: clientImg, overviews: [], bounds: clientBounds, epsg: 4326 };
+          }
         }
       } catch (clientErr) {
         console.warn('[loadTiff] Fast client-side pre-parse warning:', clientErr);
@@ -10463,14 +10472,36 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
       }
 
-      // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC
-      showProgress(`Optimizando ${file.name} a formato ZTIF Lossless...`, 20, 'Motor ZTIF');
+      // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC (< 20 MB)
+      showProgress(`Preparando subida de ${file.name}...`, 5, 'Motor ZTIF');
       try {
         const formData = new FormData();
         formData.append('tiff', file);
-        const upRes = await fetch('/api/import-tiff?fast=true', { method: 'POST', body: formData });
-        if (upRes.ok) {
-          const upData = await upRes.json();
+
+        const upData = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/api/import-tiff?fast=true');
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.min(50, Math.round((e.loaded / e.total) * 50));
+              const upMB = (e.loaded / (1024 * 1024)).toFixed(1);
+              const totMB = (e.total / (1024 * 1024)).toFixed(1);
+              showProgress(`Subiendo ${file.name} (${upMB}MB / ${totMB}MB)... ${pct * 2}%`, pct, 'Motor ZTIF');
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try { resolve(JSON.parse(xhr.responseText)); }
+              catch (e) { reject(new Error('Respuesta inválida')); }
+            } else {
+              reject(new Error(xhr.statusText || 'Error en servidor'));
+            }
+          };
+          xhr.onerror = () => reject(new Error('Fallo de conexión al servidor'));
+          xhr.send(formData);
+        });
+
+        if (upData) {
           const savedAs = upData.id || upData.savedAs;
           const optSavedAs = upData.optimizedSavedAs || savedAs;
           layer.serverFilename = savedAs;
