@@ -4920,7 +4920,7 @@
         <!-- The "Paper" -->
         <div id="layoutPaper" onclick="onLayoutPaperClick(event)" ondragover="layoutResourceDragOver(event)" ondrop="layoutResourceDrop(event)" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
             <!-- Map Element -->
-            <div id="layoutMapFrame" onclick="layoutSelectElement('mapFrame')" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 170mm; height: 170mm; top: 20mm; left: 20mm; transition: all 0.3s; overflow: visible;">
+            <div id="layoutMapFrame" onclick="layoutSelectElement('mapFrame')" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 180mm; height: 218mm; top: 24mm; left: 15mm; transition: all 0.3s; overflow: visible;">
                 <!-- Floating Toolbar on Frame -->
                 <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-xl shadow-2xl border border-white/20 flex items-center gap-1 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
                     <button id="floatBtnModeContent" onclick="setLayoutMapMode('content')" class="px-2.5 py-1 bg-white text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all" title="Mover la vista del mapa desde dentro">
@@ -4949,7 +4949,7 @@
             </div>
 
             <!-- Title Box -->
-            <div id="layoutTitleContainer" onclick="layoutSelectElement('title')" class="absolute cursor-move group z-30 flex items-center justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 127mm; top: 174mm; left: 73mm;">
+            <div id="layoutTitleContainer" onclick="layoutSelectElement('title')" class="absolute cursor-move group z-30 flex items-center justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 180mm; top: 8mm; left: 15mm; min-height: 14mm;">
                 <div class="flex flex-col w-full items-center text-center">
                     <h1 id="layoutTitleDisplay" class="text-xl font-black text-black uppercase tracking-tight leading-snug outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-2 transition-all cursor-text text-center w-full" contenteditable="true" spellcheck="false">Plano Cartográfico Pop</h1>
                     <span contenteditable="true" spellcheck="false" class="text-[8.5px] font-bold text-zinc-500 tracking-wider uppercase mt-0.5 outline-none px-2 cursor-text text-center">Levantamiento Territorial & Análisis de Geodatos</span>
@@ -4958,7 +4958,7 @@
             </div>
 
             <!-- Metadata/Details -->
-            <div id="layoutMetadataContainer" onclick="layoutSelectElement('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 61mm; top: 202mm; left: 139mm; overflow: visible;">
+            <div id="layoutMetadataContainer" onclick="layoutSelectElement('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 70mm; height: 40mm; top: 245mm; left: 125mm; overflow: visible;">
                 <!-- Pin / Punto Decorativo Superior -->
                 <div id="layoutMetadataPin" class="absolute -top-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border border-zinc-400 flex items-center justify-center shadow-sm pointer-events-none z-10">
                     <span id="layoutMetadataPinDot" class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
@@ -4977,7 +4977,7 @@
             </div>
 
             <!-- Legend Box -->
-            <div id="layoutLegendContainer" onclick="layoutSelectElement('legend')" class="absolute cursor-move group z-20 flex flex-col gap-2.5 p-3.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 58mm; top: 174mm; left: 10mm;">
+            <div id="layoutLegendContainer" onclick="layoutSelectElement('legend')" class="absolute cursor-move group z-20 flex flex-col gap-2.5 p-3.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 54mm; height: 40mm; top: 245mm; left: 15mm;">
                 <div id="layoutLegend" class="flex flex-col gap-3 w-full">
                     <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Leyenda Activa</span>
                     <div id="layoutLegendList" class="flex flex-wrap gap-x-6 gap-y-3">
@@ -4988,7 +4988,7 @@
             </div>
 
             <!-- Scale Box -->
-            <div id="layoutScaleContainer" onclick="layoutSelectElement('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 61mm; top: 202mm; left: 73mm;">
+            <div id="layoutScaleContainer" onclick="layoutSelectElement('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[16mm]" style="width: 50mm; height: 18mm; top: 245mm; left: 72mm;">
                 <div id="layoutScale" class="flex flex-col items-center justify-center gap-1 w-full text-center">
                     <span contenteditable="true" spellcheck="false" class="text-[8px] font-black uppercase tracking-widest text-zinc-500 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
                     <div id="layoutScaleBar" class="h-2 relative border border-black/80 shrink-0 mx-auto" style="width: 100px;">
@@ -5009,7 +5009,7 @@
             <div id="layoutFooter" style="display: none"></div>
             
             <!-- Compass Element (Draggable) -->
-            <div id="layoutCompass" onclick="layoutSelectElement('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 30mm; height: 30mm; top: 220mm; left: 160mm;">
+            <div id="layoutCompass" onclick="layoutSelectElement('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 50mm; height: 20mm; top: 265mm; left: 72mm;">
                 <div id="layoutCompassContainer" class="w-full h-full relative flex items-center justify-center pointer-events-none">
                     <!-- Compass designs will be injected via JS -->
                 </div>
@@ -16036,8 +16036,66 @@ async function deleteFromCloud(fileName, url, storagePath) {
             return;
         }
 
-        // ═══ SIN PLANTILLA (Diseño Estándar / Limpio / Sin Decoraciones) ═══
+        // ═══ SIN PLANTILLA (Diseño Estándar / Limpio: Título Arriba, Demás Cosas Abajo) ═══
         layoutConfig.theme = null;
+        if (titleContainer) {
+            titleContainer.style.display = 'flex';
+            titleContainer.style.top = layoutConfig.titleProps?.top || '8mm';
+            titleContainer.style.left = layoutConfig.titleProps?.left || '15mm';
+            titleContainer.style.width = layoutConfig.titleProps?.width || '180mm';
+        }
+        if (mapFrame) {
+            mapFrame.style.top = layoutConfig.mapFrame?.top || '24mm';
+            mapFrame.style.left = layoutConfig.mapFrame?.left || '15mm';
+            mapFrame.style.width = layoutConfig.mapFrame?.width || '180mm';
+            mapFrame.style.height = layoutConfig.mapFrame?.height || '218mm';
+            mapFrame.style.borderColor = '#111115';
+            mapFrame.style.borderWidth = '1px';
+            mapFrame.style.borderStyle = 'solid';
+            mapFrame.style.boxShadow = 'none';
+            mapFrame.style.borderRadius = '0';
+        }
+        if (legendContainer) {
+            legendContainer.style.display = 'flex';
+            legendContainer.style.top = layoutConfig.legend?.top || '245mm';
+            legendContainer.style.left = layoutConfig.legend?.left || '15mm';
+            legendContainer.style.width = layoutConfig.legend?.width || '54mm';
+            legendContainer.style.height = layoutConfig.legend?.height || '40mm';
+            legendContainer.style.background = 'rgba(255,255,255,0.92)';
+            legendContainer.style.borderColor = '#e5e7eb';
+            legendContainer.style.borderWidth = '1px';
+            legendContainer.style.boxShadow = 'none';
+            legendContainer.style.color = '#000000';
+        }
+        if (scaleContainer) {
+            scaleContainer.style.display = 'flex';
+            scaleContainer.style.top = layoutConfig.scale?.top || '245mm';
+            scaleContainer.style.left = layoutConfig.scale?.left || '72mm';
+            scaleContainer.style.width = layoutConfig.scale?.width || '50mm';
+            scaleContainer.style.height = layoutConfig.scale?.height || '18mm';
+            scaleContainer.style.background = 'rgba(255,255,255,0.92)';
+            scaleContainer.style.borderColor = '#e5e7eb';
+            scaleContainer.style.borderWidth = '1px';
+            scaleContainer.style.boxShadow = 'none';
+            scaleContainer.style.color = '#000000';
+        }
+        if (compassEl) {
+            compassEl.style.display = 'flex';
+            compassEl.style.top = layoutConfig.compass?.top || '265mm';
+            compassEl.style.left = layoutConfig.compass?.left || '72mm';
+            compassEl.style.width = layoutConfig.compass?.width || '50mm';
+            compassEl.style.height = layoutConfig.compass?.height || '20mm';
+        }
+        if (metadataContainer) {
+            metadataContainer.style.display = 'flex';
+            metadataContainer.style.top = layoutConfig.metadata?.top || '245mm';
+            metadataContainer.style.left = layoutConfig.metadata?.left || '125mm';
+            metadataContainer.style.width = layoutConfig.metadata?.width || '70mm';
+            metadataContainer.style.height = layoutConfig.metadata?.height || '40mm';
+            metadataContainer.style.background = 'rgba(255,255,255,0.92)';
+            metadataContainer.style.border = '1px solid #e5e7eb';
+        }
+
         if (!layoutConfig.styles) layoutConfig.styles = {};
         if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
         layoutConfig.styles.compass.design = 'modern';
@@ -23362,7 +23420,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             if (typeof layoutApplyTheme === 'function') layoutApplyTheme(tmpl.theme || 'standard');
           }, 450);
         } else {
-          // Resetear layoutConfig al diseño estándar para este proyecto (SIN plantilla preestablecida)
+          // Resetear layoutConfig al diseño estándar para este proyecto: Título Arriba, Demás Cosas Abajo
           layoutConfig.theme = null;
           layoutConfig.initialized = false;
           layoutConfig.paper = 'A4';
@@ -23371,6 +23429,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
           layoutConfig.themeColors = null;
           layoutConfig.elements = { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true };
           layoutConfig.shapes = [];
+          layoutConfig.titleProps = { top: '8mm', left: '15mm', width: '180mm' };
+          layoutConfig.mapFrame = { top: '24mm', left: '15mm', width: '180mm', height: '218mm' };
+          layoutConfig.legend = { top: '245mm', left: '15mm', width: '54mm', height: '40mm' };
+          layoutConfig.scale = { top: '245mm', left: '72mm', width: '50mm', height: '18mm' };
+          layoutConfig.compass = { top: '265mm', left: '72mm', width: '50mm', height: '20mm' };
+          layoutConfig.metadata = { top: '245mm', left: '125mm', width: '70mm', height: '40mm' };
           if (typeof layoutApplyTheme === 'function') layoutApplyTheme('standard');
         }
       } catch (e) {
@@ -24411,18 +24475,18 @@ async function deleteFromCloud(fileName, url, storagePath) {
           titleText: layoutConfig.titleText || 'Proyecto Zima Editor',
           elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
           styles: {
-            title: { fontSize: 24, color: '#000000', fontFamily: 'Inter', bold: true },
-            metadata: { fontSize: 9, color: '#000000', fontFamily: 'Inter' },
-            legend: { fontSize: 9, color: '#000000', fontFamily: 'Inter', design: 'classic' },
-            scale: { fontSize: 9, color: '#000000', fontFamily: 'Inter', design: 'classic' },
+            title: { fontSize: 22, color: '#000000', fontFamily: 'Inter', bold: true },
+            metadata: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter' },
+            legend: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', design: 'classic' },
+            scale: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', design: 'classic' },
             compass: { color: '#000000', design: 'modern', rotation: 0, size: 25 }
           },
-          mapFrame: { top: '20mm', left: '20mm', width: '170mm', height: '220mm', visible: true },
-          compass: { top: '220mm', left: '160mm', width: '25mm', height: '25mm' },
-          titleProps: { top: '10mm', left: '20mm', width: '120mm' },
-          metadata: { top: '238mm', left: '124mm', width: '50mm', height: '16mm' },
-          legend: { top: '180mm', left: '20mm', width: '50mm', height: '60mm' },
-          scale: { top: '235mm', left: '20mm', width: '45mm', height: '12mm' }
+          titleProps: { top: '8mm', left: '15mm', width: '180mm' },
+          mapFrame: { top: '24mm', left: '15mm', width: '180mm', height: '218mm', visible: true },
+          legend: { top: '245mm', left: '15mm', width: '54mm', height: '40mm' },
+          scale: { top: '245mm', left: '72mm', width: '50mm', height: '18mm' },
+          compass: { top: '265mm', left: '72mm', width: '50mm', height: '20mm' },
+          metadata: { top: '245mm', left: '125mm', width: '70mm', height: '40mm' }
         },
         ghibli: {
           theme: 'ghibli',
