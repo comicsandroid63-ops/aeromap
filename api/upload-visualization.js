@@ -39,17 +39,36 @@ router.post('/', async (req, res) => {
     }
 
     // Normal single-file upload
-    const isTiff = savedAs.match(/\.(tiff?)$/i);
+    const isTiff = savedAs.match(/\.(tiff?|ztif)$/i);
     let filePath = path.join(UPLOADS_DIR, savedAs);
     let outName = savedAs;
 
     if (isTiff) {
-      const optName = savedAs.replace(/\.(tiff?)$/i, '_opt.tif');
-      const optPath = path.join(COMPRESSED_DIR, optName);
-      if (fs.existsSync(optPath)) {
-        filePath = optPath;
-        outName = optName;
-        console.log(`[UploadVisualization] Using optimized version: ${optName}`);
+      const candidates = [
+        savedAs,
+        savedAs.replace(/\.(tiff?|ztif)$/i, '_opt.ztif'),
+        savedAs.replace(/\.(tiff?|ztif)$/i, '_opt.tif'),
+        savedAs.replace(/\.(tiff?|ztif)$/i, '.ztif')
+      ];
+      let foundPath = null;
+      let foundName = null;
+      for (const cand of candidates) {
+        const inCompressed = path.join(COMPRESSED_DIR, cand);
+        const inUploads = path.join(UPLOADS_DIR, cand);
+        if (fs.existsSync(inCompressed)) {
+          foundPath = inCompressed;
+          foundName = cand;
+          break;
+        } else if (fs.existsSync(inUploads)) {
+          foundPath = inUploads;
+          foundName = cand;
+          break;
+        }
+      }
+      if (foundPath) {
+        filePath = foundPath;
+        outName = foundName;
+        console.log(`[UploadVisualization] Using optimized version: ${outName}`);
       } else {
         return res.status(400).json({ success: false, errors: ['El archivo TIFF debe ser optimizado antes de subir.'] });
       }

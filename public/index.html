@@ -7957,16 +7957,19 @@ self.onmessage = async function(e) {
           toast(`Capa demasiado grande (${sizeMB}MB, límite 20MB) para subir a la nube.`, 'error');
           return;
         }
-        if (layer.serverFilename) {
+        const optFilename = layer._tileSavedAs || layer.serverFilename;
+        if (optFilename) {
           try {
-            $cloudUploadStatus.textContent = `Subiendo visualización optimizada...`;
+            $cloudUploadStatus.textContent = `Subiendo formato ZTIF optimizado a la nube...`;
+            showProgress(`Subiendo versión optimizada a la nube: ${layer.name}`, 30, 'Cloud Gateway');
             const uid = _currentUser?.id || 'guest';
             const pid = _currentProject?.id || '';
             const res = await fetch(`/api/upload-visualization?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ savedAs: layer.serverFilename, originalName: layer.name, parts: layer.parts }),
+              body: JSON.stringify({ savedAs: optFilename, originalName: layer.name, parts: layer.parts }),
             });
+            hideProgress();
             if (res.ok) {
               const data = await res.json();
               if (data.success && data.results.length > 0) {
@@ -7974,14 +7977,9 @@ self.onmessage = async function(e) {
                 if (tiffUrl) {
                   layer.storageUrl = tiffUrl;
                   await saveLayerToDatabase(layer);
-                  toast('Capa guardada y registrada en la nube', 'success');
-                  
-                  // Reload the layer using the cloud URL to prevent fetching deleted local files
-                  if (typeof showPreviewOverlay === 'function') {
-                    showPreviewOverlay(layer, layer.serverFilename, { skipFit: true }).catch(console.warn);
-                  }
-                } else {
-                  toast('No se encontró la URL del archivo subido.', 'error');
+                  toast('✓ Capa optimizada (< 20 MB) guardada y sincronizada en la nube', 'success');
+                  await listSupabaseFiles();
+                  return;
                 }
               } else {
                 const errorStr = (data.errors || []).join(', ') || 'El archivo excede el tamaño máximo permitido (20MB).';
@@ -7992,10 +7990,11 @@ self.onmessage = async function(e) {
               throw new Error('Fallo en la respuesta del servidor');
             }
           } catch (e) {
+            hideProgress();
             console.error('[Manual Upload Raster] failed:', e);
             toast('Error al subir visualización: ' + e.message, 'error');
           }
-        } else if (layer.file) {
+        } else if (layer.file && layer.file.size <= 20 * 1024 * 1024) {
           const uploadRes = await uploadFileToSupabase(layer.file);
           if (uploadRes && uploadRes.success) {
             layer.storageUrl = uploadRes.url;
@@ -8004,7 +8003,7 @@ self.onmessage = async function(e) {
             await listSupabaseFiles();
           }
         } else {
-          toast('No hay archivo original para subir.', 'error');
+          toast('La capa debe ser optimizada a formato ZTIF (< 20 MB) antes de subir a la nube.', 'warning');
         }
       }
     }
@@ -10453,8 +10452,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
         state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 22, animate: false });
       }
 
-      // Render client GeoTIFF layer immediately so the map is NEVER blank
-      if (clientGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
+      // Render client GeoTIFF layer only if already lightweight COG/ZTIF with overviews
+      const canRenderClient = isZtif || (file.size < 15 * 1024 * 1024 && clientGeo && clientGeo.overviews && clientGeo.overviews.length > 0);
+      if (canRenderClient && clientGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
         try {
           const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
             tileSize: 256,
@@ -10473,7 +10473,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
 
       // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC (< 20 MB)
-      showProgress(`Preparando subida de ${file.name}...`, 5, 'Motor ZTIF');
+      showProgress(`Preparando optimización de ${file.name}...`, 5, 'Motor ZTIF');
       try {
         const formData = new FormData();
         formData.append('tiff', file);
@@ -10486,7 +10486,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
               const pct = Math.min(50, Math.round((e.loaded / e.total) * 50));
               const upMB = (e.loaded / (1024 * 1024)).toFixed(1);
               const totMB = (e.total / (1024 * 1024)).toFixed(1);
-              showProgress(`Subiendo ${file.name} (${upMB}MB / ${totMB}MB)... ${pct * 2}%`, pct, 'Motor ZTIF');
+              showProgress(`Subiendo al optimizador: ${file.name} (${upMB}MB / ${totMB}MB)... ${pct * 2}%`, pct, 'Motor ZTIF');
             }
           };
           xhr.onload = () => {
@@ -10518,16 +10518,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
           if (upData.metadata?.height) layer.height = upData.metadata.height;
           if (upData.metadata?.bands) layer.bands = upData.metadata.bands;
 
-          // Transition seamlessly to server tile pyramids
-          addTileLayer(layer, optSavedAs);
-          hideProgress();
-
           if (upData.status === 'instant') {
+            showProgress('Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida de calidad)...', 60, 'Motor ZTIF');
             const pollId = savedAs;
             let pollAttempts = 0;
             const pollInterval = setInterval(async () => {
               pollAttempts++;
-              if (pollAttempts > 120 || !state.layers.includes(layer)) {
+              if (pollAttempts > 180 || !state.layers.includes(layer)) {
                 clearInterval(pollInterval);
                 return;
               }
@@ -10536,7 +10533,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 if (statusRes.ok) {
                   const statusData = await statusRes.json();
                   if (statusData.status === 'processing' && statusData.message) {
-                    showProgress(statusData.message, statusData.progress || 50, 'Motor ZTIF');
+                    showProgress(statusData.message, statusData.progress || 70, 'Motor ZTIF');
                   }
                   if (statusData.status === 'completed' && statusData.result) {
                     clearInterval(pollInterval);
@@ -10549,35 +10546,48 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     layer.ztifSize = resData.sizeBytes;
                     layer.origSize = resData.origSize;
                     layer._tileSavedAs = resData.savedAs;
+                    layer.serverFilename = resData.savedAs;
                     layer._geotiffFileUrl = resData.fileUrl || `/compressed/${encodeURIComponent(resData.savedAs)}`;
                     if (resData.cloudUrl) layer.storageUrl = resData.cloudUrl;
+
+                    // Transition to tile pyramids from the verified <20MB ZTIF
                     addTileLayer(layer, resData.savedAs);
                     updateZtifBadgeUI(layer);
-                    toast(`✓ Formato ZTIF creado: ${file.name} (-${layer.savingsPercent}% · 0% pérdida de calidad)`, 'success');
+
+                    // Sincronizar automáticamente a la nube la versión ya optimizada < 20 MB
+                    if (!layer.storageUrl && typeof uploadVisualizationToCloud === 'function') {
+                      uploadVisualizationToCloud(resData.savedAs, file.name, layer).catch(console.warn);
+                    }
+
+                    toast(`✓ Formato ZTIF creado: ${file.name} (${(resData.sizeBytes / (1024 * 1024)).toFixed(1)} MB · -${layer.savingsPercent}% · 0% pérdida de calidad)`, 'success');
                   } else if (statusData.status === 'failed') {
                     clearInterval(pollInterval);
                     hideProgress();
                     console.warn('[loadTiff] ZTIF background status failed:', statusData.error);
+                    toast(`Error en optimización ZTIF: ${statusData.error || 'Fallo desconocido'}`, 'error');
                   }
                 }
               } catch (pollErr) {
                 console.warn('[loadTiff] Polling status warning:', pollErr);
               }
-            }, 2500);
+            }, 2000);
           } else if (upData.status === 'completed') {
             layer.format = 'ZTIF';
             layer.lossless = true;
             layer.zeroLossVerified = true;
+            addTileLayer(layer, optSavedAs);
+            hideProgress();
             updateZtifBadgeUI(layer);
             toast(`✓ Archivo ${file.name} cargado correctamente`, 'success');
           }
         } else {
           hideProgress();
-          console.warn('[loadTiff] Server import response not OK:', upRes.statusText);
+          console.warn('[loadTiff] Server import response not OK');
         }
       } catch (srvErr) {
         hideProgress();
-        console.warn('[loadTiff] Server import unavailable, client raster active:', srvErr.message);
+        console.warn('[loadTiff] Server import error:', srvErr.message);
+        toast(`Error al importar TIFF: ${srvErr.message}`, 'error');
       }
     }
 
