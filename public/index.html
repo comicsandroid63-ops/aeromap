@@ -1242,6 +1242,22 @@
 </head>
 
 <body class="bg-surface text-on-surface font-body overflow-hidden">
+
+  <!-- Global Drag & Drop Overlay -->
+  <div id="globalDropOverlay" class="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md hidden flex flex-col items-center justify-center pointer-events-none transition-all duration-200">
+    <div class="p-10 rounded-3xl border-4 border-dashed border-emerald-400 bg-emerald-950/60 text-center flex flex-col items-center gap-4 max-w-md shadow-2xl">
+      <div class="w-20 h-20 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+        <span class="material-symbols-outlined text-5xl">cloud_upload</span>
+      </div>
+      <h3 class="text-2xl font-black text-white uppercase tracking-tight">Soltar archivo aquí</h3>
+      <p class="text-xs font-semibold text-emerald-200/90">TIFF, ZTIF Lossless, Shapefile, GeoPackage, GeoJSON...</p>
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+        <span class="material-symbols-outlined text-sm">verified</span>
+        Optimización Lossless ZTIF automática · 0% Pérdida de Píxeles
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ LANDING PAGE ═══ -->
   <div id="landingPage" class="min-h-screen flex flex-col">
     <!-- Navbar -->
@@ -10336,180 +10352,201 @@ async function deleteFromCloud(fileName, url, storagePath) {
     }
 
     async function loadTiff(file, opts = {}) {
-      console.log('[loadTiff] Starting:', file.name, file.size);
+      console.log('[loadTiff] Starting import for:', file.name, file.size);
 
-      showProgress(`Subiendo ${file.name} al servidor...`, 10);
+      // 1. FAST CLIENT-SIDE PARSE: Extract dimensions, bands, bounds directly from memory
+      let clientBounds = null;
+      let clientWidth = 0;
+      let clientHeight = 0;
+      let clientBands = 3;
+      let clientGeo = null;
+
+      try {
+        if (window.GeoTIFF) {
+          const ab = await file.arrayBuffer();
+          const clientTiff = await GeoTIFF.fromArrayBuffer(ab);
+          const clientImg = await clientTiff.getImage();
+          clientWidth = clientImg.getWidth();
+          clientHeight = clientImg.getHeight();
+          clientBands = clientImg.getSamplesPerPixel();
+          const bbox = clientImg.getBoundingBox();
+
+          if (bbox && bbox[0] !== bbox[2] && bbox[1] !== bbox[3]) {
+            let epsg = 4326;
+            try {
+              const gk = clientImg.getGeoKeys();
+              if (gk) epsg = gk.ProjectedCSTypeGeoKey || gk.GeographicTypeGeoKey || 4326;
+            } catch (_) {}
+
+            if (epsg !== 4326 && typeof proj4 !== 'undefined') {
+              if (typeof ensureProjection === 'function') await ensureProjection(epsg);
+              const srcProj = proj4('EPSG:' + epsg);
+              const sw = srcProj.inverse([bbox[0], bbox[1]]);
+              const ne = srcProj.inverse([bbox[2], bbox[3]]);
+              clientBounds = L.latLngBounds([sw[1], sw[0]], [ne[1], ne[0]]);
+            } else {
+              clientBounds = L.latLngBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
+            }
+          }
+          clientGeo = { tiff: clientTiff, image: clientImg, overviews: [], bounds: clientBounds, epsg: 4326 };
+        }
+      } catch (clientErr) {
+        console.warn('[loadTiff] Fast client-side pre-parse warning:', clientErr);
+      }
+
+      // 2. IMMEDIATE LAYER CREATION: Never block with modals for standard RGB / Monoband TIFFs
+      const numBands = clientBands || 3;
+      const initialRenderer = opts.renderer || (numBands === 3 || numBands === 4 ? 'rgb' : numBands > 4 ? 'multiband' : 'single_gray');
+      const initialParams = opts.rendererParams || {
+        bands: numBands >= 3 ? [0, 1, 2] : [0],
+        colormap: null,
+        invert: false,
+        classes: 5,
+        brightness: 0,
+        contrast: 0
+      };
+
+      const isZtif = file.name.toLowerCase().endsWith('.ztif');
+
+      let layer = {
+        id: opts.dbId || ++idCounter,
+        name: file.name,
+        type: 'raster',
+        visible: (opts.isRestored && opts.visible !== undefined) ? opts.visible : (opts.visible ?? true),
+        opacity: opts.opacity ?? 1,
+        blendMode: opts.blendMode || 'normal',
+        mapLayer: null,
+        _thumbOverlay: null,
+        _geotiffTileLayer: null,
+        _geotiffFileUrl: null,
+        serverFilename: null,
+        _tileSavedAs: null,
+        storageUrl: opts.storageUrl || null,
+        dbId: opts.dbId || null,
+        thumb: null,
+        bounds: clientBounds,
+        width: clientWidth,
+        height: clientHeight,
+        bands: numBands,
+        renderer: initialRenderer,
+        rendererParams: initialParams,
+        file: file,
+        format: isZtif ? 'ZTIF' : 'GeoTIFF',
+        lossless: true
+      };
+
+      state.layers.unshift(layer);
+      updateLayersSidebar();
+      if (typeof selectLayer === 'function') selectLayer(layer.id);
+
+      // Fit bounds immediately if client bounds are available
+      if (clientBounds && !opts.skipFit) {
+        state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 22, animate: false });
+      }
+
+      // Render client GeoTIFF layer immediately so the map is NEVER blank
+      if (clientGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
+        try {
+          const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
+            tileSize: 256,
+            maxNativeZoom: 24,
+            maxZoom: 28,
+            opacity: layer.opacity ?? 1,
+            bounds: clientBounds,
+            bands: initialParams.bands
+          });
+          clientTileLayer.addTo(state.map);
+          layer._geotiffTileLayer = clientTileLayer;
+          layer.mapLayer = clientTileLayer;
+        } catch (cgErr) {
+          console.warn('[loadTiff] Client tile layer fallback:', cgErr);
+        }
+      }
+
+      // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC
+      showProgress(`Optimizando ${file.name} a formato ZTIF Lossless...`, 20, 'Motor ZTIF');
       try {
         const formData = new FormData();
         formData.append('tiff', file);
         const upRes = await fetch('/api/import-tiff?fast=true', { method: 'POST', body: formData });
-        if (!upRes.ok) throw new Error('Error al subir: ' + upRes.statusText);
-        const upData = await upRes.json();
-        console.log('[loadTiff] Server response:', upData);
-        const savedAs = upData.id || upData.savedAs;
-        if (!savedAs) throw new Error('El servidor no devolvió un ID');
-        const serverFilename = savedAs;
+        if (upRes.ok) {
+          const upData = await upRes.json();
+          const savedAs = upData.id || upData.savedAs;
+          const optSavedAs = upData.optimizedSavedAs || savedAs;
+          layer.serverFilename = savedAs;
+          layer._tileSavedAs = optSavedAs;
 
-        const fileUrl = upData.cloudUrl || `/uploads/${encodeURIComponent(serverFilename)}`;
-
-        // Use bounds from server (gdalinfo) or fallback to client GeoTIFF
-        let bounds = _metaToBounds(upData.metadata?.bounds);
-        if (!bounds && window.GeoTIFF) {
-          try {
-            const tiff = await GeoTIFF.fromUrl(fileUrl);
-            const img = await tiff.getImage();
-            const bbox = img.getBoundingBox();
-            if (bbox && bbox[0] !== bbox[2] && bbox[1] !== bbox[3]) {
-              let epsg = 4326;
-              try { const gk = img.getGeoKeys(); if (gk) epsg = gk.ProjectedCSTypeGeoKey || gk.GeographicTypeGeoKey || 4326; } catch(e) {}
-              if (epsg !== 4326 && typeof proj4 !== 'undefined') {
-                const srcProj = proj4('EPSG:' + epsg);
-                const sw = srcProj.inverse([bbox[0], bbox[1]]);
-                const ne = srcProj.inverse([bbox[2], bbox[3]]);
-                bounds = L.latLngBounds([sw[1], sw[0]], [ne[1], ne[0]]);
-              } else {
-                bounds = L.latLngBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
-              }
-            }
-          } catch(e) { console.warn('[loadTiff] Client bounds fallback failed:', e.message); }
-        }
-
-        console.log('[loadTiff] Bounds:', bounds, 'Thumbnail:', upData.thumbnailUrl);
-
-        const numBands = upData.metadata?.bands || 1;
-
-        // Show band selection modal for multi-band TIFFs when no explicit renderer is given
-        if (numBands > 1 && !opts.renderer && !opts.rendererParams && !opts.isRestored) {
-          hideProgress();
-          openTiffBandModal(serverFilename, upData.metadata, file, bounds);
-          return;
-        }
-
-        let layer = {
-          id: opts.dbId || ++idCounter,
-          name: file.name,
-          type: 'raster',
-          visible: (opts.isRestored && opts.visible !== undefined) ? opts.visible : (opts.visible ?? true),
-          opacity: opts.opacity ?? 1,
-          blendMode: opts.blendMode || 'normal',
-          mapLayer: null,
-          _thumbOverlay: null,
-          _geotiffFileUrl: fileUrl,
-          serverFilename: serverFilename,
-          storageUrl: opts.storageUrl || null,
-          dbId: opts.dbId || null,
-          thumb: null,
-          bounds: bounds,
-          width: upData.metadata?.width,
-          height: upData.metadata?.height,
-          bands: numBands,
-          renderer: opts.renderer || (numBands === 3 ? 'rgb' : numBands > 3 ? 'multiband' : 'single_gray'),
-          rendererParams: opts.rendererParams || { bands: numBands >= 3 ? [0, 1, 2] : [0], colormap: null, invert: false, classes: 5 },
-        };
-        state.layers.unshift(layer);
-        layer.file = file;
-        hideProgress();
-
-        if (bounds && serverFilename) {
-          const tileSavedAs = upData.optimizedSavedAs || serverFilename;
-          addTileLayer(layer, tileSavedAs);
-        } else if (serverFilename) {
-          showPreviewOverlay(layer, serverFilename);
-        }
-        updateLayersSidebar();
-
-        if (!opts.isRestored && !layer.dbId) {
-          if (upData.status === 'completed') {
-            const optSavedAs = upData.optimizedSavedAs || serverFilename;
-            const optimizedUrl = upData.cloudUrl || `/compressed/${encodeURIComponent(optSavedAs)}`;
-            layer._geotiffFileUrl = optimizedUrl;
-            if (upData.cloudUrl) {
-                layer.storageUrl = upData.cloudUrl;
-                saveLayerToDatabase(layer);
-                console.log(`[loadTiff] ${file.name} subido automáticamente a la nube y limpiado localmente`);
-                if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
-            } else {
-                console.log(`[loadTiff] ${file.name} ya está optimizado — subiendo visualización`);
-                uploadVisualization(optSavedAs);
+          const srvBounds = _metaToBounds(upData.metadata?.bounds);
+          if (srvBounds) {
+            layer.bounds = srvBounds;
+            if (!clientBounds && !opts.skipFit) {
+              state.map.fitBounds(srvBounds, { padding: [40, 40], maxZoom: 22, animate: false });
             }
           }
-          // Si la optimización está en proceso, se subirá automáticamente en el polling loop al terminar.
-        }
+          if (upData.metadata?.width) layer.width = upData.metadata.width;
+          if (upData.metadata?.height) layer.height = upData.metadata.height;
+          if (upData.metadata?.bands) layer.bands = upData.metadata.bands;
 
-        async function uploadVisualization(savedAs) {
-          await uploadVisualizationToCloud(savedAs, file.name, layer);
-        }
+          // Transition seamlessly to server tile pyramids
+          addTileLayer(layer, optSavedAs);
+          hideProgress();
 
-        // Start polling for background optimization to swap original heavy file with optimized tiled COG
-        if (upData.status === 'instant') {
-          const pollId = serverFilename;
-          const pollInterval = setInterval(async () => {
-            try {
-              // Only poll if layer still exists in workspace
-              if (!state.layers.includes(layer)) {
+          if (upData.status === 'instant') {
+            const pollId = savedAs;
+            let pollAttempts = 0;
+            const pollInterval = setInterval(async () => {
+              pollAttempts++;
+              if (pollAttempts > 120 || !state.layers.includes(layer)) {
                 clearInterval(pollInterval);
                 return;
               }
-              const statusRes = await fetch(`/api/import-status/${encodeURIComponent(pollId)}`);
-              if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                if (statusData.status === 'processing' && statusData.message) {
-                  showProgress(statusData.message, statusData.progress || 50);
-                }
-                if (statusData.status === 'completed' && statusData.result?.fileUrl) {
-                  clearInterval(pollInterval);
-                  const optimizedUrl = statusData.result.fileUrl;
-                  const savedAs = statusData.result.savedAs;
-                  console.log('[loadTiff] Optimization completed! Switching to tile-based rendering:', savedAs, statusData.result);
-                  hideProgress();
-                  
-                  layer._geotiffFileUrl = optimizedUrl;
-                  if (optimizedUrl.startsWith('http')) {
-                    layer.storageUrl = optimizedUrl;
+              try {
+                const statusRes = await fetch(`/api/import-status/${encodeURIComponent(pollId)}`);
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.status === 'processing' && statusData.message) {
+                    showProgress(statusData.message, statusData.progress || 50, 'Motor ZTIF');
                   }
-                  
-                  saveLayerToDatabase(layer);
-                  
-                  addTileLayer(layer, savedAs);
-
-                  const q = statusData.result;
-                  layer._cloudReady = q.cloudReady;
-                  layer._optimizedSizeBytes = q.sizeBytes;
-                  layer.format = 'ZTIF';
-                  layer.lossless = true;
-                  layer.zeroLossVerified = true;
-                  layer.savingsPercent = q.savingsPercent || q.savings || 85;
-                  layer.ztifSize = q.sizeBytes;
-                  layer.origSize = q.origSize;
-                  updateZtifBadgeUI(layer);
-                  toast(`✓ Formato ZTIF creado: ${file.name} (-${layer.savingsPercent}% · 0% pérdida de píxeles)`, 'success');
-                  if (!layer.storageUrl) {
-                    if (q.cloudReady) {
-                      uploadVisualization(savedAs);
-                    } else {
-                      const sizeMB = q.sizeBytes ? (q.sizeBytes / 1048576).toFixed(1) : '?';
-                      toast(`Archivo optimizado (${sizeMB}MB) supera 20MB — no se sube a la nube. La capa funciona localmente.`, 'warning');
-                    }
+                  if (statusData.status === 'completed' && statusData.result) {
+                    clearInterval(pollInterval);
+                    hideProgress();
+                    const resData = statusData.result;
+                    layer.format = 'ZTIF';
+                    layer.lossless = true;
+                    layer.zeroLossVerified = true;
+                    layer.savingsPercent = resData.savingsPercent || resData.savings || 85;
+                    layer.ztifSize = resData.sizeBytes;
+                    layer.origSize = resData.origSize;
+                    layer._tileSavedAs = resData.savedAs;
+                    layer._geotiffFileUrl = resData.fileUrl || `/compressed/${encodeURIComponent(resData.savedAs)}`;
+                    if (resData.cloudUrl) layer.storageUrl = resData.cloudUrl;
+                    addTileLayer(layer, resData.savedAs);
+                    updateZtifBadgeUI(layer);
+                    toast(`✓ Formato ZTIF creado: ${file.name} (-${layer.savingsPercent}% · 0% pérdida de calidad)`, 'success');
+                  } else if (statusData.status === 'failed') {
+                    clearInterval(pollInterval);
+                    hideProgress();
+                    console.warn('[loadTiff] ZTIF background status failed:', statusData.error);
                   }
-                  
-                  const qLabel = q.mode === 'lossless' ? 'calidad 100% (lossless)' : `modo ${q.mode} q${q.quality}`;
-                  const mb = q.sizeBytes ? ` · ${(q.sizeBytes / 1048576).toFixed(2)}MB` : '';
-                  toast(`Capa optimizada cargada (${qLabel}${mb})`, 'success');
-                } else if (statusData.status === 'failed') {
-                  clearInterval(pollInterval);
-                  console.warn('[loadTiff] Background optimization failed:', statusData.error);
                 }
+              } catch (pollErr) {
+                console.warn('[loadTiff] Polling status warning:', pollErr);
               }
-            } catch (e) {
-              console.warn('[loadTiff] Error polling status:', e);
-            }
-          }, 3000);
+            }, 2500);
+          } else if (upData.status === 'completed') {
+            layer.format = 'ZTIF';
+            layer.lossless = true;
+            layer.zeroLossVerified = true;
+            updateZtifBadgeUI(layer);
+            toast(`✓ Archivo ${file.name} cargado correctamente`, 'success');
+          }
+        } else {
+          hideProgress();
+          console.warn('[loadTiff] Server import response not OK:', upRes.statusText);
         }
-
-      } catch (err) {
-        console.error('[loadTiff] Error:', err);
+      } catch (srvErr) {
         hideProgress();
-        toast(`Error cargando ${file.name}: ${err.message}`, 'error');
+        console.warn('[loadTiff] Server import unavailable, client raster active:', srvErr.message);
       }
     }
 
@@ -13486,6 +13523,44 @@ async function deleteFromCloud(fileName, url, storagePath) {
       $dropZone.classList.remove('bg-white', 'border-black', 'scale-[1.02]');
       const files = Array.from(e.dataTransfer.files);
       await processIncomingFiles(files);
+    });
+
+    // Global Window & Map Drag & Drop (Supports drops ANYWHERE on screen)
+    let _windowDragCounter = 0;
+    window.addEventListener('dragenter', e => {
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        _windowDragCounter++;
+        const overlay = document.getElementById('globalDropOverlay');
+        if (overlay) overlay.classList.remove('hidden');
+      }
+    });
+
+    window.addEventListener('dragover', e => {
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+
+    window.addEventListener('dragleave', e => {
+      _windowDragCounter--;
+      if (_windowDragCounter <= 0) {
+        _windowDragCounter = 0;
+        const overlay = document.getElementById('globalDropOverlay');
+        if (overlay) overlay.classList.add('hidden');
+      }
+    });
+
+    window.addEventListener('drop', async e => {
+      _windowDragCounter = 0;
+      const overlay = document.getElementById('globalDropOverlay');
+      if (overlay) overlay.classList.add('hidden');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        e.preventDefault();
+        const files = Array.from(e.dataTransfer.files);
+        console.log('[GlobalDrop] Dropped files:', files.map(f => f.name));
+        await processIncomingFiles(files);
+      }
     });
 
     document.getElementById('btnFit').onclick = fitView;

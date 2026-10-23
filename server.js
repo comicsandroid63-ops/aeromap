@@ -1128,7 +1128,7 @@ async function tryGdalTile(filePath, z, x, y, renderer, bands, res) {
     const outPath = path.join(UPLOADS, '__gdal_tile_' + Date.now() + '.png');
     const gdalArgs = ['-srcwin', String(left), String(top), String(srcW), String(srcH), '-outsize', String(tileSize), String(tileSize)];
 
-    if (renderer === 'multiband' && bands && bands.length >= 3) {
+    if ((renderer === 'multiband' || renderer === 'rgb' || !renderer) && bands && bands.length >= 3) {
       // GDAL bands are 1-indexed
       gdalArgs.push('-b', String(bands[0] + 1), '-b', String(bands[1] + 1), '-b', String(bands[2] + 1));
       gdalArgs.push('-scale');
@@ -1203,12 +1203,36 @@ async function tryGdalProjwinTile(filePath, tileWest, tileNorth, tileEast, tileS
 app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
   const { filename, z, x, y } = req.params;
   
-  let filePath = path.join(UPLOADS, filename);
-  if (!fs.existsSync(filePath)) filePath = path.join(COMPRESSED, filename);
-  if (!fs.existsSync(filePath)) {
-    const alt = filename.endsWith('.ztif') ? filename.replace(/\.ztif$/i, '.tif') : filename.replace(/\.tif$/i, '.ztif');
-    if (fs.existsSync(path.join(COMPRESSED, alt))) filePath = path.join(COMPRESSED, alt);
-    else if (fs.existsSync(path.join(UPLOADS, alt))) filePath = path.join(UPLOADS, alt);
+  const rawName = path.basename(filename);
+  const baseName = rawName.replace(/\.(tiff?|ztif|img|vrt)$/i, '');
+  const optName = baseName.endsWith('_opt') ? baseName : (baseName + '_opt');
+  const cleanBase = baseName.replace(/_opt$/i, '');
+
+  const candidates = [
+    path.join(UPLOADS, rawName),
+    path.join(COMPRESSED, rawName),
+    path.join(COMPRESSED, optName + '.ztif'),
+    path.join(COMPRESSED, optName + '.tif'),
+    path.join(COMPRESSED, cleanBase + '.ztif'),
+    path.join(COMPRESSED, cleanBase + '.tif'),
+    path.join(UPLOADS, cleanBase + '.tif'),
+    path.join(UPLOADS, cleanBase + '.tiff'),
+  ];
+
+  let filePath = null;
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      filePath = c;
+      break;
+    }
+  }
+
+  if (!filePath && fs.existsSync(COMPRESSED)) {
+    try {
+      const files = fs.readdirSync(COMPRESSED);
+      const match = files.find(f => f.startsWith(cleanBase) && /\.(ztif|tif|tiff)$/i.test(f));
+      if (match) filePath = path.join(COMPRESSED, match);
+    } catch (_) {}
   }
   const sUrl = req.query.storageUrl;
   if (sUrl) {
@@ -1230,8 +1254,7 @@ app.get('/api/tiles/:filename/:z/:x/:y.png', async (req, res) => {
       else filePath = local;
     }
   } else {
-    if (!fs.existsSync(filePath)) filePath = path.join(COMPRESSED, filename);
-    if (!fs.existsSync(filePath)) {
+    if (!filePath || !fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'TIFF not found' });
     }
   }
