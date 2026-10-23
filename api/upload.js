@@ -50,7 +50,7 @@ module.exports = async (req, res) => {
     const file = req.file;
 
     // Sanitización y whitelist de extensiones permitidas (previene RCE y subida de ejecutables)
-    const ALLOWED_EXTS = /\.(tiff?|png|jpe?g|webp|geojson|json|zip|shp|dbf|shx|prj|gpkg|cpg|kml|kmz|csv)$/i;
+    const ALLOWED_EXTS = /\.(tiff?|ztif|png|jpe?g|webp|geojson|json|zip|shp|dbf|shx|prj|gpkg|cpg|kml|kmz|csv)$/i;
     const DANGEROUS_EXTS = /\.(exe|bat|cmd|sh|php|phtml|phar|pl|cgi|py|rb|js|mjs|jsp|asp|aspx|vbs|wsf|scr|msi|dll|so|dylib|html?|svg)$/i;
 
     const originalSafeName = path.basename(file.originalname || 'upload').replace(/[^a-zA-Z0-9._\-]/g, '_');
