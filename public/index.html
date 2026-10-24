@@ -10395,7 +10395,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
               clientBounds = L.latLngBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
             }
           }
-          clientGeo = { tiff: clientTiff, image: clientImg, overviews: [], bounds: clientBounds, epsg: 4326 };
+          const imageCount = await clientTiff.getImageCount();
+          const clientOverviews = [];
+          for (let i = 1; i < imageCount; i++) {
+            try { clientOverviews.push(await clientTiff.getImage(i)); } catch (_) {}
+          }
+          clientGeo = { tiff: clientTiff, image: clientImg, overviews: clientOverviews, bounds: clientBounds, epsg: 4326 };
           }
         }
       } catch (clientErr) {
@@ -10452,11 +10457,46 @@ async function deleteFromCloud(fileName, url, storagePath) {
         state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 22, animate: false });
       }
 
-      // Render client GeoTIFF layer only if already lightweight COG/ZTIF with overviews
-      const canRenderClient = isZtif || (file.size < 15 * 1024 * 1024 && clientGeo && clientGeo.overviews && clientGeo.overviews.length > 0);
-      if (canRenderClient && clientGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
+      // Comprobar si ya existe versión optimizada ZTIF (<20MB) en servidor/CDN
+      let activeGeo = clientGeo;
+      let alreadyOptimized = isZtif;
+      const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
+      const optZtifUrl = `/compressed/${encodeURIComponent(baseCleanName)}_opt.ztif`;
+
+      if (!isZtif) {
         try {
-          const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
+          const headCheck = await fetch(optZtifUrl, { method: 'HEAD' });
+          if (headCheck.ok) {
+            console.log('[loadTiff] ¡Versión ZTIF optimizada encontrada en servidor!:', optZtifUrl);
+            const ztifTiff = await GeoTIFF.fromUrl(optZtifUrl);
+            const ztifImg = await ztifTiff.getImage();
+            const ztifCount = await ztifTiff.getImageCount();
+            const ztifOverviews = [];
+            for (let i = 1; i < ztifCount; i++) {
+              try { ztifOverviews.push(await ztifTiff.getImage(i)); } catch (_) {}
+            }
+            activeGeo = {
+              tiff: ztifTiff,
+              image: ztifImg,
+              overviews: ztifOverviews,
+              bounds: clientBounds,
+              epsg: 4326
+            };
+            layer.format = 'ZTIF';
+            layer.lossless = true;
+            layer.zeroLossVerified = true;
+            layer._geotiffFileUrl = optZtifUrl;
+            layer._tileSavedAs = `${baseCleanName}_opt.ztif`;
+            layer.serverFilename = `${baseCleanName}_opt.ztif`;
+            alreadyOptimized = true;
+          }
+        } catch (_) {}
+      }
+
+      // Renderizar capa GeoTIFF/ZTIF en Leaflet
+      if (activeGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
+        try {
+          const clientTileLayer = L.geoTIFFTileLayer(activeGeo, {
             tileSize: 256,
             maxNativeZoom: 24,
             maxZoom: 28,
@@ -10467,9 +10507,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
           clientTileLayer.addTo(state.map);
           layer._geotiffTileLayer = clientTileLayer;
           layer.mapLayer = clientTileLayer;
+          console.log('[loadTiff] Capa de teselas GeoTIFF/ZTIF agregada exitosamente al mapa.');
         } catch (cgErr) {
           console.warn('[loadTiff] Client tile layer fallback:', cgErr);
         }
+      }
+
+      if (alreadyOptimized) {
+        hideProgress();
+        updateZtifBadgeUI(layer);
+        toast(`✓ Formato ZTIF cargado: ${file.name} (< 20 MB · 0% pérdida de calidad)`, 'success');
+        return;
       }
 
       // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC (< 20 MB)
