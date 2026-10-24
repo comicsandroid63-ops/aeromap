@@ -94,7 +94,7 @@ mountApi('/api/layers', require('./api/layers'));
 mountApi('/api/files', require('./api/files'));
 mountApi('/api/upload', require('./api/upload'));
 mountApi('/api/gpkg-geojson', require('./api/gpkg-geojson'));
-app.use('/api/upload-visualization', require('./api/upload-visualization'));
+app.use('/api/upload-visualization', require('./api/upload'));
 mountApi('/api/dashboard', require('./api/dashboard'));
 mountApi('/api/admin/dashboard', require('./api/dashboard'));
 mountApi('/api/presence', require('./api/presence'));
@@ -103,7 +103,7 @@ app.use('/api/auth', require('./api/auth'));
 
 app.use('/api/network', require('./api/network'));
 app.use('/api/dzi', require('./api/dzi-generator'));
-app.use('/api/render-preview', require('./api/tiff-preview'));
+app.use('/api/render-preview', require('./api/dzi-generator'));
 
 const rgbUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024, files: 3 } }).fields([
   { name: 'rFile', maxCount: 1 },

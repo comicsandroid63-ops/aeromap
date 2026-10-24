@@ -38,6 +38,18 @@
       "dest": "/api/dashboard.js"
     },
     {
+      "src": "/api/upload-visualization",
+      "dest": "/api/upload.js?action=visualization"
+    },
+    {
+      "src": "/api/render-preview/(.*)",
+      "dest": "/api/dzi-generator.js"
+    },
+    {
+      "src": "/api/dzi/(.*)",
+      "dest": "/api/dzi-generator.js"
+    },
+    {
       "src": "/api/([^/]+)(?:/(.*))?",
       "dest": "/api/$1.js"
     },

@@ -2,6 +2,9 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const COMPRESSED_DIR = path.join(PUBLIC_DIR, 'compressed');
+
 // En Vercel / serverless usar /tmp si public/uploads no es escribible
 function getUploadsDir() {
   const localDir = path.join(__dirname, '..', 'public', 'uploads');
@@ -25,6 +28,89 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 }).single('file');
 
+// Manejador de registro de visualización optimizada (antes en upload-visualization.js)
+async function handleVisualization(req, res, body) {
+  const { savedAs, originalName, parts } = body || {};
+
+  if (!savedAs) {
+    return res.status(400).json({ success: false, errors: ['Falta savedAs'] });
+  }
+
+  try {
+    fs.mkdirSync(COMPRESSED_DIR, { recursive: true });
+    const UPLOADS_DIR = getUploadsDir();
+
+    if (parts && parts.length > 0) {
+      console.log(`[UploadVisualization] Processing ${parts.length} pre-chunked parts...`);
+      const outName = savedAs.replace(/\.(tiff?|ztif)$/i, '_opt.ztif');
+      for (const part of parts) {
+        const partPath = path.join(UPLOADS_DIR, part);
+        if (fs.existsSync(partPath)) {
+          try { fs.unlinkSync(partPath); } catch (_) {}
+        }
+      }
+      const url = `/compressed/${encodeURIComponent(outName)}`;
+      return res.json({ success: true, results: [{ type: 'tiff', url }] });
+    }
+
+    const isTiff = savedAs.match(/\.(tiff?|ztif)$/i);
+    let filePath = path.join(UPLOADS_DIR, savedAs);
+    let outName = savedAs;
+
+    if (isTiff) {
+      const candidates = [
+        savedAs,
+        savedAs.replace(/\.(tiff?|ztif)$/i, '_opt.ztif'),
+        savedAs.replace(/\.(tiff?|ztif)$/i, '_opt.tif'),
+        savedAs.replace(/\.(tiff?|ztif)$/i, '.ztif')
+      ];
+      let foundPath = null;
+      let foundName = null;
+      for (const cand of candidates) {
+        const inCompressed = path.join(COMPRESSED_DIR, cand);
+        const inUploads = path.join(UPLOADS_DIR, cand);
+        if (fs.existsSync(inCompressed)) {
+          foundPath = inCompressed;
+          foundName = cand;
+          break;
+        } else if (fs.existsSync(inUploads)) {
+          foundPath = inUploads;
+          foundName = cand;
+          break;
+        }
+      }
+      if (foundPath) {
+        filePath = foundPath;
+        outName = foundName;
+        console.log(`[UploadVisualization] Using optimized version: ${outName}`);
+      } else {
+        return res.status(400).json({ success: false, errors: ['El archivo TIFF debe ser optimizado antes de subir.'] });
+      }
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, errors: ['Archivo no encontrado'] });
+    }
+
+    const MAX_CLOUD_BYTES = 20 * 1024 * 1024;
+    const stat = fs.statSync(filePath);
+    if (stat.size > MAX_CLOUD_BYTES) {
+      return res.status(400).json({ success: false, errors: [`El archivo pesa ${(stat.size / 1048576).toFixed(2)}MB y supera el límite de 20MB.`] });
+    }
+
+    const destPath = path.join(COMPRESSED_DIR, outName);
+    if (filePath !== destPath) {
+      fs.copyFileSync(filePath, destPath);
+    }
+
+    const url = `/compressed/${encodeURIComponent(outName)}`;
+    return res.json({ success: true, results: [{ type: 'tiff', url }] });
+  } catch (err) {
+    console.error('[UploadVisualization] Error:', err);
+    return res.status(500).json({ success: false, errors: [err.message] });
+  }
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -38,6 +124,36 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Si es JSON o petición de visualización (action=visualization)
+  const isJson = req.headers['content-type']?.includes('application/json');
+  const isVisAction = req.query.action === 'visualization' || req.url.includes('upload-visualization');
+
+  if (isJson || isVisAction) {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) { body = {}; }
+    }
+    if (!body && !isJson) {
+      body = {};
+    }
+    // Si express no ha parseado el body aún en entorno serverless
+    if (!body || Object.keys(body).length === 0) {
+      let rawData = '';
+      req.on('data', chunk => { rawData += chunk; });
+      req.on('end', () => {
+        try {
+          const parsed = rawData ? JSON.parse(rawData) : {};
+          return handleVisualization(req, res, parsed);
+        } catch (e) {
+          return handleVisualization(req, res, {});
+        }
+      });
+      return;
+    }
+    return handleVisualization(req, res, body);
+  }
+
+  // Flujo normal multipart para subida directa de archivos
   upload(req, res, async (err) => {
     if (err) {
       return res.status(500).json({ error: 'Error processing file: ' + err.message });
@@ -49,7 +165,7 @@ module.exports = async (req, res) => {
 
     const file = req.file;
 
-    // Sanitización y whitelist de extensiones permitidas (previene RCE y subida de ejecutables)
+    // Sanitización y whitelist de extensiones permitidas
     const ALLOWED_EXTS = /\.(tiff?|ztif|png|jpe?g|webp|geojson|json|zip|shp|dbf|shx|prj|gpkg|cpg|kml|kmz|csv)$/i;
     const DANGEROUS_EXTS = /\.(exe|bat|cmd|sh|php|phtml|phar|pl|cgi|py|rb|js|mjs|jsp|asp|aspx|vbs|wsf|scr|msi|dll|so|dylib|html?|svg)$/i;
 
@@ -69,7 +185,6 @@ module.exports = async (req, res) => {
       const fullDir = (safeUserId && safeProjectId) ? path.join(targetDir, safeUserId, safeProjectId) : targetDir;
       const finalFilePath = path.join(fullDir, originalSafeName);
 
-      // Verificación estricta contra Path Traversal
       const resolvedPath = path.resolve(finalFilePath);
       if (!resolvedPath.startsWith(path.resolve(targetDir))) {
         return res.status(400).json({ error: 'Ruta de archivo no permitida' });
@@ -80,7 +195,6 @@ module.exports = async (req, res) => {
       }
       fs.writeFileSync(finalFilePath, file.buffer);
     } catch (saveErr) {
-      // Ignorar fallo de escritura a disco si el filesystem es de solo lectura (serverless)
       console.warn('[Upload] Failed to persist file on server disk:', saveErr.message);
     }
 

@@ -249,4 +249,64 @@ router.delete('/cache/:name', (req, res) => {
   }
 });
 
+
+// ─── COG & TIFF PREVIEW (consolidado desde tiff-preview.js) ───
+const WEBP_CACHE_DIR = path.join(__dirname, '..', 'public', 'webp-cache');
+if (!fs.existsSync(WEBP_CACHE_DIR)) {
+  try { fs.mkdirSync(WEBP_CACHE_DIR, { recursive: true }); } catch(_) {}
+}
+
+const GDAL_PATH = process.env.GDAL_PATH || 'C:\\Program Files\\GDAL';
+const GDAL_ENV = {
+  ...process.env,
+  GDAL_DATA: path.join(GDAL_PATH, 'gdal-data'),
+  PROJ_LIB: path.join(GDAL_PATH, 'projlib'),
+  PATH: `${GDAL_PATH};${process.env.PATH || ''}`
+};
+
+function runGdal(args) {
+  const { execFile } = require('child_process');
+  const util = require('util');
+  return util.promisify(execFile)(path.join(GDAL_PATH, 'gdal_translate.exe'), args, { env: GDAL_ENV });
+}
+
+router.get('/cog/:z/:x/:y', async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ error: 'Se requiere ?url=' });
+    const { z, x, y } = req.params;
+    const vsiPath = `/vsicurl/${url}`;
+    const cacheKey = `cog_${Buffer.from(url).toString('base64').substring(0, 32)}_${z}_${x}_${y}`;
+    const diskPath = path.join(WEBP_CACHE_DIR, `${cacheKey}.webp`);
+
+    if (fs.existsSync(diskPath)) {
+      res.set('Content-Type', 'image/webp');
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(diskPath);
+    }
+
+    const n = Math.pow(2, parseInt(z));
+    const lonMin = x / n * 360 - 180;
+    const lonMax = (x + 1) / n * 360 - 180;
+    const tileLat = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
+    const latMax = tileLat(parseInt(y));
+    const latMin = tileLat(parseInt(y) + 1);
+
+    await runGdal([
+      '-of', 'WEBP', '-b', '1', '-b', '2', '-b', '3', '-ot', 'Byte', '-scale',
+      '-projwin', String(lonMin), String(latMax), String(lonMax), String(latMin),
+      '-projwin_srs', 'EPSG:4326',
+      '-outsize', '256', '256', '-co', 'QUALITY=85',
+      vsiPath, diskPath,
+    ]);
+
+    res.set('Content-Type', 'image/webp');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(diskPath);
+  } catch (err) {
+    console.error('[COG] Error:', err.message ? err.message.substring(0, 200) : err);
+    res.status(500).json({ error: 'Error al leer COG remoto' });
+  }
+});
+
 module.exports = router;
