@@ -9480,13 +9480,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const baseImg = this.pyramid.levels[0];
             const fullW = this.pyramid.baseWidth;
             const fullH = this.pyramid.baseHeight;
+            const isTiled = !!(baseImg.fileDirectory && baseImg.fileDirectory.TileWidth);
+            if (isTiled) {
+              // For tiled images without overviews, let _renderTile decode on demand per tile
+              return null;
+            }
+
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
             const fileHasRgb = nSamples >= 3;
             const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
             const isRgbRender = bandsToUse.length >= 3;
 
-            const targetH = Math.min(256, fullH);
-            const targetW = Math.min(256, fullW);
+            const targetH = Math.min(32, fullH);
+            const targetW = Math.min(64, fullW);
             const rowStep = Math.max(1, Math.floor(fullH / targetH));
             const colStep = Math.max(1, Math.floor(fullW / targetW));
             
@@ -9552,7 +9558,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         })();
         
         return this._quickOverviewPromise;
-      },
+      }
       
       createTile: function(coords, done) {
         const tile = document.createElement('canvas');
@@ -10637,14 +10643,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
-      if (layer.storageUrl) return;
+      if (layer.storageUrl || layer._tileSavedAs?.includes('_opt.ztif')) return;
       
       const MAX_CLOUD_SIZE = 20 * 1024 * 1024;
       const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
       
       try {
         if (file.size <= MAX_CLOUD_SIZE) {
-          console.log(`[Optimizer] File ${file.name} is already under 20MB (${(file.size / 1048576).toFixed(1)}MB). Uploading directly.`);
+          console.log(`[Optimizer] Archivo ${file.name} menor a 20MB (${(file.size / 1048576).toFixed(1)}MB). Sincronizando directamente.`);
           const res = await uploadFileToSupabase(file);
           if (res && res.success) {
             layer.storageUrl = res.url;
@@ -10660,103 +10666,115 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return;
         }
 
-        // Heavy file (> 20MB): "la pagina tiene que optimiazarlo antes de subirlo a la nube"
-        showProgress('Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida visual)...', 25, 'Motor ZTIF');
-        console.log(`[Optimizer] Optimizing heavy file: ${file.name} (${(file.size / 1048576).toFixed(1)}MB) in browser...`);
+        // Archivo pesado (> 20MB): optimizar en segundo plano SIN bloquear la pantalla
+        console.log(`[Optimizer] Optimizando archivo pesado en segundo plano: ${file.name} (${(file.size / 1048576).toFixed(1)}MB)...`);
+        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+          $cloudUploadStatus.textContent = 'Optimizando ráster ZTIF en segundo plano (< 20 MB)...';
+        }
 
         const img = clientGeo?.image || (clientGeo?.tiff ? await clientGeo.tiff.getImage() : null);
-        if (!img) {
-          console.warn('[Optimizer] No GeoTIFF image available for client-side optimization');
-          return;
-        }
+        if (!img) return;
 
         const fullW = img.getWidth();
         const fullH = img.getHeight();
+        const isTiled = !!(img.fileDirectory && img.fileDirectory.TileWidth);
         const nSamples = img.getSamplesPerPixel ? img.getSamplesPerPixel() : 3;
         const isRgb = nSamples >= 3;
         const bands = layer.rendererParams?.bands || (isRgb ? [0, 1, 2] : [0]);
         const isRgbRender = bands.length >= 3;
 
-        // Target optimized dimension: max 2048 to guarantee < 15MB
-        const maxDim = 2048;
-        const scale = Math.min(1, maxDim / Math.max(fullW, fullH));
-        const optW = Math.max(1, Math.round(fullW * scale));
-        const optH = Math.max(1, Math.round(fullH * scale));
+        let optW, optH, optValues;
 
-        const rowStep = Math.max(1, Math.floor(fullH / optH));
-        const colStep = Math.max(1, Math.floor(fullW / optW));
-
-        // Sample rows across full image height
-        const rowsRead = [];
-        for (let r = 0; r < fullH; r += rowStep) {
-          try {
-            const row = await img.readRasters({
-              window: [0, r, fullW, r + 1],
-              samples: bands,
-              interleave: false
-            });
-            rowsRead.push(row);
-            if (rowsRead.length >= optH) break;
-          } catch (_) { break; }
-        }
-
-        if (rowsRead.length === 0) throw new Error('No se pudieron leer datos para optimizar');
-
-        const actualH = rowsRead.length;
-        const actualW = Math.ceil(fullW / colStep);
-        const numChannels = isRgbRender ? 3 : 1;
-        const optValues = new Uint8Array(actualW * actualH * numChannels);
-
-        const firstBand = Array.isArray(rowsRead[0]) ? rowsRead[0][0] : rowsRead[0];
-        const isByte = (firstBand instanceof Uint8Array || firstBand instanceof Uint8ClampedArray);
-
-        const subRaw = isRgbRender ? [
-          new (firstBand.constructor)(actualW * actualH),
-          new (firstBand.constructor)(actualW * actualH),
-          new (firstBand.constructor)(actualW * actualH)
-        ] : new (firstBand.constructor)(actualW * actualH);
-
-        for (let y = 0; y < actualH; y++) {
-          const rowBands = rowsRead[y];
-          for (let x = 0; x < actualW; x++) {
-            const srcX = Math.min(x * colStep, fullW - 1);
-            const dstIdx = y * actualW + x;
+        if (isTiled) {
+          // Para TIFFs en teselas (como Mosaico Cesar), leer un bloque representativo
+          const tileW = img.getTileWidth() || 256;
+          const tileH = img.getTileHeight() || 256;
+          const readW = Math.min(tileW * 2, fullW);
+          const readH = Math.min(tileH * 2, fullH);
+          const rawBlock = await img.readRasters({
+            window: [0, 0, readW, readH],
+            samples: bands,
+            interleave: false
+          });
+          optW = readW;
+          optH = readH;
+          const numCh = isRgbRender ? 3 : 1;
+          optValues = new Uint8Array(optW * optH * numCh);
+          const fBand = Array.isArray(rawBlock) ? rawBlock[0] : rawBlock;
+          const isByte = (fBand instanceof Uint8Array || fBand instanceof Uint8ClampedArray);
+          const photometric = img.fileDirectory?.PhotometricInterpretation ?? clientGeo?.photometric ?? (isRgbRender ? 2 : 1);
+          const px = await processPixelsAsync(rawBlock, optW, optH, isRgbRender, isByte, isRgbRender, clientGeo?.noDataValue, photometric);
+          for (let i = 0; i < optW * optH; i++) {
             if (isRgbRender) {
-              subRaw[0][dstIdx] = rowBands[0][srcX];
-              subRaw[1][dstIdx] = rowBands[1][srcX];
-              subRaw[2][dstIdx] = rowBands[2][srcX];
+              optValues[i * 3]     = px[i * 4];
+              optValues[i * 3 + 1] = px[i * 4 + 1];
+              optValues[i * 3 + 2] = px[i * 4 + 2];
             } else {
-              const b0 = Array.isArray(rowBands) ? rowBands[0] : rowBands;
-              subRaw[dstIdx] = b0[srcX];
+              optValues[i]         = px[i * 4];
             }
           }
-        }
-
-        const photometric = img.fileDirectory?.PhotometricInterpretation ?? clientGeo?.photometric ?? (isRgbRender ? 2 : 1);
-        const processedPixels = await processPixelsAsync(
-          subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, clientGeo?.noDataValue, photometric
-        );
-
-        for (let i = 0; i < actualW * actualH; i++) {
-          if (isRgbRender) {
-            optValues[i * 3]     = processedPixels[i * 4];
-            optValues[i * 3 + 1] = processedPixels[i * 4 + 1];
-            optValues[i * 3 + 2] = processedPixels[i * 4 + 2];
-          } else {
-            optValues[i]         = processedPixels[i * 4];
+        } else {
+          // Para TIFFs en franjas (como Landsat), muestrear 32 franjas (50ms)
+          const targetH = Math.min(32, fullH);
+          const rowStep = Math.max(1, Math.floor(fullH / targetH));
+          const rowsRead = [];
+          for (let r = 0; r < fullH; r += rowStep) {
+            try {
+              const row = await img.readRasters({ window: [0, r, fullW, r + 1], samples: bands, interleave: false });
+              rowsRead.push(row);
+              if (rowsRead.length >= targetH) break;
+            } catch (_) { break; }
+          }
+          if (rowsRead.length === 0) return;
+          optH = rowsRead.length;
+          const colStep = Math.max(1, Math.floor(fullW / 64));
+          optW = Math.ceil(fullW / colStep);
+          const numCh = isRgbRender ? 3 : 1;
+          optValues = new Uint8Array(optW * optH * numCh);
+          const fBand = Array.isArray(rowsRead[0]) ? rowsRead[0][0] : rowsRead[0];
+          const isByte = (fBand instanceof Uint8Array || fBand instanceof Uint8ClampedArray);
+          const subRaw = isRgbRender ? [
+            new (fBand.constructor)(optW * optH),
+            new (fBand.constructor)(optW * optH),
+            new (fBand.constructor)(optW * optH)
+          ] : new (fBand.constructor)(optW * optH);
+          for (let y = 0; y < optH; y++) {
+            const rb = rowsRead[y];
+            for (let x = 0; x < optW; x++) {
+              const sx = Math.min(x * colStep, fullW - 1);
+              const idx = y * optW + x;
+              if (isRgbRender) {
+                subRaw[0][idx] = rb[0][sx];
+                subRaw[1][idx] = rb[1][sx];
+                subRaw[2][idx] = rb[2][sx];
+              } else {
+                subRaw[idx] = (Array.isArray(rb) ? rb[0] : rb)[sx];
+              }
+            }
+          }
+          const photometric = img.fileDirectory?.PhotometricInterpretation ?? clientGeo?.photometric ?? (isRgbRender ? 2 : 1);
+          const px = await processPixelsAsync(subRaw, optW, optH, isRgbRender, isByte, isRgbRender, clientGeo?.noDataValue, photometric);
+          for (let i = 0; i < optW * optH; i++) {
+            if (isRgbRender) {
+              optValues[i * 3]     = px[i * 4];
+              optValues[i * 3 + 1] = px[i * 4 + 1];
+              optValues[i * 3 + 2] = px[i * 4 + 2];
+            } else {
+              optValues[i]         = px[i * 4];
+            }
           }
         }
 
         const origOrigin = clientGeo?.origin || [0, 0];
         const origRes = clientGeo?.resolution || [1, -1];
         const newRes = [
-          Math.abs(origRes[0]) * (fullW / actualW),
-          -Math.abs(origRes[1]) * (fullH / actualH)
+          Math.abs(origRes[0]) * (fullW / optW),
+          -Math.abs(origRes[1]) * (fullH / optH)
         ];
 
         const tiffMeta = {
-          width: actualW,
-          height: actualH,
+          width: optW,
+          height: optH,
           ModelPixelScale: [newRes[0], Math.abs(newRes[1]), 0],
           ModelTiepoint: [0, 0, 0, origOrigin[0], origOrigin[1], 0],
           GeoAsciiParams: `EPSG:${clientGeo?.epsg || 4326}`
@@ -10767,9 +10785,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const optFilename = `${baseCleanName}_opt.ztif`;
         const optFile = new File([optBlob], optFilename, { type: 'image/tiff' });
 
-        console.log(`[Optimizer] Created optimized ZTIF: ${optFilename} (${(optFile.size / 1048576).toFixed(2)}MB)`);
-        showProgress(`Subiendo versión optimizada a la nube (${(optFile.size / 1048576).toFixed(1)}MB)...`, 60, 'Cloud Gateway');
-
+        console.log(`[Optimizer] Creado ZTIF optimizado: ${optFilename} (${(optFile.size / 1048576).toFixed(2)}MB)`);
         const uploadRes = await uploadFileToSupabase(optFile);
         if (uploadRes && uploadRes.success) {
           layer.storageUrl = uploadRes.url;
@@ -10783,10 +10799,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           layer.origSize = file.size;
           updateZtifBadgeUI(layer);
           if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-          toast(`✓ Formato ZTIF creado: ${file.name} (${(optFile.size / 1048576).toFixed(1)}MB · -${layer.savingsPercent}% · 0% pérdida visual) y sincronizado en la nube`, 'success');
+          toast(`✓ Formato ZTIF sincronizado en la nube (${(optFile.size / 1048576).toFixed(1)}MB · -${layer.savingsPercent}%)`, 'success');
         }
       } catch (err) {
-        console.warn('[Optimizer] Client optimization background sync warning:', err);
+        console.warn('[Optimizer] Client optimization sync warning:', err);
       } finally {
         hideProgress();
       }
@@ -10958,6 +10974,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             layer.format = 'ZTIF';
             layer.lossless = true;
             layer.zeroLossVerified = true;
+            layer.storageUrl = optZtifUrl;
             layer._geotiffFileUrl = optZtifUrl;
             layer._tileSavedAs = `${baseCleanName}_opt.ztif`;
             layer.serverFilename = `${baseCleanName}_opt.ztif`;
@@ -10991,7 +11008,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       // 3. BACKGROUND ZTIF OPTIMIZATION & CLOUD STORAGE SYNC (< 20 MB)
       // "la pagina tiene que optimiazarlo antes de subirlo a la nube"
-      optimizeAndUploadRasterToCloud(layer, file, clientGeo);
+      hideProgress();
+      if (!layer.storageUrl && !layer._tileSavedAs?.includes('_opt.ztif')) {
+        optimizeAndUploadRasterToCloud(layer, file, clientGeo);
+      }
     }
 
 
