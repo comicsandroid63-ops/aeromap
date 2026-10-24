@@ -9167,8 +9167,43 @@ async function deleteFromCloud(fileName, url, storagePath) {
     const _tileCache = new TileLRUCache(512);
     const _tileRequests = new Map();
     
+    function patchGeoTIFFImage(img) {
+      if (!img || img._sparsePatched) return img;
+      img._sparsePatched = true;
+      const proto = Object.getPrototypeOf(img);
+      if (proto && !proto._sparsePatched && typeof proto.getTileOrStrip === 'function') {
+        proto._sparsePatched = true;
+        const origGetTileOrStrip = proto.getTileOrStrip;
+        proto.getTileOrStrip = async function(t, e, r, i) {
+          const o = Math.ceil(this.getWidth() / this.getTileWidth());
+          const a = Math.ceil(this.getHeight() / this.getTileHeight());
+          let s;
+          if (this.planarConfiguration === 1) s = e * o + t;
+          else if (this.planarConfiguration === 2) s = r * o * a + e * o + t;
+          
+          const byteCount = this.isTiled
+            ? (this.fileDirectory && this.fileDirectory.TileByteCounts ? this.fileDirectory.TileByteCounts[s] : 0)
+            : (this.fileDirectory && this.fileDirectory.StripByteCounts ? this.fileDirectory.StripByteCounts[s] : 0);
+          
+          if (!byteCount || byteCount === 0) {
+            const tileW = this.getTileWidth ? this.getTileWidth() : this.getWidth();
+            const tileH = this.getTileHeight ? this.getTileHeight() : (this.fileDirectory?.RowsPerStrip || this.getHeight());
+            const bits = (this.fileDirectory?.BitsPerSample ? this.fileDirectory.BitsPerSample[0] : 8);
+            const bytesPerSample = Math.ceil(bits / 8);
+            const samplesPerPixel = this.getSamplesPerPixel ? this.getSamplesPerPixel() : 1;
+            const numBytes = tileW * tileH * (this.planarConfiguration === 2 ? 1 : samplesPerPixel) * bytesPerSample;
+            return { x: t, y: e, sample: r, data: new ArrayBuffer(numBytes) };
+          }
+          return origGetTileOrStrip.call(this, t, e, r, i);
+        };
+      }
+      return img;
+    }
+    
     class OverviewPyramid {
       constructor(tiff, image, overviews, origin, resolution) {
+        if (image) patchGeoTIFFImage(image);
+        if (Array.isArray(overviews)) overviews.forEach(patchGeoTIFFImage);
         this.levels = [image, ...(overviews || [])].sort((a, b) => b.getWidth() - a.getWidth());
         this.baseWidth = this.levels[0].getWidth();
         this.baseHeight = this.levels[0].getHeight();
@@ -9482,8 +9517,55 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const fullH = this.pyramid.baseHeight;
             const isTiled = !!(baseImg.fileDirectory && baseImg.fileDirectory.TileWidth);
             if (isTiled) {
-              // For tiled images without overviews, let _renderTile decode on demand per tile
-              return null;
+              const tileW = baseImg.getTileWidth() || 256;
+              const tileH = baseImg.getTileHeight() || 256;
+              const tilesX = Math.ceil(fullW / tileW);
+              const tilesY = Math.ceil(fullH / tileH);
+              const stepX = Math.max(1, Math.floor(tilesX / 8));
+              const stepY = Math.max(1, Math.floor(tilesY / 8));
+              
+              const thumbW = 256;
+              const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
+              const canvas = document.createElement('canvas');
+              canvas.width = thumbW;
+              canvas.height = thumbH;
+              const ctx = canvas.getContext('2d');
+              
+              for (let ty = 0; ty < tilesY; ty += stepY) {
+                for (let tx = 0; tx < tilesX; tx += stepX) {
+                  const wndL = tx * tileW;
+                  const wndT = ty * tileH;
+                  const wndR = Math.min(fullW, (tx + 1) * tileW);
+                  const wndB = Math.min(fullH, (ty + 1) * tileH);
+                  const tw = wndR - wndL;
+                  const th = wndB - wndT;
+                  if (tw <= 0 || th <= 0) continue;
+                  try {
+                    const raw = await baseImg.readRasters({
+                      window: [wndL, wndT, wndR, wndB],
+                      samples: bandsToUse,
+                      interleave: isRgbRender
+                    });
+                    const isArr = Array.isArray(raw);
+                    const fB = isArr ? raw[0] : raw;
+                    const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
+                    const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+                    const px = await processPixelsAsync(raw, tw, th, isRgbRender, isB, isArr, this.geo.noDataValue, photo);
+                    const tCan = document.createElement('canvas');
+                    tCan.width = tw;
+                    tCan.height = th;
+                    tCan.getContext('2d').putImageData(new ImageData(px, tw, th), 0, 0);
+                    
+                    const dx = (wndL / fullW) * thumbW;
+                    const dy = (wndT / fullH) * thumbH;
+                    const dw = (tw / fullW) * thumbW * stepX;
+                    const dh = (th / fullH) * thumbH * stepY;
+                    ctx.drawImage(tCan, dx, dy, dw, dh);
+                  } catch(_) {}
+                }
+              }
+              this._quickOverview = { canvas, width: thumbW, height: thumbH, fullW, fullH };
+              return this._quickOverview;
             }
 
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
@@ -9588,19 +9670,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const tileBounds = this._tileCoordsToBounds(coords);
         const geoBounds = this.geo.bounds;
         
-        if (!tileBounds.intersects(geoBounds)) return;
+        const paddedGeoBounds = geoBounds.pad ? geoBounds.pad(0.01) : geoBounds;
+        if (!tileBounds.intersects(paddedGeoBounds)) return;
         
         const baseLevel = this.pyramid.getBaseLevel();
         const nw = tileBounds.getNorthWest();
         const se = tileBounds.getSouthEast();
         
-        const [px0, py0] = this._geoToPixelBase(nw.lng, nw.lat);
-        const [px1, py1] = this._geoToPixelBase(se.lng, se.lat);
+        const p0 = this._geoToPixelBase(nw.lng, nw.lat);
+        const p1 = this._geoToPixelBase(se.lng, nw.lat);
+        const p2 = this._geoToPixelBase(nw.lng, se.lat);
+        const p3 = this._geoToPixelBase(se.lng, se.lat);
         
-        const fullWndL = Math.min(px0, px1);
-        const fullWndT = Math.min(py0, py1);
-        const fullWndR = Math.max(px0, px1);
-        const fullWndB = Math.max(py0, py1);
+        const fullWndL = Math.min(p0[0], p1[0], p2[0], p3[0]);
+        const fullWndT = Math.min(p0[1], p1[1], p2[1], p3[1]);
+        const fullWndR = Math.max(p0[0], p1[0], p2[0], p3[0]);
+        const fullWndB = Math.max(p0[1], p1[1], p2[1], p3[1]);
         
         const fullWindowW = fullWndR - fullWndL;
         const fullWindowH = fullWndB - fullWndT;
@@ -10241,12 +10326,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           try {
             await ensureProjection(epsg);
             const srcProj = proj4('EPSG:' + epsg);
-            const sw = srcProj.inverse([minX, minY]);
-            const ne = srcProj.inverse([maxX, maxY]);
-            const minLng = Math.max(-180, Math.min(sw[0], ne[0]));
-            const maxLng = Math.min(180, Math.max(sw[0], ne[0]));
-            const minLat = Math.max(-85, Math.min(sw[1], ne[1]));
-            const maxLat = Math.min(85, Math.max(sw[1], ne[1]));
+            const c1 = srcProj.inverse([minX, minY]);
+            const c2 = srcProj.inverse([maxX, minY]);
+            const c3 = srcProj.inverse([minX, maxY]);
+            const c4 = srcProj.inverse([maxX, maxY]);
+            const minLng = Math.max(-180, Math.min(c1[0], c2[0], c3[0], c4[0]));
+            const maxLng = Math.min(180, Math.max(c1[0], c2[0], c3[0], c4[0]));
+            const minLat = Math.max(-85, Math.min(c1[1], c2[1], c3[1], c4[1]));
+            const maxLat = Math.min(85, Math.max(c1[1], c2[1], c3[1], c4[1]));
             if (minLng < maxLng && minLat < maxLat) {
               bounds = L.latLngBounds([[minLat, minLng], [maxLat, maxLng]]);
             }
