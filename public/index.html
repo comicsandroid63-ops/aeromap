@@ -9204,79 +9204,181 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
     }
     
-    let _pixelWorker = null;
+        let _pixelWorker = null;
     function getPixelWorker() {
       if (_pixelWorker) return _pixelWorker;
       
       const workerCode = `
         self.onmessage = function(e) {
-          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue } = e.data;
+          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric } = e.data;
           
           const px = width * height;
           const d = new Uint8ClampedArray(px * 4);
+          const isYCbCr = (photometric === 6);
           
           if (rgb) {
             if (isByte) {
-              if (isArrayOfBands) {
-                const rBand = new Uint8Array(raw[0]);
-                const gBand = new Uint8Array(raw[1]);
-                const bBand = new Uint8Array(raw[2]);
-                for (let i = 0; i < px; i++) {
-                  d[i * 4] = rBand[i];
-                  d[i * 4 + 1] = gBand[i];
-                  d[i * 4 + 2] = bBand[i];
-                  d[i * 4 + 3] = 255;
+              if (isYCbCr) {
+                if (isArrayOfBands) {
+                  const yB = new Uint8Array(raw[0]);
+                  const cbB = new Uint8Array(raw[1]);
+                  const crB = new Uint8Array(raw[2]);
+                  for (let i = 0; i < px; i++) {
+                    const y = yB[i];
+                    const cb = cbB[i];
+                    const cr = crB[i];
+                    const pi = i * 4;
+                    if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                      d[pi + 3] = 0;
+                    } else {
+                      d[pi]     = Math.max(0, Math.min(255, (y + 1.402 * (cr - 128)) | 0));
+                      d[pi + 1] = Math.max(0, Math.min(255, (y - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
+                      d[pi + 2] = Math.max(0, Math.min(255, (y + 1.772 * (cb - 128)) | 0));
+                      d[pi + 3] = 255;
+                    }
+                  }
+                } else {
+                  const rawData = new Uint8Array(raw);
+                  for (let i = 0; i < px; i++) {
+                    const idx = i * 3;
+                    const y = rawData[idx];
+                    const cb = rawData[idx + 1];
+                    const cr = rawData[idx + 2];
+                    const pi = i * 4;
+                    if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                      d[pi + 3] = 0;
+                    } else {
+                      d[pi]     = Math.max(0, Math.min(255, (y + 1.402 * (cr - 128)) | 0));
+                      d[pi + 1] = Math.max(0, Math.min(255, (y - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
+                      d[pi + 2] = Math.max(0, Math.min(255, (y + 1.772 * (cb - 128)) | 0));
+                      d[pi + 3] = 255;
+                    }
+                  }
                 }
               } else {
-                const rawData = new Uint8Array(raw);
-                for (let i = 0; i < px; i++) {
-                  d[i * 4] = rawData[i * 3];
-                  d[i * 4 + 1] = rawData[i * 3 + 1];
-                  d[i * 4 + 2] = rawData[i * 3 + 2];
-                  d[i * 4 + 3] = 255;
+                if (isArrayOfBands) {
+                  const rBand = new Uint8Array(raw[0]);
+                  const gBand = new Uint8Array(raw[1]);
+                  const bBand = new Uint8Array(raw[2]);
+                  for (let i = 0; i < px; i++) {
+                    const r = rBand[i], g = gBand[i], b = bBand[i];
+                    const pi = i * 4;
+                    if (noDataValue != null && r === noDataValue && g === noDataValue && b === noDataValue) {
+                      d[pi + 3] = 0;
+                    } else {
+                      d[pi] = r; d[pi + 1] = g; d[pi + 2] = b; d[pi + 3] = 255;
+                    }
+                  }
+                } else {
+                  const rawData = new Uint8Array(raw);
+                  for (let i = 0; i < px; i++) {
+                    const idx = i * 3;
+                    const r = rawData[idx], g = rawData[idx + 1], b = rawData[idx + 2];
+                    const pi = i * 4;
+                    if (noDataValue != null && r === noDataValue && g === noDataValue && b === noDataValue) {
+                      d[pi + 3] = 0;
+                    } else {
+                      d[pi] = r; d[pi + 1] = g; d[pi + 2] = b; d[pi + 3] = 255;
+                    }
+                  }
                 }
               }
             } else {
+              // Float32 / 16-bit multiband
               if (isArrayOfBands) {
-                const rBand = new Float32Array(raw[0]);
-                const gBand = new Float32Array(raw[1]);
-                const bBand = new Float32Array(raw[2]);
+                const rBand = raw[0], gBand = raw[1], bBand = raw[2];
                 let mnR = Infinity, mxR = -Infinity, mnG = Infinity, mxG = -Infinity, mnB = Infinity, mxB = -Infinity;
                 for (let i = 0; i < px; i++) {
-                  const r = rBand[i] || 0, g = gBand[i] || 0, b = bBand[i] || 0;
-                  if (r < mnR) mnR = r; if (r > mxR) mxR = r;
-                  if (g < mnG) mnG = g; if (g > mxG) mxG = g;
-                  if (b < mnB) mnB = b; if (b > mxB) mxB = b;
+                  const r = rBand[i], g = gBand[i], b = bBand[i];
+                  if (!isNaN(r) && isFinite(r) && (noDataValue == null || Math.abs(r - noDataValue) > 1e-4) && r > -9990 && r < 1e30) {
+                    if (r < mnR) mnR = r; if (r > mxR) mxR = r;
+                  }
+                  if (!isNaN(g) && isFinite(g) && (noDataValue == null || Math.abs(g - noDataValue) > 1e-4) && g > -9990 && g < 1e30) {
+                    if (g < mnG) mnG = g; if (g > mxG) mxG = g;
+                  }
+                  if (!isNaN(b) && isFinite(b) && (noDataValue == null || Math.abs(b - noDataValue) > 1e-4) && b > -9990 && b < 1e30) {
+                    if (b < mnB) mnB = b; if (b > mxB) mxB = b;
+                  }
                 }
-                const rr = mxR - mnR || 1, gr = mxG - mnG || 1, br = mxB - mnB || 1;
+                const rr = (mxR > mnR) ? (mxR - mnR) : 1;
+                const gr = (mxG > mnG) ? (mxG - mnG) : 1;
+                const br = (mxB > mnB) ? (mxB - mnB) : 1;
                 for (let i = 0; i < px; i++) {
-                  d[i * 4] = (rBand[i] - mnR) / rr * 255;
-                  d[i * 4 + 1] = (gBand[i] - mnG) / gr * 255;
-                  d[i * 4 + 2] = (bBand[i] - mnB) / br * 255;
-                  d[i * 4 + 3] = 255;
+                  const r = rBand[i], g = gBand[i], b = bBand[i];
+                  const pi = i * 4;
+                  if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || r <= -9990 || r >= 1e30) {
+                    d[pi + 3] = 0;
+                  } else {
+                    d[pi]     = Math.max(0, Math.min(255, ((r - mnR) / rr * 255) | 0));
+                    d[pi + 1] = Math.max(0, Math.min(255, ((g - mnG) / gr * 255) | 0));
+                    d[pi + 2] = Math.max(0, Math.min(255, ((b - mnB) / br * 255) | 0));
+                    d[pi + 3] = 255;
+                  }
+                }
+              } else {
+                const rawF = (raw instanceof Float32Array || raw instanceof Float64Array) ? raw : new Float32Array(raw);
+                let mnR = Infinity, mxR = -Infinity, mnG = Infinity, mxG = -Infinity, mnB = Infinity, mxB = -Infinity;
+                for (let i = 0; i < px; i++) {
+                  const r = rawF[i * 3], g = rawF[i * 3 + 1], b = rawF[i * 3 + 2];
+                  if (!isNaN(r) && isFinite(r) && (noDataValue == null || Math.abs(r - noDataValue) > 1e-4) && r > -9990 && r < 1e30) {
+                    if (r < mnR) mnR = r; if (r > mxR) mxR = r;
+                  }
+                  if (!isNaN(g) && isFinite(g) && (noDataValue == null || Math.abs(g - noDataValue) > 1e-4) && g > -9990 && g < 1e30) {
+                    if (g < mnG) mnG = g; if (g > mxG) mxG = g;
+                  }
+                  if (!isNaN(b) && isFinite(b) && (noDataValue == null || Math.abs(b - noDataValue) > 1e-4) && b > -9990 && b < 1e30) {
+                    if (b < mnB) mnB = b; if (b > mxB) mxB = b;
+                  }
+                }
+                const rr = (mxR > mnR) ? (mxR - mnR) : 1;
+                const gr = (mxG > mnG) ? (mxG - mnG) : 1;
+                const br = (mxB > mnB) ? (mxB - mnB) : 1;
+                for (let i = 0; i < px; i++) {
+                  const r = rawF[i * 3], g = rawF[i * 3 + 1], b = rawF[i * 3 + 2];
+                  const pi = i * 4;
+                  if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || r <= -9990 || r >= 1e30) {
+                    d[pi + 3] = 0;
+                  } else {
+                    d[pi]     = Math.max(0, Math.min(255, ((r - mnR) / rr * 255) | 0));
+                    d[pi + 1] = Math.max(0, Math.min(255, ((g - mnG) / gr * 255) | 0));
+                    d[pi + 2] = Math.max(0, Math.min(255, ((b - mnB) / br * 255) | 0));
+                    d[pi + 3] = 255;
+                  }
                 }
               }
             }
           } else {
+            // Single band (DEM / NDVI / Grayscale)
+            const b0 = isArrayOfBands ? raw[0] : raw;
             if (isByte) {
-              const b0 = new Uint8Array(raw[0] || raw);
+              const b0Arr = new Uint8Array(b0);
               for (let i = 0; i < px; i++) {
-                const v = b0[i] || 0;
-                d[i * 4] = v; d[i * 4 + 1] = v; d[i * 4 + 2] = v;
-                d[i * 4 + 3] = (noDataValue != null && v === noDataValue) ? 0 : 255;
+                const v = b0Arr[i];
+                const pi = i * 4;
+                if (noDataValue != null && v === noDataValue) {
+                  d[pi + 3] = 0;
+                } else {
+                  d[pi] = v; d[pi + 1] = v; d[pi + 2] = v; d[pi + 3] = 255;
+                }
               }
             } else {
-              const b0 = new Float32Array(raw[0] || raw);
               let mnV = Infinity, mxV = -Infinity;
               for (let i = 0; i < px; i++) {
-                const v = b0[i] || 0;
-                if (v < mnV) mnV = v; if (v > mxV) mxV = v;
+                const v = b0[i];
+                if (!isNaN(v) && isFinite(v) && (noDataValue == null || Math.abs(v - noDataValue) > 1e-4) && v > -9990 && v < 1e30) {
+                  if (v < mnV) mnV = v; if (v > mxV) mxV = v;
+                }
               }
-              const rng = mxV - mnV || 1;
+              const rng = (mxV > mnV) ? (mxV - mnV) : 1;
               for (let i = 0; i < px; i++) {
-                const v = ((b0[i] || 0) - mnV) / rng * 255;
-                d[i * 4] = v; d[i * 4 + 1] = v; d[i * 4 + 2] = v;
-                d[i * 4 + 3] = (noDataValue != null && Math.abs(b0[i] - noDataValue) < 0.001) ? 0 : 255;
+                const v = b0[i];
+                const pi = i * 4;
+                if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || v <= -9990 || v >= 1e30) {
+                  d[pi + 3] = 0;
+                } else {
+                  const scaled = Math.max(0, Math.min(255, ((v - mnV) / rng * 255) | 0));
+                  d[pi] = scaled; d[pi + 1] = scaled; d[pi + 2] = scaled; d[pi + 3] = 255;
+                }
               }
             }
           }
@@ -9290,7 +9392,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       return _pixelWorker;
     }
     
-    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue) {
+    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric) {
       return new Promise((resolve) => {
         const worker = getPixelWorker();
         const id = Date.now() + Math.random();
@@ -9304,19 +9406,25 @@ async function deleteFromCloud(fileName, url, storagePath) {
         worker.addEventListener('message', handler);
         
         const transferables = [];
+        const seenBuffers = new Set();
         if (Array.isArray(raw)) {
-          raw.forEach(r => { if (r.buffer) transferables.push(r.buffer); });
-        } else if (raw.buffer) {
+          raw.forEach(r => {
+            if (r && r.buffer && !seenBuffers.has(r.buffer)) {
+              seenBuffers.add(r.buffer);
+              transferables.push(r.buffer);
+            }
+          });
+        } else if (raw && raw.buffer) {
           transferables.push(raw.buffer);
         }
         
         worker.postMessage({
-          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue
+          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric
         }, transferables);
       });
     }
-    
-    L.GeoTIFFTileLayer = L.GridLayer.extend({
+
+L.GeoTIFFTileLayer = L.GridLayer.extend({
       options: {
         tileSize: 256,
         maxNativeZoom: 24,
@@ -9561,9 +9669,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
         const isArrayOfBands = Array.isArray(raw);
         const firstBand = isArrayOfBands ? raw[0] : raw;
         const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
+        const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
         
         const pixels = await processPixelsAsync(
-          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue
+          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric
         );
         
         return pixels;
@@ -10068,7 +10177,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
           } catch(e) {}
 
           console.log('[GeoTIFF] Loaded:', fileUrl, bounds, 'EPSG:', epsg, 'NODATA:', noDataValue);
-          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue };
+          const photometric = image.fileDirectory?.PhotometricInterpretation ?? null;
+          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue, photometric };
         } catch(e) {
           console.warn('[GeoTIFF] Error loading', fileUrl, e.message);
           return null;
@@ -10400,7 +10510,28 @@ async function deleteFromCloud(fileName, url, storagePath) {
           for (let i = 1; i < imageCount; i++) {
             try { clientOverviews.push(await clientTiff.getImage(i)); } catch (_) {}
           }
-          clientGeo = { tiff: clientTiff, image: clientImg, overviews: clientOverviews, bounds: clientBounds, epsg: 4326 };
+          const photometric = clientImg.fileDirectory?.PhotometricInterpretation ?? (clientBands >= 3 ? 2 : 1);
+          let noDataValue = null;
+          try {
+            const fd = clientImg.fileDirectory;
+            if (fd) {
+              let rawNd = fd.GDAL_NODATA || fd['tag_42113'] || fd[42113];
+              if (typeof rawNd === 'string') {
+                const cleaned = rawNd.replace(/\0/g, '').trim();
+                const parsed = parseFloat(cleaned);
+                noDataValue = isNaN(parsed) ? null : parsed;
+              } else if (typeof rawNd === 'number') {
+                noDataValue = rawNd;
+              }
+            }
+          } catch (_) {}
+          let origin = null;
+          let resolution = null;
+          try {
+            origin = clientImg.getOrigin ? clientImg.getOrigin() : null;
+            resolution = clientImg.getResolution ? clientImg.getResolution() : null;
+          } catch (_) {}
+          clientGeo = { tiff: clientTiff, image: clientImg, overviews: clientOverviews, bounds: clientBounds, origin, resolution, epsg, noDataValue, photometric };
           }
         }
       } catch (clientErr) {
@@ -10521,6 +10652,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
 
       // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC (< 20 MB)
+      const isVercelEnv = window.location.hostname.includes('vercel.app') || (window.location.port === '' && window.location.protocol === 'https:');
+      if (file.size > 4.5 * 1024 * 1024 && isVercelEnv) {
+        console.log('[loadTiff] Archivo mayor a 4.5MB en Vercel: visualización directa en navegador activada.');
+        hideProgress();
+        updateZtifBadgeUI(layer);
+        toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
+        return;
+      }
       showProgress(`Preparando optimización de ${file.name}...`, 5, 'Motor ZTIF');
       try {
         const formData = new FormData();
@@ -10634,8 +10773,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
       } catch (srvErr) {
         hideProgress();
-        console.warn('[loadTiff] Server import error:', srvErr.message);
-        toast(`Error al importar TIFF: ${srvErr.message}`, 'error');
+        console.warn('[loadTiff] Server import bypassed, using client visualizer:', srvErr.message);
+        if (layer._geotiffTileLayer) {
+          updateZtifBadgeUI(layer);
+          toast(`✓ ${file.name} cargado en el visor en alta resolución`, 'success');
+        } else {
+          toast(`Error al importar TIFF: ${srvErr.message}`, 'error');
+        }
       }
     }
 
