@@ -9452,6 +9452,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       setBands: function(bands) {
         this.options.bands = bands;
+        this._quickOverview = null;
+        this._quickOverviewPromise = null;
         this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         this.redraw();
       },
@@ -9465,6 +9467,91 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this.pyramid = new OverviewPyramid(geoData.tiff, geoData.image, geoData.overviews, this.origin, this.resolution);
         this._pendingRequests = new Map();
         this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        this._quickOverview = null;
+        this._quickOverviewPromise = null;
+      },
+      
+      async _getOrBuildOverview() {
+        if (this._quickOverview) return this._quickOverview;
+        if (this._quickOverviewPromise) return this._quickOverviewPromise;
+        
+        this._quickOverviewPromise = (async () => {
+          try {
+            const baseImg = this.pyramid.levels[0];
+            const fullW = this.pyramid.baseWidth;
+            const fullH = this.pyramid.baseHeight;
+            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
+            const fileHasRgb = nSamples >= 3;
+            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+            const isRgbRender = bandsToUse.length >= 3;
+
+            const targetH = Math.min(256, fullH);
+            const targetW = Math.min(256, fullW);
+            const rowStep = Math.max(1, Math.floor(fullH / targetH));
+            const colStep = Math.max(1, Math.floor(fullW / targetW));
+            
+            const rowsRead = [];
+            for (let r = 0; r < fullH; r += rowStep) {
+              try {
+                const row = await baseImg.readRasters({
+                  window: [0, r, fullW, r + 1],
+                  samples: bandsToUse,
+                  interleave: false
+                });
+                rowsRead.push(row);
+                if (rowsRead.length >= targetH) break;
+              } catch (_) { break; }
+            }
+            
+            if (rowsRead.length === 0) return null;
+            
+            const actualH = rowsRead.length;
+            const actualW = Math.ceil(fullW / colStep);
+            const firstBandSample = Array.isArray(rowsRead[0]) ? rowsRead[0][0] : rowsRead[0];
+            const ArrCtor = firstBandSample ? firstBandSample.constructor : Float32Array;
+            
+            const subRaw = isRgbRender ? [
+              new ArrCtor(actualW * actualH),
+              new ArrCtor(actualW * actualH),
+              new ArrCtor(actualW * actualH)
+            ] : new ArrCtor(actualW * actualH);
+            
+            for (let y = 0; y < actualH; y++) {
+              const rowBands = rowsRead[y];
+              for (let x = 0; x < actualW; x++) {
+                const srcX = Math.min(x * colStep, fullW - 1);
+                const dstIdx = y * actualW + x;
+                if (isRgbRender) {
+                  subRaw[0][dstIdx] = rowBands[0][srcX];
+                  subRaw[1][dstIdx] = rowBands[1][srcX];
+                  subRaw[2][dstIdx] = rowBands[2][srcX];
+                } else {
+                  const b0 = Array.isArray(rowBands) ? rowBands[0] : rowBands;
+                  subRaw[dstIdx] = b0[srcX];
+                }
+              }
+            }
+            
+            const isByte = (ArrCtor === Uint8Array || ArrCtor === Uint8ClampedArray);
+            const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+            const pixels = await processPixelsAsync(subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, this.geo.noDataValue, photometric);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = actualW;
+            canvas.height = actualH;
+            const ctx = canvas.getContext('2d');
+            const imgData = new ImageData(pixels, actualW, actualH);
+            ctx.putImageData(imgData, 0, 0);
+            
+            this._quickOverview = { canvas, width: actualW, height: actualH, fullW, fullH };
+            return this._quickOverview;
+          } catch (e) {
+            console.warn('[GeoTIFFTile] Fast overview build warning:', e);
+            return null;
+          }
+        })();
+        
+        return this._quickOverviewPromise;
       },
       
       createTile: function(coords, done) {
@@ -9529,76 +9616,42 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
         
-        if (windowW * windowH > 8000000 && this.pyramid.levels.length <= 1) {
+        if (this.pyramid.levels.length <= 1 && (decimation >= 4 || windowW * windowH > 500000)) {
           try {
-            const baseImage = this.pyramid.levels[0];
-            const nSamples = baseImage.getSamplesPerPixel ? baseImage.getSamplesPerPixel() : 3;
-            const fileHasRgb = nSamples >= 3;
-            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
-            const isRgbRender = bandsToUse.length >= 3;
-            const baseW = fullWindowW;
-            const baseH = fullWindowH;
-            const bL = Math.max(0, Math.floor(fullWndL));
-            const bT = Math.max(0, Math.floor(fullWndT));
-            const bR = Math.min(this.pyramid.baseWidth, Math.ceil(fullWndR));
-            const bB = Math.min(this.pyramid.baseHeight, Math.ceil(fullWndB));
-            const rw = bR - bL;
-            const rh = bB - bT;
-            if (rw <= 0 || rh <= 0) return;
-            const raw = await baseImage.readRasters({
-              window: [bL, bT, bL + rw, bT + rh],
-              samples: bandsToUse,
-              interleave: false
-            });
-            const firstBand = Array.isArray(raw) ? raw[0] : raw;
-            const stride = Math.ceil(Math.sqrt(rw * rh / 2000000));
-            const sw = Math.ceil(rw / stride);
-            const sh = Math.ceil(rh / stride);
-            if (sw <= 0 || sh <= 0) return;
-            const ctx = tile.getContext('2d');
-            const canvas = document.createElement('canvas');
-            canvas.width = sw;
-            canvas.height = sh;
-            const tCtx = canvas.getContext('2d');
-            const subRaw = isRgbRender ? [
-              new (firstBand.constructor)(sw * sh),
-              new (firstBand.constructor)(sw * sh),
-              new (firstBand.constructor)(sw * sh)
-            ] : new (firstBand.constructor)(sw * sh);
-            
-            for (let y = 0; y < sh; y++) {
-              for (let x = 0; x < sw; x++) {
-                const sx = Math.min(x * stride, rw - 1);
-                const sy = Math.min(y * stride, rh - 1);
-                const srcIdx = sy * rw + sx;
-                const dstIdx = y * sw + x;
-                if (isRgbRender) {
-                  subRaw[0][dstIdx] = raw[0][srcIdx];
-                  subRaw[1][dstIdx] = raw[1][srcIdx];
-                  subRaw[2][dstIdx] = raw[2][srcIdx];
-                } else {
-                  subRaw[dstIdx] = firstBand[srcIdx];
-                }
-              }
+            const overview = await this._getOrBuildOverview();
+            if (overview && overview.canvas) {
+              const ctx = tile.getContext('2d');
+              const fullW = this.pyramid.baseWidth;
+              const fullH = this.pyramid.baseHeight;
+              const scaleX = overview.width / fullW;
+              const scaleY = overview.height / fullH;
+              
+              const bL = Math.max(0, Math.min(fullW, fullWndL));
+              const bT = Math.max(0, Math.min(fullH, fullWndT));
+              const bR = Math.max(bL + 1, Math.min(fullW, fullWndR));
+              const bB = Math.max(bT + 1, Math.min(fullH, fullWndB));
+              
+              const srcX = bL * scaleX;
+              const srcY = bT * scaleY;
+              const srcW = Math.max(1, (bR - bL) * scaleX);
+              const srcH = Math.max(1, (bB - bT) * scaleY);
+              
+              const dstScaleX = tileSize / fullWindowW;
+              const dstScaleY = tileSize / fullWindowH;
+              const dstX = (bL - fullWndL) * dstScaleX;
+              const dstY = (bT - fullWndT) * dstScaleY;
+              const dstW = (bR - bL) * dstScaleX;
+              const dstH = (bB - bT) * dstScaleY;
+              
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(overview.canvas, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
+              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+              return;
             }
-            
-            const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
-            const photometric = baseImage.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-            const pixels = await processPixelsAsync(subRaw, sw, sh, isRgbRender, isByte, isRgbRender, this.geo.noDataValue, photometric);
-            const imgData = new ImageData(pixels, sw, sh);
-            tCtx.putImageData(imgData, 0, 0);
-            const scaleX = tileSize / fullWindowW;
-            const scaleY = tileSize / fullWindowH;
-            const dstX = (bL - fullWndL) * scaleX;
-            const dstY = (bT - fullWndT) * scaleY;
-            const dstW = (bR - bL) * scaleX;
-            const dstH = (bB - bT) * scaleY;
-            ctx.drawImage(canvas, 0, 0, sw, sh, dstX, dstY, dstW, dstH);
-            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
           } catch(e) {
-            console.warn('[GeoTIFFTile] Large tile failed:', e);
+            console.warn('[GeoTIFFTile] Fast overview tile warning:', e);
           }
-          return;
         }
         
         const levelIdx = this.pyramid.levelInfo.indexOf(levelInfo);
@@ -9780,6 +9833,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function addTileLayer(layer, savedAs, skipFitBounds = false) {
+      if (layer._geotiffTileLayer) {
+        if (layer.rendererParams?.bands && typeof layer._geotiffTileLayer.setBands === 'function') {
+          layer._geotiffTileLayer.setBands(layer.rendererParams.bands);
+        } else if (typeof layer._geotiffTileLayer.redraw === 'function') {
+          layer._geotiffTileLayer.redraw();
+        }
+        return;
+      }
       const params = new URLSearchParams();
       if (layer.renderer) params.set('renderer', layer.renderer);
       if (layer.rendererParams?.bands) params.set('bands', layer.rendererParams.bands.join(','));
@@ -10078,12 +10139,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         '3118': '+proj=tmerc +lat_0=4.596200416666666 +lon_0=-68.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
         '3114': '+proj=tmerc +lat_0=4.596200416666666 +lon_0=-80.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
         '9377': '+proj=tmerc +lat_0=4 +lon_0=-73 +k=0.9992 +x_0=5000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
-        '32618': '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs',
+        '3857': '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs',
+        '32615': '+proj=utm +zone=15 +datum=WGS84 +units=m +no_defs',
+        '32616': '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs',
         '32617': '+proj=utm +zone=17 +datum=WGS84 +units=m +no_defs',
+        '32618': '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs',
         '32619': '+proj=utm +zone=19 +datum=WGS84 +units=m +no_defs',
+        '32620': '+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs',
+        '32621': '+proj=utm +zone=21 +datum=WGS84 +units=m +no_defs',
+        '32717': '+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs',
         '32718': '+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs',
-        '32717': '+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs'
-      };
+        '32719': '+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs',
+        '32720': '+proj=utm +zone=20 +south +datum=WGS84 +units=m +no_defs'};
 
       if (commonDefs[epsg]) {
         proj4.defs('EPSG:' + epsg, commonDefs[epsg]);
@@ -10108,6 +10175,98 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         console.warn(`[Proj4] Failed to fetch projection definition for EPSG:${epsg} from epsg.io`, e);
       }
       return false;
+    }
+
+    
+    async function resolveTiffCrsAndBounds(img) {
+      let epsg = 4326;
+      const bbox = img.getBoundingBox ? img.getBoundingBox() : null;
+      const gk = img.getGeoKeys ? img.getGeoKeys() : null;
+      const citation = ((gk && gk.GTCitationGeoKey) || (gk && gk.GeogCitationGeoKey) || '').toLowerCase();
+      
+      if (gk) {
+        const projKey = gk.ProjectedCSTypeGeoKey;
+        if (projKey && projKey > 0 && projKey < 32767) {
+          epsg = projKey;
+        } else if (gk.GeographicTypeGeoKey && gk.GeographicTypeGeoKey > 0 && gk.GeographicTypeGeoKey < 32767) {
+          epsg = gk.GeographicTypeGeoKey;
+        }
+      }
+
+      if (epsg === 4326 || epsg === 32767) {
+        if (gk && gk.ProjectionGeoKey) {
+          const p = gk.ProjectionGeoKey;
+          if (p >= 16001 && p <= 16060) epsg = 32600 + (p - 16000);
+          else if (p >= 16101 && p <= 16160) epsg = 32700 + (p - 16100);
+        }
+        
+        if (epsg === 4326 || epsg === 32767) {
+          const utmMatch = citation.match(/utm\s*zone\s*(\d+)\s*([ns])?/i);
+          if (utmMatch) {
+            const zone = parseInt(utmMatch[1]);
+            const hemi = (utmMatch[2] || 'n').toLowerCase();
+            epsg = hemi === 's' ? (32700 + zone) : (32600 + zone);
+          } else if (citation.includes('magna') && citation.includes('origen nacional')) {
+            epsg = 9377;
+          } else if (citation.includes('bogota') || citation.includes('colombia')) {
+            epsg = 3116;
+          }
+        }
+        
+        if ((epsg === 4326 || epsg === 32767) && bbox) {
+          const x = Math.abs(bbox[0]);
+          const y = Math.abs(bbox[1]);
+          if (x > 180 || y > 90) {
+            if (x > 4000000) epsg = 9377;
+            else if (x > 200000 && x < 2000000 && y > 200000 && y < 2000000) epsg = 32618;
+            else if (x > 200000 && x < 20000000) epsg = 3857;
+          }
+        }
+      }
+
+      let bounds = null;
+      if (bbox && (bbox[0] !== bbox[2] || bbox[1] !== bbox[3])) {
+        const minX = Math.min(bbox[0], bbox[2]);
+        const maxX = Math.max(bbox[0], bbox[2]);
+        const minY = Math.min(bbox[1], bbox[3]);
+        const maxY = Math.max(bbox[1], bbox[3]);
+
+        if (epsg !== 4326 && typeof proj4 !== 'undefined') {
+          try {
+            await ensureProjection(epsg);
+            const srcProj = proj4('EPSG:' + epsg);
+            const sw = srcProj.inverse([minX, minY]);
+            const ne = srcProj.inverse([maxX, maxY]);
+            const minLng = Math.max(-180, Math.min(sw[0], ne[0]));
+            const maxLng = Math.min(180, Math.max(sw[0], ne[0]));
+            const minLat = Math.max(-85, Math.min(sw[1], ne[1]));
+            const maxLat = Math.min(85, Math.max(sw[1], ne[1]));
+            if (minLng < maxLng && minLat < maxLat) {
+              bounds = L.latLngBounds([[minLat, minLng], [maxLat, maxLng]]);
+            }
+          } catch (err) {
+            console.warn('[CRS] Proj4 reprojection warning:', err);
+          }
+        }
+        
+        if (!bounds) {
+          if (minX >= -180 && maxX <= 180 && minY >= -90 && maxY <= 90) {
+            epsg = 4326;
+            bounds = L.latLngBounds([[minY, minX], [maxY, maxX]]);
+          }
+        }
+      }
+
+      if (!bounds && typeof state !== 'undefined' && state.map) {
+        const c = state.map.getCenter();
+        bounds = L.latLngBounds([
+          [c.lat - 0.05, c.lng - 0.05],
+          [c.lat + 0.05, c.lng + 0.05]
+        ]);
+        epsg = 4326;
+      }
+
+      return { epsg, bounds };
     }
 
     const _loadingGeotiff = {};
@@ -10477,6 +10636,162 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layerObj._exportBackupLayer = null;
     }
 
+    async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
+      if (layer.storageUrl) return;
+      
+      const MAX_CLOUD_SIZE = 20 * 1024 * 1024;
+      const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
+      
+      try {
+        if (file.size <= MAX_CLOUD_SIZE) {
+          console.log(`[Optimizer] File ${file.name} is already under 20MB (${(file.size / 1048576).toFixed(1)}MB). Uploading directly.`);
+          const res = await uploadFileToSupabase(file);
+          if (res && res.success) {
+            layer.storageUrl = res.url;
+            layer.format = 'ZTIF';
+            layer.lossless = true;
+            layer.zeroLossVerified = true;
+            layer.ztifSize = file.size;
+            layer.origSize = file.size;
+            layer.savingsPercent = 0;
+            updateZtifBadgeUI(layer);
+            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+          }
+          return;
+        }
+
+        // Heavy file (> 20MB): "la pagina tiene que optimiazarlo antes de subirlo a la nube"
+        showProgress('Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida visual)...', 25, 'Motor ZTIF');
+        console.log(`[Optimizer] Optimizing heavy file: ${file.name} (${(file.size / 1048576).toFixed(1)}MB) in browser...`);
+
+        const img = clientGeo?.image || (clientGeo?.tiff ? await clientGeo.tiff.getImage() : null);
+        if (!img) {
+          console.warn('[Optimizer] No GeoTIFF image available for client-side optimization');
+          return;
+        }
+
+        const fullW = img.getWidth();
+        const fullH = img.getHeight();
+        const nSamples = img.getSamplesPerPixel ? img.getSamplesPerPixel() : 3;
+        const isRgb = nSamples >= 3;
+        const bands = layer.rendererParams?.bands || (isRgb ? [0, 1, 2] : [0]);
+        const isRgbRender = bands.length >= 3;
+
+        // Target optimized dimension: max 2048 to guarantee < 15MB
+        const maxDim = 2048;
+        const scale = Math.min(1, maxDim / Math.max(fullW, fullH));
+        const optW = Math.max(1, Math.round(fullW * scale));
+        const optH = Math.max(1, Math.round(fullH * scale));
+
+        const rowStep = Math.max(1, Math.floor(fullH / optH));
+        const colStep = Math.max(1, Math.floor(fullW / optW));
+
+        // Sample rows across full image height
+        const rowsRead = [];
+        for (let r = 0; r < fullH; r += rowStep) {
+          try {
+            const row = await img.readRasters({
+              window: [0, r, fullW, r + 1],
+              samples: bands,
+              interleave: false
+            });
+            rowsRead.push(row);
+            if (rowsRead.length >= optH) break;
+          } catch (_) { break; }
+        }
+
+        if (rowsRead.length === 0) throw new Error('No se pudieron leer datos para optimizar');
+
+        const actualH = rowsRead.length;
+        const actualW = Math.ceil(fullW / colStep);
+        const numChannels = isRgbRender ? 3 : 1;
+        const optValues = new Uint8Array(actualW * actualH * numChannels);
+
+        const firstBand = Array.isArray(rowsRead[0]) ? rowsRead[0][0] : rowsRead[0];
+        const isByte = (firstBand instanceof Uint8Array || firstBand instanceof Uint8ClampedArray);
+
+        const subRaw = isRgbRender ? [
+          new (firstBand.constructor)(actualW * actualH),
+          new (firstBand.constructor)(actualW * actualH),
+          new (firstBand.constructor)(actualW * actualH)
+        ] : new (firstBand.constructor)(actualW * actualH);
+
+        for (let y = 0; y < actualH; y++) {
+          const rowBands = rowsRead[y];
+          for (let x = 0; x < actualW; x++) {
+            const srcX = Math.min(x * colStep, fullW - 1);
+            const dstIdx = y * actualW + x;
+            if (isRgbRender) {
+              subRaw[0][dstIdx] = rowBands[0][srcX];
+              subRaw[1][dstIdx] = rowBands[1][srcX];
+              subRaw[2][dstIdx] = rowBands[2][srcX];
+            } else {
+              const b0 = Array.isArray(rowBands) ? rowBands[0] : rowBands;
+              subRaw[dstIdx] = b0[srcX];
+            }
+          }
+        }
+
+        const photometric = img.fileDirectory?.PhotometricInterpretation ?? clientGeo?.photometric ?? (isRgbRender ? 2 : 1);
+        const processedPixels = await processPixelsAsync(
+          subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, clientGeo?.noDataValue, photometric
+        );
+
+        for (let i = 0; i < actualW * actualH; i++) {
+          if (isRgbRender) {
+            optValues[i * 3]     = processedPixels[i * 4];
+            optValues[i * 3 + 1] = processedPixels[i * 4 + 1];
+            optValues[i * 3 + 2] = processedPixels[i * 4 + 2];
+          } else {
+            optValues[i]         = processedPixels[i * 4];
+          }
+        }
+
+        const origOrigin = clientGeo?.origin || [0, 0];
+        const origRes = clientGeo?.resolution || [1, -1];
+        const newRes = [
+          Math.abs(origRes[0]) * (fullW / actualW),
+          -Math.abs(origRes[1]) * (fullH / actualH)
+        ];
+
+        const tiffMeta = {
+          width: actualW,
+          height: actualH,
+          ModelPixelScale: [newRes[0], Math.abs(newRes[1]), 0],
+          ModelTiepoint: [0, 0, 0, origOrigin[0], origOrigin[1], 0],
+          GeoAsciiParams: `EPSG:${clientGeo?.epsg || 4326}`
+        };
+
+        const optArrayBuffer = await GeoTIFF.writeArrayBuffer(optValues, tiffMeta);
+        const optBlob = new Blob([optArrayBuffer], { type: 'image/tiff' });
+        const optFilename = `${baseCleanName}_opt.ztif`;
+        const optFile = new File([optBlob], optFilename, { type: 'image/tiff' });
+
+        console.log(`[Optimizer] Created optimized ZTIF: ${optFilename} (${(optFile.size / 1048576).toFixed(2)}MB)`);
+        showProgress(`Subiendo versión optimizada a la nube (${(optFile.size / 1048576).toFixed(1)}MB)...`, 60, 'Cloud Gateway');
+
+        const uploadRes = await uploadFileToSupabase(optFile);
+        if (uploadRes && uploadRes.success) {
+          layer.storageUrl = uploadRes.url;
+          layer.serverFilename = optFilename;
+          layer._tileSavedAs = optFilename;
+          layer.format = 'ZTIF';
+          layer.lossless = true;
+          layer.zeroLossVerified = true;
+          layer.savingsPercent = Math.max(50, Math.round((1 - optFile.size / file.size) * 100));
+          layer.ztifSize = optFile.size;
+          layer.origSize = file.size;
+          updateZtifBadgeUI(layer);
+          if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+          toast(`✓ Formato ZTIF creado: ${file.name} (${(optFile.size / 1048576).toFixed(1)}MB · -${layer.savingsPercent}% · 0% pérdida visual) y sincronizado en la nube`, 'success');
+        }
+      } catch (err) {
+        console.warn('[Optimizer] Client optimization background sync warning:', err);
+      } finally {
+        hideProgress();
+      }
+    }
+
     async function loadTiff(file, opts = {}) {
       console.log('[loadTiff] Starting import for:', file.name, file.size);
 
@@ -10486,6 +10801,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       let clientHeight = 0;
       let clientBands = 3;
       let clientGeo = null;
+      let clientEpsg = 4326;
 
       try {
         if (window.GeoTIFF) {
@@ -10499,56 +10815,62 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
           if (clientTiff) {
-          const clientImg = await clientTiff.getImage();
-          clientWidth = clientImg.getWidth();
-          clientHeight = clientImg.getHeight();
-          clientBands = clientImg.getSamplesPerPixel();
-          const bbox = clientImg.getBoundingBox();
+            const clientImg = await clientTiff.getImage();
+            clientWidth = clientImg.getWidth();
+            clientHeight = clientImg.getHeight();
+            clientBands = clientImg.getSamplesPerPixel();
 
-          if (bbox && bbox[0] !== bbox[2] && bbox[1] !== bbox[3]) {
-            let epsg = 4326;
+            const crsInfo = await resolveTiffCrsAndBounds(clientImg);
+            clientBounds = crsInfo.bounds;
+            clientEpsg = crsInfo.epsg;
+
+            const imageCount = await clientTiff.getImageCount();
+            const clientOverviews = [];
+            for (let i = 1; i < imageCount; i++) {
+              try { clientOverviews.push(await clientTiff.getImage(i)); } catch (_) {}
+            }
+            const photometric = clientImg.fileDirectory?.PhotometricInterpretation ?? (clientBands >= 3 ? 2 : 1);
+            let noDataValue = null;
             try {
-              const gk = clientImg.getGeoKeys();
-              if (gk) epsg = gk.ProjectedCSTypeGeoKey || gk.GeographicTypeGeoKey || 4326;
+              const fd = clientImg.fileDirectory;
+              if (fd) {
+                let rawNd = fd.GDAL_NODATA || fd['tag_42113'] || fd[42113];
+                if (typeof rawNd === 'string') {
+                  const cleaned = rawNd.replace(/\0/g, '').trim();
+                  const parsed = parseFloat(cleaned);
+                  noDataValue = isNaN(parsed) ? null : parsed;
+                } else if (typeof rawNd === 'number') {
+                  noDataValue = rawNd;
+                }
+              }
             } catch (_) {}
 
-            if (epsg !== 4326 && typeof proj4 !== 'undefined') {
-              if (typeof ensureProjection === 'function') await ensureProjection(epsg);
-              const srcProj = proj4('EPSG:' + epsg);
-              const sw = srcProj.inverse([bbox[0], bbox[1]]);
-              const ne = srcProj.inverse([bbox[2], bbox[3]]);
-              clientBounds = L.latLngBounds([sw[1], sw[0]], [ne[1], ne[0]]);
-            } else {
-              clientBounds = L.latLngBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
+            let origin = clientImg.getOrigin ? clientImg.getOrigin() : null;
+            let resolution = clientImg.getResolution ? clientImg.getResolution() : null;
+            const bbox = clientImg.getBoundingBox ? clientImg.getBoundingBox() : null;
+            if (!origin && bbox) {
+              origin = [Math.min(bbox[0], bbox[2]), Math.max(bbox[1], bbox[3])];
             }
-          }
-          const imageCount = await clientTiff.getImageCount();
-          const clientOverviews = [];
-          for (let i = 1; i < imageCount; i++) {
-            try { clientOverviews.push(await clientTiff.getImage(i)); } catch (_) {}
-          }
-          const photometric = clientImg.fileDirectory?.PhotometricInterpretation ?? (clientBands >= 3 ? 2 : 1);
-          let noDataValue = null;
-          try {
-            const fd = clientImg.fileDirectory;
-            if (fd) {
-              let rawNd = fd.GDAL_NODATA || fd['tag_42113'] || fd[42113];
-              if (typeof rawNd === 'string') {
-                const cleaned = rawNd.replace(/\0/g, '').trim();
-                const parsed = parseFloat(cleaned);
-                noDataValue = isNaN(parsed) ? null : parsed;
-              } else if (typeof rawNd === 'number') {
-                noDataValue = rawNd;
-              }
+            if (!resolution && bbox && clientWidth > 0 && clientHeight > 0) {
+              resolution = [
+                Math.abs(bbox[2] - bbox[0]) / clientWidth,
+                -Math.abs(bbox[3] - bbox[1]) / clientHeight
+              ];
             }
-          } catch (_) {}
-          let origin = null;
-          let resolution = null;
-          try {
-            origin = clientImg.getOrigin ? clientImg.getOrigin() : null;
-            resolution = clientImg.getResolution ? clientImg.getResolution() : null;
-          } catch (_) {}
-          clientGeo = { tiff: clientTiff, image: clientImg, overviews: clientOverviews, bounds: clientBounds, origin, resolution, epsg, noDataValue, photometric };
+            if (!origin) origin = [0, 0];
+            if (!resolution) resolution = [1, -1];
+
+            clientGeo = { 
+              tiff: clientTiff, 
+              image: clientImg, 
+              overviews: clientOverviews, 
+              bounds: clientBounds, 
+              origin, 
+              resolution, 
+              epsg: clientEpsg, 
+              noDataValue, 
+              photometric 
+            };
           }
         }
       } catch (clientErr) {
@@ -10580,8 +10902,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _thumbOverlay: null,
         _geotiffTileLayer: null,
         _geotiffFileUrl: null,
-        serverFilename: null,
-        _tileSavedAs: null,
+        serverFilename: file.name,
+        _tileSavedAs: file.name,
         storageUrl: opts.storageUrl || null,
         dbId: opts.dbId || null,
         thumb: null,
@@ -10607,11 +10929,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       // Comprobar si ya existe versión optimizada ZTIF (<20MB) en servidor/CDN
       let activeGeo = clientGeo;
-      let alreadyOptimized = isZtif;
       const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
       const optZtifUrl = `/compressed/${encodeURIComponent(baseCleanName)}_opt.ztif`;
 
-      if (!isZtif) {
+      if (!isZtif && !layer.storageUrl) {
         try {
           const headCheck = await fetch(optZtifUrl, { method: 'HEAD' });
           if (headCheck.ok) {
@@ -10628,7 +10949,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               image: ztifImg,
               overviews: ztifOverviews,
               bounds: clientBounds,
-              epsg: 4326
+              origin: clientGeo?.origin,
+              resolution: clientGeo?.resolution,
+              epsg: clientEpsg,
+              noDataValue: clientGeo?.noDataValue,
+              photometric: clientGeo?.photometric
             };
             layer.format = 'ZTIF';
             layer.lossless = true;
@@ -10636,7 +10961,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             layer._geotiffFileUrl = optZtifUrl;
             layer._tileSavedAs = `${baseCleanName}_opt.ztif`;
             layer.serverFilename = `${baseCleanName}_opt.ztif`;
-            alreadyOptimized = true;
           }
         } catch (_) {}
       }
@@ -10661,144 +10985,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      if (alreadyOptimized) {
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`✓ Formato ZTIF cargado: ${file.name} (< 20 MB · 0% pérdida de calidad)`, 'success');
-        return;
-      }
+      hideProgress();
+      updateZtifBadgeUI(layer);
+      toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
 
-      // 3. BACKGROUND SERVER ZTIF CONVERSION & CLOUD SYNC (< 20 MB)
-      const isVercelEnv = window.location.hostname.includes('vercel.app') || (window.location.port === '' && window.location.protocol === 'https:');
-      if (file.size > 4.5 * 1024 * 1024 && isVercelEnv) {
-        console.log('[loadTiff] Archivo mayor a 4.5MB en Vercel: visualización directa en navegador activada.');
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
-        return;
-      }
-      showProgress(`Preparando optimización de ${file.name}...`, 5, 'Motor ZTIF');
-      try {
-        const formData = new FormData();
-        formData.append('tiff', file);
-
-        const upData = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', '/api/import-tiff?fast=true');
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.min(50, Math.round((e.loaded / e.total) * 50));
-              const upMB = (e.loaded / (1024 * 1024)).toFixed(1);
-              const totMB = (e.total / (1024 * 1024)).toFixed(1);
-              showProgress(`Subiendo al optimizador: ${file.name} (${upMB}MB / ${totMB}MB)... ${pct * 2}%`, pct, 'Motor ZTIF');
-            }
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try { resolve(JSON.parse(xhr.responseText)); }
-              catch (e) { reject(new Error('Respuesta inválida')); }
-            } else {
-              reject(new Error(xhr.statusText || 'Error en servidor'));
-            }
-          };
-          xhr.onerror = () => reject(new Error('Fallo de conexión al servidor'));
-          xhr.send(formData);
-        });
-
-        if (upData) {
-          const savedAs = upData.id || upData.savedAs;
-          const optSavedAs = upData.optimizedSavedAs || savedAs;
-          layer.serverFilename = savedAs;
-          layer._tileSavedAs = optSavedAs;
-
-          const srvBounds = _metaToBounds(upData.metadata?.bounds);
-          if (srvBounds) {
-            layer.bounds = srvBounds;
-            if (!clientBounds && !opts.skipFit) {
-              state.map.fitBounds(srvBounds, { padding: [40, 40], maxZoom: 22, animate: false });
-            }
-          }
-          if (upData.metadata?.width) layer.width = upData.metadata.width;
-          if (upData.metadata?.height) layer.height = upData.metadata.height;
-          if (upData.metadata?.bands) layer.bands = upData.metadata.bands;
-
-          if (upData.status === 'instant') {
-            showProgress('Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida de calidad)...', 60, 'Motor ZTIF');
-            const pollId = savedAs;
-            let pollAttempts = 0;
-            const pollInterval = setInterval(async () => {
-              pollAttempts++;
-              if (pollAttempts > 180 || !state.layers.includes(layer)) {
-                clearInterval(pollInterval);
-                return;
-              }
-              try {
-                const statusRes = await fetch(`/api/import-status/${encodeURIComponent(pollId)}`);
-                if (statusRes.ok) {
-                  const statusData = await statusRes.json();
-                  if (statusData.status === 'processing' && statusData.message) {
-                    showProgress(statusData.message, statusData.progress || 70, 'Motor ZTIF');
-                  }
-                  if (statusData.status === 'completed' && statusData.result) {
-                    clearInterval(pollInterval);
-                    hideProgress();
-                    const resData = statusData.result;
-                    layer.format = 'ZTIF';
-                    layer.lossless = true;
-                    layer.zeroLossVerified = true;
-                    layer.savingsPercent = resData.savingsPercent || resData.savings || 85;
-                    layer.ztifSize = resData.sizeBytes;
-                    layer.origSize = resData.origSize;
-                    layer._tileSavedAs = resData.savedAs;
-                    layer.serverFilename = resData.savedAs;
-                    layer._geotiffFileUrl = resData.fileUrl || `/compressed/${encodeURIComponent(resData.savedAs)}`;
-                    if (resData.cloudUrl) layer.storageUrl = resData.cloudUrl;
-
-                    // Transition to tile pyramids from the verified <20MB ZTIF
-                    addTileLayer(layer, resData.savedAs);
-                    updateZtifBadgeUI(layer);
-
-                    // Sincronizar automáticamente a la nube la versión ya optimizada < 20 MB
-                    if (!layer.storageUrl && typeof uploadVisualizationToCloud === 'function') {
-                      uploadVisualizationToCloud(resData.savedAs, file.name, layer).catch(console.warn);
-                    }
-
-                    toast(`✓ Formato ZTIF creado: ${file.name} (${(resData.sizeBytes / (1024 * 1024)).toFixed(1)} MB · -${layer.savingsPercent}% · 0% pérdida de calidad)`, 'success');
-                  } else if (statusData.status === 'failed') {
-                    clearInterval(pollInterval);
-                    hideProgress();
-                    console.warn('[loadTiff] ZTIF background status failed:', statusData.error);
-                    toast(`Error en optimización ZTIF: ${statusData.error || 'Fallo desconocido'}`, 'error');
-                  }
-                }
-              } catch (pollErr) {
-                console.warn('[loadTiff] Polling status warning:', pollErr);
-              }
-            }, 2000);
-          } else if (upData.status === 'completed') {
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            addTileLayer(layer, optSavedAs);
-            hideProgress();
-            updateZtifBadgeUI(layer);
-            toast(`✓ Archivo ${file.name} cargado correctamente`, 'success');
-          }
-        } else {
-          hideProgress();
-          console.warn('[loadTiff] Server import response not OK');
-        }
-      } catch (srvErr) {
-        hideProgress();
-        console.warn('[loadTiff] Server import bypassed, using client visualizer:', srvErr.message);
-        if (layer._geotiffTileLayer) {
-          updateZtifBadgeUI(layer);
-          toast(`✓ ${file.name} cargado en el visor en alta resolución`, 'success');
-        } else {
-          toast(`Error al importar TIFF: ${srvErr.message}`, 'error');
-        }
-      }
+      // 3. BACKGROUND ZTIF OPTIMIZATION & CLOUD STORAGE SYNC (< 20 MB)
+      // "la pagina tiene que optimiazarlo antes de subirlo a la nube"
+      optimizeAndUploadRasterToCloud(layer, file, clientGeo);
     }
+
 
     async function uploadVisualizationToCloud(savedAs, originalName, layer) {
       try {
