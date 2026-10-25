@@ -6321,6 +6321,7 @@
       selectionHighlight: null, // Temporary layer for map selection
       baseLayer: null
     };
+    window.state = state;
 
     // --- SHAPEFILE WORKER INITIALIZATION ---
     let shpWorker = null;
@@ -9282,6 +9283,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const yRng = statsY.rng || (statsY.p98 - statsY.p2 || 1);
                 const yP2 = statsY.p2;
                 const shouldStretch = statsY.shouldStretch;
+                const gain = shouldStretch ? (255 / yRng) : 1;
                 
                 if (isArrayOfBands) {
                   const yB = new Uint8Array(raw[0]);
@@ -9294,12 +9296,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
                       d[pi + 3] = 0;
                     } else {
                       let yFinal = y;
+                      let cbScaled = cb - 128;
+                      let crScaled = cr - 128;
                       if (shouldStretch) {
-                        yFinal = Math.max(0, Math.min(255, ((y - yP2) / yRng) * 255));
+                        yFinal = Math.max(0, Math.min(255, (y - yP2) * gain));
+                        cbScaled = cbScaled * gain;
+                        crScaled = crScaled * gain;
                       }
-                      d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * (cr - 128)) | 0));
-                      d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
-                      d[pi + 2] = Math.max(0, Math.min(255, (yFinal + 1.772 * (cb - 128)) | 0));
+                      d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * crScaled) | 0));
+                      d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * cbScaled - 0.714136 * crScaled) | 0));
+                      d[pi + 2] = Math.max(0, Math.min(255, (yFinal + 1.772 * cbScaled) | 0));
                       d[pi + 3] = 255;
                     }
                   }
@@ -9313,12 +9319,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
                       d[pi + 3] = 0;
                     } else {
                       let yFinal = y;
+                      let cbScaled = cb - 128;
+                      let crScaled = cr - 128;
                       if (shouldStretch) {
-                        yFinal = Math.max(0, Math.min(255, ((y - yP2) / yRng) * 255));
+                        yFinal = Math.max(0, Math.min(255, (y - yP2) * gain));
+                        cbScaled = cbScaled * gain;
+                        crScaled = crScaled * gain;
                       }
-                      d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * (cr - 128)) | 0));
-                      d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
-                      d[pi + 2] = Math.max(0, Math.min(255, (yFinal + 1.772 * (cb - 128)) | 0));
+                      d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * crScaled) | 0));
+                      d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * cbScaled - 0.714136 * crScaled) | 0));
+                      d[pi + 2] = Math.max(0, Math.min(255, (yFinal + 1.772 * cbScaled) | 0));
                       d[pi + 3] = 255;
                     }
                   }
@@ -11096,6 +11106,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
 
       state.layers.unshift(layer);
+      if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
       updateLayersSidebar();
       if (typeof selectLayer === 'function') selectLayer(layer.id);
 
@@ -12713,6 +12724,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       layer.bounds = layer.mapLayer.getBounds();
 
       state.layers.unshift(layer);
+      if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
       updateLayersSidebar();
       updateGeoprocessingDropdowns();
       
