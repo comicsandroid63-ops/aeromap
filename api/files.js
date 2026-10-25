@@ -2,7 +2,21 @@ const { getDb } = require('../lib/db');
 const fs = require('fs');
 const path = require('path');
 
-const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
+function getUploadsDir() {
+  const localDir = path.join(__dirname, '..', 'public', 'uploads');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    return localDir;
+  } catch (e) {
+    const tmpDir = path.join('/tmp', 'uploads');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (_) {}
+    }
+    return tmpDir;
+  }
+}
 
 const GUEST_UUID = '00000000-0000-0000-0000-000000000000';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,10 +57,15 @@ module.exports = async (req, res) => {
       storagePath = body.storagePath || req.query.storagePath;
     }
     
-    if (!name) return res.status(400).json({ error: 'name is required' });
+    if (!name && !storagePath) return res.status(400).json({ error: 'name or storagePath is required' });
     
-    const filePath = String(storagePath || name || '').replace(/\\/g, '/');
-    const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
+    const rawTarget = String(storagePath || name || '').replace(/\\/g, '/');
+    let relPath = rawTarget.replace(/^\/?uploads\/?/, '');
+    if (/^https?:\/\//i.test(relPath)) {
+      try { relPath = new URL(relPath).pathname.replace(/^\//, ''); } catch (_) {}
+    }
+    const safePath = path.normalize(relPath).replace(/^(\.\.[\/\\])+/, '');
+    const UPLOADS_DIR = getUploadsDir();
     const fullPath = path.resolve(UPLOADS_DIR, safePath);
     
     // Verificación estricta contra Path Traversal
@@ -60,8 +79,8 @@ module.exports = async (req, res) => {
 
     if (storagePath) {
       await db.execute({
-        sql: 'DELETE FROM layers WHERE storage_url = ? OR storage_url = ?',
-        args: [storagePath, `/uploads/${storagePath.replace(/^\/?uploads\//, '')}`]
+        sql: 'DELETE FROM layers WHERE storage_url = ? OR storage_url = ? OR storage_url LIKE ?',
+        args: [storagePath, `/uploads/${storagePath.replace(/^\/?uploads\//, '')}`, `%${safePath}%`]
       });
     }
 
@@ -110,6 +129,7 @@ module.exports = async (req, res) => {
       storagePath = storagePath.slice('uploads/'.length);
     }
     
+    const UPLOADS_DIR = getUploadsDir();
     const fullPath = path.join(UPLOADS_DIR, storagePath);
     const fileExists = fs.existsSync(fullPath);
     

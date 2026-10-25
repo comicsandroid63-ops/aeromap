@@ -6326,6 +6326,7 @@
     let shpWorker = null;
     let _activeZipBuffer = null; // Buffer stored in main thread until transferred to worker
 
+    function getShpWorker() { if (!shpWorker) initShpWorker(); return shpWorker; }
     function initShpWorker() {
         if (typeof Worker === 'undefined') return;
         try {
@@ -6670,7 +6671,7 @@ self.onmessage = async function(e) {
         }
     }
 
-    initShpWorker();
+    // initShpWorker() is lazy
 
     let idCounter = 0;
 
@@ -9927,11 +9928,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (layer._geotiffTileLayer) {
         if (layer.rendererParams?.bands && typeof layer._geotiffTileLayer.setBands === 'function') {
           layer._geotiffTileLayer.setBands(layer.rendererParams.bands);
+          return;
         } else if (typeof layer._geotiffTileLayer.redraw === 'function') {
           layer._geotiffTileLayer.redraw();
+          return;
         }
-        return;
       }
+
+      // Check if this is a raster layer (GeoTIFF, ZTIF, etc.)
+      const isRaster = !!(
+        layer.format === 'ZTIF' ||
+        layer.format === 'GeoTIFF' ||
+        layer.type === 'raster' ||
+        (layer.serverFilename && /\.(tiff?|ztif|img)$/i.test(layer.serverFilename)) ||
+        (savedAs && /\.(tiff?|ztif|img)$/i.test(savedAs)) ||
+        (layer.storageUrl && /\.(tiff?|ztif|img)/i.test(layer.storageUrl)) ||
+        layer._geotiffFileUrl ||
+        layer.file
+      );
+
+      // Raster layers on Vercel must use client-side GeoTIFF engine (L.geoTIFFTileLayer)
+      if (isRaster && (!layer.storageUrl || !layer.storageUrl.includes('{z}'))) {
+        const resolvedSavedAs = savedAs || layer.serverFilename || (layer.storageUrl ? layer.storageUrl.split('/').pop() : 'raster.tif');
+        layer._tileSavedAs = resolvedSavedAs;
+        if (typeof showPreviewOverlay === 'function') {
+          showPreviewOverlay(layer, resolvedSavedAs, { skipFit: skipFitBounds });
+          return;
+        }
+      }
+
       const params = new URLSearchParams();
       if (layer.renderer) params.set('renderer', layer.renderer);
       if (layer.rendererParams?.bands) params.set('bands', layer.rendererParams.bands.join(','));
@@ -10105,7 +10130,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (tiffUrl && maxSize === 0 && window.GeoTIFF) {
           try {
             console.log('[Preview] Using 100% Cloud GeoTIFF tile engine:', tiffUrl);
-            const geo = await loadGeotiffInBackground(tiffUrl);
+            let geo = null;
+            try {
+              geo = await loadGeotiffInBackground(tiffUrl);
+            } catch (loadErr) {
+              if (typeof tiffUrl === 'string' && tiffUrl.includes('/uploads/')) {
+                const fname = tiffUrl.split('/').pop();
+                const fallbackUrl = '/compressed/' + encodeURIComponent(fname);
+                console.log('[Preview] Retrying with compressed fallback:', fallbackUrl);
+                geo = await loadGeotiffInBackground(fallbackUrl);
+              } else {
+                throw loadErr;
+              }
+            }
             
             if (geo && geo.image) {
               const tileLayer = L.geoTIFFTileLayer(geo, {
@@ -10362,13 +10399,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       return { epsg, bounds };
     }
 
-    const _loadingGeotiff = {};
+    const _loadingGeotiff = new Map();
     async function loadGeotiffInBackground(fileUrl) {
-      if (_loadingGeotiff[fileUrl]) return _loadingGeotiff[fileUrl];
+      if (!fileUrl) return null;
+      const cacheKey = (fileUrl instanceof File) ? (fileUrl.name + '_' + fileUrl.size + '_' + fileUrl.lastModified) : (typeof fileUrl === 'string' ? fileUrl : String(Math.random()));
+      if (_loadingGeotiff.has(cacheKey)) return _loadingGeotiff.get(cacheKey);
       const promise = (async () => {
         try {
-          console.log('[GeoTIFF] Loading:', fileUrl);
-          const tiff = await GeoTIFF.fromUrl(fileUrl);
+          console.log('[GeoTIFF] Loading:', typeof fileUrl === 'string' ? fileUrl : (fileUrl?.name || 'Blob'));
+          const tiff = (fileUrl instanceof Blob) ? await GeoTIFF.fromBlob(fileUrl) : await GeoTIFF.fromUrl(fileUrl);
           const image = await tiff.getImage();
           const imageCount = await tiff.getImageCount();
           const overviews = [];
@@ -10453,7 +10492,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return null;
         }
       })();
-      _loadingGeotiff[fileUrl] = promise;
+      _loadingGeotiff.set(cacheKey, promise);
       return promise;
     }
 
@@ -11341,12 +11380,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (opts.isRestored) {
                     _pendingImportLayers = layerList;
                     _pendingImportOpts = opts;
-                    if (shpWorker) shpWorker.postMessage({ file: file });
+                    const _w = getShpWorker(); if (_w) _w.postMessage({ file: file });
                     await new Promise(r => setTimeout(r, 100));
                     await confirmImportAuto(layerList, opts);
                 } else {
                     openImportSelectionModal(layerList, file.name, opts);
-                    if (shpWorker) shpWorker.postMessage({ file: file });
+                    const _w = getShpWorker(); if (_w) _w.postMessage({ file: file });
                 }
                 return;
             }
@@ -12045,8 +12084,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             storageUrl: null, dbId: null, thumb: null,
             bounds: bounds,
             width: metadata.width, height: metadata.height,
-            bands: 1,
-            renderer: 'single_gray',
+            bands: 1, file: file, format: 'GeoTIFF', lossless: true,
+          renderer: 'single_gray',
             rendererParams: { bands: [i], colormap: null, invert: false, classes: 5 },
             _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
           };
@@ -12066,7 +12105,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           storageUrl: null, dbId: null, thumb: null,
           bounds: bounds,
           width: metadata.width, height: metadata.height,
-          bands: 1,
+          bands: 1, file: file, format: 'GeoTIFF', lossless: true,
           renderer: 'single_gray',
           rendererParams: { bands: [bandIdx], colormap: null, invert: false, classes: 5 },
           _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
@@ -12090,7 +12129,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           storageUrl: null, dbId: null, thumb: null,
           bounds: bounds,
           width: metadata.width, height: metadata.height,
-          bands: numBands,
+          bands: numBands, file: file, format: 'GeoTIFF', lossless: true,
           renderer: 'multiband',
           rendererParams: { bands: [rBand, gBand, bBand], colormap: null, invert: false, classes: 5 },
           _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
@@ -12110,7 +12149,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           storageUrl: null, dbId: null, thumb: null,
           bounds: bounds,
           width: metadata.width, height: metadata.height,
-          bands: numBands,
+          bands: numBands, file: file, format: 'GeoTIFF', lossless: true,
           renderer: 'rgb',
           rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
           _geotiffFileUrl: `/uploads/${encodeURIComponent(serverFilename)}`,
@@ -12476,7 +12515,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function runImportWithWorker(selected, opts) {
       return new Promise((resolve, reject) => {
-          if (!shpWorker) {
+          const worker = getShpWorker();
+          if (!worker) {
             console.warn("[Import] Web Worker no disponible, usando analizador directo");
             if (_activeZipFile) {
                 fallbackParseZip(_activeZipFile, selected, opts).then(resolve).catch(reject);
@@ -13900,20 +13940,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!layer) return;
       layer.visible = !layer.visible;
       updateLayersSidebar();
-      if (layer.visible && (layer._geotiffTileLayer || layer._geotiffFileUrl || layer.serverFilename)) {
-          if (layer._tileLayer) { try { state.map.removeLayer(layer._tileLayer); } catch(e) {} layer._tileLayer = null; }
-          if (layer._geotiffTileLayer) { try { state.map.removeLayer(layer._geotiffTileLayer); } catch(e) {} layer._geotiffTileLayer = null; }
-          if (layer._previewOverlay) { try { state.map.removeLayer(layer._previewOverlay); } catch(e) {} layer._previewOverlay = null; }
-          if (layer._thumbOverlay) { try { state.map.removeLayer(layer._thumbOverlay); } catch(e) {} layer._thumbOverlay = null; }
-          if (layer.mapLayer) { try { state.map.removeLayer(layer.mapLayer); } catch(e) {} layer.mapLayer = null; }
-          if (layer.serverFilename) showPreviewOverlay(layer, layer.serverFilename, { skipFit: true });
+      if (layer.visible) {
+        if (layer.mapLayer) {
+          layer.mapLayer.addTo(state.map);
+          syncLayerOrder();
+        } else if (layer._geotiffTileLayer) {
+          layer._geotiffTileLayer.addTo(state.map);
+          layer.mapLayer = layer._geotiffTileLayer;
+          syncLayerOrder();
+        } else {
+          const savedAs = layer.serverFilename || (layer.storageUrl ? layer.storageUrl.split('/').pop() : 'raster.tif');
+          showPreviewOverlay(layer, savedAs, { skipFit: true });
+        }
       } else {
-          if (layer.mapLayer && layer.visible) {
-              layer.mapLayer.addTo(state.map);
-              syncLayerOrder();
-          } else if (layer.mapLayer) {
-              state.map.removeLayer(layer.mapLayer);
-          }
+        if (layer.mapLayer) {
+          try { state.map.removeLayer(layer.mapLayer); } catch (_) {}
+        }
+        if (layer._geotiffTileLayer && layer._geotiffTileLayer !== layer.mapLayer) {
+          try { state.map.removeLayer(layer._geotiffTileLayer); } catch (_) {}
+        }
       }
       if (typeof setLayerVisibility === 'function') {
           setLayerVisibility(id, layer.visible);
