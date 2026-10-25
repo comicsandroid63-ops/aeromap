@@ -11145,12 +11145,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         hideProgress();
       }
     }
-      } catch (err) {
-        console.warn('[Optimizer] Client optimization sync warning:', err);
-      } finally {
-        hideProgress();
-      }
-    }
 
     async function loadTiff(file, opts = {}) {
       console.log('[loadTiff] Starting import for:', file.name, file.size);
