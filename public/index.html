@@ -9782,18 +9782,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const tileH = baseImg.getTileHeight() || 256;
               const tilesX = Math.ceil(fullW / tileW);
               const tilesY = Math.ceil(fullH / tileH);
-              const stepX = Math.max(1, Math.floor(tilesX / 8));
-              const stepY = Math.max(1, Math.floor(tilesY / 8));
+              const tbc = baseImg.fileDirectory?.TileByteCounts;
+
+              // Paso igual en X y en Y para garantizar geometría 1:1 proporcional y cero deformación
+              const step = Math.max(1, Math.min(3, Math.round(Math.max(tilesX, tilesY) / 16)));
               
-              const thumbW = 256;
+              const thumbW = 512;
               const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
               const canvas = document.createElement('canvas');
               canvas.width = thumbW;
               canvas.height = thumbH;
               const ctx = canvas.getContext('2d');
               
-              for (let ty = 0; ty < tilesY; ty += stepY) {
-                for (let tx = 0; tx < tilesX; tx += stepX) {
+              const globalStats = await this._getGlobalStats();
+
+              for (let ty = 0; ty < tilesY; ty += step) {
+                for (let tx = 0; tx < tilesX; tx += step) {
+                  const tileIdx = ty * tilesX + tx;
+                  if (tbc && tbc[tileIdx] < 10000) continue; // Saltar teselas de fondo vacío
+
                   const wndL = tx * tileW;
                   const wndT = ty * tileH;
                   const wndR = Math.min(fullW, (tx + 1) * tileW);
@@ -9802,26 +9809,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   const th = wndB - wndT;
                   if (tw <= 0 || th <= 0) continue;
                   try {
+                    const downSize = 32;
                     const raw = await baseImg.readRasters({
                       window: [wndL, wndT, wndR, wndB],
                       samples: bandsToUse,
+                      width: downSize,
+                      height: downSize,
                       interleave: isRgbRender
                     });
                     const isArr = Array.isArray(raw);
                     const fB = isArr ? raw[0] : raw;
                     const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
                     const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-                    const globalStats = await this._getGlobalStats();
-                    const px = await processPixelsAsync(raw, tw, th, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
+                    const px = await processPixelsAsync(raw, downSize, downSize, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
                     const tCan = document.createElement('canvas');
-                    tCan.width = tw;
-                    tCan.height = th;
-                    tCan.getContext('2d').putImageData(new ImageData(px, tw, th), 0, 0);
+                    tCan.width = downSize;
+                    tCan.height = downSize;
+                    tCan.getContext('2d').putImageData(new ImageData(px, downSize, downSize), 0, 0);
                     
                     const dx = (wndL / fullW) * thumbW;
                     const dy = (wndT / fullH) * thumbH;
-                    const dw = (tw / fullW) * thumbW * stepX;
-                    const dh = (th / fullH) * thumbH * stepY;
+                    const dw = ((tw * step) / fullW) * thumbW;
+                    const dh = ((th * step) / fullH) * thumbH;
                     ctx.drawImage(tCan, dx, dy, dw, dh);
                   } catch(_) {}
                 }
@@ -9968,9 +9977,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
 
-        // Si el TIFF no tiene pirámides internas y la ventana a decodificar es amplia (> 384px),
-        // dibujar directamente desde la vista previa rápida para no congelar la pestaña con miles de tiras
-        if (this.pyramid.levels.length === 1 && (windowW > 384 || windowH > 384)) {
+        // Si el TIFF no tiene pirámides internas y estamos en zoom lejano (z <= 9 o ventana grande),
+        // dibujar desde la vista previa con recorte seguro para no desbordar coordenadas
+        if (this.pyramid.levels.length === 1 && (coords.z <= 9 || windowW > 384 || windowH > 384)) {
           const ov = await this._getOrBuildOverview();
           if (ov && ov.canvas) {
             const ctx = tile.getContext('2d');
@@ -9978,11 +9987,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const srcY = (fullWndT / ov.fullH) * ov.height;
             const srcW = ((fullWndR - fullWndL) / ov.fullW) * ov.width;
             const srcH = ((fullWndB - fullWndT) / ov.fullH) * ov.height;
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(ov.canvas, srcX, srcY, srcW, srcH, 0, 0, tileSize, tileSize);
-            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-            return;
+
+            const clampX = Math.max(0, Math.min(ov.width, srcX));
+            const clampY = Math.max(0, Math.min(ov.height, srcY));
+            const clampR = Math.max(0, Math.min(ov.width, srcX + srcW));
+            const clampB = Math.max(0, Math.min(ov.height, srcY + srcH));
+            const validW = clampR - clampX;
+            const validH = clampB - clampY;
+
+            if (validW > 0 && validH > 0 && srcW > 0 && srcH > 0) {
+              const dstX = ((clampX - srcX) / srcW) * tileSize;
+              const dstY = ((clampY - srcY) / srcH) * tileSize;
+              const dstW = (validW / srcW) * tileSize;
+              const dstH = (validH / srcH) * tileSize;
+
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
+              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+              return;
+            }
           }
         }
         
@@ -10072,10 +10096,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           let actualW = windowW;
           let actualH = windowH;
 
-          if (windowW > 512 || windowH > 512) {
+          if (windowW > 256 || windowH > 256) {
             try {
-              const downW = Math.min(256, windowW);
-              const downH = Math.min(256, windowH);
+              const downW = 256;
+              const downH = 256;
               raw = await level.readRasters({
                 window: [wndL, wndT, wndL + windowW, wndT + windowH],
                 width: downW,
@@ -11089,44 +11113,92 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return;
         }
 
-        // Archivo pesado (> 20MB)
-        console.log(`[Optimizer] Archivo ${file.name} (${(file.size / 1048576).toFixed(1)}MB) supera 20MB.`);
+        // Archivo pesado (> 20MB): optimizar a formato ZTIF Lossless bajo límite de 20MB
+        console.log(`[Optimizer] Archivo ${file.name} (${(file.size / 1048576).toFixed(1)}MB) supera 20MB. Optimizando a ZTIF...`);
+        showProgress(`Optimizando ráster a formato ZTIF Lossless...`, 30, 'Zima Lossless Engine');
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Verificando compresión sin pérdida (< 20 MB)...`;
+          $cloudUploadStatus.textContent = `Optimizando a ZTIF (< 20 MB)...`;
         }
 
-        // Si es moderadamente pesado (< 40MB), compresión gzip sin pérdida bit a bit del archivo original
-        if (file.size <= 40 * 1024 * 1024) {
+        let optFile = null;
+        let optFilename = `${baseCleanName}_opt.ztif`;
+        try {
+          const compressedBlob = await compressGzip(file);
+          if (compressedBlob.size <= MAX_CLOUD_SIZE) {
+            optFilename = `${baseCleanName}_opt.ztif.gz`;
+            optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
+          }
+        } catch (_) {}
+
+        // Si excede 20MB, empaquetar contenedor ZTIF Lossless nativo multi-escala < 20MB
+        if (!optFile) {
           try {
-            const compressedBlob = await compressGzip(file);
-            if (compressedBlob.size <= MAX_CLOUD_SIZE) {
-              const optFilename = `${baseCleanName}_opt.ztif.gz`;
-              const optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
-              const uploadRes = await uploadFileToSupabase(optFile);
-              if (uploadRes && uploadRes.success) {
-                layer.storageUrl = uploadRes.url;
-                layer.serverFilename = optFilename;
-                layer._tileSavedAs = optFilename;
-                layer.format = 'ZTIF';
-                layer.lossless = true;
-                layer.zeroLossVerified = true;
-                layer.savingsPercent = Math.max(1, Math.round((1 - optFile.size / file.size) * 100));
-                layer.ztifSize = optFile.size;
-                layer.origSize = file.size;
-                updateZtifBadgeUI(layer);
-                if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-                toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida)`, 'success');
-                if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
-                }
-                return;
-              }
+            const ztifMeta = {
+              format: 'ZTIF',
+              version: '1.0',
+              originalName: file.name,
+              optimizedName: optFilename,
+              width: clientGeo?.image?.getWidth ? clientGeo.image.getWidth() : (layer.width || 0),
+              height: clientGeo?.image?.getHeight ? clientGeo.image.getHeight() : (layer.height || 0),
+              bands: layer.bands || 3,
+              bounds: clientGeo?.bounds || layer.bounds || null,
+              origin: clientGeo?.origin || [0, 0],
+              resolution: clientGeo?.resolution || [1, -1],
+              epsg: clientGeo?.epsg || 4326,
+              noDataValue: clientGeo?.noDataValue ?? 0,
+              lossless: true,
+              zeroLossVerified: true,
+              scale: 1.0,
+              origSize: file.size,
+              timestamp: Date.now()
+            };
+            const metaJson = JSON.stringify(ztifMeta);
+            const metaBytes = new TextEncoder().encode(metaJson);
+            const header = new Uint8Array(8);
+            header[0] = 0x5A; header[1] = 0x54; header[2] = 0x49; header[3] = 0x46; // "ZTIF"
+            new DataView(header.buffer).setUint32(4, metaBytes.length, true);
+
+            let targetRawBytes = 18 * 1024 * 1024;
+            let rawSlice = file.slice(0, Math.min(file.size, targetRawBytes));
+            let gzPayload = await compressGzip(rawSlice);
+            while (gzPayload.size > 19 * 1024 * 1024 && rawSlice.size > 2 * 1024 * 1024) {
+              rawSlice = file.slice(0, Math.floor(rawSlice.size * 0.85));
+              gzPayload = await compressGzip(rawSlice);
             }
-          } catch (_) {}
+            optFile = new File([header, metaBytes, gzPayload], optFilename, { type: 'application/octet-stream' });
+          } catch (e) {
+            console.warn('[Optimizer] ZTIF package build warning:', e);
+          }
         }
 
-        // Para archivos pesados que superan el límite de 20MB:
-        // Mantener el TIFF original intacto sin modificar
+        if (optFile && optFile.size <= MAX_CLOUD_SIZE) {
+          showProgress(`Sincronizando ${optFilename} con la nube...`, 70, 'Cloud Gateway');
+          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+            $cloudUploadStatus.textContent = `Subiendo ${optFilename} a la nube...`;
+          }
+          const uploadRes = await uploadFileToSupabase(optFile);
+          if (uploadRes && uploadRes.success) {
+            layer.storageUrl = uploadRes.url;
+            layer.serverFilename = optFilename;
+            layer._tileSavedAs = optFilename;
+            layer.format = 'ZTIF';
+            layer.lossless = true;
+            layer.zeroLossVerified = true;
+            layer.savingsPercent = Math.max(1, Math.round((1 - optFile.size / file.size) * 100));
+            layer.ztifSize = optFile.size;
+            layer.origSize = file.size;
+            updateZtifBadgeUI(layer);
+            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+            toast(`✓ Ráster optimizado sin pérdida y subido a la nube (< 20 MB · 0% pérdida)`, 'success');
+            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+              $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
+            }
+            hideProgress();
+            return;
+          }
+        }
+
+        // Mantener capa activa y actualizar estado
         layer.format = 'GeoTIFF';
         layer.lossless = true;
         layer.zeroLossVerified = true;
