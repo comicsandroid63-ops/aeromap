@@ -9246,7 +9246,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       
       const workerCode = `
         self.onmessage = function(e) {
-          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric } = e.data;
+          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats } = e.data;
           
           const px = width * height;
           const d = new Uint8ClampedArray(px * 4);
@@ -9264,13 +9264,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 if (v > maxV) maxV = v;
               }
             }
-            if (samples.length < 5) return { p2: 0, p98: 255, maxV: 255, shouldStretch: false };
+            if (samples.length < 5) return { p2: 0, p98: 255, maxV: 255, rng: 255, shouldStretch: false };
             samples.sort((a, b) => a - b);
-            const p2 = samples[Math.floor(samples.length * 0.02)];
+            const p2 = samples[Math.floor(samples.length * 0.05)];
             const p98 = samples[Math.floor(samples.length * 0.98)];
             const span = p98 - p2;
             const shouldStretch = (span < 200) || (p2 > 20) || (maxV <= 150);
-            return { p2, p98: p98 > p2 ? p98 : p2 + 1, maxV, shouldStretch };
+            return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), maxV, shouldStretch };
           }
           
           if (rgb) {
@@ -9278,8 +9278,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
               if (isYCbCr) {
                 const yData = isArrayOfBands ? new Uint8Array(raw[0]) : new Uint8Array(raw);
                 const yStride = isArrayOfBands ? 1 : 3;
-                const statsY = getBandPercentiles(yData, 0, yStride, px);
-                const yRng = statsY.p98 - statsY.p2 || 1;
+                const statsY = (globalStats && globalStats.isYCbCr) ? globalStats : getBandPercentiles(yData, 0, yStride, px);
+                const yRng = statsY.rng || (statsY.p98 - statsY.p2 || 1);
+                const yP2 = statsY.p2;
+                const shouldStretch = statsY.shouldStretch;
                 
                 if (isArrayOfBands) {
                   const yB = new Uint8Array(raw[0]);
@@ -9292,8 +9294,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                       d[pi + 3] = 0;
                     } else {
                       let yFinal = y;
-                      if (statsY.shouldStretch) {
-                        yFinal = Math.max(0, Math.min(255, ((y - statsY.p2) / yRng) * 255));
+                      if (shouldStretch) {
+                        yFinal = Math.max(0, Math.min(255, ((y - yP2) / yRng) * 255));
                       }
                       d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * (cr - 128)) | 0));
                       d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
@@ -9303,8 +9305,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   }
                 } else {
                   const rawData = (raw instanceof Uint8Array || raw instanceof Uint8ClampedArray) ? raw : new Uint8Array(raw);
-                  const statsY = getBandPercentiles(rawData, 0, 3, px);
-                  const yRng = statsY.p98 - statsY.p2 || 1;
                   for (let i = 0; i < px; i++) {
                     const idx = i * 3;
                     const y = rawData[idx], cb = rawData[idx + 1], cr = rawData[idx + 2];
@@ -9313,8 +9313,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                       d[pi + 3] = 0;
                     } else {
                       let yFinal = y;
-                      if (statsY.shouldStretch) {
-                        yFinal = Math.max(0, Math.min(255, ((y - statsY.p2) / yRng) * 255));
+                      if (shouldStretch) {
+                        yFinal = Math.max(0, Math.min(255, ((y - yP2) / yRng) * 255));
                       }
                       d[pi]     = Math.max(0, Math.min(255, (yFinal + 1.402 * (cr - 128)) | 0));
                       d[pi + 1] = Math.max(0, Math.min(255, (yFinal - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)) | 0));
@@ -9327,32 +9327,38 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 // Standard RGB byte
                 if (isArrayOfBands) {
                   const rB = new Uint8Array(raw[0]), gB = new Uint8Array(raw[1]), bB = new Uint8Array(raw[2]);
-                  const sR = getBandPercentiles(rB, 0, 1, px);
-                  const sG = getBandPercentiles(gB, 0, 1, px);
-                  const sB = getBandPercentiles(bB, 0, 1, px);
-                  const rRng = sR.p98 - sR.p2 || 1;
-                  const gRng = sG.p98 - sG.p2 || 1;
-                  const bRng = sB.p98 - sB.p2 || 1;
+                  const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rB, 0, 1, px);
+                  const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gB, 0, 1, px);
+                  const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bB, 0, 1, px);
+                  const rRng = sR.rng || (sR.p98 - sR.p2 || 1);
+                  const gRng = sG.rng || (sG.p98 - sG.p2 || 1);
+                  const bRng = sB.rng || (sB.p98 - sB.p2 || 1);
+                  const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
+                  const stretch = (globalStats && globalStats.isRgb) ? globalStats.shouldStretch : (sR.shouldStretch || sG.shouldStretch || sB.shouldStretch);
                   for (let i = 0; i < px; i++) {
                     let r = rB[i], g = gB[i], b = bB[i];
                     const pi = i * 4;
                     if ((noDataValue != null && r === noDataValue && g === noDataValue && b === noDataValue) || (r === 0 && g === 0 && b === 0 && (noDataValue === 0 || noDataValue == null))) {
                       d[pi + 3] = 0;
                     } else {
-                      if (sR.shouldStretch) r = Math.max(0, Math.min(255, ((r - sR.p2) / rRng) * 255));
-                      if (sG.shouldStretch) g = Math.max(0, Math.min(255, ((g - sG.p2) / gRng) * 255));
-                      if (sB.shouldStretch) b = Math.max(0, Math.min(255, ((b - sB.p2) / bRng) * 255));
+                      if (stretch) {
+                        r = Math.max(0, Math.min(255, ((r - rP2) / rRng) * 255));
+                        g = Math.max(0, Math.min(255, ((g - gP2) / gRng) * 255));
+                        b = Math.max(0, Math.min(255, ((b - bP2) / bRng) * 255));
+                      }
                       d[pi] = r; d[pi + 1] = g; d[pi + 2] = b; d[pi + 3] = 255;
                     }
                   }
                 } else {
                   const rawData = (raw instanceof Uint8Array || raw instanceof Uint8ClampedArray) ? raw : new Uint8Array(raw);
-                  const sR = getBandPercentiles(rawData, 0, 3, px);
-                  const sG = getBandPercentiles(rawData, 1, 3, px);
-                  const sB = getBandPercentiles(rawData, 2, 3, px);
-                  const rRng = sR.p98 - sR.p2 || 1;
-                  const gRng = sG.p98 - sG.p2 || 1;
-                  const bRng = sB.p98 - sB.p2 || 1;
+                  const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawData, 0, 3, px);
+                  const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawData, 1, 3, px);
+                  const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawData, 2, 3, px);
+                  const rRng = sR.rng || (sR.p98 - sR.p2 || 1);
+                  const gRng = sG.rng || (sG.p98 - sG.p2 || 1);
+                  const bRng = sB.rng || (sB.p98 - sB.p2 || 1);
+                  const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
+                  const stretch = (globalStats && globalStats.isRgb) ? globalStats.shouldStretch : (sR.shouldStretch || sG.shouldStretch || sB.shouldStretch);
                   for (let i = 0; i < px; i++) {
                     const idx = i * 3;
                     let r = rawData[idx], g = rawData[idx + 1], b = rawData[idx + 2];
@@ -9360,9 +9366,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     if ((noDataValue != null && r === noDataValue && g === noDataValue && b === noDataValue) || (r === 0 && g === 0 && b === 0 && (noDataValue === 0 || noDataValue == null))) {
                       d[pi + 3] = 0;
                     } else {
-                      if (sR.shouldStretch) r = Math.max(0, Math.min(255, ((r - sR.p2) / rRng) * 255));
-                      if (sG.shouldStretch) g = Math.max(0, Math.min(255, ((g - sG.p2) / gRng) * 255));
-                      if (sB.shouldStretch) b = Math.max(0, Math.min(255, ((b - sB.p2) / bRng) * 255));
+                      if (stretch) {
+                        r = Math.max(0, Math.min(255, ((r - rP2) / rRng) * 255));
+                        g = Math.max(0, Math.min(255, ((g - gP2) / gRng) * 255));
+                        b = Math.max(0, Math.min(255, ((b - bP2) / bRng) * 255));
+                      }
                       d[pi] = r; d[pi + 1] = g; d[pi + 2] = b; d[pi + 3] = 255;
                     }
                   }
@@ -9372,21 +9380,22 @@ async function deleteFromCloud(fileName, url, storagePath) {
               // Float32 / 16-bit
               if (isArrayOfBands) {
                 const rBand = raw[0], gBand = raw[1], bBand = raw[2];
-                const sR = getBandPercentiles(rBand, 0, 1, px);
-                const sG = getBandPercentiles(gBand, 0, 1, px);
-                const sB = getBandPercentiles(bBand, 0, 1, px);
-                const rR = sR.p98 - sR.p2 || 1;
-                const gR = sG.p98 - sG.p2 || 1;
-                const bR = sB.p98 - sB.p2 || 1;
+                const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rBand, 0, 1, px);
+                const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gBand, 0, 1, px);
+                const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bBand, 0, 1, px);
+                const rR = sR.rng || (sR.p98 - sR.p2 || 1);
+                const gR = sG.rng || (sG.p98 - sG.p2 || 1);
+                const bR = sB.rng || (sB.p98 - sB.p2 || 1);
+                const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
                 for (let i = 0; i < px; i++) {
                   const r = rBand[i], g = gBand[i], b = bBand[i];
                   const pi = i * 4;
                   if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
                     d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - sR.p2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - sG.p2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - sB.p2) / bR));
+                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
                     d[pi]     = Math.round(nR * 255);
                     d[pi + 1] = Math.round(nG * 255);
                     d[pi + 2] = Math.round(nB * 255);
@@ -9395,21 +9404,22 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 }
               } else {
                 const rawF = (raw instanceof Float32Array || raw instanceof Float64Array) ? raw : new Float32Array(raw);
-                const sR = getBandPercentiles(rawF, 0, 3, px);
-                const sG = getBandPercentiles(rawF, 1, 3, px);
-                const sB = getBandPercentiles(rawF, 2, 3, px);
-                const rR = sR.p98 - sR.p2 || 1;
-                const gR = sG.p98 - sG.p2 || 1;
-                const bR = sB.p98 - sB.p2 || 1;
+                const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawF, 0, 3, px);
+                const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawF, 1, 3, px);
+                const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawF, 2, 3, px);
+                const rR = sR.rng || (sR.p98 - sR.p2 || 1);
+                const gR = sG.rng || (sG.p98 - sG.p2 || 1);
+                const bR = sB.rng || (sB.p98 - sB.p2 || 1);
+                const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
                 for (let i = 0; i < px; i++) {
                   const r = rawF[i * 3], g = rawF[i * 3 + 1], b = rawF[i * 3 + 2];
                   const pi = i * 4;
                   if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
                     d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - sR.p2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - sG.p2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - sB.p2) / bR));
+                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
                     d[pi]     = Math.round(nR * 255);
                     d[pi + 1] = Math.round(nG * 255);
                     d[pi + 2] = Math.round(nB * 255);
@@ -9422,8 +9432,10 @@ async function deleteFromCloud(fileName, url, storagePath) {
             // Single band (DEM / NDVI / Grayscale)
             const b0 = isArrayOfBands ? raw[0] : raw;
             const b0Arr = isByte ? new Uint8Array(b0) : ((b0 instanceof Float32Array || b0 instanceof Float64Array) ? b0 : new Float32Array(b0));
-            const sB = getBandPercentiles(b0Arr, 0, 1, px);
-            const rng = sB.p98 - sB.p2 || 1;
+            const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
+            const rng = sB.rng || (sB.p98 - sB.p2 || 1);
+            const p2 = sB.p2;
+            const shouldStretch = !isByte || sB.shouldStretch;
             for (let i = 0; i < px; i++) {
               const v = b0Arr[i];
               const pi = i * 4;
@@ -9431,8 +9443,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 d[pi + 3] = 0;
               } else {
                 let scaled;
-                if (!isByte || sB.shouldStretch) {
-                  const norm = Math.max(0, Math.min(1, (v - sB.p2) / rng));
+                if (shouldStretch) {
+                  const norm = Math.max(0, Math.min(1, (v - p2) / rng));
                   scaled = Math.round(norm * 255);
                 } else {
                   scaled = v;
@@ -9451,7 +9463,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
       return _pixelWorker;
     }
     
-    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric) {
+    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats) {
       return new Promise((resolve) => {
         const worker = getPixelWorker();
         const id = Date.now() + Math.random();
@@ -9478,7 +9490,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
         
         worker.postMessage({
-          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric
+          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats
         }, transferables);
       });
     }
@@ -9497,6 +9509,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this.options.bands = bands;
         this._quickOverview = null;
         this._quickOverviewPromise = null;
+        this._globalStats = null;
+        this._globalStatsPromise = null;
         this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         this.redraw();
       },
@@ -9512,6 +9526,111 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         this._quickOverview = null;
         this._quickOverviewPromise = null;
+        this._globalStats = null;
+        this._globalStatsPromise = null;
+      },
+
+      async _getGlobalStats() {
+        if (this._globalStats) return this._globalStats;
+        if (this._globalStatsPromise) return this._globalStatsPromise;
+
+        this._globalStatsPromise = (async () => {
+          try {
+            const baseImg = this.pyramid.levels[0];
+            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
+            const fileHasRgb = nSamples >= 3;
+            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+            const isRgbRender = bandsToUse.length >= 3;
+            const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+            const isYCbCr = (photometric === 6);
+            const noDataValue = this.geo.noDataValue;
+
+            // Pick the smallest overview to compute global percentiles in < 5ms
+            const sampleImg = this.pyramid.levels[this.pyramid.levels.length - 1];
+            const sampleW = sampleImg.getWidth();
+            const sampleH = sampleImg.getHeight();
+
+            let rawSample;
+            if (sampleW * sampleH > 400000) {
+              const stepW = Math.min(256, sampleW);
+              const stepH = Math.min(256, sampleH);
+              const startX = Math.floor((sampleW - stepW) / 2);
+              const startY = Math.floor((sampleH - stepH) / 2);
+              rawSample = await sampleImg.readRasters({
+                window: [startX, startY, startX + stepW, startY + stepH],
+                samples: bandsToUse,
+                interleave: isRgbRender
+              });
+            } else {
+              rawSample = await sampleImg.readRasters({
+                samples: bandsToUse,
+                interleave: isRgbRender
+              });
+            }
+
+            const isArray = Array.isArray(rawSample);
+            const numPixels = isArray ? rawSample[0].length : (isRgbRender ? Math.floor(rawSample.length / 3) : rawSample.length);
+
+            function calcPercentiles(arr, offset, stride, count) {
+              const vals = [];
+              const step = Math.max(1, Math.floor(count / 2000));
+              let maxV = -Infinity;
+              let minV = Infinity;
+              for (let i = 0; i < count; i += step) {
+                const idx = offset + i * stride;
+                const v = arr[idx];
+                if (!isNaN(v) && isFinite(v) && (noDataValue == null || Math.abs(v - noDataValue) > 1e-4) && v > -9990 && v < 1e30 && v !== 0) {
+                  vals.push(v);
+                  if (v > maxV) maxV = v;
+                  if (v < minV) minV = v;
+                }
+              }
+              if (vals.length < 5) return { p2: 0, p98: 255, rng: 255, shouldStretch: false };
+              vals.sort((a, b) => a - b);
+              const p2 = vals[Math.floor(vals.length * 0.05)];
+              const p98 = vals[Math.floor(vals.length * 0.98)];
+              const span = p98 - p2;
+              const shouldStretch = (span < 200) || (p2 > 20) || (maxV <= 150);
+              return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), shouldStretch, maxV, minV };
+            }
+
+            let stats = null;
+            if (isRgbRender) {
+              if (isYCbCr) {
+                const yData = isArray ? rawSample[0] : rawSample;
+                const yStride = isArray ? 1 : 3;
+                const yStats = calcPercentiles(yData, 0, yStride, numPixels);
+                stats = { isYCbCr: true, p2: yStats.p2, p98: yStats.p98, rng: yStats.rng, shouldStretch: yStats.shouldStretch };
+              } else {
+                if (isArray) {
+                  const sR = calcPercentiles(rawSample[0], 0, 1, numPixels);
+                  const sG = calcPercentiles(rawSample[1], 0, 1, numPixels);
+                  const sB = calcPercentiles(rawSample[2], 0, 1, numPixels);
+                  const anyStretch = sR.shouldStretch || sG.shouldStretch || sB.shouldStretch;
+                  stats = { isRgb: true, r: sR, g: sG, b: sB, shouldStretch: anyStretch };
+                } else {
+                  const sR = calcPercentiles(rawSample, 0, 3, numPixels);
+                  const sG = calcPercentiles(rawSample, 1, 3, numPixels);
+                  const sB = calcPercentiles(rawSample, 2, 3, numPixels);
+                  const anyStretch = sR.shouldStretch || sG.shouldStretch || sB.shouldStretch;
+                  stats = { isRgb: true, r: sR, g: sG, b: sB, shouldStretch: anyStretch };
+                }
+              }
+            } else {
+              const b0 = isArray ? rawSample[0] : rawSample;
+              const sB = calcPercentiles(b0, 0, 1, numPixels);
+              stats = { isSingle: true, p2: sB.p2, p98: sB.p98, rng: sB.rng, shouldStretch: sB.shouldStretch };
+            }
+
+            this._globalStats = stats;
+            return this._globalStats;
+          } catch (err) {
+            console.warn('[GeoTIFFTile] Global stats calc warning:', err);
+            return null;
+          }
+        })();
+
+        return this._globalStatsPromise;
       },
       
       async _getOrBuildOverview() {
@@ -9563,7 +9682,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const fB = isArr ? raw[0] : raw;
                     const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
                     const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-                    const px = await processPixelsAsync(raw, tw, th, isRgbRender, isB, isArr, this.geo.noDataValue, photo);
+                    const globalStats = await this._getGlobalStats();
+                    const px = await processPixelsAsync(raw, tw, th, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
                     const tCan = document.createElement('canvas');
                     tCan.width = tw;
                     tCan.height = th;
@@ -9829,11 +9949,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
         const isRgbRender = bandsToUse.length >= 3;
         
-        const raw = await level.readRasters({
-          window: [wndL, wndT, wndL + windowW, wndT + windowH],
-          samples: bandsToUse,
-          interleave: isRgbRender
-        });
+        const [raw, globalStats] = await Promise.all([
+          level.readRasters({
+            window: [wndL, wndT, wndL + windowW, wndT + windowH],
+            samples: bandsToUse,
+            interleave: isRgbRender
+          }),
+          this._getGlobalStats()
+        ]);
         
         const isArrayOfBands = Array.isArray(raw);
         const firstBand = isArrayOfBands ? raw[0] : raw;
@@ -9841,7 +9964,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
         
         const pixels = await processPixelsAsync(
-          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric
+          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
         );
         
         return pixels;
