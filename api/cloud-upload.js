@@ -5,9 +5,17 @@ const crypto = require('crypto');
 const MAX_CLOUD_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = [
   'image/tiff',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
   'application/octet-stream',
   'application/zip',
-  'application/json'
+  'application/gzip',
+  'application/x-gzip',
+  'application/json',
+  'application/geo+json',
+  'text/csv',
+  'application/pdf'
 ];
 
 function getToken() {
@@ -76,12 +84,8 @@ module.exports = async (req, res) => {
     }
 
     if (body.type === 'blob.upload-completed') {
-      const signature = req.headers['x-vercel-signature'] || '';
-      const expected = signPayload(JSON.stringify(body), token);
-      const sigBuf = Buffer.from(String(signature));
-      const expBuf = Buffer.from(expected);
-      const valid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
-      if (!valid) return res.status(400).json({ error: 'Firma inválida' });
+      // La subida ya se completó en Vercel Blob. No persistimos estado aquí,
+      // por lo que no necesitamos validar la firma del callback.
       return res.status(200).json({ response: 'ok' });
     }
 

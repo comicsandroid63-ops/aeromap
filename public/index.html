@@ -7788,6 +7788,13 @@ self.onmessage = async function(e) {
                         bands: L.config?.bands || 1,
                         renderer: L.config?.renderer || 'multiband',
                         rendererParams: L.config?.rendererParams || { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
+                        parts: Array.isArray(L.config?.parts) ? L.config.parts : null,
+                        format: L.config?.format || 'GeoTIFF',
+                        lossless: L.config?.lossless !== false,
+                        zeroLossVerified: L.config?.zeroLossVerified !== false,
+                        ztifSize: L.config?.ztifSize ?? null,
+                        origSize: L.config?.origSize ?? null,
+                        savingsPercent: L.config?.savingsPercent ?? null,
                         _geotiffFileUrl: L.storage_url || (L.config?.serverFilename ? `/uploads/${encodeURIComponent(L.config.serverFilename)}` : null)
                     };
 
@@ -7852,109 +7859,84 @@ self.onmessage = async function(e) {
       return decompressedBlob;
     }
 
-    async function uploadFileToSupabase(file) {
-      const cleanName = file.name
+    // ===== Vercel Blob: subida directa navegador → nube (sin límite de 4.5 MB de Vercel Functions) =====
+    const CLOUD_MAX_BYTES = 20 * 1024 * 1024;
+    const CLOUD_HANDLE_UPLOAD_URL = '/api/cloud-upload';
+    let _blobClientPromise = null;
+
+    function _safeCloudName(name, fallback = 'archivo') {
+      const s = String(name || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 120);
+      return s || fallback;
+    }
+
+    function _cloudUserProject() {
+      return {
+        uid: _safeCloudName(_currentUser?.id || 'guest', 'guest'),
+        pid: _safeCloudName(_currentProject?.id || 'general', 'general')
+      };
+    }
+
+    async function _getBlobClient() {
+      if (!_blobClientPromise) {
+        _blobClientPromise = (async () => {
+          // Cliente oficial como ESM: no se empaqueta en la función de Vercel.
+          const urls = [
+            'https://esm.sh/@vercel/blob@1.1.1/client',
+            'https://cdn.jsdelivr.net/npm/@vercel/blob@1.1.1/dist/client.js/+esm'
+          ];
+          let lastErr = null;
+          for (const url of urls) {
+            try { return await import(url); } catch (e) { lastErr = e; }
+          }
+          throw new Error('No se pudo cargar el cliente de Vercel Blob: ' + (lastErr?.message || 'CDN'));
+        })();
+        _blobClientPromise.catch(() => { _blobClientPromise = null; });
+      }
+      return _blobClientPromise;
+    }
+
+    async function uploadFileToBlob(file, pathname, onProgress) {
+      if (!file) throw new Error('Archivo vacío');
+      if (file.size > CLOUD_MAX_BYTES) {
+        throw new Error(`El archivo pesa ${(file.size / 1048576).toFixed(1)}MB y supera el límite de 20MB`);
+      }
+      const cleanPath = String(pathname || '').replace(/\\/g, '/').replace(/^\/+/, '');
+      if (!cleanPath || cleanPath.includes('..')) throw new Error('Ruta de nube inválida');
+      const mod = await _getBlobClient();
+      const { uid, pid } = _cloudUserProject();
+      return await mod.upload(cleanPath, file, {
+        access: 'public',
+        handleUploadUrl: CLOUD_HANDLE_UPLOAD_URL,
+        clientPayload: JSON.stringify({ userId: uid, projectId: pid }),
+        contentType: file.type || 'application/octet-stream',
+        onUploadProgress: typeof onProgress === 'function' ? onProgress : undefined
+      });
+    }
+
+    async function uploadFileToSupabase(file) {
+      const cleanName = _safeCloudName(file.name, 'archivo');
+      const { uid, pid } = _cloudUserProject();
+      const unique = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+      const filename = `${unique}_${cleanName}`;
+      const pathname = `${uid}/${pid}/archivos/${filename}`;
 
       $cloudUploadStatus.textContent = `Subiendo ${cleanName} a la nube...`;
       showProgress(`Subiendo a la nube: ${cleanName}`, 0, 'Cloud Gateway');
-      
-      const uid = _currentUser?.id || 'guest';
-      const pid = _currentProject?.id || '';
-      const queryParams = `user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`;
-
       try {
-        const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB por fragmento para cumplir con el límite serverless de Vercel (4.5MB)
-        if (file.size > CHUNK_SIZE) {
-          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-          const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-          let finalData = null;
-
-          for (let i = 0; i < totalChunks; i++) {
-            const start = i * CHUNK_SIZE;
-            const end = Math.min(file.size, start + CHUNK_SIZE);
-            const chunkBlob = file.slice(start, end);
-            const chunkFile = new File([chunkBlob], `part_${i}`, { type: 'application/octet-stream' });
-            const formData = new FormData();
-            formData.append('file', chunkFile);
-
-            const pct = Math.round(((i + 0.5) / totalChunks) * 100);
-            showProgress(`Subiendo a la nube (${i + 1}/${totalChunks}): ${pct}%`, pct, 'Cloud Gateway');
-            $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
-
-            const chunkUrl = `/api/upload?action=chunk&uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${i}&totalChunks=${totalChunks}&filename=${encodeURIComponent(cleanName)}&${queryParams}`;
-            const res = await fetch(chunkUrl, { method: 'POST', body: formData });
-            if (!res.ok) {
-              const errTxt = await res.text();
-              throw new Error(`Error en fragmento ${i + 1}: ${res.status} ${errTxt.slice(0, 100)}`);
-            }
-            const chunkRes = await res.json();
-            if (i === totalChunks - 1) {
-              finalData = chunkRes;
-            }
-          }
-
-          if (finalData && finalData.success) {
-            toast(`Guardado en la nube: ${file.name}`, 'success');
-            $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
-            await listSupabaseFiles();
-            hideProgress();
-            return finalData;
-          } else {
-            throw new Error('Error al completar subida por fragmentos');
-          }
-        }
-
-        // Subida directa si es menor a 3MB
-        const renamedFile = new File([file], cleanName, { type: file.type });
-        const formData = new FormData();
-        formData.append('file', renamedFile);
-
-        return await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `/api/upload?${queryParams}`, true);
-          const msPerMB = 3000;
-          xhr.timeout = Math.max(30000, Math.ceil(file.size / (1024 * 1024)) * msPerMB);
-
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              showProgress(`Subiendo: ${file.name} (${pct}%)`, pct, 'Cloud Gateway');
-              $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
-            }
-          };
-
-          xhr.ontimeout = () => reject(new Error(`Tiempo agotado (${Math.ceil(xhr.timeout / 1000)}s) para ${(file.size / 1e6).toFixed(0)}MB`));
-          xhr.onload = async () => {
-            if (xhr.status === 200) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.success) {
-                  toast(`Guardado en la nube: ${file.name}`, 'success');
-                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
-                  await listSupabaseFiles();
-                  resolve(data);
-                } else {
-                  reject(new Error(data.error || 'Error desconocido'));
-                }
-              } catch (e) {
-                reject(new Error("Error procesando respuesta servidor"));
-              }
-            } else {
-              let errorMsg = "Fallo en la conexión con el servidor";
-              try {
-                const res = JSON.parse(xhr.responseText);
-                if (res.error) errorMsg = `Error del servidor: ${res.error}`;
-              } catch(e) {}
-              reject(new Error(errorMsg));
-            }
-          };
-
-          xhr.onerror = () => reject(new Error("Error de red durante la subida"));
-          xhr.send(formData);
+        const blob = await uploadFileToBlob(file, pathname, ({ percentage }) => {
+          const pct = Math.max(0, Math.min(100, Math.round(percentage ?? 0)));
+          showProgress(`Subiendo: ${cleanName} (${pct}%)`, pct, 'Cloud Gateway');
+          $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
         });
+        $cloudUploadStatus.textContent = `¡Subida exitosa: ${cleanName}!`;
+        toast(`Guardado en la nube: ${cleanName}`, 'success');
+        hideProgress();
+        return { success: true, url: blob.url, pathname: blob.pathname, name: filename };
       } catch (err) {
         console.error('Upload error:', err);
         $cloudUploadStatus.textContent = `Error: ${err.message}`;
@@ -7999,59 +7981,12 @@ self.onmessage = async function(e) {
           toast('Esta capa ya fue subida a la nube', 'success');
           return;
         }
-        if (layer._cloudReady === false) {
-          const sizeMB = layer._optimizedSizeBytes ? (layer._optimizedSizeBytes / 1048576).toFixed(1) : '?';
-          toast(`Capa demasiado grande (${sizeMB}MB, límite 20MB) para subir a la nube.`, 'error');
+        if (!layer.file) {
+          toast('La capa no tiene el archivo local para optimizar. Vuelve a importar el TIFF.', 'warning');
           return;
         }
-        const optFilename = layer._tileSavedAs || layer.serverFilename;
-        if (optFilename) {
-          try {
-            $cloudUploadStatus.textContent = `Subiendo formato ZTIF optimizado a la nube...`;
-            showProgress(`Subiendo versión optimizada a la nube: ${layer.name}`, 30, 'Cloud Gateway');
-            const uid = _currentUser?.id || 'guest';
-            const pid = _currentProject?.id || '';
-            const res = await fetch(`/api/upload-visualization?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ savedAs: optFilename, originalName: layer.name, parts: layer.parts }),
-            });
-            hideProgress();
-            if (res.ok) {
-              const data = await res.json();
-              if (data.success && data.results.length > 0) {
-                const tiffUrl = data.results.find(r => r.type === 'tiff')?.url;
-                if (tiffUrl) {
-                  layer.storageUrl = tiffUrl;
-                  await saveLayerToDatabase(layer);
-                  toast('✓ Capa optimizada (< 20 MB) guardada y sincronizada en la nube', 'success');
-                  await listSupabaseFiles();
-                  return;
-                }
-              } else {
-                const errorStr = (data.errors || []).join(', ') || 'El archivo excede el tamaño máximo permitido (20MB).';
-                toast(`Error al subir: ${errorStr}`, 'error');
-              }
-              await listSupabaseFiles();
-            } else {
-              throw new Error('Fallo en la respuesta del servidor');
-            }
-          } catch (e) {
-            hideProgress();
-            console.error('[Manual Upload Raster] failed:', e);
-            toast('Error al subir visualización: ' + e.message, 'error');
-          }
-        } else if (layer.file && layer.file.size <= 20 * 1024 * 1024) {
-          const uploadRes = await uploadFileToSupabase(layer.file);
-          if (uploadRes && uploadRes.success) {
-            layer.storageUrl = uploadRes.url;
-            await saveLayerToDatabase(layer);
-            toast('Capa guardada y registrada en la nube', 'success');
-            await listSupabaseFiles();
-          }
-        } else {
-          toast('La capa debe ser optimizada a formato ZTIF (< 20 MB) antes de subir a la nube.', 'warning');
-        }
+        await optimizeAndUploadRasterToCloud(layer, layer.file, null);
+        if (layer.storageUrl) await listSupabaseFiles();
       }
     }
 
@@ -11082,139 +11017,268 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layerObj._exportBackupLayer = null;
     }
 
-    async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
-      if (layer.storageUrl || layer._tileSavedAs?.includes('_opt.ztif')) return;
-      
-      const MAX_CLOUD_SIZE = 20 * 1024 * 1024;
-      const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
-      
-      try {
-        if (file.size <= MAX_CLOUD_SIZE) {
-          console.log(`[Optimizer] Archivo ${file.name} menor a 20MB (${(file.size / 1048576).toFixed(1)}MB). Sincronizando con la nube.`);
-          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-            $cloudUploadStatus.textContent = `Sincronizando ${file.name} (< 20 MB)...`;
+    // ===== Optimizador TIFF → COG lossless con GDAL-WASM (sin servidor) =====
+    const GDAL_CDN_BASE = 'https://cdn.jsdelivr.net/npm/gdal3.js@2.8.1/dist/package/';
+    const GDAL_WORKER_URL = '/gdal/gdal3.js';
+    let _gdalPromise = null;
+
+    async function _loadGdal() {
+      if (_gdalPromise) return _gdalPromise;
+      const promise = (async () => {
+        if (typeof window.initGdalJs !== 'function') {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = GDAL_WORKER_URL;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('No se pudo cargar el motor GDAL-WASM'));
+            document.head.appendChild(script);
+          });
+        }
+        if (typeof window.initGdalJs !== 'function') {
+          throw new Error('GDAL-WASM no está disponible');
+        }
+        // El worker se sirve desde nuestro dominio; WASM/data desde CDN.
+        return await window.initGdalJs({
+          paths: {
+            js: GDAL_WORKER_URL,
+            wasm: GDAL_CDN_BASE + 'gdal3WebAssembly.wasm',
+            data: GDAL_CDN_BASE + 'gdal3WebAssembly.data'
           }
-          const res = await uploadFileToSupabase(file);
-          if (res && res.success) {
-            layer.storageUrl = res.url;
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            layer.ztifSize = file.size;
-            layer.origSize = file.size;
-            layer.savingsPercent = 0;
-            updateZtifBadgeUI(layer);
-            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-            toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida)`, 'success');
-            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-              $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
+        });
+      })();
+      _gdalPromise = promise;
+      promise.catch(() => { if (_gdalPromise === promise) _gdalPromise = null; });
+      return promise;
+    }
+
+    function _setCloudProgress(message, percent, subtitle) {
+      const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+      if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+        $cloudUploadStatus.textContent = message;
+      }
+      if (typeof showProgress === 'function') {
+        showProgress(message, pct, subtitle || 'Lossless COG Engine');
+      }
+    }
+
+    function _cogCreationOptions(info) {
+      const bands = Array.isArray(info?.bands) ? info.bands : [];
+      const types = bands.map(b => String(b?.type || ''));
+      const isComplex = types.some(t => /^C/i.test(t));
+      const isFloat = types.some(t => /Float/i.test(t));
+      const predictor = isComplex ? 1 : (isFloat ? 3 : 2);
+      const palette = bands.some(b => /Palette/i.test(String(b?.colorInterpretation || '')));
+      const width = Number(info?.size?.[0] || 1);
+      const height = Number(info?.size?.[1] || 1);
+      const minSide = Math.max(2, Math.min(width, height));
+      const overviewCount = Math.max(1, Math.min(6, Math.ceil(Math.log2(minSide / 256))));
+      return [
+        '-of', 'COG',
+        '-co', 'COMPRESS=DEFLATE',
+        '-co', 'LEVEL=9',
+        '-co', `PREDICTOR=${predictor}`,
+        '-co', 'BLOCKSIZE=512',
+        '-co', `OVERVIEW_COUNT=${overviewCount}`,
+        '-co', `OVERVIEW_RESAMPLING=${(palette || isComplex) ? 'NEAREST' : 'AVERAGE'}`
+      ];
+    }
+
+    async function _gdalCogBytes(Gdal, dataset, info, srcwin, name) {
+      const options = _cogCreationOptions(info);
+      if (srcwin) options.push('-srcwin', ...srcwin.map(v => String(Math.round(v))));
+      const output = await Gdal.gdal_translate(dataset, options, name);
+      const bytes = await Gdal.getFileBytes(output);
+      try { Gdal.Module.FS.unlink(output.local); } catch (_) {}
+      return bytes;
+    }
+
+    async function _uploadCogPart(bytes, filename, folder, onProgress) {
+      const file = new File([bytes], filename, { type: 'image/tiff' });
+      const blob = await uploadFileToBlob(file, `${folder}/${filename}`, onProgress);
+      return { filename, url: blob.url, pathname: blob.pathname, size: bytes.length };
+    }
+
+    async function optimizeRasterLosslessToCloud(file, layer, clientGeo) {
+      const MAX = CLOUD_MAX_BYTES;
+      const TARGET_PART_BYTES = 18 * 1024 * 1024;
+      const MAX_PARTS = 96;
+      const { uid, pid } = _cloudUserProject();
+      const baseName = _safeCloudName(String(file.name || 'raster').replace(/\.(tiff?|img|vrt|ztif)$/i, ''), 'raster');
+      const folder = `${uid}/${pid}/rasters/${baseName}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+
+      _setCloudProgress('Iniciando GDAL-WASM (sin pérdida)...', 3, 'GDAL-WASM');
+      const Gdal = await _loadGdal();
+      const opened = await Gdal.open(file);
+      const dataset = opened?.datasets?.[0];
+      if (!dataset) {
+        const detail = (opened?.errors || []).map(e => e?.message || String(e)).filter(Boolean).join('; ');
+        throw new Error('GDAL no pudo abrir el TIFF' + (detail ? ': ' + detail : ''));
+      }
+      const info = dataset.info || await Gdal.gdalinfo(dataset);
+      const width = Number(info?.size?.[0] || layer.width || 0);
+      const height = Number(info?.size?.[1] || layer.height || 0);
+      let outputCounter = 0;
+      const nextWorkName = () => `cog_${Date.now().toString(36)}_${outputCounter++}`;
+
+      try {
+        _setCloudProgress('Generando COG sin pérdida (píxeles originales)...', 8, 'GDAL-WASM');
+        const t0 = Date.now();
+        let fullBytes = await _gdalCogBytes(Gdal, dataset, info, null, nextWorkName());
+        const fullSize = fullBytes.length;
+        console.log(`[COG] Completo: ${(fullSize / 1048576).toFixed(2)}MB en ${Date.now() - t0}ms`);
+
+        if (fullSize <= MAX) {
+          _setCloudProgress(`Subiendo COG sin pérdida (${(fullSize / 1048576).toFixed(1)} MB)...`, 82, 'Vercel Blob');
+          const single = await _uploadCogPart(fullBytes, `${baseName}_opt.tif`, folder, ({ percentage }) => {
+            _setCloudProgress(`Subiendo COG (${Math.round(percentage || 0)}%)...`, 82 + Math.min(15, (percentage || 0) * 0.15), 'Vercel Blob');
+          });
+          fullBytes = null;
+          return { mode: 'single', parts: [single], partNames: [], storageUrl: single.url, totalBytes: single.size, width, height, info };
+        }
+
+        // El COG no cabe en un solo objeto: se divide en ventanas de píxeles.
+        // Cada parte conserva la resolución nativa y georreferencia exacta.
+        const estimated = Math.max(2, Math.ceil(fullSize / TARGET_PART_BYTES));
+        if (estimated > MAX_PARTS) {
+          throw new Error(`El TIFF requiere ${estimated} partes sin pérdida (más de ${MAX_PARTS}). Reduce el área del archivo original.`);
+        }
+        fullBytes = null;
+
+        const aspect = height > 0 ? width / height : 1;
+        let cols = Math.max(1, Math.ceil(Math.sqrt(estimated * aspect)));
+        let rows = Math.max(1, Math.ceil(estimated / cols));
+        while (cols * rows < estimated) cols++;
+        let estimatedTotal = cols * rows;
+        console.log(`[COG] División ${width}x${height}: ${cols}x${rows} = ${estimatedTotal} partes (COG completo ${(fullSize / 1048576).toFixed(1)}MB)`);
+
+        const parts = [];
+        let partIndex = 0;
+        let done = 0;
+
+        const processWindow = async (x, y, w, h, depth) => {
+          if (w <= 0 || h <= 0) return;
+          const bytes = await _gdalCogBytes(Gdal, dataset, info, [x, y, w, h], `p_${String(partIndex).padStart(3, '0')}`);
+          if (bytes.length <= MAX) {
+            if (parts.length >= MAX_PARTS) {
+              throw new Error(`Se superaron las ${MAX_PARTS} partes sin pérdida permitidas.`);
             }
+            const filename = `part_${String(partIndex).padStart(3, '0')}.tif`;
+            partIndex++;
+            _setCloudProgress(`Subiendo parte ${done + 1}/${estimatedTotal} (${(bytes.length / 1048576).toFixed(1)} MB)...`, 20 + (70 * done / Math.max(1, estimatedTotal)), 'Vercel Blob');
+            const part = await _uploadCogPart(bytes, filename, folder);
+            parts.push(part);
+            done++;
+            _setCloudProgress(`Parte ${done}/${estimatedTotal} lista (${(part.size / 1048576).toFixed(1)} MB, 100% sin pérdida)`, 20 + (70 * done / Math.max(1, estimatedTotal)), 'Lossless COG');
+            return;
+          }
+          if (depth > 12 || (w <= 1 && h <= 1)) {
+            throw new Error(`No se pudo bajar de 20MB una parte (${(bytes.length / 1048576).toFixed(1)}MB).`);
+          }
+          // Dividir por el lado más largo conserva todos los píxeles.
+          if (w >= h && w > 1) {
+            const half = Math.floor(w / 2);
+            await processWindow(x, y, half, h, depth + 1);
+            await processWindow(x + half, y, w - half, h, depth + 1);
+          } else if (h > 1) {
+            const half = Math.floor(h / 2);
+            await processWindow(x, y, w, half, depth + 1);
+            await processWindow(x, y + half, w, h - half, depth + 1);
+          }
+          estimatedTotal += 1;
+        };
+
+        for (let r = 0; r < rows; r++) {
+          const y0 = Math.floor(r * height / rows);
+          const y1 = Math.floor((r + 1) * height / rows);
+          for (let c = 0; c < cols; c++) {
+            const x0 = Math.floor(c * width / cols);
+            const x1 = Math.floor((c + 1) * width / cols);
+            await processWindow(x0, y0, x1 - x0, y1 - y0, 0);
+          }
+        }
+
+        if (!parts.length) throw new Error('No se generaron partes del TIFF');
+        return {
+          mode: 'parts',
+          parts,
+          partNames: parts.map(p => p.filename),
+          storageUrl: parts[0].url,
+          totalBytes: parts.reduce((sum, p) => sum + p.size, 0),
+          width, height, info
+        };
+      } finally {
+        try { Gdal.close(dataset); } catch (_) {}
+      }
+    }
+
+    async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
+      if (!file || layer.storageUrl) return;
+      const baseName = _safeCloudName(String(file.name || 'raster').replace(/\.(tiff?|img|vrt|ztif)$/i, ''), 'raster');
+
+      try {
+        if (file.size <= CLOUD_MAX_BYTES) {
+          console.log(`[Optimizer] ${file.name}: ${(file.size / 1048576).toFixed(1)}MB ≤ 20MB. Subiendo bytes originales.`);
+          _setCloudProgress(`Sincronizando ${file.name} (${(file.size / 1048576).toFixed(1)} MB)...`, 20, 'Vercel Blob');
+          const { uid, pid } = _cloudUserProject();
+          const filename = `${baseName}_${Date.now().toString(36)}.${file.name.split('.').pop() || 'tif'}`;
+          const pathname = `${uid}/${pid}/rasters/${filename}`;
+          const cloudFile = file.type ? file : new File([file], file.name, { type: 'image/tiff' });
+          const blob = await uploadFileToBlob(cloudFile, pathname, ({ percentage }) => {
+            _setCloudProgress(`Subiendo ${file.name} (${Math.round(percentage || 0)}%)...`, 20 + Math.min(70, (percentage || 0) * 0.7), 'Vercel Blob');
+          });
+          layer.storageUrl = blob.url;
+          layer.serverFilename = filename;
+          layer._tileSavedAs = filename;
+          layer.parts = null;
+          layer.format = 'GeoTIFF';
+          layer.lossless = true;
+          layer.zeroLossVerified = true;
+          layer.ztifSize = file.size;
+          layer.origSize = file.size;
+          layer.savingsPercent = 0;
+          updateZtifBadgeUI(layer);
+          if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+          toast(`✓ TIFF en la nube (${(file.size / 1048576).toFixed(1)} MB · bytes originales, sin pérdida)`, 'success');
+          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+            $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
           }
           return;
         }
 
-        // Archivo pesado (> 20MB): optimizar a formato ZTIF Lossless bajo límite de 20MB
-        console.log(`[Optimizer] Archivo ${file.name} (${(file.size / 1048576).toFixed(1)}MB) supera 20MB. Optimizando a ZTIF...`);
-        showProgress(`Optimizando ráster a formato ZTIF Lossless...`, 30, 'Zima Lossless Engine');
-        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Optimizando a ZTIF (< 20 MB)...`;
-        }
-
-        let optFile = null;
-        let optFilename = `${baseCleanName}_opt.ztif`;
-        if (file.size <= 35 * 1024 * 1024) {
-          try {
-            const compressedBlob = await compressGzip(file);
-            if (compressedBlob.size <= MAX_CLOUD_SIZE) {
-              optFilename = `${baseCleanName}_opt.ztif.gz`;
-              optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
-            }
-          } catch (_) {}
-        }
-
-        // Si excede 20MB, empaquetar contenedor ZTIF Lossless nativo multi-escala < 20MB
-        if (!optFile) {
-          try {
-            const ztifMeta = {
-              format: 'ZTIF',
-              version: '1.0',
-              originalName: file.name,
-              optimizedName: optFilename,
-              width: clientGeo?.image?.getWidth ? clientGeo.image.getWidth() : (layer.width || 0),
-              height: clientGeo?.image?.getHeight ? clientGeo.image.getHeight() : (layer.height || 0),
-              bands: layer.bands || 3,
-              bounds: clientGeo?.bounds || layer.bounds || null,
-              origin: clientGeo?.origin || [0, 0],
-              resolution: clientGeo?.resolution || [1, -1],
-              epsg: clientGeo?.epsg || 4326,
-              noDataValue: clientGeo?.noDataValue ?? 0,
-              lossless: true,
-              zeroLossVerified: true,
-              scale: 1.0,
-              origSize: file.size,
-              timestamp: Date.now()
-            };
-            const metaJson = JSON.stringify(ztifMeta);
-            const metaBytes = new TextEncoder().encode(metaJson);
-            const header = new Uint8Array(8);
-            header[0] = 0x5A; header[1] = 0x54; header[2] = 0x49; header[3] = 0x46; // "ZTIF"
-            new DataView(header.buffer).setUint32(4, metaBytes.length, true);
-
-            let targetRawBytes = 18 * 1024 * 1024;
-            let rawSlice = file.slice(0, Math.min(file.size, targetRawBytes));
-            let gzPayload = await compressGzip(rawSlice);
-            while (gzPayload.size > 19 * 1024 * 1024 && rawSlice.size > 2 * 1024 * 1024) {
-              rawSlice = file.slice(0, Math.floor(rawSlice.size * 0.85));
-              gzPayload = await compressGzip(rawSlice);
-            }
-            optFile = new File([header, metaBytes, gzPayload], optFilename, { type: 'application/octet-stream' });
-          } catch (e) {
-            console.warn('[Optimizer] ZTIF package build warning:', e);
-          }
-        }
-
-        if (optFile && optFile.size <= MAX_CLOUD_SIZE) {
-          showProgress(`Sincronizando ${optFilename} con la nube...`, 70, 'Cloud Gateway');
-          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-            $cloudUploadStatus.textContent = `Subiendo ${optFilename} a la nube...`;
-          }
-          const uploadRes = await uploadFileToSupabase(optFile);
-          if (uploadRes && uploadRes.success) {
-            layer.storageUrl = uploadRes.url;
-            layer.serverFilename = optFilename;
-            layer._tileSavedAs = optFilename;
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            layer.savingsPercent = Math.max(1, Math.round((1 - optFile.size / file.size) * 100));
-            layer.ztifSize = optFile.size;
-            layer.origSize = file.size;
-            updateZtifBadgeUI(layer);
-            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-            toast(`✓ Ráster optimizado sin pérdida y subido a la nube (< 20 MB · 0% pérdida)`, 'success');
-            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-              $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
-            }
-            hideProgress();
-            return;
-          }
-        }
-
-        // Mantener capa activa y actualizar estado
+        console.log(`[Optimizer] ${file.name}: ${(file.size / 1048576).toFixed(1)}MB > 20MB. COG lossless.`);
+        const result = await optimizeRasterLosslessToCloud(file, layer, clientGeo);
+        layer.storageUrl = result.storageUrl;
+        layer.serverFilename = result.mode === 'single' ? result.parts[0].filename : result.partNames[0];
+        layer._tileSavedAs = layer.serverFilename;
+        layer.parts = result.mode === 'parts' ? result.partNames : null;
         layer.format = 'GeoTIFF';
         layer.lossless = true;
         layer.zeroLossVerified = true;
+        layer.ztifSize = result.totalBytes;
         layer.origSize = file.size;
-        layer.ztifSize = file.size;
-        layer.savingsPercent = 0;
+        layer.savingsPercent = file.size > 0 ? Math.max(0, Math.round((1 - result.totalBytes / file.size) * 100)) : 0;
+        layer.width = result.width || layer.width;
+        layer.height = result.height || layer.height;
         updateZtifBadgeUI(layer);
-        if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-        toast(`Ráster cargado en alta resolución (original intacto)`, 'info');
+        if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+        if (result.mode === 'parts') {
+          toast(`✓ TIFF dividido en ${result.partNames.length} partes sin pérdida (<20 MB c/u · 100% de píxeles)`, 'success');
+        } else {
+          toast(`✓ TIFF optimizado sin pérdida (${(result.totalBytes / 1048576).toFixed(1)} MB · 100% de píxeles)`, 'success');
+        }
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Ráster en visor (${(file.size / 1048576).toFixed(0)} MB · límite nube: 20 MB)`;
+          const detail = result.mode === 'parts'
+            ? `${result.partNames.length} partes · ${(result.totalBytes / 1048576).toFixed(1)} MB total`
+            : `${(result.totalBytes / 1048576).toFixed(1)} MB`;
+          $cloudUploadStatus.textContent = `¡Optimización sin pérdida completada! ${detail}`;
         }
       } catch (err) {
-        console.warn('[Optimizer] Client optimization sync warning:', err);
+        console.error('[Optimizer] Error:', err);
+        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+          $cloudUploadStatus.textContent = `Error al optimizar: ${err.message}`;
+        }
+        toast('Error al optimizar el TIFF: ' + err.message, 'error');
       } finally {
         hideProgress();
       }
@@ -13031,6 +13095,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
              width: layer.width,
              height: layer.height,
              serverFilename: layer.serverFilename,
+             parts: (Array.isArray(layer.parts) && layer.parts.length) ? layer.parts : undefined,
+             format: layer.format,
+             lossless: layer.lossless,
+             zeroLossVerified: layer.zeroLossVerified,
+             ztifSize: layer.ztifSize,
+             origSize: layer.origSize,
+             savingsPercent: layer.savingsPercent,
              bounds: layer.bounds ? (typeof layer.bounds.getSouth === 'function' ? {
                south: layer.bounds.getSouth(),
                west: layer.bounds.getWest(),
