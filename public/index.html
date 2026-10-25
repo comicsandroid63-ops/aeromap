@@ -9645,35 +9645,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             let rawSample = null;
             if (sampleW * sampleH > 400000) {
               const accumulatedBands = isRgbRender ? [[], [], []] : [[]];
-              for (let gy = 0.15; gy <= 0.85; gy += 0.1) {
-                for (let gx = 0.25; gx <= 0.75; gx += 0.15) {
-                  const sx = Math.floor(sampleW * gx);
-                  const sy = Math.floor(sampleH * gy);
-                  try {
-                    const chunk = await sampleImg.readRasters({
-                      window: [Math.max(0, sx - 32), Math.max(0, sy - 32), Math.min(sampleW, sx + 32), Math.min(sampleH, sy + 32)],
-                      samples: bandsToUse,
-                      interleave: false
-                    });
-                    if (chunk && chunk[0]) {
-                      const b0 = chunk[0];
-                      for (let i = 0; i < b0.length; i += 4) {
-                        const v = b0[i];
-                        if (!isNaN(v) && isFinite(v) && v > 0.001 && (!noDataValue || Math.abs(v - noDataValue) > 1e-4) && v < 1e30) {
-                          if (isRgbRender && chunk.length >= 3) {
-                            accumulatedBands[0].push(chunk[0][i]);
-                            accumulatedBands[1].push(chunk[1][i]);
-                            accumulatedBands[2].push(chunk[2][i]);
-                          } else {
-                            accumulatedBands[0].push(v);
-                          }
+              const samplePoints = [[0.6, 0.25], [0.5, 0.35], [0.75, 0.2], [0.45, 0.38]];
+              for (const [gx, gy] of samplePoints) {
+                const sx = Math.floor(sampleW * gx);
+                const sy = Math.floor(sampleH * gy);
+                try {
+                  const chunk = await sampleImg.readRasters({
+                    window: [Math.max(0, sx - 32), Math.max(0, sy - 32), Math.min(sampleW, sx + 32), Math.min(sampleH, sy + 32)],
+                    samples: bandsToUse,
+                    interleave: false
+                  });
+                  if (chunk && chunk[0]) {
+                    const b0 = chunk[0];
+                    for (let i = 0; i < b0.length; i += 2) {
+                      const v = b0[i];
+                      if (!isNaN(v) && isFinite(v) && v > 0.001 && (!noDataValue || Math.abs(v - noDataValue) > 1e-4) && v < 1e30) {
+                        if (isRgbRender && chunk.length >= 3) {
+                          accumulatedBands[0].push(chunk[0][i]);
+                          accumulatedBands[1].push(chunk[1][i]);
+                          accumulatedBands[2].push(chunk[2][i]);
+                        } else {
+                          accumulatedBands[0].push(v);
                         }
                       }
-                      if (accumulatedBands[0].length >= 3000) break;
                     }
-                  } catch (_) {}
-                }
-                if (accumulatedBands[0].length >= 3000) break;
+                    if (accumulatedBands[0].length >= 1000) break;
+                  }
+                } catch (_) {}
               }
               if (accumulatedBands[0].length > 50) {
                 rawSample = accumulatedBands;
@@ -11068,7 +11066,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       try {
         if (file.size <= MAX_CLOUD_SIZE) {
-          console.log(`[Optimizer] Archivo ${file.name} menor a 20MB (${(file.size / 1048576).toFixed(1)}MB). Sincronizando directamente.`);
+          console.log(`[Optimizer] Archivo ${file.name} menor a 20MB (${(file.size / 1048576).toFixed(1)}MB). Sincronizando con la nube.`);
+          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+            $cloudUploadStatus.textContent = `Sincronizando ${file.name} (< 20 MB)...`;
+          }
           const res = await uploadFileToSupabase(file);
           if (res && res.success) {
             layer.storageUrl = res.url;
@@ -11080,31 +11081,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             layer.savingsPercent = 0;
             updateZtifBadgeUI(layer);
             if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+            toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida)`, 'success');
+            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+              $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
+            }
           }
           return;
         }
 
-        // Archivo pesado (> 20MB): optimizar en segundo plano de manera 100% SIN PÉRDIDA (< 20 MB)
-        console.log(`[Optimizer] Optimizando archivo pesado en segundo plano: ${file.name} (${(file.size / 1048576).toFixed(1)}MB)...`);
+        // Archivo pesado (> 20MB)
+        console.log(`[Optimizer] Archivo ${file.name} (${(file.size / 1048576).toFixed(1)}MB) supera 20MB.`);
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = 'Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida visual)...';
+          $cloudUploadStatus.textContent = `Verificando compresión sin pérdida (< 20 MB)...`;
         }
 
-        // 1. Verificar si ya existe una versión optimizada en el servidor/nube (< 20 MB)
-        try {
-          const optCandidate = `${baseCleanName}_opt.ztif`;
-          const checkHead = await fetch(`/compressed/${encodeURIComponent(optCandidate)}`, { method: 'HEAD' });
-          if (checkHead.ok) {
-            const cl = checkHead.headers.get('content-length');
-            const sz = cl ? parseInt(cl, 10) : 0;
-            if (sz > 0 && sz <= MAX_CLOUD_SIZE) {
-              const blob = await (await fetch(`/compressed/${encodeURIComponent(optCandidate)}`)).blob();
-              const optFile = new File([blob], optCandidate, { type: 'image/tiff' });
+        // Si es moderadamente pesado (< 40MB), compresión gzip sin pérdida bit a bit del archivo original
+        if (file.size <= 40 * 1024 * 1024) {
+          try {
+            const compressedBlob = await compressGzip(file);
+            if (compressedBlob.size <= MAX_CLOUD_SIZE) {
+              const optFilename = `${baseCleanName}_opt.ztif.gz`;
+              const optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
               const uploadRes = await uploadFileToSupabase(optFile);
               if (uploadRes && uploadRes.success) {
                 layer.storageUrl = uploadRes.url;
-                layer.serverFilename = optCandidate;
-                layer._tileSavedAs = optCandidate;
+                layer.serverFilename = optFilename;
+                layer._tileSavedAs = optFilename;
                 layer.format = 'ZTIF';
                 layer.lossless = true;
                 layer.zeroLossVerified = true;
@@ -11113,117 +11115,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 layer.origSize = file.size;
                 updateZtifBadgeUI(layer);
                 if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-                toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida visual)`, 'success');
+                toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida)`, 'success');
                 if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${optCandidate}!`;
+                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
                 }
                 return;
               }
             }
-          }
-        } catch (_) {}
-
-        // 2. Compresión gzip sin pérdida del archivo original
-        const compressedBlob = await compressGzip(file);
-        const optFilename = `${baseCleanName}_opt.ztif.gz`;
-        const optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
-
-        if (optFile.size <= MAX_CLOUD_SIZE) {
-          console.log(`[Optimizer] Ráster optimizado losslessly a ZTIF: ${optFilename} (${(optFile.size / 1048576).toFixed(2)}MB)`);
-          const uploadRes = await uploadFileToSupabase(optFile);
-          if (uploadRes && uploadRes.success) {
-            layer.storageUrl = uploadRes.url;
-            layer.serverFilename = optFilename;
-            layer._tileSavedAs = optFilename;
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            layer.savingsPercent = Math.max(1, Math.round((1 - optFile.size / file.size) * 100));
-            layer.ztifSize = optFile.size;
-            layer.origSize = file.size;
-            updateZtifBadgeUI(layer);
-            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-            toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida visual)`, 'success');
-            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-              $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
-            }
-            return;
-          }
+          } catch (_) {}
         }
 
-        // 3. Si supera 20MB, generar contenedor GeoTIFF/ZTIF optimizado de alta fidelidad directamente en el cliente (< 20 MB)
-        console.log(`[Optimizer] Generando ZTIF optimizado de alta fidelidad (< 20 MB)...`);
-        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = 'Convirtiendo a ZTIF (< 20 MB, 0% pérdida visual)...';
-        }
-        
-        let clientZtifBlob = null;
-        try {
-          const ov = (layer._geotiffTileLayer && typeof layer._geotiffTileLayer._getOrBuildOverview === 'function')
-            ? await layer._geotiffTileLayer._getOrBuildOverview()
-            : null;
-          if (ov && ov.canvas && window.GeoTIFF && typeof GeoTIFF.writeArrayBuffer === 'function') {
-            const ctx = ov.canvas.getContext('2d');
-            const imgData = ctx.getImageData(0, 0, ov.width, ov.height);
-            const rgbData = new Uint8Array(ov.width * ov.height * 3);
-            for (let i = 0; i < ov.width * ov.height; i++) {
-              rgbData[i * 3]     = imgData.data[i * 4];
-              rgbData[i * 3 + 1] = imgData.data[i * 4 + 1];
-              rgbData[i * 3 + 2] = imgData.data[i * 4 + 2];
-            }
-            const resX = Math.abs(clientGeo?.resolution?.[0] || 1) * (ov.fullW / ov.width);
-            const resY = Math.abs(clientGeo?.resolution?.[1] || 1) * (ov.fullH / ov.height);
-            const origX = clientGeo?.origin?.[0] || 0;
-            const origY = clientGeo?.origin?.[1] || 0;
-            const tiffBuf = await GeoTIFF.writeArrayBuffer(rgbData, {
-              width: ov.width,
-              height: ov.height,
-              ModelPixelScale: [resX, resY, 0],
-              ModelTiepoint: [0, 0, 0, origX, origY, 0]
-            });
-            clientZtifBlob = new Blob([tiffBuf], { type: 'image/tiff' });
-          }
-        } catch(cErr) {
-          console.warn('[Optimizer] Client GeoTIFF generation warning:', cErr);
-        }
-
-        if (clientZtifBlob && clientZtifBlob.size <= MAX_CLOUD_SIZE) {
-          const optName = `${baseCleanName}_opt.ztif`;
-          const optFile = new File([clientZtifBlob], optName, { type: 'image/tiff' });
-          const uploadRes = await uploadFileToSupabase(optFile);
-          if (uploadRes && uploadRes.success) {
-            layer.storageUrl = uploadRes.url;
-            layer.serverFilename = optName;
-            layer._tileSavedAs = optName;
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            layer.savingsPercent = Math.max(70, Math.round((1 - optFile.size / file.size) * 100));
-            layer.ztifSize = optFile.size;
-            layer.origSize = file.size;
-            updateZtifBadgeUI(layer);
-            if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-            toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida visual)`, 'success');
-            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-              $cloudUploadStatus.textContent = `¡Subida exitosa: ${optName}!`;
-            }
-            return;
-          }
-        }
-
-        // Registro de estado ZTIF
-        layer.format = 'ZTIF';
+        // Para archivos pesados que superan el límite de 20MB:
+        // Mantener el TIFF original intacto sin modificar
+        layer.format = 'GeoTIFF';
         layer.lossless = true;
         layer.zeroLossVerified = true;
-        layer.savingsPercent = 85;
-        layer.ztifSize = Math.min(18 * 1024 * 1024, file.size);
         layer.origSize = file.size;
+        layer.ztifSize = file.size;
+        layer.savingsPercent = 0;
         updateZtifBadgeUI(layer);
         if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-        toast(`✓ Ráster visualizado en alta resolución ZTIF (0% pérdida visual)`, 'success');
+        toast(`Ráster cargado en alta resolución (original intacto)`, 'info');
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Ráster optimizado ZTIF en visor (< 20 MB)`;
+          $cloudUploadStatus.textContent = `Ráster en visor (${(file.size / 1048576).toFixed(0)} MB · límite nube: 20 MB)`;
         }
+      } catch (err) {
+        console.warn('[Optimizer] Client optimization sync warning:', err);
+      } finally {
+        hideProgress();
+      }
+    }
       } catch (err) {
         console.warn('[Optimizer] Client optimization sync warning:', err);
       } finally {
