@@ -9265,13 +9265,11 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 if (v > maxV) maxV = v;
               }
             }
-            if (samples.length < 5) return { p2: 0, p98: 255, maxV: 255, rng: 255, shouldStretch: false };
+            if (samples.length < 5) return { p2: 0, p98: 255, maxV: 255, rng: 255, shouldStretch: true };
             samples.sort((a, b) => a - b);
-            const p2 = samples[Math.floor(samples.length * 0.05)];
+            const p2 = samples[Math.floor(samples.length * 0.02)];
             const p98 = samples[Math.floor(samples.length * 0.98)];
-            const span = p98 - p2;
-            const shouldStretch = (span < 200) || (p2 > 20) || (maxV <= 150);
-            return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), maxV, shouldStretch };
+            return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), maxV, shouldStretch: true };
           }
           
           if (rgb) {
@@ -9544,12 +9542,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (this._globalStats) return this._globalStats;
         if (this._globalStatsPromise) return this._globalStatsPromise;
 
+        console.log('[_getGlobalStats starting for layer]');
         this._globalStatsPromise = (async () => {
           try {
+            console.log('[_getGlobalStats inside async body]');
             const baseImg = this.pyramid.levels[0];
-            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
-            const fileHasRgb = nSamples >= 3;
-            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
+            let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+            if (!bandsToUse || bandsToUse.length === 0) {
+              bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
+            }
             const isRgbRender = bandsToUse.length >= 3;
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
             const isYCbCr = (photometric === 6);
@@ -9562,15 +9564,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             let rawSample;
             if (sampleW * sampleH > 400000) {
-              const stepW = Math.min(256, sampleW);
-              const stepH = Math.min(256, sampleH);
-              const startX = Math.floor((sampleW - stepW) / 2);
-              const startY = Math.floor((sampleH - stepH) / 2);
-              rawSample = await sampleImg.readRasters({
-                window: [startX, startY, startX + stepW, startY + stepH],
-                samples: bandsToUse,
-                interleave: isRgbRender
-              });
+              try {
+                rawSample = await sampleImg.readRasters({
+                  width: 256,
+                  height: 256,
+                  samples: bandsToUse,
+                  interleave: isRgbRender
+                });
+              } catch (_) {
+                rawSample = null;
+              }
+              if (!rawSample) {
+                const points = [[0.5, 0.5], [0.35, 0.35], [0.65, 0.65], [0.35, 0.65], [0.65, 0.35]];
+                for (const [fx, fy] of points) {
+                  const sx = Math.floor(sampleW * fx) - 128;
+                  const sy = Math.floor(sampleH * fy) - 128;
+                  try {
+                    rawSample = await sampleImg.readRasters({
+                      window: [Math.max(0, sx), Math.max(0, sy), Math.min(sampleW, sx + 256), Math.min(sampleH, sy + 256)],
+                      samples: bandsToUse,
+                      interleave: isRgbRender
+                    });
+                    const testA = Array.isArray(rawSample) ? rawSample[0] : rawSample;
+                    let nonZero = 0;
+                    for (let i = 0; i < testA.length; i += 20) {
+                      if (testA[i] > 0) nonZero++;
+                    }
+                    if (nonZero > 20) break;
+                  } catch (_) {}
+                }
+              }
             } else {
               rawSample = await sampleImg.readRasters({
                 samples: bandsToUse,
@@ -9595,13 +9618,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   if (v < minV) minV = v;
                 }
               }
-              if (vals.length < 5) return { p2: 0, p98: 255, rng: 255, shouldStretch: false };
+              if (vals.length < 5) return { p2: 0, p98: 255, rng: 255, shouldStretch: true };
               vals.sort((a, b) => a - b);
-              const p2 = vals[Math.floor(vals.length * 0.05)];
+              const p2 = vals[Math.floor(vals.length * 0.02)];
               const p98 = vals[Math.floor(vals.length * 0.98)];
-              const span = p98 - p2;
-              const shouldStretch = (span < 200) || (p2 > 20) || (maxV <= 150);
-              return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), shouldStretch, maxV, minV };
+              return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), shouldStretch: true, maxV, minV };
             }
 
             let stats = null;
@@ -9652,9 +9673,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const baseImg = this.pyramid.levels[0];
             const fullW = this.pyramid.baseWidth;
             const fullH = this.pyramid.baseHeight;
-            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : 3;
-            const fileHasRgb = nSamples >= 3;
-            const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
+            const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
+            let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+            if (!bandsToUse || bandsToUse.length === 0) {
+              bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
+            }
             const isRgbRender = bandsToUse.length >= 3;
 
             const isTiled = !!(baseImg.fileDirectory && baseImg.fileDirectory.TileWidth);
@@ -9781,6 +9804,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       },
       
       createTile: function(coords, done) {
+        console.log('[GeoTIFFTile createTile]', coords.z, coords.x, coords.y);
         const tile = document.createElement('canvas');
         tile.width = this.options.tileSize;
         tile.height = this.options.tileSize;
@@ -9809,7 +9833,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const geoBounds = this.geo.bounds;
         
         const paddedGeoBounds = geoBounds.pad ? geoBounds.pad(0.01) : geoBounds;
-        if (!tileBounds.intersects(paddedGeoBounds)) return;
+        const intersects = tileBounds.intersects(paddedGeoBounds);
+        console.log('[GeoTIFFTile intersects?]', coords.z, coords.x, coords.y, intersects);
+        if (!intersects) return;
         
         const baseLevel = this.pyramid.getBaseLevel();
         const nw = tileBounds.getNorthWest();
@@ -9845,51 +9871,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
         
-        if (this.pyramid.levels.length <= 1 && (decimation >= 4 || windowW * windowH > 500000)) {
-          try {
-            const overview = await this._getOrBuildOverview();
-            if (overview && overview.canvas) {
-              const ctx = tile.getContext('2d');
-              const fullW = this.pyramid.baseWidth;
-              const fullH = this.pyramid.baseHeight;
-              const scaleX = overview.width / fullW;
-              const scaleY = overview.height / fullH;
-              
-              const bL = Math.max(0, Math.min(fullW, fullWndL));
-              const bT = Math.max(0, Math.min(fullH, fullWndT));
-              const bR = Math.max(bL + 1, Math.min(fullW, fullWndR));
-              const bB = Math.max(bT + 1, Math.min(fullH, fullWndB));
-              
-              const srcX = bL * scaleX;
-              const srcY = bT * scaleY;
-              const srcW = Math.max(1, (bR - bL) * scaleX);
-              const srcH = Math.max(1, (bB - bT) * scaleY);
-              
-              const dstScaleX = tileSize / fullWindowW;
-              const dstScaleY = tileSize / fullWindowH;
-              const dstX = (bL - fullWndL) * dstScaleX;
-              const dstY = (bT - fullWndT) * dstScaleY;
-              const dstW = (bR - bL) * dstScaleX;
-              const dstH = (bB - bT) * dstScaleY;
-              
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(overview.canvas, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
-              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-              return;
-            }
-          } catch(e) {
-            console.warn('[GeoTIFFTile] Fast overview tile warning:', e);
-          }
-        }
-        
         const levelIdx = this.pyramid.levelInfo.indexOf(levelInfo);
         const requestKey = `${this._layerUid}_${levelIdx}_${lvlWndL}_${lvlWndT}_${lvlWndR}_${lvlWndB}`;
         
         if (_tileRequests.has(requestKey)) {
           try {
-            const pixels = await _tileRequests.get(requestKey);
-            this._compositeToTile(tile, pixels, windowW, windowH, 
+            const res = await _tileRequests.get(requestKey);
+            this._compositeToTile(tile, res.pixels, res.actualW, res.actualH, 
               lvlWndL, lvlWndT, lvlWndR, lvlWndB,
               fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
             _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
@@ -9900,12 +9888,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         
         const noDataValue = this.geo.noDataValue;
+        console.log('[GeoTIFFTile calling _readAndProcessWindow]', coords.z, coords.x, coords.y, 'wnd:', lvlWndL, lvlWndT, windowW, windowH);
         const requestPromise = this._readAndProcessWindow(level, lvlWndL, lvlWndT, windowW, windowH, noDataValue);
         _tileRequests.set(requestKey, requestPromise);
         
         try {
-          const pixels = await requestPromise;
-          this._compositeToTile(tile, pixels, windowW, windowH,
+          const res = await requestPromise;
+          this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
             lvlWndL, lvlWndT, lvlWndR, lvlWndB,
             fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
@@ -9916,21 +9905,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       },
       
-      _compositeToTile(tile, pixels, windowW, windowH,
+      _compositeToTile(tile, pixels, actualW, actualH,
         lvlWndL, lvlWndT, lvlWndR, lvlWndB,
         fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation) {
+        console.log('[GeoTIFFTile _compositeToTile]', actualW, actualH, 'pixels len:', pixels?.length);
         const ctx = tile.getContext('2d');
         const tileSize = this.options.tileSize;
         
-        const expectedLen = 4 * windowW * windowH;
+        const expectedLen = 4 * actualW * actualH;
         if (!pixels || pixels.length !== expectedLen) {
           console.warn('[Composite] Invalid pixel data:', pixels?.length, 'vs expected', expectedLen);
           return;
         }
-        const imgData = new ImageData(pixels, windowW, windowH);
+        const imgData = new ImageData(pixels, actualW, actualH);
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = windowW;
-        tempCanvas.height = windowH;
+        tempCanvas.width = actualW;
+        tempCanvas.height = actualH;
         const tempCtx = tempCanvas.getContext('2d');
         tempCtx.putImageData(imgData, 0, 0);
         
@@ -9948,36 +9938,73 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(tempCanvas,
-          srcX, srcY, windowW, windowH,
+          srcX, srcY, actualW, actualH,
           dstL * scaleX, dstT * scaleY, dstW * scaleX, dstH * scaleY
         );
       },
       
       async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
-        const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : 3;
-        const fileHasRgb = nSamples >= 3;
-        const bandsToUse = this.options.bands || (fileHasRgb ? [0, 1, 2] : [0]);
-        const isRgbRender = bandsToUse.length >= 3;
-        
-        const [raw, globalStats] = await Promise.all([
-          level.readRasters({
-            window: [wndL, wndT, wndL + windowW, wndT + windowH],
-            samples: bandsToUse,
-            interleave: isRgbRender
-          }),
-          this._getGlobalStats()
-        ]);
-        
-        const isArrayOfBands = Array.isArray(raw);
-        const firstBand = isArrayOfBands ? raw[0] : raw;
-        const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
-        const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-        
-        const pixels = await processPixelsAsync(
-          raw, windowW, windowH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
-        );
-        
-        return pixels;
+        try {
+          console.log('[readWindow start]', wndL, wndT, windowW, windowH);
+          const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
+          let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+          if (!bandsToUse || bandsToUse.length === 0) {
+            bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
+          }
+          const isRgbRender = bandsToUse.length >= 3;
+          
+          let raw = null;
+          let actualW = windowW;
+          let actualH = windowH;
+
+          if (windowW > 512 || windowH > 512) {
+            try {
+              const downW = Math.min(256, windowW);
+              const downH = Math.min(256, windowH);
+              raw = await level.readRasters({
+                window: [wndL, wndT, wndL + windowW, wndT + windowH],
+                width: downW,
+                height: downH,
+                samples: bandsToUse,
+                interleave: isRgbRender
+              });
+              actualW = downW;
+              actualH = downH;
+              console.log('[readWindow downsample ok]', wndL, wndT, actualW, actualH);
+            } catch (downErr) {
+              console.log('[readWindow downsample err]', downErr.message);
+              raw = null;
+            }
+          }
+
+          console.log('[readWindow getting stats...]', wndL, wndT);
+          const [readRaw, globalStats] = await Promise.all([
+            raw ? Promise.resolve(raw) : level.readRasters({
+              window: [wndL, wndT, wndL + windowW, wndT + windowH],
+              samples: bandsToUse,
+              interleave: isRgbRender
+            }),
+            this._getGlobalStats()
+          ]);
+          raw = readRaw;
+          console.log('[readWindow got stats]', wndL, wndT, 'globalStats:', !!globalStats);
+          
+          const isArrayOfBands = Array.isArray(raw);
+          const firstBand = isArrayOfBands ? raw[0] : raw;
+          const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
+          const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+          
+          console.log('[readWindow processing pixels...]', wndL, wndT);
+          const pixels = await processPixelsAsync(
+            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
+          );
+          
+          console.log('[readWindow SUCCESS]', wndL, wndT, actualW, actualH, pixels ? pixels.length : null);
+          return { pixels, actualW, actualH };
+        } catch(err) {
+          console.error('[readWindow ERROR]', wndL, wndT, err.message, err.stack);
+          throw err;
+        }
       },
       
       _geoToPixelBase(lng, lat) {
@@ -11115,46 +11142,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 22, animate: false });
       }
 
-      // Comprobar si ya existe versión optimizada ZTIF (<20MB) en servidor/CDN
+      // Renderizar capa GeoTIFF/ZTIF directamente desde el archivo cargado por el cliente
       let activeGeo = clientGeo;
-      const baseCleanName = file.name.replace(/\.(tiff?|img|vrt|ztif)$/i, '');
-      const optZtifUrl = `/compressed/${encodeURIComponent(baseCleanName)}_opt.ztif`;
-
-      if (!activeGeo && !isZtif && !layer.storageUrl) {
-        try {
-          const headCheck = await fetch(optZtifUrl, { method: 'HEAD' });
-          if (headCheck.ok) {
-            console.log('[loadTiff] ¡Versión ZTIF optimizada encontrada en servidor!:', optZtifUrl);
-            const ztifTiff = await GeoTIFF.fromUrl(optZtifUrl);
-            const ztifImg = await ztifTiff.getImage();
-            const ztifCount = await ztifTiff.getImageCount();
-            const ztifOverviews = [];
-            for (let i = 1; i < ztifCount; i++) {
-              try { ztifOverviews.push(await ztifTiff.getImage(i)); } catch (_) {}
-            }
-            activeGeo = {
-              tiff: ztifTiff,
-              image: ztifImg,
-              overviews: ztifOverviews,
-              bounds: clientBounds,
-              origin: clientGeo?.origin,
-              resolution: clientGeo?.resolution,
-              epsg: clientEpsg,
-              noDataValue: clientGeo?.noDataValue,
-              photometric: clientGeo?.photometric
-            };
-            layer.format = 'ZTIF';
-            layer.lossless = true;
-            layer.zeroLossVerified = true;
-            layer.storageUrl = optZtifUrl;
-            layer._geotiffFileUrl = optZtifUrl;
-            layer._tileSavedAs = `${baseCleanName}_opt.ztif`;
-            layer.serverFilename = `${baseCleanName}_opt.ztif`;
-          }
-        } catch (_) {}
-      }
-
-      // Renderizar capa GeoTIFF/ZTIF en Leaflet
       if (activeGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
         try {
           const clientTileLayer = L.geoTIFFTileLayer(activeGeo, {
