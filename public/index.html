@@ -11122,13 +11122,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         let optFile = null;
         let optFilename = `${baseCleanName}_opt.ztif`;
-        try {
-          const compressedBlob = await compressGzip(file);
-          if (compressedBlob.size <= MAX_CLOUD_SIZE) {
-            optFilename = `${baseCleanName}_opt.ztif.gz`;
-            optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
-          }
-        } catch (_) {}
+        if (file.size <= 35 * 1024 * 1024) {
+          try {
+            const compressedBlob = await compressGzip(file);
+            if (compressedBlob.size <= MAX_CLOUD_SIZE) {
+              optFilename = `${baseCleanName}_opt.ztif.gz`;
+              optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
+            }
+          } catch (_) {}
+        }
 
         // Si excede 20MB, empaquetar contenedor ZTIF Lossless nativo multi-escala < 20MB
         if (!optFile) {
