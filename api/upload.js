@@ -153,6 +153,63 @@ module.exports = async (req, res) => {
     return handleVisualization(req, res, body);
   }
 
+  // Subida por fragmentos (Chunks) para soportar archivos de hasta 20MB en Vercel
+  if (req.query.action === 'chunk') {
+    upload(req, res, async (err) => {
+      if (err) return res.status(500).json({ error: 'Error processing chunk: ' + err.message });
+      if (!req.file) return res.status(400).json({ error: 'No chunk data uploaded' });
+
+      const { uploadId, chunkIndex, totalChunks, filename, user_id, project_id } = req.query;
+      const cIdx = parseInt(chunkIndex, 10);
+      const tChunks = parseInt(totalChunks, 10);
+      const safeUploadId = String(uploadId || 'up_' + Date.now()).replace(/[^a-zA-Z0-9_\-]/g, '_');
+      const safeFilename = path.basename(filename || 'file').replace(/[^a-zA-Z0-9._\-]/g, '_');
+
+      const uploadsDir = getUploadsDir();
+      const chunkDir = path.join(uploadsDir, '.chunks', safeUploadId);
+      fs.mkdirSync(chunkDir, { recursive: true });
+
+      const chunkPath = path.join(chunkDir, `part_${cIdx}`);
+      fs.writeFileSync(chunkPath, req.file.buffer);
+
+      if (cIdx === tChunks - 1) {
+        const safeUserId = String(user_id || '').replace(/[^a-zA-Z0-9_\-]/g, '');
+        const safeProjectId = String(project_id || '').replace(/[^a-zA-Z0-9_\-]/g, '');
+        const prefix = (safeUserId && safeProjectId) ? `${safeUserId}/${safeProjectId}` : '';
+        const finalDir = prefix ? path.join(uploadsDir, safeUserId, safeProjectId) : uploadsDir;
+        fs.mkdirSync(finalDir, { recursive: true });
+
+        const finalFilePath = path.join(finalDir, safeFilename);
+        const writeStream = fs.createWriteStream(finalFilePath);
+
+        for (let i = 0; i < tChunks; i++) {
+          const partPath = path.join(chunkDir, `part_${i}`);
+          if (fs.existsSync(partPath)) {
+            const buf = fs.readFileSync(partPath);
+            writeStream.write(buf);
+            try { fs.unlinkSync(partPath); } catch (_) {}
+          }
+        }
+        writeStream.end();
+        try { fs.rmdirSync(chunkDir); } catch (_) {}
+
+        const storagePath = prefix ? `${prefix}/${safeFilename}` : safeFilename;
+        const url = `/uploads/${storagePath}`;
+
+        return res.status(200).json({
+          success: true,
+          url,
+          name: safeFilename,
+          id: storagePath,
+          storagePath
+        });
+      }
+
+      return res.status(200).json({ success: true, chunkReceived: cIdx, total: tChunks });
+    });
+    return;
+  }
+
   // Flujo normal multipart para subida directa de archivos
   upload(req, res, async (err) => {
     if (err) {

@@ -7861,62 +7861,107 @@ self.onmessage = async function(e) {
       $cloudUploadStatus.textContent = `Subiendo ${cleanName} a la nube...`;
       showProgress(`Subiendo a la nube: ${cleanName}`, 0, 'Cloud Gateway');
       
-      const renamedFile = new File([file], cleanName, { type: file.type });
-      const formData = new FormData();
-      formData.append('file', renamedFile);
+      const uid = _currentUser?.id || 'guest';
+      const pid = _currentProject?.id || '';
+      const queryParams = `user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`;
 
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const uid = _currentUser?.id || 'guest';
-        const pid = _currentProject?.id || '';
-        const queryParams = `?user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`;
-        xhr.open('POST', `/api/upload${queryParams}`, true);
-        const msPerMB = 3000;
-        xhr.timeout = Math.max(30000, Math.ceil(file.size / (1024 * 1024)) * msPerMB);
+      try {
+        const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB por fragmento para cumplir con el límite serverless de Vercel (4.5MB)
+        if (file.size > CHUNK_SIZE) {
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+          let finalData = null;
 
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            showProgress(`Subiendo: ${file.name} (${pct}%)`, pct, 'Cloud Gateway');
+          for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(file.size, start + CHUNK_SIZE);
+            const chunkBlob = file.slice(start, end);
+            const chunkFile = new File([chunkBlob], `part_${i}`, { type: 'application/octet-stream' });
+            const formData = new FormData();
+            formData.append('file', chunkFile);
+
+            const pct = Math.round(((i + 0.5) / totalChunks) * 100);
+            showProgress(`Subiendo a la nube (${i + 1}/${totalChunks}): ${pct}%`, pct, 'Cloud Gateway');
             $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
-          }
-        };
 
-        xhr.ontimeout = () => reject(new Error(`Tiempo agotado (${Math.ceil(xhr.timeout / 1000)}s) para ${(file.size / 1e6).toFixed(0)}MB`));
-        xhr.onload = async () => {
-          if (xhr.status === 200) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.success) {
-                toast(`Guardado en la nube: ${file.name}`, 'success');
-                $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
-                await listSupabaseFiles();
-                resolve(data);
-              } else {
-                reject(new Error(data.error || 'Error desconocido'));
-              }
-            } catch (e) {
-              reject(new Error("Error procesando respuesta servidor"));
+            const chunkUrl = `/api/upload?action=chunk&uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${i}&totalChunks=${totalChunks}&filename=${encodeURIComponent(cleanName)}&${queryParams}`;
+            const res = await fetch(chunkUrl, { method: 'POST', body: formData });
+            if (!res.ok) {
+              const errTxt = await res.text();
+              throw new Error(`Error en fragmento ${i + 1}: ${res.status} ${errTxt.slice(0, 100)}`);
             }
-          } else {
-            let errorMsg = "Fallo en la conexión con el servidor";
-            try {
-              const res = JSON.parse(xhr.responseText);
-              if (res.error) errorMsg = `Error del servidor: ${res.error}`;
-            } catch(e) {}
-            reject(new Error(errorMsg));
+            const chunkRes = await res.json();
+            if (i === totalChunks - 1) {
+              finalData = chunkRes;
+            }
           }
-        };
 
-        xhr.onerror = () => reject(new Error("Error de red durante la subida"));
-        xhr.send(formData);
-      }).catch(err => {
+          if (finalData && finalData.success) {
+            toast(`Guardado en la nube: ${file.name}`, 'success');
+            $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
+            await listSupabaseFiles();
+            hideProgress();
+            return finalData;
+          } else {
+            throw new Error('Error al completar subida por fragmentos');
+          }
+        }
+
+        // Subida directa si es menor a 3MB
+        const renamedFile = new File([file], cleanName, { type: file.type });
+        const formData = new FormData();
+        formData.append('file', renamedFile);
+
+        return await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `/api/upload?${queryParams}`, true);
+          const msPerMB = 3000;
+          xhr.timeout = Math.max(30000, Math.ceil(file.size / (1024 * 1024)) * msPerMB);
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              showProgress(`Subiendo: ${file.name} (${pct}%)`, pct, 'Cloud Gateway');
+              $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
+            }
+          };
+
+          xhr.ontimeout = () => reject(new Error(`Tiempo agotado (${Math.ceil(xhr.timeout / 1000)}s) para ${(file.size / 1e6).toFixed(0)}MB`));
+          xhr.onload = async () => {
+            if (xhr.status === 200) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                  toast(`Guardado en la nube: ${file.name}`, 'success');
+                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
+                  await listSupabaseFiles();
+                  resolve(data);
+                } else {
+                  reject(new Error(data.error || 'Error desconocido'));
+                }
+              } catch (e) {
+                reject(new Error("Error procesando respuesta servidor"));
+              }
+            } else {
+              let errorMsg = "Fallo en la conexión con el servidor";
+              try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.error) errorMsg = `Error del servidor: ${res.error}`;
+              } catch(e) {}
+              reject(new Error(errorMsg));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Error de red durante la subida"));
+          xhr.send(formData);
+        });
+      } catch (err) {
         console.error('Upload error:', err);
         $cloudUploadStatus.textContent = `Error: ${err.message}`;
         toast('Error al subir: ' + err.message, 'error');
         hideProgress();
         return null;
-      });
+      }
     }
 
     async function uploadLayerToCloud(layerId) {
@@ -9265,11 +9310,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 if (v > maxV) maxV = v;
               }
             }
-            if (samples.length < 5) return { p2: 0, p98: 255, maxV: 255, rng: 255, shouldStretch: true };
+            if (samples.length < 5) return { p2: 0, p98: (isByte ? 255 : 1), maxV: (isByte ? 255 : 1), rng: (isByte ? 255 : 1), shouldStretch: true };
             samples.sort((a, b) => a - b);
             const p2 = samples[Math.floor(samples.length * 0.02)];
             const p98 = samples[Math.floor(samples.length * 0.98)];
-            return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), maxV, shouldStretch: true };
+            const span = p98 - p2;
+            const minRng = isByte ? 1 : 1e-5;
+            const rng = span > minRng ? span : (p98 > 0 ? p98 : 1);
+            return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, maxV, shouldStretch: true };
           }
           
           if (rgb) {
@@ -9391,9 +9439,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rBand, 0, 1, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gBand, 0, 1, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bBand, 0, 1, px);
-                const rR = sR.rng || (sR.p98 - sR.p2 || 1);
-                const gR = sG.rng || (sG.p98 - sG.p2 || 1);
-                const bR = sB.rng || (sB.p98 - sB.p2 || 1);
+                const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
+                const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
+                const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
                 const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
                 for (let i = 0; i < px; i++) {
                   const r = rBand[i], g = gBand[i], b = bBand[i];
@@ -9415,9 +9463,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawF, 0, 3, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawF, 1, 3, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawF, 2, 3, px);
-                const rR = sR.rng || (sR.p98 - sR.p2 || 1);
-                const gR = sG.rng || (sG.p98 - sG.p2 || 1);
-                const bR = sB.rng || (sB.p98 - sB.p2 || 1);
+                const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
+                const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
+                const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
                 const rP2 = sR.p2, gP2 = sG.p2, bP2 = sB.p2;
                 for (let i = 0; i < px; i++) {
                   const r = rawF[i * 3], g = rawF[i * 3 + 1], b = rawF[i * 3 + 2];
@@ -9441,7 +9489,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const b0 = isArrayOfBands ? raw[0] : raw;
             const b0Arr = isByte ? new Uint8Array(b0) : ((b0 instanceof Float32Array || b0 instanceof Float64Array) ? b0 : new Float32Array(b0));
             const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
-            const rng = sB.rng || (sB.p98 - sB.p2 || 1);
+            const rng = sB.rng || (sB.p98 - sB.p2 || (isByte ? 1 : 1e-5));
             const p2 = sB.p2;
             const shouldStretch = !isByte || sB.shouldStretch;
             for (let i = 0; i < px; i++) {
@@ -9562,37 +9610,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const sampleW = sampleImg.getWidth();
             const sampleH = sampleImg.getHeight();
 
-            let rawSample;
+            let rawSample = null;
             if (sampleW * sampleH > 400000) {
-              try {
-                rawSample = await sampleImg.readRasters({
-                  width: 256,
-                  height: 256,
-                  samples: bandsToUse,
-                  interleave: isRgbRender
-                });
-              } catch (_) {
-                rawSample = null;
-              }
-              if (!rawSample) {
-                const points = [[0.5, 0.5], [0.35, 0.35], [0.65, 0.65], [0.35, 0.65], [0.65, 0.35]];
-                for (const [fx, fy] of points) {
-                  const sx = Math.floor(sampleW * fx) - 128;
-                  const sy = Math.floor(sampleH * fy) - 128;
-                  try {
-                    rawSample = await sampleImg.readRasters({
-                      window: [Math.max(0, sx), Math.max(0, sy), Math.min(sampleW, sx + 256), Math.min(sampleH, sy + 256)],
-                      samples: bandsToUse,
-                      interleave: isRgbRender
-                    });
-                    const testA = Array.isArray(rawSample) ? rawSample[0] : rawSample;
+              const points = [[0.5, 0.5], [0.35, 0.35], [0.65, 0.65], [0.35, 0.65], [0.65, 0.35]];
+              for (const [fx, fy] of points) {
+                const sx = Math.floor(sampleW * fx) - 64;
+                const sy = Math.floor(sampleH * fy) - 64;
+                try {
+                  const chunk = await sampleImg.readRasters({
+                    window: [Math.max(0, sx), Math.max(0, sy), Math.min(sampleW, sx + 128), Math.min(sampleH, sy + 128)],
+                    samples: bandsToUse,
+                    interleave: isRgbRender
+                  });
+                  if (chunk) {
+                    const testA = Array.isArray(chunk) ? chunk[0] : chunk;
                     let nonZero = 0;
-                    for (let i = 0; i < testA.length; i += 20) {
-                      if (testA[i] > 0) nonZero++;
+                    for (let i = 0; i < testA.length; i += 10) {
+                      if (testA[i] > 0 && (!noDataValue || Math.abs(testA[i] - noDataValue) > 1e-4)) nonZero++;
                     }
-                    if (nonZero > 20) break;
-                  } catch (_) {}
-                }
+                    if (nonZero > 10) {
+                      rawSample = chunk;
+                      break;
+                    }
+                  }
+                } catch (_) {}
               }
             } else {
               rawSample = await sampleImg.readRasters({
@@ -9602,10 +9643,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             const isArray = Array.isArray(rawSample);
-            const numPixels = isArray ? rawSample[0].length : (isRgbRender ? Math.floor(rawSample.length / 3) : rawSample.length);
+            const numPixels = isArray ? (rawSample[0]?.length || 0) : (isRgbRender ? Math.floor((rawSample?.length || 0) / 3) : (rawSample?.length || 0));
 
             function calcPercentiles(arr, offset, stride, count) {
               const vals = [];
+              if (!arr || !count) return { p2: 0, p98: 1, rng: 1, shouldStretch: true, maxV: 1, minV: 0 };
+              const isByteType = (arr instanceof Uint8Array || arr instanceof Uint8ClampedArray);
               const step = Math.max(1, Math.floor(count / 2000));
               let maxV = -Infinity;
               let minV = Infinity;
@@ -9618,11 +9661,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   if (v < minV) minV = v;
                 }
               }
-              if (vals.length < 5) return { p2: 0, p98: 255, rng: 255, shouldStretch: true };
+              if (vals.length < 5) return { p2: 0, p98: (isByteType ? 255 : 1), rng: (isByteType ? 255 : 1), shouldStretch: true, maxV, minV };
               vals.sort((a, b) => a - b);
               const p2 = vals[Math.floor(vals.length * 0.02)];
               const p98 = vals[Math.floor(vals.length * 0.98)];
-              return { p2, p98: p98 > p2 ? p98 : p2 + 1, rng: Math.max(1, p98 - p2), shouldStretch: true, maxV, minV };
+              const span = p98 - p2;
+              const minRng = isByteType ? 1 : 1e-5;
+              const rng = span > minRng ? span : (p98 > 0 ? p98 : 1);
+              return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, shouldStretch: true, maxV, minV };
             }
 
             let stats = null;
