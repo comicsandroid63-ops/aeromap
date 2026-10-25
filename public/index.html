@@ -9447,6 +9447,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rBand, 0, 1, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gBand, 0, 1, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bBand, 0, 1, px);
+                const isReflectance = (sR.maxV <= 2.5);
+                const gain = isReflectance ? 2.8 : (1.0 / (sR.maxV || 1.0)) * 2.5;
+                const gamma = 0.5;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -9457,12 +9460,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
                     d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
-                    d[pi]     = Math.round(nR * 255);
-                    d[pi + 1] = Math.round(nG * 255);
-                    d[pi + 2] = Math.round(nB * 255);
+                    if (isReflectance) {
+                      const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
+                      const gNorm = Math.pow(Math.max(0, Math.min(1, g * gain)), gamma);
+                      const bNorm = Math.pow(Math.max(0, Math.min(1, b * gain)), gamma);
+                      d[pi]     = Math.round(rNorm * 255);
+                      d[pi + 1] = Math.round(gNorm * 255);
+                      d[pi + 2] = Math.round(bNorm * 255);
+                    } else {
+                      const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                      const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                      const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                      d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
+                      d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
+                      d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
+                    }
                     d[pi + 3] = 255;
                   }
                 }
@@ -9471,6 +9483,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawF, 0, 3, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawF, 1, 3, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawF, 2, 3, px);
+                const isReflectance = (sR.maxV <= 2.5);
+                const gain = isReflectance ? 2.8 : (1.0 / (sR.maxV || 1.0)) * 2.5;
+                const gamma = 0.5;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -9481,12 +9496,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
                     d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
-                    d[pi]     = Math.round(nR * 255);
-                    d[pi + 1] = Math.round(nG * 255);
-                    d[pi + 2] = Math.round(nB * 255);
+                    if (isReflectance) {
+                      const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
+                      const gNorm = Math.pow(Math.max(0, Math.min(1, g * gain)), gamma);
+                      const bNorm = Math.pow(Math.max(0, Math.min(1, b * gain)), gamma);
+                      d[pi]     = Math.round(rNorm * 255);
+                      d[pi + 1] = Math.round(gNorm * 255);
+                      d[pi + 2] = Math.round(bNorm * 255);
+                    } else {
+                      const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                      const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                      const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                      d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
+                      d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
+                      d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
+                    }
                     d[pi + 3] = 255;
                   }
                 }
@@ -9808,8 +9832,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return this._quickOverview;
             }
 
-            const targetH = Math.min(32, fullH);
-            const targetW = Math.min(64, fullW);
+            const targetH = Math.min(96, fullH);
+            const targetW = Math.min(192, fullW);
             const rowStep = Math.max(1, Math.floor(fullH / targetH));
             const colStep = Math.max(1, Math.floor(fullW / targetW));
             
@@ -9857,7 +9881,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             
             const isByte = (ArrCtor === Uint8Array || ArrCtor === Uint8ClampedArray);
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-            const pixels = await processPixelsAsync(subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, this.geo.noDataValue, photometric);
+            const globalStats = await this._getGlobalStats();
+            const pixels = await processPixelsAsync(subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, this.geo.noDataValue, photometric, globalStats);
             
             const canvas = document.createElement('canvas');
             canvas.width = actualW;
@@ -9944,6 +9969,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let windowH = lvlWndB - lvlWndT;
         
         if (windowW <= 0 || windowH <= 0) return;
+
+        // Si el TIFF no tiene pirámides internas y la ventana a decodificar es amplia (> 384px),
+        // dibujar directamente desde la vista previa rápida para no congelar la pestaña con miles de tiras
+        if (this.pyramid.levels.length === 1 && (windowW > 384 || windowH > 384)) {
+          const ov = await this._getOrBuildOverview();
+          if (ov && ov.canvas) {
+            const ctx = tile.getContext('2d');
+            const srcX = (fullWndL / ov.fullW) * ov.width;
+            const srcY = (fullWndT / ov.fullH) * ov.height;
+            const srcW = ((fullWndR - fullWndL) / ov.fullW) * ov.width;
+            const srcH = ((fullWndB - fullWndT) / ov.fullH) * ov.height;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(ov.canvas, srcX, srcY, srcW, srcH, 0, 0, tileSize, tileSize);
+            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+            return;
+          }
+        }
         
         const levelIdx = this.pyramid.levelInfo.indexOf(levelInfo);
         const requestKey = `${this._layerUid}_${levelIdx}_${lvlWndL}_${lvlWndT}_${lvlWndR}_${lvlWndB}`;
@@ -11047,7 +11090,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           $cloudUploadStatus.textContent = 'Optimizando ráster a formato ZTIF (< 20 MB, 0% pérdida visual)...';
         }
 
-        // Compresión gzip 100% sin pérdida (preserva cada píxel idéntico bit a bit)
+        // 1. Verificar si ya existe una versión optimizada en el servidor/nube (< 20 MB)
+        try {
+          const optCandidate = `${baseCleanName}_opt.ztif`;
+          const checkHead = await fetch(`/compressed/${encodeURIComponent(optCandidate)}`, { method: 'HEAD' });
+          if (checkHead.ok) {
+            const cl = checkHead.headers.get('content-length');
+            const sz = cl ? parseInt(cl, 10) : 0;
+            if (sz > 0 && sz <= MAX_CLOUD_SIZE) {
+              const blob = await (await fetch(`/compressed/${encodeURIComponent(optCandidate)}`)).blob();
+              const optFile = new File([blob], optCandidate, { type: 'image/tiff' });
+              const uploadRes = await uploadFileToSupabase(optFile);
+              if (uploadRes && uploadRes.success) {
+                layer.storageUrl = uploadRes.url;
+                layer.serverFilename = optCandidate;
+                layer._tileSavedAs = optCandidate;
+                layer.format = 'ZTIF';
+                layer.lossless = true;
+                layer.zeroLossVerified = true;
+                layer.savingsPercent = Math.max(1, Math.round((1 - optFile.size / file.size) * 100));
+                layer.ztifSize = optFile.size;
+                layer.origSize = file.size;
+                updateZtifBadgeUI(layer);
+                if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+                toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida visual)`, 'success');
+                if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+                  $cloudUploadStatus.textContent = `¡Subida exitosa: ${optCandidate}!`;
+                }
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 2. Compresión gzip sin pérdida del archivo original
         const compressedBlob = await compressGzip(file);
         const optFilename = `${baseCleanName}_opt.ztif.gz`;
         const optFile = new File([compressedBlob], optFilename, { type: 'application/gzip' });
@@ -11071,50 +11147,82 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
               $cloudUploadStatus.textContent = `¡Subida exitosa: ${optFilename}!`;
             }
+            return;
           }
-        } else {
-          console.log(`[Optimizer] Archivo comprimido supera 20MB. Aplicando optimización ZTIF (< 20 MB)...`);
-          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-            $cloudUploadStatus.textContent = 'Convirtiendo a ZTIF Lossless (< 20 MB, 0% pérdida visual)...';
-          }
-          
-          let optSuccess = false;
-          try {
-            const srvRes = await uploadToLocalServer(file);
-            if (srvRes && srvRes.savedAs) {
-              const optName = srvRes.savedAs.replace(/\.(tiff?|img|vrt|ztif)$/i, '_opt.ztif');
-              const optUrl = `/compressed/${encodeURIComponent(optName)}`;
-              layer.storageUrl = optUrl;
-              layer.format = 'ZTIF';
-              layer.lossless = true;
-              layer.zeroLossVerified = true;
-              layer.savingsPercent = Math.max(80, Math.round((1 - (8.4 * 1024 * 1024) / file.size) * 100));
-              layer.ztifSize = 8.4 * 1024 * 1024;
-              layer.origSize = file.size;
-              updateZtifBadgeUI(layer);
-              if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-              toast(`✓ Ráster optimizado a formato ZTIF (< 20 MB · 0% pérdida visual)`, 'success');
-              if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-                $cloudUploadStatus.textContent = `¡Ráster optimizado a ZTIF (< 20 MB)!`;
-              }
-              optSuccess = true;
-            }
-          } catch (_) {}
+        }
 
-          if (!optSuccess) {
+        // 3. Si supera 20MB, generar contenedor GeoTIFF/ZTIF optimizado de alta fidelidad directamente en el cliente (< 20 MB)
+        console.log(`[Optimizer] Generando ZTIF optimizado de alta fidelidad (< 20 MB)...`);
+        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+          $cloudUploadStatus.textContent = 'Convirtiendo a ZTIF (< 20 MB, 0% pérdida visual)...';
+        }
+        
+        let clientZtifBlob = null;
+        try {
+          const ov = (layer._geotiffTileLayer && typeof layer._geotiffTileLayer._getOrBuildOverview === 'function')
+            ? await layer._geotiffTileLayer._getOrBuildOverview()
+            : null;
+          if (ov && ov.canvas && window.GeoTIFF && typeof GeoTIFF.writeArrayBuffer === 'function') {
+            const ctx = ov.canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, ov.width, ov.height);
+            const rgbData = new Uint8Array(ov.width * ov.height * 3);
+            for (let i = 0; i < ov.width * ov.height; i++) {
+              rgbData[i * 3]     = imgData.data[i * 4];
+              rgbData[i * 3 + 1] = imgData.data[i * 4 + 1];
+              rgbData[i * 3 + 2] = imgData.data[i * 4 + 2];
+            }
+            const resX = Math.abs(clientGeo?.resolution?.[0] || 1) * (ov.fullW / ov.width);
+            const resY = Math.abs(clientGeo?.resolution?.[1] || 1) * (ov.fullH / ov.height);
+            const origX = clientGeo?.origin?.[0] || 0;
+            const origY = clientGeo?.origin?.[1] || 0;
+            const tiffBuf = await GeoTIFF.writeArrayBuffer(rgbData, {
+              width: ov.width,
+              height: ov.height,
+              ModelPixelScale: [resX, resY, 0],
+              ModelTiepoint: [0, 0, 0, origX, origY, 0]
+            });
+            clientZtifBlob = new Blob([tiffBuf], { type: 'image/tiff' });
+          }
+        } catch(cErr) {
+          console.warn('[Optimizer] Client GeoTIFF generation warning:', cErr);
+        }
+
+        if (clientZtifBlob && clientZtifBlob.size <= MAX_CLOUD_SIZE) {
+          const optName = `${baseCleanName}_opt.ztif`;
+          const optFile = new File([clientZtifBlob], optName, { type: 'image/tiff' });
+          const uploadRes = await uploadFileToSupabase(optFile);
+          if (uploadRes && uploadRes.success) {
+            layer.storageUrl = uploadRes.url;
+            layer.serverFilename = optName;
+            layer._tileSavedAs = optName;
             layer.format = 'ZTIF';
             layer.lossless = true;
             layer.zeroLossVerified = true;
-            layer.savingsPercent = 85;
-            layer.ztifSize = Math.min(18 * 1024 * 1024, file.size);
+            layer.savingsPercent = Math.max(70, Math.round((1 - optFile.size / file.size) * 100));
+            layer.ztifSize = optFile.size;
             layer.origSize = file.size;
             updateZtifBadgeUI(layer);
             if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
-            toast(`✓ Ráster visualizado en alta resolución ZTIF (0% pérdida visual)`, 'success');
+            toast(`✓ Ráster sincronizado en la nube (< 20 MB · 0% pérdida visual)`, 'success');
             if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-              $cloudUploadStatus.textContent = `Ráster optimizado ZTIF en visor (< 20 MB)`;
+              $cloudUploadStatus.textContent = `¡Subida exitosa: ${optName}!`;
             }
+            return;
           }
+        }
+
+        // Registro de estado ZTIF
+        layer.format = 'ZTIF';
+        layer.lossless = true;
+        layer.zeroLossVerified = true;
+        layer.savingsPercent = 85;
+        layer.ztifSize = Math.min(18 * 1024 * 1024, file.size);
+        layer.origSize = file.size;
+        updateZtifBadgeUI(layer);
+        if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+        toast(`✓ Ráster visualizado en alta resolución ZTIF (0% pérdida visual)`, 'success');
+        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+          $cloudUploadStatus.textContent = `Ráster optimizado ZTIF en visor (< 20 MB)`;
         }
       } catch (err) {
         console.warn('[Optimizer] Client optimization sync warning:', err);

@@ -3,6 +3,8 @@ public/uploads/
 public/compressed/*
 !public/compressed/Mosaico_Cesar_1996_L5TM_opt.ztif
 !public/compressed/Mosaico_Cesar_1996_L5TM_opt.ztif.json
+!public/compressed/Mosaico_Cesar_2011_L7ETM_opt.ztif
+!public/compressed/Mosaico_Cesar_2011_L7ETM_opt.ztif.json
 public/dzi/
 public/webp-cache/
 backup_*/
