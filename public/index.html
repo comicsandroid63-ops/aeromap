@@ -28840,48 +28840,6 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
       checkedRes.forEach(res => { if (resGroups && resGroups[res]) selectedEntries = selectedEntries.concat(resGroups[res].map(i => entries[i])); });
       if (selectedEntries.length === 0) { toast('Selecciona al menos una resolución', 'warning'); return; }
 
-      // 1. Escena Cesar 2025: ya procesada con pirámides completas en Cloudflare R2
-      const isCesar2025 = /LC08_L2SP_008053_20250216/i.test(zipFile?.name || '') ||
-                          selectedEntries.some(e => /LC08_L2SP_008053_20250216/i.test(e.fileName));
-      if (isCesar2025) {
-        showProgress('Escena Cesar 2025 detectada. Vinculando COG 100% en la nube (Cloudflare R2)...', 50);
-        const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
-        const overviewUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB_overview.png';
-        const bounds = L.latLngBounds([9.0648269, -74.2867222], [11.1694877, -72.205652]);
-        const serverFilename = '1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
-        const layer = {
-          id: ++idCounter,
-          name: 'Landsat 8 Cesar 2025 (RGB Color Real)',
-          type: 'raster',
-          visible: true,
-          opacity: 1,
-          blendMode: 'normal',
-          mapLayer: null,
-          _thumbOverlay: null,
-          serverFilename: serverFilename,
-          parts: null,
-          storageUrl: cloudUrl,
-          dbId: null,
-          thumb: null,
-          bounds: bounds,
-          width: 7561,
-          height: 7721,
-          bands: 3,
-          renderer: 'multiband',
-          rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
-          _geotiffFileUrl: cloudUrl,
-          overviewUrl: overviewUrl,
-          _bandStats: null
-        };
-        state.layers.unshift(layer);
-        addTileLayer(layer, serverFilename);
-        saveLayerToDatabase(layer);
-        updateLayersSidebar();
-        hideProgress();
-        toast('Escena Cesar 2025 vinculada exitosamente desde Cloudflare R2 (100% en la nube)', 'success');
-        _pendingTiffZip = null;
-        return;
-      }
       if (mode === 'rgb' || mode === 'fast_rgb') {
         const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
         const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
@@ -28892,37 +28850,33 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         let finalEntries = selectedEntries;
         let renderBands = [R.idx, G.idx, B.idx];
         if (mode === 'fast_rgb') { finalEntries = [R, G, B].map(b => selectedEntries[b.idx]); renderBands = [0, 1, 2]; }
-        // ZIP LIVIANO: empaquetar en el navegador SOLO las bandas elegidas (STORE,
-        // sin recomprimir) en vez de subir el ZIP original completo (puede traer GBs de más).
-        // El backend no cambia: recibe un ZIP más chico + la lista de bandas.
-        showProgress(`Empaquetando ${finalEntries.length} bandas elegidas (sin subir el ZIP completo)...`, 8);
-        let slimZip = null;
-        try {
-          if (typeof fflate === 'undefined' || !fflate.zip) throw new Error('fflate no disponible');
-          const zipObj = {};
-          let packedMB = 0;
-          for (let bi = 0; bi < finalEntries.length; bi++) {
-            const e = finalEntries[bi];
-            showProgress(`Leyendo banda ${bi + 1}/${finalEntries.length}: ${e.fileName}...`, 8);
-            const blob = await extractZipEntry(zipFile, e);
-            const u8 = new Uint8Array(await blob.arrayBuffer());
-            zipObj[e.path || e.fileName] = u8;
-            packedMB += u8.length / 1048576;
+        const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        let zipToSend = zipFile;
+        if (!isLocalhost && mode === 'fast_rgb') {
+          showProgress(`Filtrando ${finalEntries.length} bandas seleccionadas...`, 8);
+          try {
+            if (typeof fflate !== 'undefined' && fflate.zip) {
+              const zipObj = {};
+              for (let bi = 0; bi < finalEntries.length; bi++) {
+                const e = finalEntries[bi];
+                showProgress(`Leyendo banda ${bi + 1}/${finalEntries.length}: ${e.fileName}...`, 8);
+                const blob = await extractZipEntry(zipFile, e);
+                const u8 = new Uint8Array(await blob.arrayBuffer());
+                zipObj[e.path || e.fileName] = u8;
+              }
+              const slimBytes = await new Promise((resolve, reject) => {
+                fflate.zip(zipObj, { level: 0 }, (err, data) => { if (err) reject(err); else resolve(data); });
+              });
+              zipToSend = new Blob([slimBytes], { type: 'application/zip' });
+            }
+          } catch (zipErr) {
+            console.warn('[ZIP] Empaquetado liviano falló:', zipErr.message);
           }
-          showProgress(`Armando paquete liviano (${packedMB.toFixed(0)}MB, sin recomprimir)...`, 9);
-          const slimBytes = await new Promise((resolve, reject) => {
-            fflate.zip(zipObj, { level: 0 }, (err, data) => { if (err) reject(err); else resolve(data); });
-          });
-          slimZip = new Blob([slimBytes], { type: 'application/zip' });
-          console.log(`[ZIP] Paquete liviano: ${finalEntries.length} bandas, ${(slimBytes.length / 1048576).toFixed(1)}MB (original ${(zipFile.size / 1048576).toFixed(1)}MB)`);
-        } catch (zipErr) {
-          console.warn('[ZIP] Empaquetado liviano falló, se sube el ZIP completo:', zipErr.message);
-          toast('No se pudo filtrar bandas en local; se sube el ZIP completo', 'warning');
         }
-        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas). Esto puede tardar 1-2 minutos...`, 10);
+        showProgress(`Enviando bandas al motor GDAL local (${finalEntries.length} bandas seleccionadas)...`, 10);
         try {
           const formData = new FormData();
-          formData.append('zip', slimZip || zipFile, zipFile.name);
+          formData.append('zip', zipToSend, zipFile.name);
           formData.append('bands', JSON.stringify(finalEntries.map(e => e.path || e.fileName)));
           formData.append('originalName', zipFile.name);
           // Añadir user/project para cloud path
@@ -28933,10 +28887,15 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
           const mergeData = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/zip-to-rgb' + q);
+            let _lastProg = 0;
             xhr.upload.onprogress = (e) => {
               if (e.lengthComputable) {
-                const pct = 10 + Math.round((e.loaded / e.total) * 30);
-                showProgress(`Enviando bandas al procesador local GDAL (${(e.loaded/1048576).toFixed(1)}MB / ${(e.total/1048576).toFixed(1)}MB) — El ZIP NO va a la nube, la nube solo recibe el COG multiespectral...`, pct);
+                const now = Date.now();
+                if (now - _lastProg > 300 || e.loaded === e.total) {
+                  _lastProg = now;
+                  const pct = 10 + Math.round((e.loaded / e.total) * 30);
+                  showProgress(`Enviando bandas al procesador local GDAL (${(e.loaded/1048576).toFixed(1)}MB / ${(e.total/1048576).toFixed(1)}MB) — El ZIP NO va a la nube, la nube solo recibe el COG multiespectral...`, pct);
+                }
               }
             };
             xhr.onload = () => {
