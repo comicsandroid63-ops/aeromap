@@ -79,7 +79,9 @@ module.exports = async (req, res) => {
     }
     try {
       const cleanName = safeKey(req.query.filename);
-      const uniqueName = `${Date.now().toString(36)}_${cleanName}`;
+      const uniqueName = (req.query.exact === 'true' || req.query.exact === '1')
+        ? cleanName
+        : `${Date.now().toString(36)}_${cleanName}`;
       const type = req.query.contentType || 'image/tiff';
 
       const command = new PutObjectCommand({

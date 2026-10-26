@@ -9579,6 +9579,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this._quickOverviewPromise = null;
         this._globalStats = null;
         this._globalStatsPromise = null;
+        if (!this.options.overviewUrl) {
+          const u = this.options.fileUrl || geoData.fileUrl || geoData.storageUrl;
+          if (typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'))) {
+            this.options.overviewUrl = u.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+          }
+        }
       },
 
       async _getGlobalStats() {
@@ -9732,6 +9738,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const baseImg = this.pyramid.levels[0];
             const fullW = this.pyramid.baseWidth;
             const fullH = this.pyramid.baseHeight;
+
+            // 1. FAST CLOUD OVERVIEW (Cloudflare R2 / CDN):
+            // Si la imagen ya tiene su overview en Cloudflare R2, cargarla directamente (< 50ms)
+            const tiffUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl;
+            let candidateOverviewUrl = this.options.overviewUrl;
+            if (!candidateOverviewUrl && tiffUrl && typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://'))) {
+              candidateOverviewUrl = tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+            }
+            if (candidateOverviewUrl) {
+              try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                const loaded = await new Promise((resolve) => {
+                  img.onload = () => resolve(true);
+                  img.onerror = () => resolve(false);
+                  img.src = candidateOverviewUrl;
+                });
+                if (loaded && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = img.naturalWidth;
+                  canvas.height = img.naturalHeight;
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(img, 0, 0);
+                  console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada desde Cloudflare R2:', candidateOverviewUrl);
+                  this._quickOverview = { canvas, width: canvas.width, height: canvas.height, fullW, fullH };
+                  return this._quickOverview;
+                }
+              } catch (e) {
+                console.warn('[GeoTIFFTile] Falló carga de overview de R2, usando fallback local:', e);
+              }
+            }
+
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
             let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
             if (!bandsToUse || bandsToUse.length === 0) {
@@ -9747,7 +9785,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const tilesY = Math.ceil(fullH / tileH);
               const tbc = baseImg.fileDirectory?.TileByteCounts;
 
-              // Vista previa ultra-rápida por cuadrícula suave (< 1 segundo sin bloquear el hilo)
               const thumbW = 512;
               const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
               const canvas = document.createElement('canvas');
@@ -9759,21 +9796,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               
               const globalStats = await this._getGlobalStats();
 
-              // Muestrear una cuadrícula de a lo sumo 4x8 = 32 puntos
-              const stepX = Math.max(1, Math.ceil(tilesX / 4));
-              const stepY = Math.max(1, Math.ceil(tilesY / 8));
+              // Muestreo balanceado: a lo sumo 48 teselas
+              const maxSampleTiles = 48;
+              const totalTiles = tilesX * tilesY;
+              const step = Math.max(1, Math.ceil(Math.sqrt(totalTiles / maxSampleTiles)));
+              const stepX = step;
+              const stepY = step;
 
               const sampleTiles = [];
               for (let ty = 0; ty < tilesY; ty += stepY) {
                 for (let tx = 0; tx < tilesX; tx += stepX) {
                   const tileIdx = ty * tilesX + tx;
-                  if (tbc && tbc[tileIdx] < 10000) continue;
+                  if (tbc && tbc[tileIdx] < 1000) continue;
                   sampleTiles.push({ tx, ty });
                 }
               }
 
-              // Procesar en lotes concurrentes para máxima velocidad
-              const batchSize = 4;
+              // Procesar en lotes concurrentes para fluidez
+              const batchSize = 6;
               for (let b = 0; b < sampleTiles.length; b += batchSize) {
                 const batch = sampleTiles.slice(b, b + batchSize);
                 await Promise.all(batch.map(async ({ tx, ty }) => {
@@ -10424,13 +10464,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             
             if (geo && geo.image) {
+              const overviewUrl = (typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')))
+                ? tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png')
+                : null;
               const tileLayer = L.geoTIFFTileLayer(geo, {
                 tileSize: 256,
                 maxNativeZoom: 24,
                 maxZoom: 28,
                 opacity: layer.opacity ?? 1,
                 bounds: geo.bounds,
-                bands: layer.rendererParams?.bands
+                bands: layer.rendererParams?.bands,
+                overviewUrl: overviewUrl
               });
               
               tileLayer.addTo(state.map);
@@ -10773,7 +10817,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           console.log('[GeoTIFF] Loaded:', fileUrl, bounds, 'EPSG:', epsg, 'NODATA:', noDataValue);
           const photometric = image.fileDirectory?.PhotometricInterpretation ?? null;
-          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue, photometric };
+          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue, photometric, fileUrl: (typeof fileUrl === 'string' ? fileUrl : null) };
         } catch(e) {
           console.warn('[GeoTIFF] Error loading', fileUrl, e.message);
           return null;
@@ -10832,12 +10876,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (layerObj._thumbOverlay) { try { state.map.removeLayer(layerObj._thumbOverlay); } catch(e) {} }
           if (layerObj.mapLayer) { try { state.map.removeLayer(layerObj.mapLayer); } catch(e) {} }
           
+          const overviewUrl = (typeof fileUrl === 'string' && (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')))
+            ? fileUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png')
+            : null;
           const tileLayer = L.geoTIFFTileLayer(geo, {
             tileSize: 256,
             maxNativeZoom: 24,
             maxZoom: 28,
             opacity: layerObj.opacity ?? 1,
-            bounds: geo.bounds
+            bounds: geo.bounds,
+            overviewUrl: overviewUrl
           });
           
           tileLayer.addTo(state.map);
@@ -11291,6 +11339,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       return { publicUrl, key };
     }
 
+    async function generateAndUploadOverviewToR2(layer, file, clientGeo, r2Key) {
+      try {
+        let canvas = null;
+        if (layer._geotiffTileLayer && typeof layer._geotiffTileLayer._getOrBuildOverview === 'function') {
+          const ov = await layer._geotiffTileLayer._getOrBuildOverview();
+          if (ov && ov.canvas) canvas = ov.canvas;
+        }
+
+        if (!canvas && clientGeo && clientGeo.image) {
+          if (clientGeo.overviews && clientGeo.overviews.length > 0) {
+            const ovLevel = clientGeo.overviews[clientGeo.overviews.length - 1];
+            const raw = await ovLevel.readRasters({ samples: [0, 1, 2], interleave: true });
+            const px = await processPixelsAsync(raw, ovLevel.getWidth(), ovLevel.getHeight(), true, false, false, clientGeo.noDataValue, clientGeo.photometric);
+            canvas = document.createElement('canvas');
+            canvas.width = ovLevel.getWidth();
+            canvas.height = ovLevel.getHeight();
+            canvas.getContext('2d').putImageData(new ImageData(px, canvas.width, canvas.height), 0, 0);
+          }
+        }
+
+        if (!canvas) {
+          console.log('[R2 Overview] No se pudo generar canvas para overview, omitiendo.');
+          return;
+        }
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) return;
+
+        const overviewKey = r2Key.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+        console.log(`[R2 Overview] Subiendo overview (${(blob.size / 1024).toFixed(1)} KB) a R2: ${overviewKey}...`);
+
+        const presignRes = await fetch(`/api/cloud-upload?service=r2&action=presign&filename=${encodeURIComponent(overviewKey)}&contentType=image/png&exact=true`);
+        if (!presignRes.ok) return;
+        const { presignedUrl, publicUrl } = await presignRes.json();
+
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', presignedUrl, true);
+          xhr.setRequestHeader('Content-Type', 'image/png');
+          xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
+          xhr.onerror = () => reject(new Error('Network error'));
+          xhr.send(blob);
+        });
+
+        console.log(`[R2 Overview] ✓ Overview subido exitosamente a Cloudflare R2:`, publicUrl);
+        layer.overviewUrl = publicUrl;
+        if (layer._geotiffTileLayer) {
+          layer._geotiffTileLayer.options.overviewUrl = publicUrl;
+        }
+      } catch (e) {
+        console.warn('[R2 Overview] Error al generar/subir overview:', e);
+      }
+    }
+
     async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
       if (!file || layer.storageUrl) return;
       const baseName = _safeCloudName(String(file.name || 'raster').replace(/\.(tiff?|img|vrt|ztif)$/i, ''), 'raster');
@@ -11318,6 +11420,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layer.origSize = file.size;
         layer.savingsPercent = 0;
         updateZtifBadgeUI(layer);
+
+        // Generar y subir overview complementario a Cloudflare R2 para visualización instantánea y fluida a zoom bajo
+        try {
+          _setCloudProgress(`Generando y subiendo vista general (overview) a Cloudflare R2...`, 96, 'Cloudflare R2');
+          await generateAndUploadOverviewToR2(layer, file, clientGeo, key);
+        } catch (ovErr) {
+          console.warn('[R2 Upload] Overview upload error (no fatal):', ovErr);
+        }
+
         if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
 
         // Si la capa local no pudo renderizarse en el mapa, inicializarla directamente desde Cloudflare R2
