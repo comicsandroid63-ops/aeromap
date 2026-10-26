@@ -9809,18 +9809,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             // 1. FAST CLOUD OVERVIEW (Cloudflare R2 / CDN):
             // Si la imagen ya tiene su overview en Cloudflare R2, cargarla directamente (< 50ms)
             const tiffUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl;
-            let candidateOverviewUrl = this.options.overviewUrl;
-            if (!candidateOverviewUrl && tiffUrl && typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://'))) {
-              candidateOverviewUrl = tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+            let candidateUrls = [];
+            if (this.options.overviewUrl) candidateUrls.push(this.options.overviewUrl);
+            if (tiffUrl && typeof tiffUrl === 'string') {
+              const cdnBase = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/';
+              if (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')) {
+                candidateUrls.push(tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png'));
+              }
+              const rawName = tiffUrl.split('/').pop().replace(/\.(tiff?|ztif)$/i, '');
+              const cleanBase = rawName.replace(/^[a-z0-9]{8}_/i, '');
+              const deDuped = cleanBase.replace(/__\d+_?$/i, '').replace(/_\d+$/i, '');
+              candidateUrls.push(cdnBase + encodeURIComponent(rawName) + '_overview.png');
+              candidateUrls.push(cdnBase + encodeURIComponent(cleanBase) + '_overview.png');
+              candidateUrls.push(cdnBase + encodeURIComponent(deDuped) + '_overview.png');
+              if (rawName.includes('1996')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_1996_L5TM_overview.png');
+              if (rawName.includes('2011')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2011_L7ETM_overview.png');
+              if (rawName.includes('2026')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2026_L89OLI_overview.png');
             }
-            if (candidateOverviewUrl) {
+            candidateUrls = [...new Set(candidateUrls.filter(Boolean))];
+
+            for (const candUrl of candidateUrls) {
               try {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 const loaded = await new Promise((resolve) => {
                   img.onload = () => resolve(true);
                   img.onerror = () => resolve(false);
-                  img.src = candidateOverviewUrl;
+                  img.src = candUrl;
                 });
                 if (loaded && img.naturalWidth > 0 && img.naturalHeight > 0) {
                   const canvas = document.createElement('canvas');
@@ -9828,13 +9843,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   canvas.height = img.naturalHeight;
                   const ctx = canvas.getContext('2d');
                   ctx.drawImage(img, 0, 0);
-                  console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada con transparencia:', candidateOverviewUrl);
+                  console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada con transparencia:', candUrl);
                   this._quickOverview = { canvas, width: canvas.width, height: canvas.height, fullW, fullH };
                   return this._quickOverview;
                 }
-              } catch (e) {
-                console.warn('[GeoTIFFTile] Falló carga de overview de R2, usando fallback local:', e);
-              }
+              } catch (_) {}
             }
 
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
@@ -9980,8 +9993,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } catch (_) {}
 
         // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
-        if (this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
-          if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+        if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
+          _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
           return;
         }
         
@@ -10339,8 +10352,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (layer._thumbOverlay) { try { state.map.removeLayer(layer._thumbOverlay); } catch(e) {} layer._thumbOverlay = null; }
         if (layer._geotiffTileLayer) { try { state.map.removeLayer(layer._geotiffTileLayer); } catch(e) {} layer._geotiffTileLayer = null; }
         
-        // Use storageUrl (cloud) if available, otherwise local file
-        const tiffUrl = layer.file || layer.storageUrl || layer._geotiffFileUrl || (layer.serverFilename ? `/uploads/${encodeURIComponent(layer.serverFilename)}` : null);
+        // Use storageUrl (cloud) if available, otherwise local file / R2 CDN fallback
+        const isServerlessEnv = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
+        const tiffUrl = layer.file || layer.storageUrl || layer._geotiffFileUrl || (layer.serverFilename ? (isServerlessEnv ? `https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/${encodeURIComponent(layer.serverFilename)}` : `/uploads/${encodeURIComponent(layer.serverFilename)}`) : null);
         
         // 1. New Static Cloud Tiles Engine (XYZ PNG)
         if (layer.storageUrl && layer.storageUrl.includes('{z}/{x}/{y}')) {
@@ -10419,11 +10433,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             try {
               geo = await loadGeotiffInBackground(tiffUrl);
             } catch (loadErr) {
-              if (typeof tiffUrl === 'string' && tiffUrl.includes('/uploads/')) {
-                const fname = tiffUrl.split('/').pop();
-                const fallbackUrl = '/compressed/' + encodeURIComponent(fname);
-                console.log('[Preview] Retrying with compressed fallback:', fallbackUrl);
-                geo = await loadGeotiffInBackground(fallbackUrl);
+              const fname = (typeof tiffUrl === 'string') ? tiffUrl.split('/').pop() : null;
+              if (fname) {
+                const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/' + encodeURIComponent(fname);
+                if (tiffUrl !== cloudUrl) {
+                  try {
+                    console.log('[Preview] Retrying with Cloudflare R2 CDN fallback:', cloudUrl);
+                    geo = await loadGeotiffInBackground(cloudUrl);
+                    layer.storageUrl = cloudUrl;
+                  } catch (_) {
+                    if (tiffUrl.includes('/uploads/')) {
+                      const fallbackUrl = '/compressed/' + encodeURIComponent(fname);
+                      console.log('[Preview] Retrying with compressed fallback:', fallbackUrl);
+                      geo = await loadGeotiffInBackground(fallbackUrl);
+                    } else {
+                      throw loadErr;
+                    }
+                  }
+                } else {
+                  throw loadErr;
+                }
               } else {
                 throw loadErr;
               }
@@ -10484,6 +10513,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let naturalH = layer.height;
         
         if (!canvasSrc) {
+          if (location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1') && !savedAs.startsWith('http'))) {
+            console.warn('[Preview] Omitiendo render-preview en entorno serverless para:', savedAs);
+            return;
+          }
           const previewUrl = `/api/render-preview/${encodeURIComponent(savedAs)}?maxSize=${maxSize}`;
           console.log('[Preview] Using server preview:', previewUrl);
           const img = new Image();
@@ -11340,23 +11373,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           } else {
             // Reutilizar overview precalculado si ya existe en R2 para este mosaico
             try {
-              const cleanBase = _safeCloudName(String(file.name || '').replace(/\.(tiff?|ztif)$/i, ''), 'raster');
-              const standardOvUrl = `https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/${cleanBase}_overview.png`;
-              const headCheck = await fetch(standardOvUrl, { method: 'HEAD' });
-              if (headCheck.ok) {
-                const imgBlob = await (await fetch(standardOvUrl)).blob();
-                if (imgBlob && imgBlob.size > 0) {
-                  const overviewKey = r2Key.replace(/\.(tiff?|ztif)$/i, '_overview.png');
-                  const presignRes = await fetch(`/api/cloud-upload?service=r2&action=presign&filename=${encodeURIComponent(overviewKey)}&contentType=image/png&exact=true`);
-                  if (presignRes.ok) {
-                    const { presignedUrl, publicUrl } = await presignRes.json();
-                    await fetch(presignedUrl, { method: 'PUT', body: imgBlob, headers: { 'Content-Type': 'image/png' } });
-                    layer.overviewUrl = publicUrl;
-                    if (layer._geotiffTileLayer) layer._geotiffTileLayer.options.overviewUrl = publicUrl;
-                    console.log(`[R2 Overview] ✓ Overview estándar asociado a ${overviewKey}`);
-                    return;
+              const rawName = String(file.name || '').replace(/\.(tiff?|ztif)$/i, '');
+              const cleanBase = _safeCloudName(rawName, 'raster');
+              const candidateBases = [
+                cleanBase,
+                cleanBase.replace(/__\d+_?$/i, ''),
+                cleanBase.replace(/_\d+$/i, ''),
+                cleanBase.replace(/^[a-z0-9]{8}_/i, ''),
+                rawName.replace(/\s*\(\d+\)\s*$/i, ''),
+                rawName.includes('1996') ? 'Mosaico_Cesar_1996_L5TM' : null,
+                rawName.includes('2011') ? 'Mosaico_Cesar_2011_L7ETM' : null,
+                rawName.includes('2026') ? 'Mosaico_Cesar_2026_L89OLI' : null
+              ].filter(Boolean);
+              
+              const uniqueBases = [...new Set(candidateBases)];
+              for (const cb of uniqueBases) {
+                const standardOvUrl = `https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/${encodeURIComponent(cb)}_overview.png`;
+                try {
+                  const headCheck = await fetch(standardOvUrl, { method: 'HEAD' });
+                  if (headCheck.ok) {
+                    const imgBlob = await (await fetch(standardOvUrl)).blob();
+                    if (imgBlob && imgBlob.size > 0) {
+                      const overviewKey = r2Key.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+                      const presignRes = await fetch(`/api/cloud-upload?service=r2&action=presign&filename=${encodeURIComponent(overviewKey)}&contentType=image/png&exact=true`);
+                      if (presignRes.ok) {
+                        const { presignedUrl, publicUrl } = await presignRes.json();
+                        await fetch(presignedUrl, { method: 'PUT', body: imgBlob, headers: { 'Content-Type': 'image/png' } });
+                        layer.overviewUrl = publicUrl;
+                        if (layer._geotiffTileLayer) layer._geotiffTileLayer.options.overviewUrl = publicUrl;
+                        console.log(`[R2 Overview] ✓ Overview estándar (${cb}) asociado a ${overviewKey}`);
+                        return;
+                      }
+                    }
                   }
-                }
+                } catch (_) {}
               }
             } catch (_) {}
           }
