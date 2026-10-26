@@ -9462,9 +9462,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rBand, 0, 1, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gBand, 0, 1, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bBand, 0, 1, px);
-                const isReflectance = (sR.maxV <= 2.5);
-                const gain = isReflectance ? 2.8 : (1.0 / (sR.maxV || 1.0)) * 2.5;
-                const gamma = 0.5;
+                const gamma = 0.82;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -9475,21 +9473,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
                     d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
-                    if (isReflectance) {
-                      const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
-                      const gNorm = Math.pow(Math.max(0, Math.min(1, g * gain)), gamma);
-                      const bNorm = Math.pow(Math.max(0, Math.min(1, b * gain)), gamma);
-                      d[pi]     = Math.round(rNorm * 255);
-                      d[pi + 1] = Math.round(gNorm * 255);
-                      d[pi + 2] = Math.round(bNorm * 255);
-                    } else {
-                      const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                      const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                      const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
-                      d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
-                      d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
-                      d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
-                    }
+                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                    d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
+                    d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
+                    d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
                     d[pi + 3] = 255;
                   }
                 }
@@ -9498,9 +9487,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawF, 0, 3, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawF, 1, 3, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawF, 2, 3, px);
-                const isReflectance = (sR.maxV <= 2.5);
-                const gain = isReflectance ? 2.8 : (1.0 / (sR.maxV || 1.0)) * 2.5;
-                const gamma = 0.5;
+                const gamma = 0.82;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -9511,21 +9498,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
                     d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
-                    if (isReflectance) {
-                      const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
-                      const gNorm = Math.pow(Math.max(0, Math.min(1, g * gain)), gamma);
-                      const bNorm = Math.pow(Math.max(0, Math.min(1, b * gain)), gamma);
-                      d[pi]     = Math.round(rNorm * 255);
-                      d[pi + 1] = Math.round(gNorm * 255);
-                      d[pi + 2] = Math.round(bNorm * 255);
-                    } else {
-                      const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                      const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                      const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
-                      d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
-                      d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
-                      d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
-                    }
+                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
+                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
+                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                    d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
+                    d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
+                    d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
                     d[pi + 3] = 255;
                   }
                 }
@@ -9658,13 +9636,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const bits = baseImg.fileDirectory?.BitsPerSample?.[0] || 8;
             const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
 
-            // Fast-path instantáneo (0ms) para reflectancia Float32 (Landsat / Sentinel)
+            // Fast-path instantáneo (0ms) calibrado para reflectancia de superficie (Landsat / Sentinel)
             if (sampleFormat === 3 || bits === 32) {
               this._globalStats = {
                 isRgb: isRgbRender,
-                r: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true },
-                g: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true },
-                b: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true }
+                r: { p2: 0.012, p98: 0.165, rng: 0.153, maxV: 1.0, shouldStretch: true },
+                g: { p2: 0.017, p98: 0.125, rng: 0.108, maxV: 1.0, shouldStretch: true },
+                b: { p2: 0.011, p98: 0.095, rng: 0.084, maxV: 1.0, shouldStretch: true }
               };
               return this._globalStats;
             }
