@@ -9,8 +9,8 @@ const R2_BUCKET = process.env.R2_BUCKET || 'prueba';
 const R2_PUBLIC_URL = (process.env.R2_PUBLIC_URL || 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev').replace(/\/+$/, '');
 
 function getS3Client() {
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID || '5f90de3800b130b184aea0c525abea2c';
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || 'a8340e4256fe9b935f3dfe3f645250ce39310f0fbf479b2a0273cddefa882074';
+  const accessKeyId = '5f90de3800b130b184aea0c525abea2c';
+  const secretAccessKey = 'a8340e4256fe9b935f3dfe3f645250ce39310f0fbf479b2a0273cddefa882074';
   if (!accessKeyId || !secretAccessKey) return null;
 
   return new S3Client({
