@@ -9420,8 +9420,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 for (let i = 0; i < px; i++) {
                   const r = rBand[i], g = gBand[i], b = bBand[i];
                   const pi = i * 4;
-                  if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
-                    d[pi + 3] = 0;
+                  if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
+                    d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
                     if (isReflectance) {
                       const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
@@ -9456,8 +9456,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 for (let i = 0; i < px; i++) {
                   const r = rawF[i * 3], g = rawF[i * 3 + 1], b = rawF[i * 3 + 2];
                   const pi = i * 4;
-                  if (isNaN(r) || !isFinite(r) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r === 0 && g === 0 && b === 0) || r <= -9990 || r >= 1e30) {
-                    d[pi + 3] = 0;
+                  if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
+                    d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
                     if (isReflectance) {
                       const rNorm = Math.pow(Math.max(0, Math.min(1, r * gain)), gamma);
@@ -9591,10 +9591,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (this._globalStats) return this._globalStats;
         if (this._globalStatsPromise) return this._globalStatsPromise;
 
-        console.log('[_getGlobalStats starting for layer]');
         this._globalStatsPromise = (async () => {
           try {
-            console.log('[_getGlobalStats inside async body]');
             const baseImg = this.pyramid.levels[0];
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
             let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
@@ -9602,6 +9600,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
             }
             const isRgbRender = bandsToUse.length >= 3;
+            const bits = baseImg.fileDirectory?.BitsPerSample?.[0] || 8;
+            const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
+
+            // Fast-path instantáneo (0ms) para reflectancia Float32 (Landsat / Sentinel)
+            if (sampleFormat === 3 || bits === 32) {
+              this._globalStats = {
+                isRgb: isRgbRender,
+                r: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true },
+                g: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true },
+                b: { p2: 0.01, p98: 0.29, rng: 0.28, maxV: 1.0, shouldStretch: true }
+              };
+              return this._globalStats;
+            }
+
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
             const isYCbCr = (photometric === 6);
             const noDataValue = this.geo.noDataValue;
@@ -9761,7 +9773,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   canvas.height = img.naturalHeight;
                   const ctx = canvas.getContext('2d');
                   ctx.drawImage(img, 0, 0);
-                  console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada desde Cloudflare R2:', candidateOverviewUrl);
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  const d = imgData.data;
+                  let hasBlack = false;
+                  for (let i = 0; i < d.length; i += 4) {
+                    if (d[i] === 0 && d[i+1] === 0 && d[i+2] === 0) {
+                      d[i+3] = 0;
+                      hasBlack = true;
+                    }
+                  }
+                  if (hasBlack) ctx.putImageData(imgData, 0, 0);
+                  console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada con transparencia:', candidateOverviewUrl);
                   this._quickOverview = { canvas, width: canvas.width, height: canvas.height, fullW, fullH };
                   return this._quickOverview;
                 }
@@ -9923,7 +9945,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       },
       
       createTile: function(coords, done) {
-        console.log('[GeoTIFFTile createTile]', coords.z, coords.x, coords.y);
         const tile = document.createElement('canvas');
         tile.width = this.options.tileSize;
         tile.height = this.options.tileSize;
@@ -9931,7 +9952,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this._renderTile(tile, coords).then(() => {
           done(null, tile);
         }).catch((err) => {
-          console.warn('[GeoTIFFTile] Error:', coords, err);
           done(err, tile);
         });
         
@@ -9953,7 +9973,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         const paddedGeoBounds = geoBounds.pad ? geoBounds.pad(0.01) : geoBounds;
         const intersects = tileBounds.intersects(paddedGeoBounds);
-        console.log('[GeoTIFFTile intersects?]', coords.z, coords.x, coords.y, intersects);
         if (!intersects) return;
         
         const baseLevel = this.pyramid.getBaseLevel();
@@ -9990,9 +10009,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
 
-        // Si el TIFF no tiene pirámides internas y estamos en zoom lejano (z <= 9 o ventana grande),
-        // dibujar desde la vista previa con recorte seguro para no desbordar coordenadas
-        if (this.pyramid.levels.length === 1 && (coords.z <= 9 || windowW > 384 || windowH > 384)) {
+        // Si el TIFF no tiene pirámides internas y estamos en zoom lejano (z <= 10 o ventana grande),
+        // dibujar desde la vista previa instantánea (0ms) con fondo 100% transparente
+        if (this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
           const ov = await this._getOrBuildOverview();
           if (ov && ov.canvas) {
             const ctx = tile.getContext('2d');
@@ -10033,14 +10052,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               lvlWndL, lvlWndT, lvlWndR, lvlWndB,
               fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
             _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          } catch(e) {
-            console.warn('[GeoTIFFTile] Dedup tile failed:', cacheKey);
-          }
+          } catch(e) {}
           return;
         }
         
         const noDataValue = this.geo.noDataValue;
-        console.log('[GeoTIFFTile calling _readAndProcessWindow]', coords.z, coords.x, coords.y, 'wnd:', lvlWndL, lvlWndT, windowW, windowH);
         const requestPromise = this._readAndProcessWindow(level, lvlWndL, lvlWndT, windowW, windowH, noDataValue);
         _tileRequests.set(requestKey, requestPromise);
         
@@ -10051,7 +10067,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
         } catch(e) {
-          console.warn('[GeoTIFFTile] Tile render failed:', cacheKey, e.message);
         } finally {
           _tileRequests.delete(requestKey);
         }
@@ -10060,13 +10075,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       _compositeToTile(tile, pixels, actualW, actualH,
         lvlWndL, lvlWndT, lvlWndR, lvlWndB,
         fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation) {
-        console.log('[GeoTIFFTile _compositeToTile]', actualW, actualH, 'pixels len:', pixels?.length);
         const ctx = tile.getContext('2d');
         const tileSize = this.options.tileSize;
         
         const expectedLen = 4 * actualW * actualH;
         if (!pixels || pixels.length !== expectedLen) {
-          console.warn('[Composite] Invalid pixel data:', pixels?.length, 'vs expected', expectedLen);
           return;
         }
         const imgData = new ImageData(pixels, actualW, actualH);
@@ -10074,6 +10087,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         tempCanvas.width = actualW;
         tempCanvas.height = actualH;
         const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.clearRect(0, 0, actualW, actualH);
         tempCtx.putImageData(imgData, 0, 0);
         
         const srcX = 0;
@@ -10097,7 +10111,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
         try {
-          console.log('[readWindow start]', wndL, wndT, windowW, windowH);
           const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
           let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
           if (!bandsToUse || bandsToUse.length === 0) {
@@ -10105,56 +10118,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
           const isRgbRender = bandsToUse.length >= 3;
           
-          let raw = null;
           let actualW = windowW;
           let actualH = windowH;
 
-          if (windowW > 256 || windowH > 256) {
-            try {
-              const downW = 256;
-              const downH = 256;
-              raw = await level.readRasters({
-                window: [wndL, wndT, wndL + windowW, wndT + windowH],
-                width: downW,
-                height: downH,
-                samples: bandsToUse,
-                interleave: isRgbRender
-              });
-              actualW = downW;
-              actualH = downH;
-              console.log('[readWindow downsample ok]', wndL, wndT, actualW, actualH);
-            } catch (downErr) {
-              console.log('[readWindow downsample err]', downErr.message);
-              raw = null;
-            }
-          }
-
-          console.log('[readWindow getting stats...]', wndL, wndT);
-          const [readRaw, globalStats] = await Promise.all([
-            raw ? Promise.resolve(raw) : level.readRasters({
+          // 100% Native Resolution sin perder ni un solo pixel de calidad
+          const [raw, globalStats] = await Promise.all([
+            level.readRasters({
               window: [wndL, wndT, wndL + windowW, wndT + windowH],
               samples: bandsToUse,
               interleave: isRgbRender
             }),
             this._getGlobalStats()
           ]);
-          raw = readRaw;
-          console.log('[readWindow got stats]', wndL, wndT, 'globalStats:', !!globalStats);
           
           const isArrayOfBands = Array.isArray(raw);
           const firstBand = isArrayOfBands ? raw[0] : raw;
           const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
           const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
           
-          console.log('[readWindow processing pixels...]', wndL, wndT);
           const pixels = await processPixelsAsync(
             raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
           );
           
-          console.log('[readWindow SUCCESS]', wndL, wndT, actualW, actualH, pixels ? pixels.length : null);
           return { pixels, actualW, actualH };
         } catch(err) {
-          console.error('[readWindow ERROR]', wndL, wndT, err.message, err.stack);
           throw err;
         }
       },
@@ -11363,6 +11350,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           console.log('[R2 Overview] No se pudo generar canvas para overview, omitiendo.');
           return;
         }
+
+        // Garantizar transparencia total para píxeles negros / NoData en el overview
+        const cCtx = canvas.getContext('2d');
+        const idata = cCtx.getImageData(0, 0, canvas.width, canvas.height);
+        const cd = idata.data;
+        let changed = false;
+        for (let i = 0; i < cd.length; i += 4) {
+          if (cd[i] === 0 && cd[i+1] === 0 && cd[i+2] === 0) {
+            cd[i+3] = 0;
+            changed = true;
+          }
+        }
+        if (changed) cCtx.putImageData(idata, 0, 0);
 
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         if (!blob) return;
