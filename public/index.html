@@ -8147,6 +8147,34 @@ async function deleteFromCloud(fileName, url, storagePath) {
         hideProgress();
         return;
       }
+
+      // Si es un GeoTIFF en la nube (.tif o .tiff), conectar directamente vía streaming sin descargar 600MB
+      const isCloudTiff = (name && name.match(/\.(tiff?)$/i)) || url.match(/\.(tiff?)$/i);
+      if (isCloudTiff && window.GeoTIFF && typeof showPreviewOverlay === 'function') {
+        showProgress(`Conectando ${name} desde Cloudflare R2...`, 40);
+        try {
+          const cloudLayer = {
+            id: ++idCounter,
+            name: name,
+            type: 'raster',
+            visible: true,
+            opacity: 1,
+            storageUrl: url,
+            serverFilename: name,
+            format: 'GeoTIFF',
+            lossless: true
+          };
+          state.layers.unshift(cloudLayer);
+          updateLayersSidebar();
+          await showPreviewOverlay(cloudLayer, name, { maxSize: 0 });
+          hideProgress();
+          toast(`✓ ${name} visualizado directamente desde Cloudflare R2`, 'success');
+          return;
+        } catch(cloudErr) {
+          console.warn('[LoadFromCloud] Stream directo falló, intentando descarga:', cloudErr);
+        }
+      }
+
       if (_cloudFileCache.has(url)) {
           console.log(`[Cache] Usando archivo cacheado para ${url}`);
           const cachedFile = _cloudFileCache.get(url);
@@ -9719,28 +9747,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const tilesY = Math.ceil(fullH / tileH);
               const tbc = baseImg.fileDirectory?.TileByteCounts;
 
-              // Paso 1:1 tesela a tesela para garantizar geometría exacta y cero deformación de bloques
+              // Vista previa ultra-rápida por cuadrícula suave (< 1 segundo sin bloquear el hilo)
               const thumbW = 512;
               const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
               const canvas = document.createElement('canvas');
               canvas.width = thumbW;
               canvas.height = thumbH;
               const ctx = canvas.getContext('2d');
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
               
               const globalStats = await this._getGlobalStats();
 
-              for (let ty = 0; ty < tilesY; ty++) {
-                for (let tx = 0; tx < tilesX; tx++) {
-                  const tileIdx = ty * tilesX + tx;
-                  if (tbc && tbc[tileIdx] < 10000) continue; // Saltar teselas de fondo vacío
+              // Muestrear una cuadrícula de a lo sumo 4x8 = 32 puntos
+              const stepX = Math.max(1, Math.ceil(tilesX / 4));
+              const stepY = Math.max(1, Math.ceil(tilesY / 8));
 
+              const sampleTiles = [];
+              for (let ty = 0; ty < tilesY; ty += stepY) {
+                for (let tx = 0; tx < tilesX; tx += stepX) {
+                  const tileIdx = ty * tilesX + tx;
+                  if (tbc && tbc[tileIdx] < 10000) continue;
+                  sampleTiles.push({ tx, ty });
+                }
+              }
+
+              // Procesar en lotes concurrentes para máxima velocidad
+              const batchSize = 4;
+              for (let b = 0; b < sampleTiles.length; b += batchSize) {
+                const batch = sampleTiles.slice(b, b + batchSize);
+                await Promise.all(batch.map(async ({ tx, ty }) => {
                   const wndL = tx * tileW;
                   const wndT = ty * tileH;
                   const wndR = Math.min(fullW, (tx + 1) * tileW);
                   const wndB = Math.min(fullH, (ty + 1) * tileH);
-                  const tw = wndR - wndL;
-                  const th = wndB - wndT;
-                  if (tw <= 0 || th <= 0) continue;
                   try {
                     const downSize = 32;
                     const raw = await baseImg.readRasters({
@@ -9762,11 +9802,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     
                     const dx = (wndL / fullW) * thumbW;
                     const dy = (wndT / fullH) * thumbH;
-                    const dw = (tw / fullW) * thumbW;
-                    const dh = (th / fullH) * thumbH;
+                    const dw = Math.min(thumbW - dx, ((tileW * stepX) / fullW) * thumbW);
+                    const dh = Math.min(thumbH - dy, ((tileH * stepY) / fullH) * thumbH);
                     ctx.drawImage(tCan, dx, dy, dw, dh);
                   } catch(_) {}
-                }
+                }));
               }
               this._quickOverview = { canvas, width: thumbW, height: thumbH, fullW, fullH };
               return this._quickOverview;
@@ -11279,6 +11319,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layer.savingsPercent = 0;
         updateZtifBadgeUI(layer);
         if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+
+        // Si la capa local no pudo renderizarse en el mapa, inicializarla directamente desde Cloudflare R2
+        if (!layer.mapLayer && typeof showPreviewOverlay === 'function') {
+          console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2...');
+          await showPreviewOverlay(layer, key, { maxSize: 0 });
+        }
+        if (layer.bounds && state.map) {
+          state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 14, duration: 1 });
+        }
+
         toast(`✓ Subido a Cloudflare R2 (${mb} MB · disponible al instante)`, 'success');
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
           $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
@@ -13639,17 +13689,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         item.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-3 overflow-hidden cursor-pointer" onclick="openProperties(${layer.id})">
+        <div class="flex items-center gap-3 overflow-hidden cursor-pointer" onclick="zoomToLayer(${layer.id})" title="Haz clic para centrar en el mapa">
           <button class="flex items-center justify-center transition-colors ${layer.visible ? 'text-black' : 'text-zinc-300'}" 
             onclick="event.stopPropagation(); toggleVisibility(${layer.id})">
             <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' ${layer.visible ? 1 : 0}">${layer.visible ? 'visibility' : 'visibility_off'}</span>
           </button>
           <div class="flex flex-col truncate">
-            <span class="text-[11px] font-bold text-zinc-900 truncate uppercase tracking-tight" title="${layer.name}">${layer.name}</span>
+            <span class="text-[11px] font-bold text-zinc-900 truncate uppercase tracking-tight hover:underline" title="${layer.name}">${layer.name}</span>
             <span class="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">${isVector ? 'Vectores' : 'Raster'}</span>
           </div>
         </div>
         <div class="flex items-center gap-1">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
+            onclick="zoomToLayer(${layer.id}); event.stopPropagation();" title="Centrar mapa en esta capa">
+            <span class="material-symbols-outlined text-xs">center_focus_strong</span>
+          </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
             onclick="uploadLayerToCloud(${layer.id}); event.stopPropagation();" title="Subir a Nube">
             <span class="material-symbols-outlined text-xs">cloud_upload</span>
@@ -15135,9 +15189,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // Close menu on click anywhere
     window.addEventListener('click', hideContextMenu);
 
+    function zoomToLayer(layerId) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer) return;
+      if (layer.bounds && layer.bounds._southWest) {
+        state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 18, duration: 1.2 });
+      } else if (layer.bounds && layer.bounds.west != null) {
+        state.map.flyToBounds([[layer.bounds.south, layer.bounds.west], [layer.bounds.north, layer.bounds.east]], { padding: [40, 40], maxZoom: 18, duration: 1.2 });
+      } else if (layer.bounds && Array.isArray(layer.bounds)) {
+        state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 18, duration: 1.2 });
+      } else if (layer.mapLayer && typeof layer.mapLayer.getBounds === 'function') {
+        state.map.flyToBounds(layer.mapLayer.getBounds(), { padding: [40, 40], maxZoom: 18, duration: 1.2 });
+      }
+    }
+    window.zoomToLayer = zoomToLayer;
+
     function ctxZoomToLayer() {
-      const layer = state.layers.find(l => l.id === state.ctxLayerId);
-      if (layer && layer.bounds) state.map.fitBounds(layer.bounds, { padding: [40, 40] });
+      zoomToLayer(state.ctxLayerId);
     }
 
     function ctxRenameLayer() {
