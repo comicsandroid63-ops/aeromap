@@ -1813,6 +1813,20 @@ const { attachCollab } = require('./server/collab');
 const httpServer = http.createServer(app);
 attachCollab(httpServer);
 
+// Servidor auxiliar en puerto 8089 para compatibilidad si el usuario abre en ese puerto
+if (Number(PORT) !== 8089) {
+  try {
+    const auxServer = http.createServer(app);
+    attachCollab(auxServer);
+    auxServer.listen(8089, () => {
+      console.log('[auxServer] Servidor Express también activo en http://localhost:8089');
+    });
+    auxServer.on('error', (err) => {
+      console.log('[auxServer 8089] No disponible:', err.message);
+    });
+  } catch (_) {}
+}
+
 httpServer.listen(PORT, () => {
   console.log(`Servidor en http://localhost:${PORT} — MODO CLOUD-ONLY | STREAMING LOSSLESS (COG chunked ≤25MB, objetos ≤30MB) | scale 1.0 sin perder píxel | WS /collab-ws`);
   console.log('[collab] WebSocket de colaboración activo en ws://localhost:%s/collab-ws', PORT);
