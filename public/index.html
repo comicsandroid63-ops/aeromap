@@ -9182,45 +9182,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
     
     const _tileCache = new TileLRUCache(1024);
     const _tileRequests = new Map();
-
-    // Semáforo limitador de concurrencia para peticiones HTTP Range de teselas nativas
-    // Evita la saturación del pool de conexiones del navegador (máx 4 activas simultáneas)
-    const _rasterQueue = [];
-    let _activeRasterReads = 0;
-    const MAX_CONCURRENT_RASTER_READS = 4;
-
-    function runWithRasterLimiter(fn, isCancelled) {
-      return new Promise((resolve, reject) => {
-        const execute = async () => {
-          if (isCancelled && isCancelled()) {
-            resolve(null);
-            if (_rasterQueue.length > 0) {
-              const next = _rasterQueue.shift();
-              next();
-            }
-            return;
-          }
-          _activeRasterReads++;
-          try {
-            const res = await fn();
-            resolve(res);
-          } catch (err) {
-            reject(err);
-          } finally {
-            _activeRasterReads--;
-            if (_rasterQueue.length > 0) {
-              const next = _rasterQueue.shift();
-              next();
-            }
-          }
-        };
-        if (_activeRasterReads < MAX_CONCURRENT_RASTER_READS) {
-          execute();
-        } else {
-          _rasterQueue.push(execute);
-        }
-      });
-    }
     
     const _rawTileLRU = new Map();
     const _rawTileInflight = new Map();
@@ -9914,31 +9875,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         tile.width = this.options.tileSize;
         tile.height = this.options.tileSize;
         
-        let doneCalled = false;
-        const markDone = (err) => {
-          if (!doneCalled) {
-            doneCalled = true;
-            done(err, tile);
-          }
-        };
-
-        this._renderTile(tile, coords, markDone).then(() => {
-          markDone(null);
+        this._renderTile(tile, coords).then(() => {
+          done(null, tile);
         }).catch((err) => {
-          markDone(err);
+          done(err, tile);
         });
         
         return tile;
       },
       
-      async _renderTile(tile, coords, markDone = () => {}) {
+      async _renderTile(tile, coords) {
         const tileSize = this.options.tileSize;
         const cacheKey = `${this._layerUid}_${coords.z}_${coords.x}_${coords.y}`;
         const cached = _tileCache.get(cacheKey);
         if (cached && cached.nodeType === 1 && cached.getContext) {
           const ctx = tile.getContext('2d');
           ctx.drawImage(cached, 0, 0);
-          markDone(null);
           return;
         }
         
@@ -9947,10 +9899,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         const paddedGeoBounds = geoBounds.pad ? geoBounds.pad(0.01) : geoBounds;
         const intersects = tileBounds.intersects(paddedGeoBounds);
-        if (!intersects) {
-          markDone(null);
-          return;
-        }
+        if (!intersects) return;
         
         const baseLevel = this.pyramid.getBaseLevel();
         const nw = tileBounds.getNorthWest();
@@ -9969,10 +9918,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const fullWindowW = fullWndR - fullWndL;
         const fullWindowH = fullWndB - fullWndT;
         
-        if (fullWindowW <= 0 || fullWindowH <= 0) {
-          markDone(null);
-          return;
-        }
+        if (fullWindowW <= 0 || fullWindowH <= 0) return;
         
         const decimation = Math.max(1, Math.floor(Math.max(fullWindowW / tileSize, fullWindowH / tileSize)));
         const levelInfo = this.pyramid.getLevelForDecimation(decimation);
@@ -9981,7 +9927,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const levelDecimation = levelInfo.decimation;
         if (fullWndR <= 0 || fullWndL >= levelInfo.width * levelDecimation ||
             fullWndB <= 0 || fullWndT >= levelInfo.height * levelDecimation) {
-          markDone(null);
           return;
         }
         
@@ -9993,10 +9938,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let windowW = lvlWndR - lvlWndL;
         let windowH = lvlWndB - lvlWndT;
         
-        if (windowW <= 0 || windowH <= 0) {
-          markDone(null);
-          return;
-        }
+        if (windowW <= 0 || windowH <= 0) return;
 
         // 1. RENDERIZADO PROGRESIVO INSTANTÁNEO (0 ms):
         // Dibuja de inmediato el sector desde la vista general (overview) para eliminar cualquier pantalla en blanco o parpadeo
@@ -10027,16 +9969,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
               drewPreview = true;
-              markDone(null); // Notificar de inmediato a Leaflet que la tesela ya es visible
             }
           }
         } catch (_) {}
 
-        // En niveles de zoom bajo/medio (z <= 13), el overview ya proporciona máxima fidelidad
-        // y evita lecturas masivas no decimadas de rasters Float32 que saturan el pool HTTP del navegador
-        if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 13 || windowW > 120 || windowH > 120)) {
+        // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
+        if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          markDone(null);
           return;
         }
         
@@ -10052,36 +9991,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               lvlWndL, lvlWndT, lvlWndR, lvlWndB,
               fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
             _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-            markDone(null);
           } catch(e) {}
           return;
         }
         
-        const isTileObsolete = () => {
-          if (!tile || tile.isConnected === false) return true;
-          if (this._map && Math.round(this._map.getZoom()) !== coords.z) return true;
-          return false;
-        };
-
-        if (isTileObsolete()) {
-          return;
-        }
-        
         const noDataValue = this.geo.noDataValue;
-        const requestPromise = this._readAndProcessWindow(level, lvlWndL, lvlWndT, windowW, windowH, noDataValue, isTileObsolete);
+        const requestPromise = this._readAndProcessWindow(level, lvlWndL, lvlWndT, windowW, windowH, noDataValue);
         _tileRequests.set(requestKey, requestPromise);
         
         try {
           const res = await requestPromise;
-          if (!res || !res.pixels) return;
-          if (isTileObsolete()) return;
           await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
             lvlWndL, lvlWndT, lvlWndR, lvlWndB,
             fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          markDone(null);
         } catch(e) {
-          markDone(e);
         } finally {
           _tileRequests.delete(requestKey);
         }
@@ -10143,58 +10067,56 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         ctx.drawImage(tempCanvas, srcX, srcY, actualW, actualH, destX, destY, destW, destH);
       },
       
-      async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue, isCancelled) {
-        return runWithRasterLimiter(async () => {
-          try {
-            const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
-            let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
-            if (!bandsToUse || bandsToUse.length === 0) {
-              bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
-            }
-            const isRgbRender = bandsToUse.length >= 3;
-            
-            let actualW = windowW;
-            let actualH = windowH;
+      async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
+        try {
+          const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
+          let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+          if (!bandsToUse || bandsToUse.length === 0) {
+            bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
+          }
+          const isRgbRender = bandsToUse.length >= 3;
+          
+          let actualW = windowW;
+          let actualH = windowH;
 
-            // Decodificación acelerada en paralelo utilizando Workers dedicados si están disponibles
-            let raw = null;
-            const pool = getGeoTIFFWorkerPool();
-            if (pool) {
-              try {
-                raw = await level.readRasters({
-                  window: [wndL, wndT, wndL + windowW, wndT + windowH],
-                  samples: bandsToUse,
-                  interleave: isRgbRender,
-                  pool
-                });
-              } catch (_) {
-                raw = null;
-              }
-            }
-            if (!raw) {
+          // Decodificación acelerada en paralelo utilizando Workers dedicados si están disponibles
+          let raw = null;
+          const pool = getGeoTIFFWorkerPool();
+          if (pool) {
+            try {
               raw = await level.readRasters({
                 window: [wndL, wndT, wndL + windowW, wndT + windowH],
                 samples: bandsToUse,
-                interleave: isRgbRender
+                interleave: isRgbRender,
+                pool
               });
+            } catch (_) {
+              raw = null;
             }
-
-            const globalStats = await this._getGlobalStats();
-            
-            const isArrayOfBands = Array.isArray(raw);
-            const firstBand = isArrayOfBands ? raw[0] : raw;
-            const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
-            const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-            
-            const pixels = await processPixelsAsync(
-              raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
-            );
-            
-            return { pixels, actualW, actualH };
-          } catch(err) {
-            throw err;
           }
-        }, isCancelled);
+          if (!raw) {
+            raw = await level.readRasters({
+              window: [wndL, wndT, wndL + windowW, wndT + windowH],
+              samples: bandsToUse,
+              interleave: isRgbRender
+            });
+          }
+
+          const globalStats = await this._getGlobalStats();
+          
+          const isArrayOfBands = Array.isArray(raw);
+          const firstBand = isArrayOfBands ? raw[0] : raw;
+          const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
+          const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+          
+          const pixels = await processPixelsAsync(
+            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
+          );
+          
+          return { pixels, actualW, actualH };
+        } catch(err) {
+          throw err;
+        }
       },
       
       _geoToPixelBase(lng, lat) {
