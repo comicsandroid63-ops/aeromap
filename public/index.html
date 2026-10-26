@@ -9186,6 +9186,21 @@ async function deleteFromCloud(fileName, url, storagePath) {
     const _rawTileLRU = new Map();
     const _rawTileInflight = new Map();
 
+    let _geotiffWorkerPool = null;
+    function getGeoTIFFWorkerPool() {
+      if (_geotiffWorkerPool) return _geotiffWorkerPool;
+      try {
+        if (window.GeoTIFF && typeof window.GeoTIFF.Pool === 'function') {
+          const cores = Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4)));
+          _geotiffWorkerPool = new window.GeoTIFF.Pool(cores);
+          return _geotiffWorkerPool;
+        }
+      } catch (e) {
+        console.warn('[GeoTIFF] Worker pool initialization fallback:', e);
+      }
+      return null;
+    }
+
     function patchGeoTIFFImage(img) {
       if (!img || img._sparsePatched) return img;
       img._sparsePatched = true;
@@ -9232,7 +9247,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
           try {
             const res = await fetchPromise;
             if (res && res.data) {
-              if (_rawTileLRU.size >= 512) {
+              if (_rawTileLRU.size >= 1024) {
                 const oldest = _rawTileLRU.keys().next().value;
                 _rawTileLRU.delete(oldest);
               }
@@ -9590,7 +9605,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         maxZoom: 28,
         opacity: 1,
         bounds: null,
-        bands: null
+        bands: null,
+        updateWhenIdle: false,
+        updateInterval: 50,
+        keepBuffer: 6
       },
       
       setBands: function(bands) {
@@ -9928,9 +9946,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
 
-        // Si el TIFF no tiene pirámides internas y estamos en zoom lejano (z <= 10 o ventana grande),
-        // dibujar desde la vista previa instantánea (0ms) con fondo 100% transparente
-        if (this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
+        // 1. RENDERIZADO PROGRESIVO INSTANTÁNEO (0 ms):
+        // Dibuja de inmediato el sector desde la vista general (overview) para eliminar cualquier pantalla en blanco o parpadeo
+        let drewPreview = false;
+        try {
           const ov = await this._getOrBuildOverview();
           if (ov && ov.canvas) {
             const ctx = tile.getContext('2d');
@@ -9955,19 +9974,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ctx.imageSmoothingEnabled = true;
               ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
-              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-              return;
+              drewPreview = true;
             }
           }
+        } catch (_) {}
+
+        // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
+        if (this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
+          if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+          return;
         }
         
+        // 2. STREAMING EN ALTA RESOLUCIÓN NATIVA (100% Sin Pérdida):
+        // Descarga y procesa teselas exactas desde Cloudflare R2 vía HTTP Range Request
         const levelIdx = this.pyramid.levelInfo.indexOf(levelInfo);
         const requestKey = `${this._layerUid}_${levelIdx}_${lvlWndL}_${lvlWndT}_${lvlWndR}_${lvlWndB}`;
         
         if (_tileRequests.has(requestKey)) {
           try {
             const res = await _tileRequests.get(requestKey);
-            this._compositeToTile(tile, res.pixels, res.actualW, res.actualH, 
+            await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH, 
               lvlWndL, lvlWndT, lvlWndR, lvlWndB,
               fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
             _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
@@ -9981,7 +10007,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         try {
           const res = await requestPromise;
-          this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
+          await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
             lvlWndL, lvlWndT, lvlWndR, lvlWndB,
             fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
@@ -9991,7 +10017,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       },
       
-      _compositeToTile(tile, pixels, actualW, actualH,
+      async _compositeToTile(tile, pixels, actualW, actualH,
         lvlWndL, lvlWndT, lvlWndR, lvlWndB,
         fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation) {
         const ctx = tile.getContext('2d');
@@ -10001,13 +10027,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!pixels || pixels.length !== expectedLen) {
           return;
         }
-        const imgData = new ImageData(pixels, actualW, actualH);
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = actualW;
-        tempCanvas.height = actualH;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.clearRect(0, 0, actualW, actualH);
-        tempCtx.putImageData(imgData, 0, 0);
         
         const srcX = 0;
         const srcY = 0;
@@ -10025,11 +10044,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         ctx.webkitImageSmoothingEnabled = false;
         ctx.msImageSmoothingEnabled = false;
         tile.style.imageRendering = 'pixelated';
-        ctx.drawImage(tempCanvas,
-          srcX, srcY, actualW, actualH,
-          Math.round(dstL * scaleX), Math.round(dstT * scaleY),
-          Math.ceil(dstW * scaleX), Math.ceil(dstH * scaleY)
-        );
+
+        const destX = Math.round(dstL * scaleX);
+        const destY = Math.round(dstT * scaleY);
+        const destW = Math.ceil(dstW * scaleX);
+        const destH = Math.ceil(dstH * scaleY);
+
+        // Aceleración GPU mediante ImageBitmap para evitar cuello de botella en CPU
+        if (typeof createImageBitmap === 'function') {
+          try {
+            const imgData = new ImageData(pixels, actualW, actualH);
+            const bitmap = await createImageBitmap(imgData);
+            ctx.clearRect(destX, destY, destW, destH);
+            ctx.drawImage(bitmap, srcX, srcY, actualW, actualH, destX, destY, destW, destH);
+            bitmap.close();
+            return;
+          } catch (_) {}
+        }
+
+        const imgData = new ImageData(pixels, actualW, actualH);
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = actualW;
+        tempCanvas.height = actualH;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.clearRect(0, 0, actualW, actualH);
+        tempCtx.putImageData(imgData, 0, 0);
+        ctx.clearRect(destX, destY, destW, destH);
+        ctx.drawImage(tempCanvas, srcX, srcY, actualW, actualH, destX, destY, destW, destH);
       },
       
       async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
@@ -10044,15 +10085,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           let actualW = windowW;
           let actualH = windowH;
 
-          // 100% Native Resolution sin perder ni un solo pixel de calidad
-          const [raw, globalStats] = await Promise.all([
-            level.readRasters({
+          // Decodificación acelerada en paralelo utilizando Workers dedicados si están disponibles
+          let raw = null;
+          const pool = getGeoTIFFWorkerPool();
+          if (pool) {
+            try {
+              raw = await level.readRasters({
+                window: [wndL, wndT, wndL + windowW, wndT + windowH],
+                samples: bandsToUse,
+                interleave: isRgbRender,
+                pool
+              });
+            } catch (_) {
+              raw = null;
+            }
+          }
+          if (!raw) {
+            raw = await level.readRasters({
               window: [wndL, wndT, wndL + windowW, wndT + windowH],
               samples: bandsToUse,
               interleave: isRgbRender
-            }),
-            this._getGlobalStats()
-          ]);
+            });
+          }
+
+          const globalStats = await this._getGlobalStats();
           
           const isArrayOfBands = Array.isArray(raw);
           const firstBand = isArrayOfBands ? raw[0] : raw;
@@ -10648,7 +10704,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           } else if (fileUrl instanceof Blob && (fileUrl.name?.endsWith('.gz') || fileUrl.type === 'application/gzip')) {
             target = await decompressGzip(fileUrl);
           }
-          const tiff = (target instanceof Blob) ? await GeoTIFF.fromBlob(target) : await GeoTIFF.fromUrl(target);
+          const tiff = (target instanceof Blob)
+            ? await GeoTIFF.fromBlob(target)
+            : await GeoTIFF.fromUrl(target, {
+                blockSize: 256 * 1024, // 256 KB por bloque coalescido (ideal para Cloudflare R2 / HTTP Range / HTTP2)
+                cacheSize: 1024,       // Caché de hasta 256 MB de bloques en RAM para 0-latency al volver a explorar
+                headers: {
+                  'Cache-Control': 'max-age=31536000, immutable'
+                }
+              });
           const image = await tiff.getImage();
           const imageCount = await tiff.getImageCount();
           const overviews = [];
