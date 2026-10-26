@@ -9174,9 +9174,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
       }
     }
     
-    const _tileCache = new TileLRUCache(512);
+    const _tileCache = new TileLRUCache(1024);
     const _tileRequests = new Map();
     
+    const _rawTileLRU = new Map();
+    const _rawTileInflight = new Map();
+
     function patchGeoTIFFImage(img) {
       if (!img || img._sparsePatched) return img;
       img._sparsePatched = true;
@@ -9204,7 +9207,35 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const numBytes = tileW * tileH * (this.planarConfiguration === 2 ? 1 : samplesPerPixel) * bytesPerSample;
             return { x: t, y: e, sample: r, data: new ArrayBuffer(numBytes) };
           }
-          return origGetTileOrStrip.call(this, t, e, r, i);
+
+          const offsetKey = (this.fileDirectory?.TileOffsets ? this.fileDirectory.TileOffsets[s] : s) || `${t}_${e}_${r}`;
+          if (_rawTileLRU.has(offsetKey)) {
+            const hit = _rawTileLRU.get(offsetKey);
+            _rawTileLRU.delete(offsetKey);
+            _rawTileLRU.set(offsetKey, hit);
+            return { x: hit.x, y: hit.y, sample: hit.sample, data: hit.data.slice(0) };
+          }
+
+          if (_rawTileInflight.has(offsetKey)) {
+            const hit = await _rawTileInflight.get(offsetKey);
+            return { x: hit.x, y: hit.y, sample: hit.sample, data: hit.data.slice(0) };
+          }
+
+          const fetchPromise = origGetTileOrStrip.call(this, t, e, r, i);
+          _rawTileInflight.set(offsetKey, fetchPromise);
+          try {
+            const res = await fetchPromise;
+            if (res && res.data) {
+              if (_rawTileLRU.size >= 512) {
+                const oldest = _rawTileLRU.keys().next().value;
+                _rawTileLRU.delete(oldest);
+              }
+              _rawTileLRU.set(offsetKey, { x: res.x, y: res.y, sample: res.sample, data: res.data.slice(0) });
+            }
+            return res;
+          } finally {
+            _rawTileInflight.delete(offsetKey);
+          }
         };
       }
       return img;
