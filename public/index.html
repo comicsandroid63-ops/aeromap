@@ -229,7 +229,12 @@
       image-rendering: auto;
     }
     .leaflet-tile {
-      image-rendering: auto !important;
+      image-rendering: auto;
+    }
+    canvas.leaflet-tile,
+    .geotiff-crisp-tile {
+      image-rendering: pixelated !important;
+      image-rendering: crisp-edges !important;
     }
     .leaflet-tile-container img {
       outline: none !important;
@@ -238,7 +243,8 @@
       padding: 1px !important;
     }
     .crisp-tiles .leaflet-tile {
-      image-rendering: auto;
+      image-rendering: pixelated !important;
+      image-rendering: crisp-edges !important;
     }
 
     /* Layer card styling */
@@ -9804,16 +9810,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   canvas.height = img.naturalHeight;
                   const ctx = canvas.getContext('2d');
                   ctx.drawImage(img, 0, 0);
-                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                  const d = imgData.data;
-                  let hasBlack = false;
-                  for (let i = 0; i < d.length; i += 4) {
-                    if (d[i] === 0 && d[i+1] === 0 && d[i+2] === 0) {
-                      d[i+3] = 0;
-                      hasBlack = true;
-                    }
-                  }
-                  if (hasBlack) ctx.putImageData(imgData, 0, 0);
                   console.log('[GeoTIFFTile] ✓ Vista general (overview) cargada con transparencia:', candidateOverviewUrl);
                   this._quickOverview = { canvas, width: canvas.width, height: canvas.height, fullW, fullH };
                   return this._quickOverview;
@@ -9977,6 +9973,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       createTile: function(coords, done) {
         const tile = document.createElement('canvas');
+        tile.className = 'geotiff-crisp-tile';
+        tile.style.imageRendering = 'pixelated';
         tile.width = this.options.tileSize;
         tile.height = this.options.tileSize;
         
@@ -10030,10 +10028,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const level = levelInfo.image;
         
         const levelDecimation = levelInfo.decimation;
-        const lvlWndL = Math.max(0, Math.floor(fullWndL / levelDecimation));
-        const lvlWndT = Math.max(0, Math.floor(fullWndT / levelDecimation));
-        const lvlWndR = Math.min(levelInfo.width, Math.ceil(fullWndR / levelDecimation));
-        const lvlWndB = Math.min(levelInfo.height, Math.ceil(fullWndB / levelDecimation));
+        if (fullWndR <= 0 || fullWndL >= levelInfo.width * levelDecimation ||
+            fullWndB <= 0 || fullWndT >= levelInfo.height * levelDecimation) {
+          return;
+        }
+        
+        const lvlWndL = Math.max(0, Math.min(levelInfo.width - 1, Math.floor(fullWndL / levelDecimation)));
+        const lvlWndT = Math.max(0, Math.min(levelInfo.height - 1, Math.floor(fullWndT / levelDecimation)));
+        let lvlWndR = Math.max(lvlWndL + 1, Math.min(levelInfo.width, Math.ceil(fullWndR / levelDecimation)));
+        let lvlWndB = Math.max(lvlWndT + 1, Math.min(levelInfo.height, Math.ceil(fullWndB / levelDecimation)));
         
         let windowW = lvlWndR - lvlWndL;
         let windowH = lvlWndB - lvlWndT;
@@ -10132,11 +10135,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const scaleX = tileSize / (fullWndR - fullWndL);
         const scaleY = tileSize / (fullWndB - fullWndT);
         
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        ctx.imageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.msImageSmoothingEnabled = false;
+        tile.style.imageRendering = 'pixelated';
         ctx.drawImage(tempCanvas,
           srcX, srcY, actualW, actualH,
-          dstL * scaleX, dstT * scaleY, dstW * scaleX, dstH * scaleY
+          Math.round(dstL * scaleX), Math.round(dstT * scaleY),
+          Math.ceil(dstW * scaleX), Math.ceil(dstH * scaleY)
         );
       },
       
@@ -11381,19 +11388,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           console.log('[R2 Overview] No se pudo generar canvas para overview, omitiendo.');
           return;
         }
-
-        // Garantizar transparencia total para píxeles negros / NoData en el overview
-        const cCtx = canvas.getContext('2d');
-        const idata = cCtx.getImageData(0, 0, canvas.width, canvas.height);
-        const cd = idata.data;
-        let changed = false;
-        for (let i = 0; i < cd.length; i += 4) {
-          if (cd[i] === 0 && cd[i+1] === 0 && cd[i+2] === 0) {
-            cd[i+3] = 0;
-            changed = true;
-          }
-        }
-        if (changed) cCtx.putImageData(idata, 0, 0);
 
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         if (!blob) return;
