@@ -187,7 +187,44 @@ app.post('/api/zip-to-rgb', (req, res) => {
         const vsizipPaths = bandNames.map(b => `${vsizip}/${b.replace(/\\/g, '/')}`);
         await exec(path.join(GDAL_PATH, 'gdalbuildvrt.exe'), ['-resolution', 'highest', '-srcnodata', '0', '-vrtnodata', '0', '-separate', vrtPath, ...vsizipPaths], { env: gdalEnv, timeout: 120000 });
 
-        let translateArgs = [vrtPath, mergedPath, '-a_nodata', '0', '-of', 'COG', '-co', 'COMPRESS=DEFLATE', '-co', 'PREDICTOR=2', '-co', 'OVERVIEW_COMPRESS=DEFLATE', '-co', 'OVERVIEW_RESAMPLING=NEAREST', '-co', 'OVERVIEWS=AUTO', '-co', 'OVERVIEW_COUNT=6', '-co', 'NUM_THREADS=ALL_CPUS', '-co', 'BIGTIFF=IF_SAFER', '-co', 'RESAMPLING=NEAREST'];
+        let sourceForCog = vrtPath;
+
+        // Check if it's Landsat 7 (LE07) and fill gaps using Python
+        if (originalName && originalName.includes('LE07')) {
+          console.log('[zip-to-rgb] Landsat 7 detected. Applying gap fill interpolation...');
+          optimizationJobs.set(savedAs, { status: 'processing', phase: 'gapfill', progress: 30, message: 'Aplicando interpolación de líneas Landsat 7...' });
+          const tempRawPath = path.join(tmpDir, 'raw.tif');
+          const tempFilledPath = path.join(tmpDir, 'filled.tif');
+          try {
+            await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), [
+              vrtPath, tempRawPath,
+              '-co', 'COMPRESS=DEFLATE',
+              '-co', 'NUM_THREADS=ALL_CPUS'
+            ], { env: gdalEnv, timeout: 120000 });
+            const { stdout } = await exec('python', ['patch_landsat_gaps.py', tempRawPath, tempFilledPath], { timeout: 300000 });
+            console.log('[zip-to-rgb] Gap fill output:', stdout);
+            sourceForCog = tempFilledPath;
+          } catch (err) {
+            console.error('[zip-to-rgb] Gap fill failed:', err.message);
+          }
+        }
+
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'cog', progress: 50, message: 'Generando Cloud Optimized GeoTIFF con 6 pirámides...' });
+        let translateArgs = [
+          sourceForCog, mergedPath,
+          '-a_nodata', '0',
+          '-of', 'COG',
+          '-co', 'COMPRESS=DEFLATE',
+          '-co', 'PREDICTOR=2',
+          '-co', 'BLOCKSIZE=256',
+          '-co', 'OVERVIEW_COMPRESS=DEFLATE',
+          '-co', 'OVERVIEW_RESAMPLING=NEAREST',
+          '-co', 'OVERVIEWS=AUTO',
+          '-co', 'OVERVIEW_COUNT=6',
+          '-co', 'NUM_THREADS=ALL_CPUS',
+          '-co', 'BIGTIFF=IF_SAFER',
+          '-co', 'RESAMPLING=NEAREST'
+        ];
         if (bandNames.length === 3) {
           translateArgs.push('-colorinterp', 'red,green,blue');
         } else {
@@ -196,195 +233,173 @@ app.post('/api/zip-to-rgb', (req, res) => {
         await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), translateArgs, { env: gdalEnv, timeout: 600000 });
       }
 
-      // Check if it's Landsat 7 (LE07) and fill gaps using Python
-      if (originalName && originalName.includes('LE07')) {
-        console.log('[zip-to-rgb] Landsat 7 detected. Applying gap fill interpolation...');
-        const tempFilledPath = path.join(tmpDir, 'filled.tif');
-        try {
-          const { stdout, stderr } = await exec('python', ['patch_landsat_gaps.py', mergedPath, tempFilledPath], { timeout: 300000 });
-          console.log('[zip-to-rgb] Gap fill output:', stdout);
-          fs.copyFileSync(tempFilledPath, mergedPath);
-          console.log('[zip-to-rgb] Restoring overviews...');
-          await exec(path.join(GDAL_PATH, 'gdaladdo.exe'), ['-r', 'average', mergedPath, '2', '4', '8', '16', '32', '64', '128'], { env: gdalEnv, timeout: 120000 });
-        } catch (err) {
-          console.error('[zip-to-rgb] Gap fill failed:', err.message);
-        }
-      }
-
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
-      try { fs.unlinkSync(zipPath); } catch(_) {}
-
-      let metadata = { width: 0, height: 0, bands: 3, bounds: null };
-      try {
-        const sharp = require('sharp');
-        const info = await sharp(mergedPath).metadata();
-        metadata.width = info.width || 0; metadata.height = info.height || 0; metadata.bands = info.channels || 3;
-      } catch(e) { console.warn('[zip-to-rgb] metadata:', e.message); }
+      const baseName = savedAs.replace(/\.tif$/i, '');
+      let metadata = { width: 0, height: 0, bands: bandNames.length || 3, bounds: null };
       try {
         const infoResult = await exec(path.join(GDAL_PATH, 'gdalinfo.exe'), ['-json', mergedPath], { env: gdalEnv, timeout: 30000 });
         const info = JSON.parse(infoResult.stdout);
+        if (info.size) { metadata.width = info.size[0]; metadata.height = info.size[1]; }
+        if (info.bands) metadata.bands = info.bands.length;
         if (info.wgs84Extent?.coordinates?.[0]?.length >= 4) {
           const coords = info.wgs84Extent.coordinates[0];
           metadata.bounds = { west: Math.min(...coords.map(c => c[0])), south: Math.min(...coords.map(c => c[1])), east: Math.max(...coords.map(c => c[0])), north: Math.max(...coords.map(c => c[1])) };
         } else if (info.cornerCoordinates) {
           metadata.bounds = { west: info.cornerCoordinates.upperLeft[0], south: info.cornerCoordinates.lowerRight[1], east: info.cornerCoordinates.lowerRight[0], north: info.cornerCoordinates.upperLeft[1] };
         }
-      } catch(e) { console.warn('[zip-to-rgb] bounds:', e.message); }
+      } catch(e) { console.warn('[zip-to-rgb] metadata:', e.message); }
 
-      // ─── PIPELINE STREAMING LOSSLESS (COG chunked + vsisparse) ───
-      // No se exprime la imagen en un solo archivo ≤30MB (imposible sin perder
-      // píxeles en GBs). Cada objeto en nube ≤25MB; el visor lee por tiles HTTP Range.
-      const {
-        ensureStreamingCOG, buildPreview, splitFile, buildSparseManifest,
-        extractBounds: _extractBounds, uploadStreamToR2, toFwd: _toFwd,
-        fmtMB: _fmtMB, safeUnlink: _safeUnlink, CHUNK_BYTES: _CHUNK,
-      } = require('./server/lib/cog-stream');
-
-      const uid = req.query.user_id || 'guest';
-      const pid = req.query.project_id || '';
-      const cloudPrefix = (uid && pid) ? `${uid}/${pid}` : 'guest';
-      const baseName = savedAs.replace(/\.tif$/i, '');
-      const streamCog = path.join(UPLOADS, baseName + '_stream.tif');
-      let sparseUrl = null, previewUrl = null, sidecarUrl = null;
-      let allRemote = false;
-      let report = { mode: 'cog_streaming_chunked', codec: null, lossless: true, scale: 1.0, verified: true, cloudReady: true, streaming: true };
-
+      // Generar Overview PNG transparente y de alta claridad
+      optimizationJobs.set(savedAs, { status: 'processing', phase: 'preview', progress: 75, message: 'Generando vista general panorámica con transparencia...' });
+      const overviewName = baseName + '_overview.png';
+      const overviewTif = path.join(tmpDir, 'overview_raw.tif');
+      const overviewLocal = path.join(tmpDir, overviewName);
+      
       try {
-        optimizationJobs.set(savedAs, { status: 'processing', phase: 'cog', progress: 55, message: 'Generando COG lossless full-res (ni un píxel se pierde)...' });
-        const cogRes = await ensureStreamingCOG(mergedPath, streamCog, (m) => {
-          optimizationJobs.set(savedAs, { status: 'processing', phase: 'cog', progress: 58, message: m });
-        });
-        report.codec = cogRes.codec;
+        const rgbArgs = (metadata.bands >= 3) ? ['-b', '1', '-b', '2', '-b', '3'] : ['-b', '1', '-b', '1', '-b', '1'];
+        await exec(path.join(GDAL_PATH, 'gdal_translate.exe'), [
+          '-outsize', '512', '0',
+          '-r', 'average',
+          ...rgbArgs,
+          mergedPath,
+          overviewTif
+        ], { env: gdalEnv, timeout: 60000 });
 
-        const cogInfo = cogRes.info;
-        if (cogInfo.size) { metadata.width = cogInfo.size[0]; metadata.height = cogInfo.size[1]; }
-        if (cogInfo.bands) metadata.bands = cogInfo.bands.length;
-        const _b = _extractBounds(cogInfo);
-        if (_b) metadata.bounds = _b;
+        const sharp = require('sharp');
+        const { data: rawBuf, info: sharpInfo } = await sharp(overviewTif).raw().toBuffer({ resolveWithObject: true });
+        const w = sharpInfo.width, h = sharpInfo.height;
+        const numPixels = w * h;
+        const channels = sharpInfo.channels;
+        const outRgba = new Uint8ClampedArray(numPixels * 4);
 
-        // Vista previa liviana (solo referencia rápida, ~1-3MB)
-        optimizationJobs.set(savedAs, { status: 'processing', phase: 'preview', progress: 66, message: 'Generando vista previa liviana...' });
-        const previewName = baseName + '_preview.jpg';
-        const previewLocal = path.join(COMPRESSED, previewName);
-        fs.mkdirSync(COMPRESSED, { recursive: true });
-        report.previewBytes = await buildPreview(streamCog, previewLocal);
-
-        // Partir COG en chunks ≤25MB
-        optimizationJobs.set(savedAs, { status: 'processing', phase: 'split', progress: 70, message: `Partiendo COG ${_fmtMB(fs.statSync(streamCog).size)} en partes ≤25MB...` });
-        const { total, parts } = splitFile(streamCog, _CHUNK);
-
-        // Subir partes + preview por STREAM (sin cargar GBs en RAM)
-        const partKeys = parts.map((p) => `${cloudPrefix}/${baseName}/${path.basename(p.path)}`);
-        const chunkUrlsRemote = [];
-        let remoteCount = 0;
-        for (let i = 0; i < parts.length; i++) {
-          const up = await uploadStreamToR2(parts[i].path, partKeys[i], 'application/octet-stream');
-          if (up.remote) { remoteCount++; chunkUrlsRemote.push(up.url); }
-          else chunkUrlsRemote.push(null);
-          optimizationJobs.set(savedAs, { status: 'processing', phase: 'uploading', progress: 72 + Math.round(20 * (i + 1) / parts.length), message: `Subiendo parte ${i + 1}/${parts.length} (≤25MB c/u)...` });
-        }
-        const previewUp = await uploadStreamToR2(previewLocal, `${cloudPrefix}/${baseName}/${previewName}`, 'image/jpeg');
-        allRemote = remoteCount === parts.length && previewUp.remote;
-
-        let chunkUrlsFinal, previewUrlFinal, manifestLocal;
-        if (allRemote) {
-          chunkUrlsFinal = chunkUrlsRemote;
-          previewUrlFinal = previewUp.url;
+        let isFloat = false, is16Bit = false, inArray = null;
+        if (sharpInfo.depth === 'float' || sharpInfo.format === 'float' || rawBuf.byteLength === numPixels * channels * 4) {
+          isFloat = true;
+          inArray = new Float32Array(rawBuf.buffer, rawBuf.byteOffset, rawBuf.byteLength / 4);
+        } else if (sharpInfo.depth === 'ushort' || rawBuf.byteLength === numPixels * channels * 2) {
+          is16Bit = true;
+          inArray = new Uint16Array(rawBuf.buffer, rawBuf.byteOffset, rawBuf.byteLength / 2);
         } else {
-          // FALLBACK LOCAL temporal (R2 sin Write): chunks + preview en compressed/<base>/ (c/u ≤25MB).
-          // El manifiesto sparse referencia rutas de DISCO (GDAL las lee directo); la web-path solo identifica el manifiesto.
-          chunkUrlsFinal = parts.map((p) => {
-            const dest = path.join(COMPRESSED, baseName, path.basename(p.path));
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(p.path, dest);
-            return _toFwd(dest);
-          });
-          const previewDest = path.join(COMPRESSED, baseName, previewName);
-          fs.mkdirSync(path.dirname(previewDest), { recursive: true });
-          fs.copyFileSync(previewLocal, previewDest);
-          previewUrlFinal = '/compressed/' + baseName + '/' + previewName;
-          console.warn(`[zip-to-rgb] FALLBACK LOCAL temporal (R2 sin Write): ${parts.length} partes ≤25MB en compressed/${baseName}/ — corrija token R2 para nube real`);
+          inArray = new Uint8Array(rawBuf.buffer, rawBuf.byteOffset, rawBuf.byteLength);
         }
 
-        // Manifiesto sparse (KBs) con las URLs finales
-        const manifestXml = buildSparseManifest(total, parts.map((p, i) => ({ url: chunkUrlsFinal[i], offset: 0, length: p.length })));
-        const manifestName = baseName + '.sparse.xml';
-        manifestLocal = path.join(COMPRESSED, baseName, manifestName);
-        fs.mkdirSync(path.dirname(manifestLocal), { recursive: true });
-        fs.writeFileSync(manifestLocal, manifestXml);
-        if (allRemote) {
-          const mUp = await uploadStreamToR2(manifestLocal, `${cloudPrefix}/${baseName}/${manifestName}`, 'application/xml');
-          sparseUrl = mUp.remote ? mUp.url : ('/compressed/' + baseName + '/' + manifestName);
-          if (mUp.remote) { try { fs.unlinkSync(manifestLocal); } catch (_) {} }
-        } else {
-          sparseUrl = '/compressed/' + baseName + '/' + manifestName;
-        }
-        previewUrl = previewUrlFinal;
-
-        // Sidecar con metadata (KBs)
-        const sidecar = { version: 1, mode: 'cog_streaming_chunked', codec: report.codec, lossless: true, scale: 1.0, width: metadata.width, height: metadata.height, bands: metadata.bands, bounds: metadata.bounds, totalBytes: total, chunks: parts.length, chunkBytes: _CHUNK, manifest: sparseUrl, preview: previewUrl, createdAt: new Date().toISOString() };
-        const sidecarName = baseName + '.cog.json';
-        const sidecarLocal = path.join(COMPRESSED, baseName, sidecarName);
-        fs.writeFileSync(sidecarLocal, JSON.stringify(sidecar, null, 2));
-        if (allRemote) {
-          const sUp = await uploadStreamToR2(sidecarLocal, `${cloudPrefix}/${baseName}/${sidecarName}`, 'application/json');
-          sidecarUrl = sUp.remote ? sUp.url : ('/compressed/' + baseName + '/' + sidecarName);
-          if (sUp.remote) { try { fs.unlinkSync(sidecarLocal); } catch (_) {} }
-        } else {
-          sidecarUrl = '/compressed/' + baseName + '/' + sidecarName;
+        function getPercentiles(chan) {
+          const samples = [];
+          const step = Math.max(1, Math.floor(numPixels / 1000));
+          for (let i = 0; i < numPixels; i += step) {
+            const v = inArray[i * channels + chan];
+            if (!isNaN(v) && isFinite(v) && v > 0.0001 && v < 1e30) {
+              samples.push(v);
+            }
+          }
+          if (samples.length < 5) return { p2: 0, p98: isFloat ? 1 : (is16Bit ? 65535 : 255), rng: 1 };
+          samples.sort((a, b) => a - b);
+          const p2 = samples[Math.floor(samples.length * 0.02)];
+          const p98 = samples[Math.floor(samples.length * 0.98)];
+          return { p2, p98, rng: Math.max(1e-5, p98 - p2) };
         }
 
-        report.sizeBytes = total;
-        report.totalBytes = total;
-        report.chunks = parts.length;
+        const sR = getPercentiles(0);
+        const sG = getPercentiles(channels >= 2 ? 1 : 0);
+        const sB = getPercentiles(channels >= 3 ? 2 : 0);
+        const gamma = 0.70;
 
-        // Limpieza local TOTAL (nada queda en disco)
-        for (const p of parts) _safeUnlink(p.path);
-        _safeUnlink(streamCog);
-        _safeUnlink(streamCog + '.aux.xml');
-        _safeUnlink(mergedPath);
-        _safeUnlink(previewLocal);
-        _safeUnlink(previewLocal + '.aux.xml');
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
-        try { fs.unlinkSync(zipPath); } catch (_) {}
-        console.log(`[zip-to-rgb] ✓ STREAMING ${allRemote ? 'NUBE' : 'LOCAL-TEMP'}: ${parts.length}×≤25MB + sparse (${_fmtMB(total)} total, 100% píxeles, codec ${report.codec}) → ${sparseUrl}`);
-      } catch (e) {
-        console.warn('[zip-to-rgb] Background Error during streaming pipeline:', e.message);
-        try { if (mergedPath && fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch (_) {}
-        try { if (streamCog && fs.existsSync(streamCog)) fs.unlinkSync(streamCog); } catch (_) {}
-        optimizationJobs.set(savedAs, { status: 'failed', error: e.message, report });
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
-        try { fs.unlinkSync(zipPath); } catch (_) {}
-        return;
+        for (let i = 0; i < numPixels; i++) {
+          const r = inArray[i * channels];
+          const g = inArray[i * channels + (channels >= 2 ? 1 : 0)];
+          const b = inArray[i * channels + (channels >= 3 ? 2 : 0)];
+          const pi = i * 4;
+
+          if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001)) {
+            outRgba[pi] = 0; outRgba[pi + 1] = 0; outRgba[pi + 2] = 0; outRgba[pi + 3] = 0;
+          } else {
+            const nR = Math.max(0, Math.min(1, (r - sR.p2) / sR.rng));
+            const nG = Math.max(0, Math.min(1, (g - sG.p2) / sG.rng));
+            const nB = Math.max(0, Math.min(1, (b - sB.p2) / sB.rng));
+            outRgba[pi]     = Math.round(Math.pow(nR, gamma) * 255);
+            outRgba[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
+            outRgba[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
+            outRgba[pi + 3] = 255;
+          }
+        }
+
+        await sharp(outRgba, { raw: { width: w, height: h, channels: 4 } }).png().toFile(overviewLocal);
+      } catch (err) {
+        console.warn('[zip-to-rgb] overview generation error:', err.message);
       }
+
+      // Subida por streaming directo a Cloudflare R2
+      optimizationJobs.set(savedAs, { status: 'processing', phase: 'uploading', progress: 85, message: 'Subiendo COG con 6 overviews a Cloudflare R2...' });
+      const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+      const s3 = new S3Client({
+        region: 'auto',
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        }
+      });
+      const bucket = process.env.R2_BUCKET || 'prueba';
+      const publicUrl = process.env.R2_PUBLIC_URL || 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev';
+      const cogSize = fs.statSync(mergedPath).size;
+
+      // 1. Subir GeoTIFF optimizado (COG)
+      await s3.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: savedAs,
+        Body: fs.createReadStream(mergedPath),
+        ContentLength: cogSize,
+        ContentType: 'image/tiff'
+      }));
+      console.log(`[zip-to-rgb] ✓ Uploaded COG to R2: ${savedAs} (${(cogSize / 1048576).toFixed(2)} MB)`);
+
+      // 2. Subir Overview PNG con transparencia si se generó
+      let overviewUrl = null;
+      if (fs.existsSync(overviewLocal)) {
+        optimizationJobs.set(savedAs, { status: 'processing', phase: 'uploading', progress: 92, message: 'Subiendo vista general a Cloudflare R2...' });
+        const pngBuf = fs.readFileSync(overviewLocal);
+        await s3.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: overviewName,
+          Body: pngBuf,
+          ContentLength: pngBuf.length,
+          ContentType: 'image/png'
+        }));
+        overviewUrl = `${publicUrl}/${overviewName}`;
+        console.log(`[zip-to-rgb] ✓ Uploaded Overview PNG to R2: ${overviewName}`);
+      }
+
+      const cloudUrl = `${publicUrl}/${savedAs}`;
+
+      // Limpieza LOCAL TOTAL (regla del proyecto: nada pesado queda en public/uploads/)
+      try { if (fs.existsSync(mergedPath)) fs.unlinkSync(mergedPath); } catch (_) {}
+      try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (_) {}
+      try { if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+      console.log(`[zip-to-rgb] ✓ Archivos locales eliminados por completo (100% en la nube)`);
 
       optimizationJobs.set(savedAs, {
         status: 'completed',
         result: {
-          savedAs: baseName + '.sparse.xml',
-          fileUrl: sparseUrl,
-          cloudUrl: sparseUrl,
-          storageUrl: sparseUrl,
-          previewUrl,
-          sidecarUrl,
+          savedAs,
+          fileUrl: cloudUrl,
+          cloudUrl,
+          storageUrl: cloudUrl,
+          overviewUrl,
           metadata,
-          mode: report.mode,
-          codec: report.codec,
+          bounds: metadata.bounds,
+          width: metadata.width,
+          height: metadata.height,
+          bands: metadata.bands,
+          remote: true,
+          sizeBytes: cogSize,
+          mode: 'cog_multispectral_cloud',
+          codec: 'DEFLATE',
           scale: 1.0,
           lossless: true,
-          verified: true,
           cloudReady: true,
-          streaming: true,
-          chunked: true,
-          chunks: report.chunks,
-          remote: allRemote,
-          storageNote: allRemote ? 'nube' : 'local-temporal (R2 sin Write)',
-          totalBytes: report.sizeBytes,
-          sizeBytes: report.sizeBytes
+          streaming: true
         },
-        report,
         progress: 100,
-        message: `Streaming lossless ${report.codec} ${_fmtMB(report.sizeBytes)} en ${report.chunks} partes ≤25MB — abre por tiles, 0 descarga`
+        message: `Multiespectral 100% en la nube (Cloudflare R2) con 6 overviews (${(cogSize/1048576).toFixed(1)} MB)`
       });
     } catch (e) {
       console.error('[zip-to-rgb] Background Outer Error:', e);

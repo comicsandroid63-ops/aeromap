@@ -9636,8 +9636,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const bits = baseImg.fileDirectory?.BitsPerSample?.[0] || 8;
             const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
 
-            // Fast-path instantáneo (0ms) calibrado para reflectancia de superficie (Landsat / Sentinel)
-            if (sampleFormat === 3 || bits === 32) {
+            // Fast-path instantáneo (0ms) calibrado para Mosaico Cesar
+            const fileUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl || '';
+            const isCesarMosaic = typeof fileUrl === 'string' && fileUrl.includes('Mosaico_Cesar');
+            if (isCesarMosaic && (sampleFormat === 3 || bits === 32)) {
               this._globalStats = {
                 isRgb: isRgbRender,
                 r: { p2: 0.012, p98: 0.165, rng: 0.153, maxV: 1.0, shouldStretch: true },
@@ -28877,7 +28879,7 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
                   const meta = result.metadata || { width:0, height:0, bands:3, bounds:null };
                   const bbox = meta.bounds;
                   const bounds = bbox ? L.latLngBounds([bbox.south, bbox.west], [bbox.north, bbox.east]) : null;
-                  const layer = { id: ++idCounter, name: zipFile.name.replace(/\.zip$/i, '') + ' (Multibanda)', type: 'raster', visible: true, opacity: 1, blendMode: 'normal', mapLayer: null, _thumbOverlay: null, serverFilename: serverFilename, parts: null, storageUrl: cloudUrl || null, dbId: null, thumb: null, bounds: bounds, width: meta.width, height: meta.height, bands: meta.bands || finalEntries.length, renderer: 'multiband', rendererParams: { bands: renderBands, colormap: null, invert: false, classes: 5 }, _geotiffFileUrl: cloudUrl || `/uploads/${encodeURIComponent(serverFilename)}`, _bandStats: result.stats || null };
+                  const layer = { id: ++idCounter, name: zipFile.name.replace(/\.zip$/i, '') + ' (Multibanda)', type: 'raster', visible: true, opacity: 1, blendMode: 'normal', mapLayer: null, _thumbOverlay: null, serverFilename: serverFilename, parts: null, storageUrl: cloudUrl || null, dbId: null, thumb: null, bounds: bounds, width: meta.width, height: meta.height, bands: meta.bands || finalEntries.length, renderer: 'multiband', rendererParams: { bands: renderBands, colormap: null, invert: false, classes: 5 }, _geotiffFileUrl: cloudUrl || `/uploads/${encodeURIComponent(serverFilename)}`, overviewUrl: result.overviewUrl || (cloudUrl ? cloudUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png') : null), _bandStats: result.stats || null };
                   state.layers.unshift(layer);
                   if (serverFilename) addTileLayer(layer, serverFilename);
                   saveLayerToDatabase(layer);
