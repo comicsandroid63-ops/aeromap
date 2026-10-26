@@ -42,6 +42,14 @@
       "dest": "/api/upload.js?action=visualization"
     },
     {
+      "src": "/api/import-tiff",
+      "dest": "/api/upload.js?action=import-tiff"
+    },
+    {
+      "src": "/api/zip-to-rgb",
+      "dest": "/api/upload.js?action=zip-to-rgb"
+    },
+    {
       "src": "/api/render-preview/(.*)",
       "dest": "/api/dzi-generator.js"
     },

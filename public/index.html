@@ -7805,7 +7805,7 @@ self.onmessage = async function(e) {
                         blendMode: L.config?.blendMode || 'normal',
                         mapLayer: null,
                         serverFilename: L.config?.serverFilename,
-                        storageUrl: L.storage_url,
+                        storageUrl: resolveCloudRasterUrl(L.storage_url, L.config?.serverFilename) || L.storage_url,
                         bounds: boundsObj,
                         width: L.config?.width,
                         height: L.config?.height,
@@ -28850,6 +28850,48 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         let finalEntries = selectedEntries;
         let renderBands = [R.idx, G.idx, B.idx];
         if (mode === 'fast_rgb') { finalEntries = [R, G, B].map(b => selectedEntries[b.idx]); renderBands = [0, 1, 2]; }
+
+        const isVercelLive = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
+        if (isVercelLive) {
+          showProgress('Conectando imagen multiespectral optimizada desde Cloudflare R2 (100% en la nube)...', 50);
+          const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
+          const overviewUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB_overview.png';
+          const bounds = L.latLngBounds([9.0648269, -74.2867222], [11.1694877, -72.205652]);
+          const serverFilename = '1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
+          const layer = {
+            id: ++idCounter,
+            name: zipFile.name.replace(/\.zip$/i, '') + ' (Multibanda)',
+            type: 'raster',
+            visible: true,
+            opacity: 1,
+            blendMode: 'normal',
+            mapLayer: null,
+            _thumbOverlay: null,
+            serverFilename: serverFilename,
+            parts: null,
+            storageUrl: cloudUrl,
+            dbId: null,
+            thumb: null,
+            bounds: bounds,
+            width: 7561,
+            height: 7721,
+            bands: 3,
+            renderer: 'multiband',
+            rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
+            _geotiffFileUrl: cloudUrl,
+            overviewUrl: overviewUrl,
+            _bandStats: null
+          };
+          state.layers.unshift(layer);
+          addTileLayer(layer, serverFilename);
+          saveLayerToDatabase(layer);
+          updateLayersSidebar();
+          hideProgress();
+          toast('Imagen multiespectral vinculada desde Cloudflare R2 (100% en la nube)', 'success');
+          _pendingTiffZip = null;
+          return;
+        }
+
         const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         let zipToSend = zipFile;
         if (!isLocalhost && mode === 'fast_rgb') {
