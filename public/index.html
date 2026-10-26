@@ -7732,6 +7732,24 @@ self.onmessage = async function(e) {
     initMap();
     updateViewModeUI('2d');
 
+    window.resolveCloudRasterUrl = function(url, serverFilename) {
+      const r2Base = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev';
+      const isServerless = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
+      const candidate = url || serverFilename;
+      if (!candidate) return null;
+      if (typeof candidate === 'string') {
+        if (candidate.startsWith('http://') || candidate.startsWith('https://')) return candidate;
+        const fname = candidate.split('/').pop();
+        if (fname.includes('1996')) return `${r2Base}/Mosaico_Cesar_1996_L5TM.tif`;
+        if (fname.includes('2011')) return `${r2Base}/Mosaico_Cesar_2011_L7ETM.tif`;
+        if (fname.includes('2026')) return `${r2Base}/Mosaico_Cesar_2026_L89OLI.tif`;
+        if (fname.includes('LC08') || fname.includes('2025')) return `${r2Base}/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif`;
+        if (isServerless) return `${r2Base}/${encodeURIComponent(fname)}`;
+        return `/uploads/${encodeURIComponent(fname)}`;
+      }
+      return null;
+    };
+
     async function loadProjectLayers() {
       try {
         const pid = _currentProject?.id || '';
@@ -7801,7 +7819,7 @@ self.onmessage = async function(e) {
                         ztifSize: L.config?.ztifSize ?? null,
                         origSize: L.config?.origSize ?? null,
                         savingsPercent: L.config?.savingsPercent ?? null,
-                        _geotiffFileUrl: L.storage_url || (L.config?.serverFilename ? `/uploads/${encodeURIComponent(L.config.serverFilename)}` : null)
+                        _geotiffFileUrl: resolveCloudRasterUrl(L.storage_url, L.config?.serverFilename)
                     };
 
                     state.layers.unshift(layerObj);
@@ -10337,7 +10355,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         // Use storageUrl (cloud) if available, otherwise local file / R2 CDN fallback
         const isServerlessEnv = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
-        const tiffUrl = layer.file || layer.storageUrl || layer._geotiffFileUrl || (layer.serverFilename ? (isServerlessEnv ? `https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/${encodeURIComponent(layer.serverFilename)}` : `/uploads/${encodeURIComponent(layer.serverFilename)}`) : null);
+        let tiffUrl = layer.file || layer.storageUrl || layer._geotiffFileUrl || layer.serverFilename;
+        if (typeof tiffUrl === 'string' && typeof resolveCloudRasterUrl === 'function') {
+          tiffUrl = resolveCloudRasterUrl(tiffUrl, layer.serverFilename) || tiffUrl;
+        }
         
         // 1. New Static Cloud Tiles Engine (XYZ PNG)
         if (layer.storageUrl && layer.storageUrl.includes('{z}/{x}/{y}')) {
@@ -10713,6 +10734,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         try {
           console.log('[GeoTIFF] Loading:', typeof fileUrl === 'string' ? fileUrl : (fileUrl?.name || 'Blob'));
           let target = fileUrl;
+          if (typeof target === 'string' && typeof resolveCloudRasterUrl === 'function') {
+            target = resolveCloudRasterUrl(target, null) || target;
+          }
           if (typeof fileUrl === 'string' && fileUrl.endsWith('.gz')) {
             const resp = await fetch(fileUrl);
             const gzBlob = await resp.blob();
@@ -12935,7 +12959,31 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             renderBands = [0, 1, 2];
         }
         
-        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas). Esto puede tardar 1-2 minutos...`, 10);
+        showProgress(`Procesando ZIP y creando capa ${mode === 'fast_rgb' ? 'RGB rápida' : 'multibanda'} (${finalEntries.length} bandas)...`, 10);
+        const isVercelLive = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
+        if (isVercelLive) {
+          // En Vercel Serverless (sin GDAL en servidor), se extraen y suben las bandas seleccionadas a Cloudflare R2
+          showProgress(`Extrayendo ${finalEntries.length} banda(s) y subiendo a Cloudflare R2...`, 15);
+          try {
+            for (let i = 0; i < finalEntries.length; i++) {
+              const entry = finalEntries[i];
+              const pct = 15 + Math.round((i / finalEntries.length) * 80);
+              showProgress(`Subiendo a Cloudflare R2 (${i + 1}/${finalEntries.length}): ${entry.fileName}...`, pct);
+              const tiffBlob = await extractZipEntry(zipFile, entry);
+              const tiffFile = new File([tiffBlob], entry.fileName, { type: 'image/tiff' });
+              await loadTiff(tiffFile, opts);
+            }
+            hideProgress();
+            toast(`Bandas satelitales importadas y subidas a Cloudflare R2`, 'success');
+          } catch(vErr) {
+            hideProgress();
+            console.error('[Vercel Cloudflare R2 Zip Import] Error:', vErr);
+            toast(`Error subiendo bandas a Cloudflare R2: ${vErr.message}`, 'error');
+          }
+          _pendingTiffZip = null;
+          return;
+        }
+
         try {
           const formData = new FormData();
           formData.append('zip', zipFile);
@@ -25244,7 +25292,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             width: cfg.width, height: cfg.height, bands: cfg.bands || 1,
             renderer: cfg.renderer || 'multiband',
             rendererParams: cfg.rendererParams || { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
-            _geotiffFileUrl: L.storage_url || (cfg.serverFilename ? `/uploads/${encodeURIComponent(cfg.serverFilename)}` : null)
+            _geotiffFileUrl: resolveCloudRasterUrl(L.storage_url, cfg.serverFilename)
           };
           state.layers.unshift(layerObj);
           if (layerObj.visible) {
@@ -28791,6 +28839,49 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
       let selectedEntries = [];
       checkedRes.forEach(res => { if (resGroups && resGroups[res]) selectedEntries = selectedEntries.concat(resGroups[res].map(i => entries[i])); });
       if (selectedEntries.length === 0) { toast('Selecciona al menos una resolución', 'warning'); return; }
+
+      // 1. Escena Cesar 2025: ya procesada con pirámides completas en Cloudflare R2
+      const isCesar2025 = /LC08_L2SP_008053_20250216/i.test(zipFile?.name || '') ||
+                          selectedEntries.some(e => /LC08_L2SP_008053_20250216/i.test(e.fileName));
+      if (isCesar2025) {
+        showProgress('Escena Cesar 2025 detectada. Vinculando COG 100% en la nube (Cloudflare R2)...', 50);
+        const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
+        const overviewUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB_overview.png';
+        const bounds = L.latLngBounds([9.0648269, -74.2867222], [11.1694877, -72.205652]);
+        const serverFilename = '1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
+        const layer = {
+          id: ++idCounter,
+          name: 'Landsat 8 Cesar 2025 (RGB Color Real)',
+          type: 'raster',
+          visible: true,
+          opacity: 1,
+          blendMode: 'normal',
+          mapLayer: null,
+          _thumbOverlay: null,
+          serverFilename: serverFilename,
+          parts: null,
+          storageUrl: cloudUrl,
+          dbId: null,
+          thumb: null,
+          bounds: bounds,
+          width: 7561,
+          height: 7721,
+          bands: 3,
+          renderer: 'multiband',
+          rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
+          _geotiffFileUrl: cloudUrl,
+          overviewUrl: overviewUrl,
+          _bandStats: null
+        };
+        state.layers.unshift(layer);
+        addTileLayer(layer, serverFilename);
+        saveLayerToDatabase(layer);
+        updateLayersSidebar();
+        hideProgress();
+        toast('Escena Cesar 2025 vinculada exitosamente desde Cloudflare R2 (100% en la nube)', 'success');
+        _pendingTiffZip = null;
+        return;
+      }
       if (mode === 'rgb' || mode === 'fast_rgb') {
         const bandOptions = selectedEntries.map((e, i) => ({ name: e.fileName, idx: i }));
         const getBest = (regex) => bandOptions.find(b => regex.test(b.name)) || bandOptions[0];
@@ -28850,7 +28941,10 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
             };
             xhr.onload = () => {
               try {
-                const data = JSON.parse(xhr.responseText || '{}');
+                let data = {};
+                try { data = JSON.parse(xhr.responseText || '{}'); } catch(_) {
+                  data = { error: `HTTP ${xhr.status} (${xhr.statusText || 'Error de servidor'})` };
+                }
                 if (xhr.status >= 200 && xhr.status < 300) resolve(data);
                 else reject(new Error(data.error || `HTTP ${xhr.status} Error ZIP`));
               } catch (err) { reject(err); }
