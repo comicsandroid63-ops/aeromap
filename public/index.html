@@ -9826,142 +9826,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             const isRgbRender = bandsToUse.length >= 3;
 
-            const isTiled = !!(baseImg.fileDirectory && baseImg.fileDirectory.TileWidth);
-            if (isTiled) {
-              const tileW = baseImg.getTileWidth() || 256;
-              const tileH = baseImg.getTileHeight() || 256;
-              const tilesX = Math.ceil(fullW / tileW);
-              const tilesY = Math.ceil(fullH / tileH);
-              const tbc = baseImg.fileDirectory?.TileByteCounts;
-
-              const thumbW = 512;
-              const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
-              const canvas = document.createElement('canvas');
-              canvas.width = thumbW;
-              canvas.height = thumbH;
-              const ctx = canvas.getContext('2d');
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              
+            // Si el TIFF tiene pirámides internas, extraer la vista general más pequeña en una sola lectura:
+            if (this.pyramid.levels.length > 1) {
+              const ovImg = this.pyramid.levels[this.pyramid.levels.length - 1];
+              const ovW = ovImg.getWidth();
+              const ovH = ovImg.getHeight();
+              const raw = await ovImg.readRasters({ samples: bandsToUse, interleave: isRgbRender });
+              const isArr = Array.isArray(raw);
+              const fB = isArr ? raw[0] : raw;
+              const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
+              const photo = ovImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
               const globalStats = await this._getGlobalStats();
-
-              // Muestreo balanceado: a lo sumo 48 teselas
-              const maxSampleTiles = 48;
-              const totalTiles = tilesX * tilesY;
-              const step = Math.max(1, Math.ceil(Math.sqrt(totalTiles / maxSampleTiles)));
-              const stepX = step;
-              const stepY = step;
-
-              const sampleTiles = [];
-              for (let ty = 0; ty < tilesY; ty += stepY) {
-                for (let tx = 0; tx < tilesX; tx += stepX) {
-                  const tileIdx = ty * tilesX + tx;
-                  if (tbc && tbc[tileIdx] < 1000) continue;
-                  sampleTiles.push({ tx, ty });
-                }
-              }
-
-              // Procesar en lotes concurrentes para fluidez
-              const batchSize = 6;
-              for (let b = 0; b < sampleTiles.length; b += batchSize) {
-                const batch = sampleTiles.slice(b, b + batchSize);
-                await Promise.all(batch.map(async ({ tx, ty }) => {
-                  const wndL = tx * tileW;
-                  const wndT = ty * tileH;
-                  const wndR = Math.min(fullW, (tx + 1) * tileW);
-                  const wndB = Math.min(fullH, (ty + 1) * tileH);
-                  try {
-                    const downSize = 32;
-                    const raw = await baseImg.readRasters({
-                      window: [wndL, wndT, wndR, wndB],
-                      samples: bandsToUse,
-                      width: downSize,
-                      height: downSize,
-                      interleave: isRgbRender
-                    });
-                    const isArr = Array.isArray(raw);
-                    const fB = isArr ? raw[0] : raw;
-                    const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
-                    const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-                    const px = await processPixelsAsync(raw, downSize, downSize, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
-                    const tCan = document.createElement('canvas');
-                    tCan.width = downSize;
-                    tCan.height = downSize;
-                    tCan.getContext('2d').putImageData(new ImageData(px, downSize, downSize), 0, 0);
-                    
-                    const dx = (wndL / fullW) * thumbW;
-                    const dy = (wndT / fullH) * thumbH;
-                    const dw = Math.min(thumbW - dx, ((tileW * stepX) / fullW) * thumbW);
-                    const dh = Math.min(thumbH - dy, ((tileH * stepY) / fullH) * thumbH);
-                    ctx.drawImage(tCan, dx, dy, dw, dh);
-                  } catch(_) {}
-                }));
-              }
-              this._quickOverview = { canvas, width: thumbW, height: thumbH, fullW, fullH };
+              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
+              const canvas = document.createElement('canvas');
+              canvas.width = ovW;
+              canvas.height = ovH;
+              canvas.getContext('2d').putImageData(new ImageData(px, ovW, ovH), 0, 0);
+              this._quickOverview = { canvas, width: ovW, height: ovH, fullW, fullH };
               return this._quickOverview;
             }
 
-            const targetH = Math.min(96, fullH);
-            const targetW = Math.min(192, fullW);
-            const rowStep = Math.max(1, Math.floor(fullH / targetH));
-            const colStep = Math.max(1, Math.floor(fullW / targetW));
-            
-            const rowsRead = [];
-            for (let r = 0; r < fullH; r += rowStep) {
-              try {
-                const row = await baseImg.readRasters({
-                  window: [0, r, fullW, r + 1],
-                  samples: bandsToUse,
-                  interleave: false
-                });
-                rowsRead.push(row);
-                if (rowsRead.length >= targetH) break;
-              } catch (_) { break; }
-            }
-            
-            if (rowsRead.length === 0) return null;
-            
-            const actualH = rowsRead.length;
-            const actualW = Math.ceil(fullW / colStep);
-            const firstBandSample = Array.isArray(rowsRead[0]) ? rowsRead[0][0] : rowsRead[0];
-            const ArrCtor = firstBandSample ? firstBandSample.constructor : Float32Array;
-            
-            const subRaw = isRgbRender ? [
-              new ArrCtor(actualW * actualH),
-              new ArrCtor(actualW * actualH),
-              new ArrCtor(actualW * actualH)
-            ] : new ArrCtor(actualW * actualH);
-            
-            for (let y = 0; y < actualH; y++) {
-              const rowBands = rowsRead[y];
-              for (let x = 0; x < actualW; x++) {
-                const srcX = Math.min(x * colStep, fullW - 1);
-                const dstIdx = y * actualW + x;
-                if (isRgbRender) {
-                  subRaw[0][dstIdx] = rowBands[0][srcX];
-                  subRaw[1][dstIdx] = rowBands[1][srcX];
-                  subRaw[2][dstIdx] = rowBands[2][srcX];
-                } else {
-                  const b0 = Array.isArray(rowBands) ? rowBands[0] : rowBands;
-                  subRaw[dstIdx] = b0[srcX];
-                }
-              }
-            }
-            
-            const isByte = (ArrCtor === Uint8Array || ArrCtor === Uint8ClampedArray);
-            const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-            const globalStats = await this._getGlobalStats();
-            const pixels = await processPixelsAsync(subRaw, actualW, actualH, isRgbRender, isByte, isRgbRender, this.geo.noDataValue, photometric, globalStats);
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = actualW;
-            canvas.height = actualH;
-            const ctx = canvas.getContext('2d');
-            const imgData = new ImageData(pixels, actualW, actualH);
-            ctx.putImageData(imgData, 0, 0);
-            
-            this._quickOverview = { canvas, width: actualW, height: actualH, fullW, fullH };
-            return this._quickOverview;
+            return null;
           } catch (e) {
             console.warn('[GeoTIFFTile] Fast overview build warning:', e);
             return null;
@@ -10489,9 +10374,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             
             if (geo && geo.image) {
-              const overviewUrl = (typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')))
+              const overviewUrl = layer.overviewUrl || ((typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')))
                 ? tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png')
-                : null;
+                : null);
               const tileLayer = L.geoTIFFTileLayer(geo, {
                 tileSize: 256,
                 maxNativeZoom: 24,
@@ -11375,12 +11260,41 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!canvas && clientGeo && clientGeo.image) {
           if (clientGeo.overviews && clientGeo.overviews.length > 0) {
             const ovLevel = clientGeo.overviews[clientGeo.overviews.length - 1];
-            const raw = await ovLevel.readRasters({ samples: [0, 1, 2], interleave: true });
-            const px = await processPixelsAsync(raw, ovLevel.getWidth(), ovLevel.getHeight(), true, false, false, clientGeo.noDataValue, clientGeo.photometric);
+            const samplesPerPixel = ovLevel.getSamplesPerPixel();
+            const bandsToUse = samplesPerPixel >= 3 ? [0, 1, 2] : [0];
+            const isRgb = bandsToUse.length >= 3;
+            const raw = await ovLevel.readRasters({ samples: bandsToUse, interleave: isRgb });
+            const isArr = Array.isArray(raw);
+            const fB = isArr ? raw[0] : raw;
+            const isByte = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
+            const photo = ovLevel.fileDirectory?.PhotometricInterpretation ?? clientGeo.photometric ?? (isRgb ? 2 : 1);
+            const px = await processPixelsAsync(raw, ovLevel.getWidth(), ovLevel.getHeight(), isRgb, isByte, isArr, clientGeo.noDataValue, photo);
             canvas = document.createElement('canvas');
             canvas.width = ovLevel.getWidth();
             canvas.height = ovLevel.getHeight();
             canvas.getContext('2d').putImageData(new ImageData(px, canvas.width, canvas.height), 0, 0);
+          } else {
+            // Reutilizar overview precalculado si ya existe en R2 para este mosaico
+            try {
+              const cleanBase = _safeCloudName(String(file.name || '').replace(/\.(tiff?|ztif)$/i, ''), 'raster');
+              const standardOvUrl = `https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/${cleanBase}_overview.png`;
+              const headCheck = await fetch(standardOvUrl, { method: 'HEAD' });
+              if (headCheck.ok) {
+                const imgBlob = await (await fetch(standardOvUrl)).blob();
+                if (imgBlob && imgBlob.size > 0) {
+                  const overviewKey = r2Key.replace(/\.(tiff?|ztif)$/i, '_overview.png');
+                  const presignRes = await fetch(`/api/cloud-upload?service=r2&action=presign&filename=${encodeURIComponent(overviewKey)}&contentType=image/png&exact=true`);
+                  if (presignRes.ok) {
+                    const { presignedUrl, publicUrl } = await presignRes.json();
+                    await fetch(presignedUrl, { method: 'PUT', body: imgBlob, headers: { 'Content-Type': 'image/png' } });
+                    layer.overviewUrl = publicUrl;
+                    if (layer._geotiffTileLayer) layer._geotiffTileLayer.options.overviewUrl = publicUrl;
+                    console.log(`[R2 Overview] ✓ Overview estándar asociado a ${overviewKey}`);
+                    return;
+                  }
+                }
+              }
+            } catch (_) {}
           }
         }
 
@@ -11425,7 +11339,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       try {
         console.log(`[R2 Upload] Subiendo ${file.name} (${mb} MB) directamente a Cloudflare R2...`);
-        _setCloudProgress(`Preparando subida a Cloudflare R2 (${mb} MB)...`, 5, 'Cloudflare R2');
+        _setCloudProgress(`Subiendo imagen completa a Cloudflare R2 (${mb} MB)...`, 5, 'Cloudflare R2');
 
         const { publicUrl, key } = await uploadFileToR2Direct(file, (pct) => {
           _setCloudProgress(`Subiendo a Cloudflare R2 (${pct}% de ${mb} MB)...`, 5 + Math.round(pct * 0.9), 'Cloudflare R2');
@@ -11456,10 +11370,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
 
-        // Si la capa local no pudo renderizarse en el mapa, inicializarla directamente desde Cloudflare R2
-        if (!layer.mapLayer && typeof showPreviewOverlay === 'function') {
+        // Limpiar cualquier capa previa temporal si existiera
+        if (layer._geotiffTileLayer) {
+          try { state.map.removeLayer(layer._geotiffTileLayer); } catch (_) {}
+          layer._geotiffTileLayer = null;
+        }
+        if (layer.mapLayer) {
+          try { state.map.removeLayer(layer.mapLayer); } catch (_) {}
+          layer.mapLayer = null;
+        }
+
+        // Inicializar la capa definitiva desde Cloudflare R2 con su overview transparente y teselado dinámico
+        if (typeof showPreviewOverlay === 'function') {
           console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2...');
-          await showPreviewOverlay(layer, key, { maxSize: 0 });
+          await showPreviewOverlay(layer, key, { maxSize: 0, skipFit: true });
         }
         if (layer.bounds && state.map) {
           state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 14, duration: 1 });
@@ -11475,6 +11399,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           $cloudUploadStatus.textContent = `Error R2: ${err.message}`;
         }
         toast('Subida a Cloudflare R2: ' + err.message, 'warning');
+
+        // Fallback local SOLO en caso de error de red / modo offline
+        if (!layer.mapLayer && clientGeo && layer.bounds && typeof L.geoTIFFTileLayer === 'function') {
+          try {
+            const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
+              tileSize: 256,
+              maxNativeZoom: 24,
+              maxZoom: 28,
+              opacity: layer.opacity ?? 1,
+              bounds: layer.bounds,
+              bands: layer.rendererParams?.bands
+            });
+            clientTileLayer.addTo(state.map);
+            layer._geotiffTileLayer = clientTileLayer;
+            layer.mapLayer = clientTileLayer;
+          } catch (_) {}
+        }
       } finally {
         hideProgress();
       }
@@ -11613,38 +11554,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       // Fit bounds immediately if client bounds are available
       if (clientBounds && !opts.skipFit) {
-        state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 22, animate: false });
+        state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 18, animate: true });
       }
 
-      // Renderizar capa GeoTIFF/ZTIF directamente desde el archivo cargado por el cliente
-      let activeGeo = clientGeo;
-      if (activeGeo && clientBounds && typeof L.geoTIFFTileLayer === 'function') {
-        try {
-          const clientTileLayer = L.geoTIFFTileLayer(activeGeo, {
-            tileSize: 256,
-            maxNativeZoom: 24,
-            maxZoom: 28,
-            opacity: layer.opacity ?? 1,
-            bounds: clientBounds,
-            bands: initialParams.bands
-          });
-          clientTileLayer.addTo(state.map);
-          layer._geotiffTileLayer = clientTileLayer;
-          layer.mapLayer = clientTileLayer;
-          console.log('[loadTiff] Capa de teselas GeoTIFF/ZTIF agregada exitosamente al mapa.');
-        } catch (cgErr) {
-          console.warn('[loadTiff] Client tile layer fallback:', cgErr);
-        }
-      }
-
-      hideProgress();
-      updateZtifBadgeUI(layer);
-      toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
-
-      // 3. BACKGROUND ZTIF OPTIMIZATION & CLOUD STORAGE SYNC (< 20 MB)
-      // "la pagina tiene que optimiazarlo antes de subirlo a la nube"
-      hideProgress();
-      if (!layer.storageUrl && !layer._tileSavedAs?.includes('_opt.ztif')) {
+      // Si la capa ya proviene de almacenamiento en la nube (restauración/proyecto), inicializar directamente
+      if (layer.storageUrl && typeof showPreviewOverlay === 'function') {
+        await showPreviewOverlay(layer, opts.serverFilename || file.name, { maxSize: 0, skipFit: opts.skipFit });
+        hideProgress();
+        updateZtifBadgeUI(layer);
+        toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
+      } else {
+        // Para archivos locales nuevos: NO montar capa previa con teselas incompletas o tablero de ajedrez.
+        // Se sube la versión completa del archivo a Cloudflare R2 y luego se conecta directamente.
+        hideProgress();
+        updateZtifBadgeUI(layer);
+        toast(`Subiendo ${file.name} a Cloudflare R2...`, 'info');
         optimizeAndUploadRasterToCloud(layer, file, clientGeo);
       }
     }
