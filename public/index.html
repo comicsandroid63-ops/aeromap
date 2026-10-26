@@ -9719,9 +9719,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const tilesY = Math.ceil(fullH / tileH);
               const tbc = baseImg.fileDirectory?.TileByteCounts;
 
-              // Paso igual en X y en Y para garantizar geometría 1:1 proporcional y cero deformación
-              const step = Math.max(1, Math.min(3, Math.round(Math.max(tilesX, tilesY) / 16)));
-              
+              // Paso 1:1 tesela a tesela para garantizar geometría exacta y cero deformación de bloques
               const thumbW = 512;
               const thumbH = Math.max(1, Math.round(thumbW * (fullH / fullW)));
               const canvas = document.createElement('canvas');
@@ -9731,8 +9729,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               
               const globalStats = await this._getGlobalStats();
 
-              for (let ty = 0; ty < tilesY; ty += step) {
-                for (let tx = 0; tx < tilesX; tx += step) {
+              for (let ty = 0; ty < tilesY; ty++) {
+                for (let tx = 0; tx < tilesX; tx++) {
                   const tileIdx = ty * tilesX + tx;
                   if (tbc && tbc[tileIdx] < 10000) continue; // Saltar teselas de fondo vacío
 
@@ -9764,8 +9762,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     
                     const dx = (wndL / fullW) * thumbW;
                     const dy = (wndT / fullH) * thumbH;
-                    const dw = ((tw * step) / fullW) * thumbW;
-                    const dh = ((th * step) / fullH) * thumbH;
+                    const dw = (tw / fullW) * thumbW;
+                    const dh = (th / fullH) * thumbH;
                     ctx.drawImage(tCan, dx, dy, dw, dh);
                   } catch(_) {}
                 }
@@ -11212,73 +11210,85 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
+    async function uploadFileToR2Direct(file, onProgress) {
+      const fileName = _safeCloudName(file.name || 'raster.tif', 'raster.tif');
+      const presignRes = await fetch(`/api/r2-upload?action=presign&filename=${encodeURIComponent(fileName)}&contentType=${encodeURIComponent(file.type || 'image/tiff')}`);
+      if (!presignRes.ok) {
+        const errJson = await presignRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP ${presignRes.status}`);
+      }
+      const data = await presignRes.json();
+      const { presignedUrl, publicUrl, key } = data;
+
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', presignedUrl, true);
+        if (file.type) xhr.setRequestHeader('Content-Type', file.type);
+        else xhr.setRequestHeader('Content-Type', 'image/tiff');
+
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable && typeof onProgress === 'function') {
+            const pct = Math.round((evt.loaded / evt.total) * 100);
+            onProgress(pct, evt.loaded, evt.total);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Error Cloudflare R2 (HTTP ${xhr.status})`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Error de conexión con Cloudflare R2. Revisa la política CORS del bucket prueba.'));
+        };
+
+        xhr.send(file);
+      });
+
+      return { publicUrl, key };
+    }
+
     async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
       if (!file || layer.storageUrl) return;
       const baseName = _safeCloudName(String(file.name || 'raster').replace(/\.(tiff?|img|vrt|ztif)$/i, ''), 'raster');
+      const mb = (file.size / 1048576).toFixed(1);
 
       try {
-        if (file.size <= CLOUD_MAX_BYTES) {
-          console.log(`[Optimizer] ${file.name}: ${(file.size / 1048576).toFixed(1)}MB ≤ 20MB. Subiendo bytes originales.`);
-          _setCloudProgress(`Sincronizando ${file.name} (${(file.size / 1048576).toFixed(1)} MB)...`, 20, 'Vercel Blob');
-          const { uid, pid } = _cloudUserProject();
-          const filename = `${baseName}_${Date.now().toString(36)}.${file.name.split('.').pop() || 'tif'}`;
-          const pathname = `${uid}/${pid}/rasters/${filename}`;
-          const cloudFile = file.type ? file : new File([file], file.name, { type: 'image/tiff' });
-          const blob = await uploadFileToBlob(cloudFile, pathname, ({ percentage }) => {
-            _setCloudProgress(`Subiendo ${file.name} (${Math.round(percentage || 0)}%)...`, 20 + Math.min(70, (percentage || 0) * 0.7), 'Vercel Blob');
-          });
-          layer.storageUrl = blob.url;
-          layer.serverFilename = filename;
-          layer._tileSavedAs = filename;
-          layer.parts = null;
-          layer.format = 'GeoTIFF';
-          layer.lossless = true;
-          layer.zeroLossVerified = true;
-          layer.ztifSize = file.size;
-          layer.origSize = file.size;
-          layer.savingsPercent = 0;
-          updateZtifBadgeUI(layer);
-          if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
-          toast(`✓ TIFF en la nube (${(file.size / 1048576).toFixed(1)} MB · bytes originales, sin pérdida)`, 'success');
-          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-            $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
-          }
-          return;
-        }
+        console.log(`[R2 Upload] Subiendo ${file.name} (${mb} MB) directamente a Cloudflare R2...`);
+        _setCloudProgress(`Preparando subida a Cloudflare R2 (${mb} MB)...`, 5, 'Cloudflare R2');
 
-        console.log(`[Optimizer] ${file.name}: ${(file.size / 1048576).toFixed(1)}MB > 20MB. COG lossless.`);
-        const result = await optimizeRasterLosslessToCloud(file, layer, clientGeo);
-        layer.storageUrl = result.storageUrl;
-        layer.serverFilename = result.mode === 'single' ? result.parts[0].filename : result.partNames[0];
-        layer._tileSavedAs = layer.serverFilename;
-        layer.parts = result.mode === 'parts' ? result.partNames : null;
+        const { publicUrl, key } = await uploadFileToR2Direct(file, (pct) => {
+          _setCloudProgress(`Subiendo a Cloudflare R2 (${pct}% de ${mb} MB)...`, 5 + Math.round(pct * 0.9), 'Cloudflare R2');
+          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+            $cloudUploadStatus.textContent = `Subiendo a R2: ${pct}%`;
+          }
+        });
+
+        layer.storageUrl = publicUrl;
+        layer.serverFilename = key;
+        layer._tileSavedAs = key;
+        layer.parts = null;
         layer.format = 'GeoTIFF';
         layer.lossless = true;
         layer.zeroLossVerified = true;
-        layer.ztifSize = result.totalBytes;
+        layer.ztifSize = file.size;
         layer.origSize = file.size;
-        layer.savingsPercent = file.size > 0 ? Math.max(0, Math.round((1 - result.totalBytes / file.size) * 100)) : 0;
-        layer.width = result.width || layer.width;
-        layer.height = result.height || layer.height;
+        layer.savingsPercent = 0;
         updateZtifBadgeUI(layer);
         if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
-        if (result.mode === 'parts') {
-          toast(`✓ TIFF dividido en ${result.partNames.length} partes sin pérdida (<20 MB c/u · 100% de píxeles)`, 'success');
-        } else {
-          toast(`✓ TIFF optimizado sin pérdida (${(result.totalBytes / 1048576).toFixed(1)} MB · 100% de píxeles)`, 'success');
-        }
+        toast(`✓ Subido a Cloudflare R2 (${mb} MB · disponible al instante)`, 'success');
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          const detail = result.mode === 'parts'
-            ? `${result.partNames.length} partes · ${(result.totalBytes / 1048576).toFixed(1)} MB total`
-            : `${(result.totalBytes / 1048576).toFixed(1)} MB`;
-          $cloudUploadStatus.textContent = `¡Optimización sin pérdida completada! ${detail}`;
+          $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
         }
       } catch (err) {
-        console.error('[Optimizer] Error:', err);
+        console.error('[R2 Upload] Error:', err);
         if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Error al optimizar: ${err.message}`;
+          $cloudUploadStatus.textContent = `Error R2: ${err.message}`;
         }
-        toast('Error al optimizar el TIFF: ' + err.message, 'error');
+        toast('Subida a Cloudflare R2: ' + err.message, 'warning');
       } finally {
         hideProgress();
       }
