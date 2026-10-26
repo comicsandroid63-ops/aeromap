@@ -11212,7 +11212,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function uploadFileToR2Direct(file, onProgress) {
       const fileName = _safeCloudName(file.name || 'raster.tif', 'raster.tif');
-      const presignRes = await fetch(`/api/r2-upload?action=presign&filename=${encodeURIComponent(fileName)}&contentType=${encodeURIComponent(file.type || 'image/tiff')}`);
+      const presignRes = await fetch(`/api/cloud-upload?service=r2&action=presign&filename=${encodeURIComponent(fileName)}&contentType=${encodeURIComponent(file.type || 'image/tiff')}`);
       if (!presignRes.ok) {
         const errJson = await presignRes.json().catch(() => ({}));
         throw new Error(errJson.error || `HTTP ${presignRes.status}`);
