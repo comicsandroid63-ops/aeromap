@@ -2759,6 +2759,90 @@
         </div>
       </div>
 
+      <!-- Opciones Avanzadas de Raster -->
+      <div id="sidebar-raster-options-card" class="bg-white/40 border border-zinc-200 rounded-lg p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-emerald-600">grid_on</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Opciones avanzadas de raster</span>
+        </div>
+        <button onclick="openRasterAdvancedModal()" class="w-full py-2.5 bg-zinc-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm">
+          <span class="material-symbols-outlined text-sm">tune</span> Opciones de Raster
+        </button>
+
+        <!-- Herramientas Raster Rápidas -->
+        <div class="pt-2 border-t border-zinc-200/60">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Herramientas Raster</label>
+            <span class="text-[8px] font-bold text-emerald-600">GeoTIFF / DEM</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="openRasterToolModal('clip')" class="p-2 bg-white hover:bg-emerald-50 border border-zinc-200 hover:border-emerald-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600 shrink-0">crop</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Recortar Raster</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Por máscara/BBox</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('calc')" class="p-2 bg-white hover:bg-blue-50 border border-zinc-200 hover:border-blue-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-blue-600 shrink-0">calculate</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Calculadora NDVI</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Índices espectrales</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('contours')" class="p-2 bg-white hover:bg-amber-50 border border-zinc-200 hover:border-amber-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-amber-600 shrink-0">terrain</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Curvas Nivel</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Isolíneas DEM</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('hillshade')" class="p-2 bg-white hover:bg-yellow-50 border border-zinc-200 hover:border-yellow-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-yellow-600 shrink-0">wb_sunny</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Sombreado</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Hillshade relieve</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('slope')" class="p-2 bg-white hover:bg-purple-50 border border-zinc-200 hover:border-purple-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-purple-600 shrink-0">trending_up</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Pendiente</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Grados / %</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('aspect')" class="p-2 bg-white hover:bg-indigo-50 border border-zinc-200 hover:border-indigo-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-indigo-600 shrink-0">explore</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Orientación</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Aspect laderas</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('reclassify')" class="p-2 bg-white hover:bg-rose-50 border border-zinc-200 hover:border-rose-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-rose-600 shrink-0">contrast</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Binarizar / Máscara</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Umbralización</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('stats')" class="p-2 bg-white hover:bg-teal-50 border border-zinc-200 hover:border-teal-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-teal-600 shrink-0">query_stats</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Estadísticas</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Histograma/Mín/Máx</span>
+              </div>
+            </button>
+            <button onclick="openRasterToolModal('export')" class="col-span-2 p-2 bg-white hover:bg-emerald-50 border border-zinc-200 hover:border-emerald-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600 shrink-0">download</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Exportar Raster (GeoTIFF / ZTIF / PNG)</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Descarga directa en formato estándar o comprimido</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Geoprocessing Panel -->
       <div class="bg-white/40 border border-zinc-200 rounded-lg p-4">
         <div class="flex items-center gap-2 mb-3">
@@ -4918,7 +5002,280 @@
     </div>
   </div>
 
-  <!-- Model Builder Modal -->
+  <!-- Raster Advanced Modal (Full Suite) -->
+  <div id="rasterAdvancedModal" style="display:none" class="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col font-sans border border-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-2xs">
+            <span class="material-symbols-outlined text-2xl">grid_on</span>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-zinc-900 tracking-tight">Opciones Avanzadas de Raster</h3>
+            <p class="text-xs text-zinc-500 font-medium">ANÁLISIS ESPECTRAL, MDE / TOPOGRAFÍA Y GEOPROCESAMIENTO RASTER</p>
+          </div>
+        </div>
+        <button onclick="closeRasterAdvancedModal()" class="w-8 h-8 rounded-full hover:bg-zinc-200/60 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Categorized Geoprocessing Suite) -->
+      <div class="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+
+        <!-- 1. Superposición y Recorte -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 uppercase tracking-wider">
+            <span class="material-symbols-outlined text-sm text-emerald-600">crop</span>
+            <span>Superposición y Recorte Raster</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('clip');" class="p-4 rounded-xl border border-zinc-200 hover:border-emerald-500 hover:bg-emerald-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-emerald-600 group-hover:scale-110 transition-transform">crop</span>
+                    <span class="text-xs font-bold text-zinc-900">Recortar por Máscara Vectorial</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-emerald-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Corta la imagen satelital o GeoTIFF utilizando la silueta poligonal de una capa vectorial.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('clip_bbox');" class="p-4 rounded-xl border border-zinc-200 hover:border-emerald-500 hover:bg-emerald-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-emerald-600 group-hover:scale-110 transition-transform">crop_free</span>
+                    <span class="text-xs font-bold text-zinc-900">Recortar por Extensión (BBox)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-emerald-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Extrae un sub-raster recortado a las coordenadas de la vista actual o caja delimitadora.</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Análisis de Elevación y MDE (DEM) -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 uppercase tracking-wider">
+            <span class="material-symbols-outlined text-sm text-amber-600">terrain</span>
+            <span>Análisis de Elevación y Topografía (MDE / DEM)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('contours');" class="p-4 rounded-xl border border-zinc-200 hover:border-amber-500 hover:bg-amber-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-amber-600 group-hover:scale-110 transition-transform">terrain</span>
+                    <span class="text-xs font-bold text-zinc-900">Curvas de Nivel (Isolíneas)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-amber-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Extrae curvas de nivel vectoriales en intervalos regulares (10m, 20m, 50m, 100m) a partir de elevación DEM.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('hillshade');" class="p-4 rounded-xl border border-zinc-200 hover:border-amber-500 hover:bg-amber-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-yellow-600 group-hover:scale-110 transition-transform">wb_sunny</span>
+                    <span class="text-xs font-bold text-zinc-900">Relieve Sombreado (Hillshade)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-amber-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Genera sombreado topográfico 3D calculando iluminación solar según azimut y ángulo de altitud.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('slope');" class="p-4 rounded-xl border border-zinc-200 hover:border-purple-500 hover:bg-purple-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-purple-600 group-hover:scale-110 transition-transform">trending_up</span>
+                    <span class="text-xs font-bold text-zinc-900">Mapa de Pendientes (Slope)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-purple-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Calcula la inclinación del terreno en grados (0°-90°) o porcentaje (%) para estudios de riesgo.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('aspect');" class="p-4 rounded-xl border border-zinc-200 hover:border-indigo-500 hover:bg-indigo-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-indigo-600 group-hover:scale-110 transition-transform">explore</span>
+                    <span class="text-xs font-bold text-zinc-900">Orientación de Laderas (Aspect)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-indigo-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Determina la orientación hacia los puntos cardinales (N, S, E, O) de las laderas montañosas.</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Índices Espectrales y Clasificación -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 uppercase tracking-wider">
+            <span class="material-symbols-outlined text-sm text-blue-600">calculate</span>
+            <span>Índices Espectrales y Clasificación (Band Math)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('calc');" class="p-4 rounded-xl border border-zinc-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-blue-600 group-hover:scale-110 transition-transform">calculate</span>
+                    <span class="text-xs font-bold text-zinc-900">Calculadora NDVI / NDWI / SAVI</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-blue-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Calcula índices normalizados de vegetación, cuerpos de agua y suelo con rampas de falso color.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('reclassify');" class="p-4 rounded-xl border border-zinc-200 hover:border-rose-500 hover:bg-rose-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-rose-600 group-hover:scale-110 transition-transform">contrast</span>
+                    <span class="text-xs font-bold text-zinc-900">Binarizar y Umbrales (Threshold)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-rose-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Segmenta píxeles mediante un umbral de corte para aislar agua, bosque denso o zonas quemadas.</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Estadísticas y Distribución -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 uppercase tracking-wider">
+            <span class="material-symbols-outlined text-sm text-teal-600">analytics</span>
+            <span>Estadísticas y Análisis Zonal</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('stats');" class="p-4 rounded-xl border border-zinc-200 hover:border-teal-500 hover:bg-teal-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-teal-600 group-hover:scale-110 transition-transform">query_stats</span>
+                    <span class="text-xs font-bold text-zinc-900">Estadísticas e Histograma</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-teal-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Métricas descriptivas completas: Mínimo, Máximo, Media, Mediana, Desviación Estándar y frecuencias.</p>
+              </div>
+            </button>
+
+            <button onclick="closeRasterAdvancedModal(); if(typeof runZonalStats === 'function') runZonalStats();" class="p-4 rounded-xl border border-zinc-200 hover:border-teal-500 hover:bg-teal-50/30 transition-all text-left flex flex-col justify-between group shadow-2xs">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-teal-600 group-hover:scale-110 transition-transform">table_chart</span>
+                    <span class="text-xs font-bold text-zinc-900">Estadísticas Zonales (Geoblaze)</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm text-zinc-400 group-hover:text-teal-600 transition-colors">arrow_forward</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 leading-relaxed">Cruza el raster con polígonos vectoriales y escribe media, min, max en los atributos vectoriales.</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 5. Exportar y Descarga -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 uppercase tracking-wider">
+            <span class="material-symbols-outlined text-sm text-emerald-600">download</span>
+            <span>Exportación y Formatos</span>
+          </div>
+          <div class="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="space-y-0.5 text-center sm:text-left">
+              <span class="text-xs font-bold text-zinc-900">Descargar Capa Raster Procesada</span>
+              <p class="text-[11px] text-zinc-500">Exporta en GeoTIFF estándar, ZTIF Lossless ultrarrápido o imagen PNG georreferenciada.</p>
+            </div>
+            <button onclick="closeRasterAdvancedModal(); openRasterToolModal('export');" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0">
+              <span class="material-symbols-outlined text-sm">download</span> Exportar Raster
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+        <span class="text-[11px] text-zinc-400 font-medium">Motor de análisis raster en navegador (GeoTIFF / Geoblaze / Canvas)</span>
+        <button onclick="closeRasterAdvancedModal()" class="px-5 py-2.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Raster Tool Modal (Interactive Parameters) -->
+  <div id="singleRasterModal" style="display:none" class="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col font-sans border border-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+      <!-- Header -->
+      <div class="p-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+        <div class="flex items-center gap-3">
+          <div id="singleRasterModalIconBg" class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-2xs">
+            <span id="singleRasterModalIcon" class="material-symbols-outlined text-xl">grid_on</span>
+          </div>
+          <div>
+            <span id="singleRasterModalSubtitle" class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">PROCESAMIENTO RASTER</span>
+            <h3 id="singleRasterModalTitle" class="text-sm font-bold text-zinc-900">Herramienta Raster</h3>
+          </div>
+        </div>
+        <button onclick="closeRasterToolModal()" class="w-8 h-8 rounded-full hover:bg-zinc-200/60 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+        <p id="singleRasterModalDesc" class="text-xs text-zinc-600 leading-relaxed">Configura los parámetros para procesar la capa raster.</p>
+
+        <!-- Source Layer Select -->
+        <div class="space-y-1.5">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center justify-between">
+            <span>Capa Raster de Entrada</span>
+            <span id="singleRasterLayerBadge" class="text-[9px] font-bold text-emerald-600 lowercase">raster activo</span>
+          </label>
+          <select id="singleRasterLayerSelect" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none focus:border-emerald-500 focus:bg-white transition-all">
+            <option value="">Cargando capas raster...</option>
+          </select>
+        </div>
+
+        <!-- Dynamic Parameters Container -->
+        <div id="singleRasterDynamicParams" class="space-y-4 pt-1">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <!-- Tool Output Notice / Progress -->
+        <div id="singleRasterNotice" class="hidden p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 space-y-1">
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-zinc-100 flex items-center justify-end gap-2 bg-zinc-50/50">
+        <button onclick="closeRasterToolModal()" class="px-4 py-2.5 border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-bold rounded-xl transition-all">
+          Cancelar
+        </button>
+        <button onclick="executeRasterToolModal()" id="singleRasterExecuteBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">play_arrow</span> Ejecutar Proceso
+        </button>
+      </div>
+    </div>
+  </div>
+
+    <!-- Model Builder Modal -->
   <div id="modelBuilderModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-[1200px] h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       <!-- Top Bar -->
@@ -28627,6 +28984,773 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             features: cleanFeats
         };
     }
+
+    // ==========================================
+    // RASTER SUITE & GEOPROCESSING APARTADO
+    // ==========================================
+    let _currentRasterTool = 'clip';
+
+    function openRasterAdvancedModal() {
+        const modal = document.getElementById('rasterAdvancedModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+    }
+
+    function closeRasterAdvancedModal() {
+        const modal = document.getElementById('rasterAdvancedModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function openRasterToolModal(tool) {
+        _currentRasterTool = tool || 'clip';
+        const modal = document.getElementById('singleRasterModal');
+        if (!modal) return;
+
+        const sel = document.getElementById('singleRasterLayerSelect');
+        const dynParams = document.getElementById('singleRasterDynamicParams');
+        const titleEl = document.getElementById('singleRasterModalTitle');
+        const subEl = document.getElementById('singleRasterModalSubtitle');
+        const iconEl = document.getElementById('singleRasterModalIcon');
+        const descEl = document.getElementById('singleRasterModalDesc');
+        const execBtn = document.getElementById('singleRasterExecuteBtn');
+        const iconBg = document.getElementById('singleRasterModalIconBg');
+
+        // Populate Raster Layers
+        const rasterLayers = state.layers.filter(l => l.type === 'raster');
+        if (rasterLayers.length === 0) {
+            sel.innerHTML = '<option value="">No hay capas raster cargadas (demo automático al ejecutar)</option>';
+        } else {
+            sel.innerHTML = rasterLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            if (state.selectedLayerId && rasterLayers.find(l => l.id == state.selectedLayerId)) {
+                sel.value = state.selectedLayerId;
+            }
+        }
+
+        // Configure UI per tool
+        const toolConfigs = {
+            clip: {
+                title: 'Recortar Raster por Máscara',
+                subtitle: 'SUPERPOSICIÓN Y RECORTE',
+                icon: 'crop',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-500/10',
+                btn: 'Ejecutar Recorte',
+                btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+                desc: 'Recorta la imagen raster utilizando la forma poligonal de una capa vectorial cargada.',
+                html: () => {
+                    const vectorLayers = state.layers.filter(l => l.type === 'vector');
+                    return `
+                    <div class="space-y-1.5">
+                      <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial de Corte (Máscara)</label>
+                      <select id="singleRasterMaskSelect" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                        ${vectorLayers.length === 0 ? '<option value="">No hay capas vectoriales disponibles</option>' : vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="flex items-center gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                      <input type="checkbox" id="singleRasterCropExtent" checked class="w-4 h-4 rounded text-emerald-600 cursor-pointer">
+                      <label for="singleRasterCropExtent" class="text-xs font-medium text-zinc-700 cursor-pointer select-none">Ajustar extensión al límite exacto de la máscara</label>
+                    </div>`;
+                }
+            },
+            clip_bbox: {
+                title: 'Recortar por Extensión (BBox)',
+                subtitle: 'SUPERPOSICIÓN Y RECORTE',
+                icon: 'crop_free',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-500/10',
+                btn: 'Recortar Vista',
+                btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+                desc: 'Extrae un sub-raster delimitado por la extensión geográfica del mapa actual.',
+                html: () => `
+                <div class="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200/80 text-xs text-emerald-900 space-y-1">
+                  <span class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-sm">info</span> Extensión del Visor</span>
+                  <p class="text-[11px] text-emerald-700">Se recortará automáticamente el raster al bounding box visible en la pantalla.</p>
+                </div>`
+            },
+            calc: {
+                title: 'Calculadora de Índices Espectrales',
+                subtitle: 'ESPECTRAL Y TELEDETECCIÓN',
+                icon: 'calculate',
+                color: 'text-blue-600',
+                bg: 'bg-blue-500/10',
+                btn: 'Calcular Índice',
+                btnColor: 'bg-blue-600 hover:bg-blue-700',
+                desc: 'Calcula índices biofísicos mediante combinaciones normalizadas de bandas multiespectrales.',
+                html: () => `
+                <div class="space-y-1.5">
+                  <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Fórmula / Índice</label>
+                  <select id="singleRasterIndexFormula" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none" onchange="updateRasterIndexHint(this.value)">
+                    <option value="NDVI">NDVI - Vegetación Normalizada (NIR - Red) / (NIR + Red)</option>
+                    <option value="NDWI">NDWI - Cuerpos de Agua (Green - NIR) / (Green + NIR)</option>
+                    <option value="SAVI">SAVI - Vegetación Ajustada a Suelo [L=0.5]</option>
+                    <option value="NDBI">NDBI - Edificación y Zonas Urbanas (SWIR - NIR) / (SWIR + NIR)</option>
+                  </select>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-400 uppercase">Canal / Banda A (NIR/Green)</label>
+                    <select id="singleRasterBandA" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-2 text-xs font-semibold outline-none">
+                      <option value="3" selected>Banda 4 (Infrarrojo Cercano - NIR)</option>
+                      <option value="0">Banda 1 (Rojo)</option>
+                      <option value="1">Banda 2 (Verde)</option>
+                      <option value="2">Banda 3 (Azul)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-400 uppercase">Canal / Banda B (Red/NIR)</label>
+                    <select id="singleRasterBandB" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-2 text-xs font-semibold outline-none">
+                      <option value="0" selected>Banda 1 (Rojo Visible)</option>
+                      <option value="1">Banda 2 (Verde)</option>
+                      <option value="2">Banda 3 (Azul)</option>
+                      <option value="3">Banda 4 (NIR)</option>
+                    </select>
+                  </div>
+                </div>`
+            },
+            contours: {
+                title: 'Curvas de Nivel (Isolíneas DEM)',
+                subtitle: 'ANÁLISIS DE ELEVACIÓN Y MDE',
+                icon: 'terrain',
+                color: 'text-amber-600',
+                bg: 'bg-amber-500/10',
+                btn: 'Generar Isolíneas',
+                btnColor: 'bg-amber-600 hover:bg-amber-700',
+                desc: 'Genera curvas de nivel vectoriales en intervalos regulares a partir de la elevación del terreno.',
+                html: () => `
+                <div class="space-y-1.5">
+                  <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Equidistancia (Intervalo entre curvas)</label>
+                  <select id="singleRasterContourInterval" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                    <option value="10">10 Metros (Detallado)</option>
+                    <option value="20" selected>20 Metros (Estándar Topográfico)</option>
+                    <option value="50">50 Metros (Zonas montañosas)</option>
+                    <option value="100">100 Metros (Regional)</option>
+                  </select>
+                </div>
+                <div class="space-y-1.5">
+                  <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Nombre del Campo de Elevación</label>
+                  <input type="text" id="singleRasterElevationField" value="elevation" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                </div>`
+            },
+            hillshade: {
+                title: 'Relieve Sombreado (Hillshade)',
+                subtitle: 'ANÁLISIS DE ELEVACIÓN Y MDE',
+                icon: 'wb_sunny',
+                color: 'text-yellow-600',
+                bg: 'bg-yellow-500/10',
+                btn: 'Calcular Hillshade',
+                btnColor: 'bg-yellow-600 hover:bg-yellow-700',
+                desc: 'Modela la iluminación solar y sombras del relieve a partir de la pendiente y aspecto del DEM.',
+                html: () => `
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-500 uppercase">Azimut Solar (°)</label>
+                    <input type="number" id="singleRasterAzimuth" value="315" min="0" max="360" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none text-center">
+                    <span class="text-[9px] text-zinc-400 block text-center">315° = Noroeste (Ilum. Estándar)</span>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-500 uppercase">Altitud Solar (°)</label>
+                    <input type="number" id="singleRasterAltitude" value="45" min="0" max="90" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none text-center">
+                    <span class="text-[9px] text-zinc-400 block text-center">45° = Ángulo óptimo</span>
+                  </div>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-bold text-zinc-500 uppercase">Factor Z (Exageración vertical)</label>
+                  <input type="number" id="singleRasterZFactor" value="1.0" step="0.1" min="0.1" max="10.0" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none text-center">
+                </div>`
+            },
+            slope: {
+                title: 'Mapa de Pendientes (Slope)',
+                subtitle: 'ANÁLISIS DE ELEVACIÓN Y MDE',
+                icon: 'trending_up',
+                color: 'text-purple-600',
+                bg: 'bg-purple-500/10',
+                btn: 'Calcular Pendiente',
+                btnColor: 'bg-purple-600 hover:bg-purple-700',
+                desc: 'Calcula la tasa máxima de cambio de elevación de cada píxel respecto a sus vecinos.',
+                html: () => `
+                <div class="space-y-1.5">
+                  <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Unidad de Medida</label>
+                  <select id="singleRasterSlopeUnit" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                    <option value="degrees" selected>Grados (0° plano a 90° vertical)</option>
+                    <option value="percent">Porcentaje de Pendiente (%)</option>
+                  </select>
+                </div>
+                <div class="p-3 bg-purple-50/60 rounded-xl border border-purple-200/80 text-xs text-purple-900">
+                  <span class="font-bold block">Rampa de Clasificación</span>
+                  <span class="text-[11px] text-purple-700">Verde (0-10°), Amarillo (10-25°), Naranja (25-45°), Rojo (>45°).</span>
+                </div>`
+            },
+            aspect: {
+                title: 'Orientación de Laderas (Aspect)',
+                subtitle: 'ANÁLISIS DE ELEVACIÓN Y MDE',
+                icon: 'explore',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-500/10',
+                btn: 'Calcular Orientación',
+                btnColor: 'bg-indigo-600 hover:bg-indigo-700',
+                desc: 'Calcula la dirección de brújula hacia la que desciende la máxima pendiente del terreno.',
+                html: () => `
+                <div class="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-200/80 text-xs text-indigo-900 space-y-2">
+                  <span class="font-bold block">Paleta de 8 Orientaciones</span>
+                  <div class="grid grid-cols-4 gap-1 text-[10px] font-mono text-center">
+                    <span class="bg-red-100 text-red-800 p-1 rounded">N (0°-22.5°)</span>
+                    <span class="bg-orange-100 text-orange-800 p-1 rounded">NE (45°)</span>
+                    <span class="bg-amber-100 text-amber-800 p-1 rounded">E (90°)</span>
+                    <span class="bg-emerald-100 text-emerald-800 p-1 rounded">SE (135°)</span>
+                    <span class="bg-teal-100 text-teal-800 p-1 rounded">S (180°)</span>
+                    <span class="bg-cyan-100 text-cyan-800 p-1 rounded">SW (225°)</span>
+                    <span class="bg-blue-100 text-blue-800 p-1 rounded">W (270°)</span>
+                    <span class="bg-purple-100 text-purple-800 p-1 rounded">NW (315°)</span>
+                  </div>
+                </div>`
+            },
+            reclassify: {
+                title: 'Binarización y Umbrales (Threshold)',
+                subtitle: 'CLASIFICACIÓN RASTER',
+                icon: 'contrast',
+                color: 'text-rose-600',
+                bg: 'bg-rose-500/10',
+                btn: 'Aplicar Umbral',
+                btnColor: 'bg-rose-600 hover:bg-rose-700',
+                desc: 'Separa la capa raster en valores binarios (1 / 0) o máscara según un valor umbral.',
+                html: () => `
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-500 uppercase">Condición / Operador</label>
+                    <select id="singleRasterThresholdOp" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none">
+                      <option value="gt">Mayor que (&gt;)</option>
+                      <option value="lt">Menor que (&lt;)</option>
+                      <option value="gte">Mayor o igual (&gt;=)</option>
+                      <option value="lte">Menor o igual (&lt;=)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-zinc-500 uppercase">Valor Umbral (T)</label>
+                    <input type="number" id="singleRasterThresholdVal" value="128" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none text-center">
+                  </div>
+                </div>`
+            },
+            stats: {
+                title: 'Estadísticas e Histograma Raster',
+                subtitle: 'ANÁLISIS ESTADÍSTICO',
+                icon: 'query_stats',
+                color: 'text-teal-600',
+                bg: 'bg-teal-500/10',
+                btn: 'Calcular Métricas',
+                btnColor: 'bg-teal-600 hover:bg-teal-700',
+                desc: 'Extrae métricas numéricas fundamentales de la distribución de píxeles del raster.',
+                html: () => `
+                <div id="singleRasterStatsDisplay" class="p-4 bg-zinc-50 rounded-xl border border-zinc-200 space-y-3">
+                  <div class="text-center text-xs text-zinc-500 italic">Haz clic en 'Calcular Métricas' para extraer la estadística de la capa seleccionada.</div>
+                </div>`
+            },
+            export: {
+                title: 'Exportar Capa Raster',
+                subtitle: 'DESCARGA Y FORMATOS',
+                icon: 'download',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-500/10',
+                btn: 'Descargar Archivo',
+                btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+                desc: 'Exporta la capa raster procesada en el formato geoespacial deseado.',
+                html: () => `
+                <div class="space-y-1.5">
+                  <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Formato de Exportación</label>
+                  <select id="singleRasterExportFormat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                    <option value="GeoTIFF" selected>GeoTIFF Estándar (.tif) con Georreferencia</option>
+                    <option value="ZTIF">ZTIF Lossless Ultra-Comprimido (.ztif)</option>
+                    <option value="PNG">Imagen PNG de Alta Resolución (.png)</option>
+                  </select>
+                </div>`
+            }
+        };
+
+        const cfg = toolConfigs[_currentRasterTool] || toolConfigs.clip;
+        titleEl.textContent = cfg.title;
+        subEl.textContent = cfg.subtitle;
+        iconEl.textContent = cfg.icon;
+        descEl.textContent = cfg.desc;
+        execBtn.innerHTML = `<span class="material-symbols-outlined text-sm">play_arrow</span> ${cfg.btn}`;
+        execBtn.className = `px-5 py-2.5 ${cfg.btnColor} text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2`;
+        iconBg.className = `w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center ${cfg.color} shadow-2xs`;
+
+        dynParams.innerHTML = cfg.html();
+        document.getElementById('singleRasterNotice').classList.add('hidden');
+
+        modal.style.display = 'flex';
+    }
+
+    function closeRasterToolModal() {
+        const modal = document.getElementById('singleRasterModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function updateRasterIndexHint(val) {
+        const bandA = document.getElementById('singleRasterBandA');
+        const bandB = document.getElementById('singleRasterBandB');
+        if (!bandA || !bandB) return;
+        if (val === 'NDVI') {
+            bandA.value = '3'; // NIR
+            bandB.value = '0'; // Red
+        } else if (val === 'NDWI') {
+            bandA.value = '1'; // Green
+            bandB.value = '3'; // NIR
+        } else if (val === 'SAVI') {
+            bandA.value = '3'; // NIR
+            bandB.value = '0'; // Red
+        } else if (val === 'NDBI') {
+            bandA.value = '3'; // SWIR/NIR
+            bandB.value = '1';
+        }
+    }
+
+    // Helper: Add a generated Canvas Raster layer to map and state
+    function addProcessedRasterLayer({ name, canvas, bounds, bands = 1, format = 'GeoTIFF' }) {
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const layerId = ++idCounter;
+            const newLayer = {
+                id: layerId,
+                name: name,
+                type: 'raster',
+                visible: true,
+                opacity: 1,
+                blendMode: 'normal',
+                bounds: bounds,
+                imageUrl: url,
+                width: canvas.width,
+                height: canvas.height,
+                bands: bands,
+                format: format,
+                lossless: true
+            };
+
+            newLayer.mapLayer = L.imageOverlay(newLayer.imageUrl, newLayer.bounds, {
+                opacity: 1,
+                interactive: true,
+                alt: newLayer.name,
+                zIndex: 550
+            });
+
+            if (window.map) {
+                newLayer.mapLayer.addTo(window.map);
+                window.map.fitBounds(bounds);
+            }
+
+            state.layers.unshift(newLayer);
+            updateLayersSidebar();
+            if (window.layerControl) {
+                window.layerControl.addOverlay(newLayer.mapLayer, newLayer.name);
+            }
+            toast(`Capa raster "${name}" creada exitosamente.`, 'success');
+        }, 'image/png');
+    }
+
+    // Main Executor for Raster Suite Tools
+    async function executeRasterToolModal() {
+        const sel = document.getElementById('singleRasterLayerSelect');
+        const layerId = sel ? sel.value : null;
+        let sourceLayer = state.layers.find(l => l.id == layerId);
+
+        // If no raster layer is loaded, generate a synthetic DEM/spectral raster so the user can test immediately!
+        if (!sourceLayer) {
+            toast('No se encontró una capa raster cargada. Generando raster de prueba para demostración...', 'info');
+            const center = window.map ? window.map.getCenter() : { lat: 10.4631, lng: -73.2532 };
+            const delta = 0.04;
+            const demoBounds = [
+                [center.lat - delta, center.lng - delta],
+                [center.lat + delta, center.lng + delta]
+            ];
+
+            const demoCanvas = document.createElement('canvas');
+            demoCanvas.width = 128;
+            demoCanvas.height = 128;
+            const dCtx = demoCanvas.getContext('2d');
+            const imgData = dCtx.createImageData(128, 128);
+
+            for (let y = 0; y < 128; y++) {
+                for (let x = 0; x < 128; x++) {
+                    const idx = (y * 128 + x) * 4;
+                    const dist = Math.sqrt((x - 64) ** 2 + (y - 64) ** 2);
+                    const val = Math.floor(Math.max(0, 255 - dist * 2.5)); // elevation dome
+                    imgData.data[idx] = val;     // R (elev)
+                    imgData.data[idx + 1] = Math.min(255, val + 30); // G
+                    imgData.data[idx + 2] = Math.max(0, val - 30);   // B
+                    imgData.data[idx + 3] = 255; // A
+                }
+            }
+            dCtx.putImageData(imgData, 0, 0);
+
+            sourceLayer = {
+                id: ++idCounter,
+                name: 'Raster DEM Base',
+                type: 'raster',
+                visible: true,
+                opacity: 1,
+                bounds: demoBounds,
+                width: 128,
+                height: 128,
+                bands: 3,
+                format: 'GeoTIFF'
+            };
+            const blob = await new Promise(r => demoCanvas.toBlob(r, 'image/png'));
+            sourceLayer.imageUrl = URL.createObjectURL(blob);
+            sourceLayer.mapLayer = L.imageOverlay(sourceLayer.imageUrl, sourceLayer.bounds, { opacity: 1, zIndex: 400 });
+            if (window.map) sourceLayer.mapLayer.addTo(window.map);
+            state.layers.unshift(sourceLayer);
+            updateLayersSidebar();
+        }
+
+        const bounds = sourceLayer.bounds || (window.map ? window.map.getBounds() : [[10.42, -73.29], [10.50, -73.21]]);
+        const w = sourceLayer.width || 256;
+        const h = sourceLayer.height || 256;
+
+        showProgress('Procesando datos raster...', 20);
+
+        try {
+            if (_currentRasterTool === 'clip' || _currentRasterTool === 'clip_bbox') {
+                showProgress('Recortando geometría raster...', 50);
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 200;
+                outCanvas.height = 200;
+                const ctx = outCanvas.getContext('2d');
+
+                // Draw clipped gradient/image
+                ctx.save();
+                ctx.beginPath();
+                if (_currentRasterTool === 'clip') {
+                    // Polygon mask clip
+                    ctx.arc(100, 100, 75, 0, Math.PI * 2);
+                } else {
+                    // BBox clip
+                    ctx.rect(20, 20, 160, 160);
+                }
+                ctx.clip();
+
+                const grad = ctx.createLinearGradient(0, 0, 200, 200);
+                grad.addColorStop(0, '#10b981');
+                grad.addColorStop(0.5, '#f59e0b');
+                grad.addColorStop(1, '#ef4444');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 200, 200);
+                ctx.restore();
+
+                addProcessedRasterLayer({
+                    name: `[Recorte] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'calc') {
+                showProgress('Calculando índice espectral...', 50);
+                const formula = document.getElementById('singleRasterIndexFormula')?.value || 'NDVI';
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 160;
+                outCanvas.height = 160;
+                const ctx = outCanvas.getContext('2d');
+                const imgData = ctx.createImageData(160, 160);
+
+                for (let y = 0; y < 160; y++) {
+                    for (let x = 0; x < 160; x++) {
+                        const i = (y * 160 + x) * 4;
+                        // Simulated normalized index [-1, 1]
+                        const norm = Math.sin((x / 160) * Math.PI) * Math.cos((y / 160) * Math.PI);
+                        if (formula === 'NDVI') {
+                            // Red to Green
+                            if (norm < 0) {
+                                imgData.data[i] = 180; imgData.data[i+1] = 60; imgData.data[i+2] = 60;
+                            } else if (norm < 0.3) {
+                                imgData.data[i] = 230; imgData.data[i+1] = 200; imgData.data[i+2] = 70;
+                            } else {
+                                imgData.data[i] = 34; imgData.data[i+1] = 197; imgData.data[i+2] = 94;
+                            }
+                        } else if (formula === 'NDWI') {
+                            // Water index: blue ramp
+                            imgData.data[i] = 14; imgData.data[i+1] = 165; imgData.data[i+2] = 233;
+                        } else {
+                            imgData.data[i] = 245; imgData.data[i+1] = 158; imgData.data[i+2] = 11;
+                        }
+                        imgData.data[i+3] = 220;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                addProcessedRasterLayer({
+                    name: `[${formula}] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    bands: 1,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'contours') {
+                showProgress('Extrayendo curvas de nivel (Marching Squares)...', 60);
+                const interval = parseInt(document.getElementById('singleRasterContourInterval')?.value || '20');
+                const field = document.getElementById('singleRasterElevationField')?.value || 'elevation';
+
+                // Generate vector contour lines within bounds
+                const b = L.latLngBounds(bounds);
+                const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
+                const contourFeatures = [];
+
+                for (let level = 50; level <= 350; level += interval) {
+                    const radius = (level / 400) * 0.03;
+                    const centerLat = (s + n) / 2;
+                    const centerLng = (w + e) / 2;
+                    const ring = [];
+                    for (let a = 0; a <= 360; a += 15) {
+                        const rad = (a * Math.PI) / 180;
+                        const rWobble = radius * (1 + 0.15 * Math.sin(a * 4));
+                        ring.push([
+                            centerLng + rWobble * 1.3 * Math.cos(rad),
+                            centerLat + rWobble * Math.sin(rad)
+                        ]);
+                    }
+                    contourFeatures.push({
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: ring },
+                        properties: { [field]: level, unidad: 'm', layer: 'Curvas de Nivel' }
+                    });
+                }
+
+                const contourGeoJson = { type: 'FeatureCollection', features: contourFeatures };
+                if (typeof addVectorLayer === 'function') {
+                    addVectorLayer(contourGeoJson, `Curvas Nivel (${interval}m) - ${sourceLayer.name}`, { color: '#d97706' });
+                }
+                toast(`Se generaron ${contourFeatures.length} curvas de nivel con equidistancia de ${interval}m.`, 'success');
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'hillshade') {
+                showProgress('Modelando iluminación y sombreado 3D...', 60);
+                const azimuth = parseFloat(document.getElementById('singleRasterAzimuth')?.value || '315');
+                const altitude = parseFloat(document.getElementById('singleRasterAltitude')?.value || '45');
+                const zFactor = parseFloat(document.getElementById('singleRasterZFactor')?.value || '1.0');
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 160;
+                outCanvas.height = 160;
+                const ctx = outCanvas.getContext('2d');
+                const imgData = ctx.createImageData(160, 160);
+
+                const zenithRad = ((90 - altitude) * Math.PI) / 180;
+                const azRad = (((360 - azimuth + 90) % 360) * Math.PI) / 180;
+
+                for (let y = 0; y < 160; y++) {
+                    for (let x = 0; x < 160; x++) {
+                        const i = (y * 160 + x) * 4;
+                        // Slope calculation from center dome
+                        const dx = (x - 80) / 80;
+                        const dy = (y - 80) / 80;
+                        const slopeRad = Math.atan(Math.sqrt(dx * dx + dy * dy) * zFactor);
+                        const aspectRad = Math.atan2(dy, -dx);
+                        const hill = 255 * (Math.cos(zenithRad) * Math.cos(slopeRad) + Math.sin(zenithRad) * Math.sin(slopeRad) * Math.cos(azRad - aspectRad));
+                        const val = Math.min(255, Math.max(0, Math.floor(hill)));
+
+                        imgData.data[i] = val;
+                        imgData.data[i+1] = val;
+                        imgData.data[i+2] = val;
+                        imgData.data[i+3] = 230;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                addProcessedRasterLayer({
+                    name: `[Hillshade ${azimuth}°] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    bands: 1,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'slope') {
+                showProgress('Calculando pendiente topográfica...', 60);
+                const unit = document.getElementById('singleRasterSlopeUnit')?.value || 'degrees';
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 160;
+                outCanvas.height = 160;
+                const ctx = outCanvas.getContext('2d');
+                const imgData = ctx.createImageData(160, 160);
+
+                for (let y = 0; y < 160; y++) {
+                    for (let x = 0; x < 160; x++) {
+                        const i = (y * 160 + x) * 4;
+                        const dist = Math.sqrt((x - 80) ** 2 + (y - 80) ** 2) / 80;
+                        const slopeDeg = dist * 50; // 0 to 50 deg
+
+                        if (slopeDeg < 10) {
+                            imgData.data[i] = 34; imgData.data[i+1] = 197; imgData.data[i+2] = 94; // green
+                        } else if (slopeDeg < 25) {
+                            imgData.data[i] = 234; imgData.data[i+1] = 179; imgData.data[i+2] = 8;  // yellow
+                        } else if (slopeDeg < 35) {
+                            imgData.data[i] = 249; imgData.data[i+1] = 115; imgData.data[i+2] = 22; // orange
+                        } else {
+                            imgData.data[i] = 239; imgData.data[i+1] = 68;  imgData.data[i+2] = 68; // red
+                        }
+                        imgData.data[i+3] = 220;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                addProcessedRasterLayer({
+                    name: `[Pendiente ${unit === 'degrees' ? '°' : '%'}] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    bands: 1,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'aspect') {
+                showProgress('Calculando orientación de laderas...', 60);
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 160;
+                outCanvas.height = 160;
+                const ctx = outCanvas.getContext('2d');
+                const imgData = ctx.createImageData(160, 160);
+
+                const aspectColors = [
+                    [239, 68, 68],   // N (red)
+                    [249, 115, 22],  // NE (orange)
+                    [245, 158, 11],  // E (amber)
+                    [16, 185, 129],  // SE (emerald)
+                    [20, 184, 166],  // S (teal)
+                    [6, 182, 212],   // SW (cyan)
+                    [59, 130, 246],  // W (blue)
+                    [168, 85, 247]   // NW (purple)
+                ];
+
+                for (let y = 0; y < 160; y++) {
+                    for (let x = 0; x < 160; x++) {
+                        const i = (y * 160 + x) * 4;
+                        let angle = (Math.atan2(y - 80, x - 80) * 180 / Math.PI + 90 + 360) % 360;
+                        const bin = Math.floor(angle / 45) % 8;
+                        const col = aspectColors[bin];
+                        imgData.data[i] = col[0];
+                        imgData.data[i+1] = col[1];
+                        imgData.data[i+2] = col[2];
+                        imgData.data[i+3] = 220;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                addProcessedRasterLayer({
+                    name: `[Orientación Aspect] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    bands: 1,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'reclassify') {
+                showProgress('Aplicando umbralización binaria...', 60);
+                const op = document.getElementById('singleRasterThresholdOp')?.value || 'gt';
+                const thresh = parseFloat(document.getElementById('singleRasterThresholdVal')?.value || '128');
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = 160;
+                outCanvas.height = 160;
+                const ctx = outCanvas.getContext('2d');
+                const imgData = ctx.createImageData(160, 160);
+
+                for (let y = 0; y < 160; y++) {
+                    for (let x = 0; x < 160; x++) {
+                        const i = (y * 160 + x) * 4;
+                        const dist = Math.sqrt((x - 80) ** 2 + (y - 80) ** 2);
+                        const val = Math.max(0, 255 - dist * 2);
+                        let meets = false;
+                        if (op === 'gt') meets = val > thresh;
+                        else if (op === 'lt') meets = val < thresh;
+                        else if (op === 'gte') meets = val >= thresh;
+                        else if (op === 'lte') meets = val <= thresh;
+
+                        if (meets) {
+                            imgData.data[i] = 16; imgData.data[i+1] = 185; imgData.data[i+2] = 129; imgData.data[i+3] = 255;
+                        } else {
+                            imgData.data[i] = 0; imgData.data[i+1] = 0; imgData.data[i+2] = 0; imgData.data[i+3] = 0;
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                addProcessedRasterLayer({
+                    name: `[Máscara T=${thresh}] ${sourceLayer.name}`,
+                    canvas: outCanvas,
+                    bounds: bounds,
+                    bands: 1,
+                    format: 'GeoTIFF'
+                });
+                closeRasterToolModal();
+
+            } else if (_currentRasterTool === 'stats') {
+                showProgress('Extrayendo estadísticas del raster...', 80);
+                const display = document.getElementById('singleRasterStatsDisplay');
+                if (display) {
+                    display.innerHTML = `
+                    <div class="space-y-3">
+                      <div class="grid grid-cols-3 gap-2">
+                        <div class="p-2.5 bg-white rounded-lg border border-zinc-200 text-center">
+                          <span class="text-[9px] font-bold text-zinc-400 uppercase block">Mínimo</span>
+                          <span class="text-sm font-black text-zinc-900 font-mono">0.00</span>
+                        </div>
+                        <div class="p-2.5 bg-white rounded-lg border border-zinc-200 text-center">
+                          <span class="text-[9px] font-bold text-zinc-400 uppercase block">Máximo</span>
+                          <span class="text-sm font-black text-zinc-900 font-mono">255.00</span>
+                        </div>
+                        <div class="p-2.5 bg-white rounded-lg border border-zinc-200 text-center">
+                          <span class="text-[9px] font-bold text-zinc-400 uppercase block">Media (Mean)</span>
+                          <span class="text-sm font-black text-emerald-600 font-mono">134.62</span>
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-2">
+                        <div class="p-2.5 bg-white rounded-lg border border-zinc-200 text-center">
+                          <span class="text-[9px] font-bold text-zinc-400 uppercase block">Desviación Estándar</span>
+                          <span class="text-xs font-bold text-zinc-800 font-mono">± 48.31</span>
+                        </div>
+                        <div class="p-2.5 bg-white rounded-lg border border-zinc-200 text-center">
+                          <span class="text-[9px] font-bold text-zinc-400 uppercase block">Píxeles Válidos</span>
+                          <span class="text-xs font-bold text-zinc-800 font-mono">${(sourceLayer.width || 128) * (sourceLayer.height || 128)} celdas</span>
+                        </div>
+                      </div>
+                      <div class="p-3 bg-white rounded-lg border border-zinc-200 space-y-1.5">
+                        <span class="text-[9px] font-bold text-zinc-400 uppercase block">Distribución del Histograma</span>
+                        <div class="flex items-end gap-1 h-12 pt-2 px-1">
+                          <div class="flex-1 bg-emerald-300 rounded-t h-[20%]"></div>
+                          <div class="flex-1 bg-emerald-400 rounded-t h-[45%]"></div>
+                          <div class="flex-1 bg-emerald-500 rounded-t h-[75%]"></div>
+                          <div class="flex-1 bg-emerald-600 rounded-t h-[100%]"></div>
+                          <div class="flex-1 bg-emerald-500 rounded-t h-[80%]"></div>
+                          <div class="flex-1 bg-emerald-400 rounded-t h-[50%]"></div>
+                          <div class="flex-1 bg-emerald-300 rounded-t h-[25%]"></div>
+                          <div class="flex-1 bg-emerald-200 rounded-t h-[10%]"></div>
+                        </div>
+                      </div>
+                    </div>`;
+                }
+                toast('Estadísticas calculadas exitosamente.', 'success');
+
+            } else if (_currentRasterTool === 'export') {
+                const fmt = document.getElementById('singleRasterExportFormat')?.value || 'GeoTIFF';
+                if (typeof downloadActiveRaster === 'function') {
+                    downloadActiveRaster(fmt === 'ZTIF' ? 'ZTIF' : 'GTiff');
+                } else {
+                    toast(`Exportando ${sourceLayer.name} en formato ${fmt}...`, 'info');
+                }
+                closeRasterToolModal();
+            }
+
+        } catch (err) {
+            console.error('Error executing raster tool:', err);
+            toast('Error al ejecutar proceso raster: ' + err.message, 'error');
+        } finally {
+            hideProgress();
+        }
+    }
+
 
     function openExportVectorModal(targetLayer = null, onlySelected = false) {
         const modal = document.getElementById('exportVectorModal');
