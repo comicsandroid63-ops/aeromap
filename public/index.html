@@ -8229,7 +8229,11 @@ self.onmessage = async function(e) {
 
     async function loadProjectLayers() {
       try {
-        const pid = _currentProject?.id || '';
+        const pid = _currentProject?.id;
+        if (!pid) {
+          console.log("[Zima] loadProjectLayers omitido: no hay proyecto activo");
+          return;
+        }
         const res = await fetch(`/api/layers?project_id=${encodeURIComponent(pid)}`);
         const layers = await res.json();
         if (Array.isArray(layers) && layers.length > 0) {
@@ -8342,6 +8346,18 @@ self.onmessage = async function(e) {
             }
             window.updateLayersSidebar && window.updateLayersSidebar();
             window.renderLayersOnMap && window.renderLayersOnMap();
+            const validLayers = (state.layers || []).filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+            if (validLayers.length > 0 && state.map) {
+                let combined = null;
+                for (const l of validLayers) {
+                    if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                    else combined.extend(l.bounds);
+                }
+                if (combined && combined.isValid()) {
+                    state.map.fitBounds(combined, { padding: [40, 40], maxZoom: 15, animate: true });
+                }
+            }
+            if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
             console.log("[Zima] Project restoration complete.");
         }
       } catch(e) { console.warn("Restore failed.", e); }
@@ -8351,7 +8367,9 @@ self.onmessage = async function(e) {
       $cloudUploadStatus.textContent = 'Conectando con Backend...';
       $cloudRefreshBtn.addEventListener('click', listSupabaseFiles);
       await listSupabaseFiles();
-      await loadProjectLayers();
+      if (_currentProject && _currentProject.id) {
+        await loadProjectLayers();
+      }
     }
 
 
@@ -13593,23 +13611,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             });
                             if (resp.ok) {
                                 const resData = await resp.json();
-                                if (resData.found && resData.type === 'shapefile' && resData.shpBase64) {
-                                    const shpBlob = base64ToBlob(resData.shpBase64);
-                                    const shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
-                                    const dbfFile = resData.dbfBase64 ? new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' }) : null;
-                                    const prjFile = resData.prjText ? new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' }) : null;
-                                    await loadShapefileDirect(shpFile, dbfFile, prjFile, {
-                                        originalName: ql.name,
-                                        color: ql.color?.hex,
-                                        strokeColor: ql.strokeColor?.hex,
-                                        strokeWidth: ql.strokeWidth,
-                                        fillOpacity: ql.fillOpacity,
-                                        opacity: ql.opacity,
-                                        visible: ql.visible,
-                                        skipAutoCloudUpload: true
-                                    });
-                                    loadedBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
-                                    loadedCount++;
+                                if (resData.found && resData.type === 'shapefile') {
+                                    let shpFile = null;
+                                    let dbfFile = null;
+                                    let prjFile = null;
+                                    if (resData.shpUrl) {
+                                        const shpBlob = await (await fetch(resData.shpUrl)).blob();
+                                        shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                        if (resData.dbfUrl) {
+                                            const dbfBlob = await (await fetch(resData.dbfUrl)).blob();
+                                            dbfFile = new File([dbfBlob], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                        }
+                                        if (resData.prjText) {
+                                            prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                                        }
+                                    } else if (resData.shpBase64) {
+                                        const shpBlob = base64ToBlob(resData.shpBase64);
+                                        shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                        if (resData.dbfBase64) {
+                                            dbfFile = new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                        }
+                                        if (resData.prjText) {
+                                            prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                                        }
+                                    }
+                                    if (shpFile) {
+                                        await loadShapefileDirect(shpFile, dbfFile, prjFile, {
+                                            originalName: ql.name,
+                                            color: ql.color?.hex,
+                                            strokeColor: ql.strokeColor?.hex,
+                                            strokeWidth: ql.strokeWidth,
+                                            fillOpacity: ql.fillOpacity,
+                                            opacity: ql.opacity,
+                                            visible: ql.visible,
+                                            skipAutoCloudUpload: true
+                                        });
+                                        loadedBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
+                                        loadedCount++;
+                                    }
                                 } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                     let reprojected = await reprojectGeoJSON(resData.geojson);
                                     await addVectorLayer(reprojected, ql.name, {
@@ -13953,14 +13992,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         });
                         if (resp.ok) {
                             const resData = await resp.json();
-                            if (resData.found && resData.type === 'shapefile' && resData.shpBase64) {
-                                const shpBlob = base64ToBlob(resData.shpBase64);
-                                shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
-                                if (resData.dbfBase64) {
-                                    dbfFile = new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
-                                }
-                                if (resData.prjText) {
-                                    prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                            if (resData.found && resData.type === 'shapefile') {
+                                if (resData.shpUrl) {
+                                    showProgress(`Descargando datos: ${resData.fileName}...`, 40 + Math.min(45, loadedCount * 15), 'Importador QGIS');
+                                    const shpResp = await fetch(resData.shpUrl);
+                                    const shpBlob = await shpResp.blob();
+                                    shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                    if (resData.dbfUrl) {
+                                        const dbfResp = await fetch(resData.dbfUrl);
+                                        const dbfBlob = await dbfResp.blob();
+                                        dbfFile = new File([dbfBlob], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                    }
+                                    if (resData.prjText) {
+                                        prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                                    }
+                                } else if (resData.shpBase64) {
+                                    const shpBlob = base64ToBlob(resData.shpBase64);
+                                    shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                    if (resData.dbfBase64) {
+                                        dbfFile = new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                    }
+                                    if (resData.prjText) {
+                                        prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                                    }
                                 }
                             } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                 let reprojected = await reprojectGeoJSON(resData.geojson);
@@ -13975,6 +14029,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     skipAutoCloudUpload: true
                                 });
                                 loadedCount++;
+                                updateLayersSidebar();
+                                if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
                                 continue;
                             }
                         }
@@ -28958,6 +29014,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         toast('Error: ' + e.message, 'error');
       }
     }
+    window.openProject = openProject;
 
     // ════════════════════════════════════════
     //  COLABORACIÓN MULTIUSUARIO EN TIEMPO REAL

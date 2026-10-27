@@ -77,10 +77,10 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. Shallow recursive search in Downloads and Documents (up to 4 levels)
+    // 2. Recursive search in Downloads and Documents (up to 7 levels)
     if (!foundPath && targetFile) {
       function findFile(dir, target, depth = 0) {
-        if (depth > 4 || !fs.existsSync(dir)) return null;
+        if (depth > 7 || !fs.existsSync(dir)) return null;
         try {
           const files = fs.readdirSync(dir);
           for (const f of files) {
@@ -109,21 +109,66 @@ module.exports = async (req, res) => {
 
     const ext = path.extname(foundPath).toLowerCase();
     const foundBase = foundPath.substring(0, foundPath.length - ext.length);
+    const baseFileName = path.basename(foundPath);
 
     if (ext === '.shp') {
-      const shpBuf = fs.readFileSync(foundPath);
-      let dbfBuf = null;
-      let prjText = null;
+      const destShp = path.join(UPLOADS_DIR, baseFileName);
+      if (!fs.existsSync(destShp) || fs.statSync(destShp).size !== fs.statSync(foundPath).size) {
+        try { fs.copyFileSync(foundPath, destShp); } catch (_) {}
+      }
 
-      if (fs.existsSync(foundBase + '.dbf')) dbfBuf = fs.readFileSync(foundBase + '.dbf');
-      if (fs.existsSync(foundBase + '.prj')) prjText = fs.readFileSync(foundBase + '.prj', 'utf-8');
+      let dbfUrl = null;
+      let dbfBuf = null;
+      const dbfPath = foundBase + '.dbf';
+      if (fs.existsSync(dbfPath)) {
+        const destDbf = path.join(UPLOADS_DIR, path.basename(dbfPath));
+        if (!fs.existsSync(destDbf) || fs.statSync(destDbf).size !== fs.statSync(dbfPath).size) {
+          try { fs.copyFileSync(dbfPath, destDbf); } catch (_) {}
+        }
+        dbfUrl = `/uploads/${encodeURIComponent(path.basename(dbfPath))}`;
+        try { dbfBuf = fs.readFileSync(dbfPath); } catch (_) {}
+      }
+
+      let prjText = null;
+      const prjPath = foundBase + '.prj';
+      if (fs.existsSync(prjPath)) {
+        const destPrj = path.join(UPLOADS_DIR, path.basename(prjPath));
+        if (!fs.existsSync(destPrj)) {
+          try { fs.copyFileSync(prjPath, destPrj); } catch (_) {}
+        }
+        try { prjText = fs.readFileSync(prjPath, 'utf-8'); } catch (_) {}
+      }
+
+      // Copiar también .shx y .cpg si existen
+      ['.shx', '.cpg'].forEach(sExt => {
+        const sPath = foundBase + sExt;
+        if (fs.existsSync(sPath)) {
+          const destS = path.join(UPLOADS_DIR, path.basename(sPath));
+          if (!fs.existsSync(destS)) {
+            try { fs.copyFileSync(sPath, destS); } catch (_) {}
+          }
+        }
+      });
+
+      const shpStat = fs.statSync(foundPath);
+      const isSmall = shpStat.size < 2 * 1024 * 1024;
+      let shpBase64 = null;
+      let dbfBase64 = null;
+      if (isSmall) {
+        try {
+          shpBase64 = fs.readFileSync(foundPath).toString('base64');
+          if (dbfBuf) dbfBase64 = dbfBuf.toString('base64');
+        } catch (_) {}
+      }
 
       return res.status(200).json({
         found: true,
         type: 'shapefile',
-        fileName: path.basename(foundPath),
-        shpBase64: shpBuf.toString('base64'),
-        dbfBase64: dbfBuf ? dbfBuf.toString('base64') : null,
+        fileName: baseFileName,
+        shpUrl: `/uploads/${encodeURIComponent(baseFileName)}`,
+        dbfUrl: dbfUrl,
+        shpBase64: shpBase64,
+        dbfBase64: dbfBase64,
         prjText: prjText
       });
     } else if (ext === '.gpkg') {

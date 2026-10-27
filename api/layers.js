@@ -48,6 +48,9 @@ module.exports = async (req, res) => {
     const args = [];
     
     if (project_id !== undefined) {
+      if (!project_id || project_id.trim() === '') {
+        return res.status(200).json([]);
+      }
       // Proyecto compartido: se devuelven TODAS las capas del proyecto (invitados incluidos)
       const validPid = toValidUuid(project_id, null);
       if (validPid) {
