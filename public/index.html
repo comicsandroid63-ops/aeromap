@@ -13737,6 +13737,91 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return entries;
     }
 
+    function evaluateQgisRuleFilter(filterStr, props) {
+        if (!filterStr || filterStr.trim() === '' || filterStr.trim().toUpperCase() === 'ELSE') {
+            return true;
+        }
+        const f = filterStr.trim();
+
+        function getPropVal(key) {
+            if (!props) return undefined;
+            if (props[key] !== undefined) return props[key];
+            const lower = key.toLowerCase();
+            for (const k of Object.keys(props)) {
+                if (k.toLowerCase() === lower) return props[k];
+            }
+            return undefined;
+        }
+
+        try {
+            let parsed = f.replace(/(?:"([^"]+)"|([a-zA-Z0-9_]+))s+INs*(([^)]+))/gi, (m, f1, f2, list) => {
+                const field = f1 || f2;
+                const val = getPropVal(field);
+                const items = list.split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
+                return items.includes(String(val).toLowerCase()) ? ' true ' : ' false ';
+            });
+
+            parsed = parsed.replace(/(?:"([^"]+)"|([a-zA-Z0-9_]+))s*(=|!=|<>|<=|>=|<|>)s*(?:'([^']*)'|"([^"]*)"|(-?\d+(?:\.\d+)?))/g, 
+                (m, f1, f2, op, s1, s2, num) => {
+                    const field = f1 || f2;
+                    const expected = s1 !== undefined ? s1 : (s2 !== undefined ? s2 : parseFloat(num));
+                    const actual = getPropVal(field);
+                    if (actual === undefined || actual === null) return ' false ';
+                    
+                    let matches = false;
+                    if (typeof expected === 'number') {
+                        const actualNum = parseFloat(actual);
+                        if (isNaN(actualNum)) return ' false ';
+                        if (op === '=' || op === '==') matches = actualNum === expected;
+                        else if (op === '!=' || op === '<>') matches = actualNum !== expected;
+                        else if (op === '<') matches = actualNum < expected;
+                        else if (op === '<=') matches = actualNum <= expected;
+                        else if (op === '>') matches = actualNum > expected;
+                        else if (op === '>=') matches = actualNum >= expected;
+                    } else {
+                        const actStr = String(actual).trim().toLowerCase();
+                        const expStr = String(expected).trim().toLowerCase();
+                        if (op === '=' || op === '==') matches = actStr === expStr;
+                        else if (op === '!=' || op === '<>') matches = actStr !== expStr;
+                    }
+                    return matches ? ' true ' : ' false ';
+                }
+            );
+
+            parsed = parsed.replace(/\bAND\b/gi, ' && ').replace(/\bOR\b/gi, ' || ').replace(/\bNOT\b/gi, ' ! ');
+
+            if (/^[truefals\s\(\)&\|!]+$/.test(parsed)) {
+                return Function('"use strict"; return (' + parsed + ');')();
+            }
+        } catch (e) {
+            console.warn('[QGIS Filter Eval] Error:', filterStr, e);
+        }
+        return false;
+    }
+    window.evaluateQgisRuleFilter = evaluateQgisRuleFilter;
+
+    function getQgisLayerStylingOpts(ql) {
+        if (!ql) return {};
+        return {
+            originalName: ql.name,
+            color: (ql.color && ql.color.hex) ? ql.color.hex : (typeof ql.color === 'string' ? ql.color : undefined),
+            strokeColor: (ql.strokeColor && ql.strokeColor.hex) ? ql.strokeColor.hex : (typeof ql.strokeColor === 'string' ? ql.strokeColor : undefined),
+            strokeWidth: ql.strokeWidth,
+            fillOpacity: ql.fillOpacity,
+            opacity: ql.opacity,
+            visible: ql.visible,
+            symbologyType: ql.symbologyType || 'single',
+            symbologyField: ql.symbologyField || '',
+            symbologyMap: ql.symbologyMap || {},
+            rules: ql.rules || null,
+            showLabels: ql.showLabels || false,
+            labelField: ql.labelField || '',
+            datasource: ql.datasource || '',
+            skipAutoCloudUpload: true
+        };
+    }
+    window.getQgisLayerStylingOpts = getQgisLayerStylingOpts;
+
     function qgisRgbaToCss(v) {
         if (!v) return null;
         const cleanV = String(v).split('rgb:')[0];
@@ -13786,12 +13871,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 continue;
             }
 
-            // b. Filtrar tablas alfanuméricas sin geometría (geom="No geometry", "None", "")
+            // b. Filtrar tablas alfanuméricas sin geometría
             if (type === 'vector') {
                 const g = geom.toLowerCase();
                 const validGeoms = ['polygon', 'multipolygon', 'line', 'linestring', 'multilinestring', 'point', 'multipoint'];
                 if (!validGeoms.includes(g)) {
-                    continue; // Tabla alfanumérica sin geometría espacial
+                    continue;
                 }
             }
 
@@ -13809,9 +13894,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 continue;
             }
 
-            // e. Visibilidad en el árbol de capas de QGIS (Checked en QGIS 3 usa Qt::Checked o Qt::Unchecked)
+            // e. Visibilidad en el árbol de capas de QGIS
             let visible = true;
-            const treeLayer = doc.querySelector(`layer-tree-layer[id="${id}"]`);
+            const treeLayer = doc.querySelector('layer-tree-layer[id="' + id + '"]');
             if (treeLayer) {
                 const chk = (treeLayer.getAttribute('checked') || '').toLowerCase();
                 if (chk === '0' || chk.includes('unchecked')) {
@@ -13819,7 +13904,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
             }
 
-            // Solo importar capas que estén activadas / visibles en el proyecto de QGIS
             if (!visible) {
                 continue;
             }
@@ -13829,69 +13913,127 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             let strokeWidth = 1.5;
             let fillOpacity = 0.8;
             let opacity = 1.0;
+            let symbologyType = 'single';
+            let symbologyField = '';
+            let symbologyMap = {};
+            let rules = null;
+            let showLabels = false;
+            let labelField = '';
 
             const layerOpacityEl = ml.querySelector('layerOpacity');
             if (layerOpacityEl && !isNaN(parseFloat(layerOpacityEl.textContent))) {
                 opacity = parseFloat(layerOpacityEl.textContent);
             }
 
+            const labeling = ml.querySelector('labeling');
+            if (labeling && labeling.getAttribute('type') === 'simple') {
+                showLabels = true;
+                labelField = labeling.querySelector('settings text-style')?.getAttribute('fieldName') || labeling.querySelector('settings')?.getAttribute('fieldName') || '';
+            }
+
             const renderer = ml.querySelector('renderer-v2');
             if (renderer) {
-                // Support both QGIS 2 (<prop k="..." v="..." />) and QGIS 3 (<Option name="..." value="..." />)
-                const props = Array.from(renderer.getElementsByTagName('prop'));
-                for (const p of props) {
-                    const k = p.getAttribute('k');
-                    const v = p.getAttribute('v');
-                    if (k === 'color' && v) {
-                        const parsed = qgisRgbaToCss(v);
-                        if (parsed) {
-                            if (parsed.opacity > 0 && parsed.hex !== '#000000') {
-                                color = parsed;
-                                fillOpacity = parsed.opacity;
-                            } else if (parsed.opacity > 0) {
-                                color = parsed;
-                                fillOpacity = 0.35;
-                            } else {
-                                color = null; // No forzar negro transparente
-                                fillOpacity = 0.22;
+                const rType = renderer.getAttribute('type');
+
+                // Build symbol lookup table
+                const symbolsLookup = {};
+                const symbols = Array.from(renderer.querySelectorAll('symbols > symbol'));
+                for (const sym of symbols) {
+                    const sName = sym.getAttribute('name');
+                    let sColor = null;
+                    let sStroke = null;
+                    let sWidth = 1.5;
+                    let sFillOp = 0.8;
+
+                    const symLayers = Array.from(sym.querySelectorAll('layer'));
+                    for (const sl of symLayers) {
+                        const opts = {};
+                        for (const o of Array.from(sl.querySelectorAll('Option, prop'))) {
+                            const k = o.getAttribute('name') || o.getAttribute('k');
+                            const v = o.getAttribute('value') || o.getAttribute('v');
+                            if (k && v !== null) opts[k] = v;
+                        }
+                        if (opts.color) {
+                            const c = qgisRgbaToCss(opts.color);
+                            if (c) {
+                                sColor = c.hex;
+                                sFillOp = c.opacity;
                             }
                         }
-                    } else if ((k === 'outline_color' || k === 'line_color') && v) {
-                        const parsed = qgisRgbaToCss(v);
-                        if (parsed && parsed.opacity > 0) {
-                            strokeColor = parsed;
+                        if (opts.outline_color || opts.line_color) {
+                            const sc = qgisRgbaToCss(opts.outline_color || opts.line_color);
+                            if (sc) sStroke = sc.hex;
                         }
-                    } else if ((k === 'outline_width' || k === 'line_width') && v) {
-                        const pW = parseFloat(v);
-                        strokeWidth = (!isNaN(pW) && pW > 0) ? Math.max(2.0, pW * 2.5) : 2.0;
+                        if (opts.outline_width || opts.line_width) {
+                            const pw = parseFloat(opts.outline_width || opts.line_width);
+                            if (!isNaN(pw)) sWidth = Math.max(1.5, pw * 2.5);
+                        }
+                        if (opts.style === 'no') {
+                            sFillOp = 0;
+                        }
                     }
+                    symbolsLookup[sName] = { color: sColor, strokeColor: sStroke, strokeWidth: sWidth, fillOpacity: sFillOp };
                 }
-                const options = Array.from(renderer.getElementsByTagName('Option'));
-                for (const opt of options) {
-                    const k = opt.getAttribute('name');
-                    const v = opt.getAttribute('value');
-                    if (k === 'color' && v && !color) {
-                        const parsed = qgisRgbaToCss(v);
-                        if (parsed) {
-                            if (parsed.opacity > 0 && parsed.hex !== '#000000') {
-                                color = parsed;
-                                fillOpacity = parsed.opacity;
-                            } else if (parsed.opacity > 0) {
-                                color = parsed;
-                                fillOpacity = 0.35;
-                            } else {
-                                color = null;
-                                fillOpacity = 0.22;
-                            }
-                        }
-                    } else if ((k === 'outline_color' || k === 'line_color') && v && !strokeColor) {
-                        const parsed = qgisRgbaToCss(v);
-                        if (parsed && parsed.opacity > 0) {
-                            strokeColor = parsed;
-                        }
-                    } else if ((k === 'outline_width' || k === 'line_width') && v) {
-                        const pW = parseFloat(v);
-                        strokeWidth = (!isNaN(pW) && pW > 0) ? Math.max(2.0, pW * 2.5) : strokeWidth;
+
+                if (rType === 'categorizedSymbol') {
+                    symbologyType = 'categorized';
+                    symbologyField = renderer.getAttribute('attr') || '';
+                    const cats = Array.from(renderer.querySelectorAll('categories > category'));
+                    for (const cat of cats) {
+                        const symId = cat.getAttribute('symbol');
+                        const val = cat.getAttribute('value');
+                        const lbl = cat.getAttribute('label') || val;
+                        const render = cat.getAttribute('render') !== 'false';
+                        const sp = symbolsLookup[symId] || {};
+                        symbologyMap[val] = {
+                            color: sp.color || '#38bdf8',
+                            strokeColor: sp.strokeColor || '#333333',
+                            strokeWidth: sp.strokeWidth || 1.5,
+                            fillOpacity: sp.fillOpacity !== undefined ? sp.fillOpacity : 0.8,
+                            label: lbl,
+                            visible: render
+                        };
+                    }
+                    const firstSym = Object.values(symbologyMap)[0];
+                    if (firstSym) {
+                        color = { hex: firstSym.color, opacity: firstSym.fillOpacity };
+                        strokeColor = { hex: firstSym.strokeColor };
+                        strokeWidth = firstSym.strokeWidth;
+                        fillOpacity = firstSym.fillOpacity;
+                    }
+                } else if (rType === 'RuleRenderer') {
+                    symbologyType = 'ruleBased';
+                    rules = [];
+                    const rList = Array.from(renderer.querySelectorAll('rules > rule'));
+                    for (const r of rList) {
+                        const symId = r.getAttribute('symbol');
+                        const filt = r.getAttribute('filter') || '';
+                        const lbl = r.getAttribute('label') || '';
+                        const sp = symbolsLookup[symId] || {};
+                        rules.push({
+                            symbol: symId,
+                            filter: filt,
+                            label: lbl,
+                            color: sp.color || '#38bdf8',
+                            strokeColor: sp.strokeColor || '#333333',
+                            strokeWidth: sp.strokeWidth || 1.5,
+                            fillOpacity: sp.fillOpacity !== undefined ? sp.fillOpacity : 0.8,
+                            visible: true
+                        });
+                    }
+                    if (rules.length > 0) {
+                        color = { hex: rules[0].color, opacity: rules[0].fillOpacity };
+                        strokeColor = { hex: rules[0].strokeColor };
+                        strokeWidth = rules[0].strokeWidth;
+                        fillOpacity = rules[0].fillOpacity;
+                    }
+                } else {
+                    const s0 = symbolsLookup['0'] || Object.values(symbolsLookup)[0];
+                    if (s0) {
+                        if (s0.color) color = { hex: s0.color, opacity: s0.fillOpacity };
+                        if (s0.strokeColor) strokeColor = { hex: s0.strokeColor };
+                        strokeWidth = s0.strokeWidth || 1.5;
+                        fillOpacity = s0.fillOpacity !== undefined ? s0.fillOpacity : 0.8;
                     }
                 }
             }
@@ -13908,7 +14050,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 strokeColor,
                 strokeWidth,
                 fillOpacity,
-                opacity
+                opacity,
+                symbologyType,
+                symbologyField,
+                symbologyMap,
+                rules,
+                showLabels,
+                labelField
             });
         }
 
@@ -13938,18 +14086,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 paper = 'A4';
             } else if ((Math.abs(pageW - 420) < 6 && Math.abs(pageH - 297) < 6) || (Math.abs(pageW - 297) < 6 && Math.abs(pageH - 420) < 6)) {
                 paper = 'A3';
+            } else if ((Math.abs(pageW - 594) < 6 && Math.abs(pageH - 420) < 6) || (Math.abs(pageW - 420) < 6 && Math.abs(pageH - 594) < 6)) {
+                paper = 'A2';
+            } else if ((Math.abs(pageW - 841) < 6 && Math.abs(pageH - 594) < 6) || (Math.abs(pageW - 594) < 6 && Math.abs(pageH - 841) < 6)) {
+                paper = 'A1';
             } else if ((Math.abs(pageW - 279.4) < 6 && Math.abs(pageH - 215.9) < 6) || (Math.abs(pageW - 215.9) < 6 && Math.abs(pageH - 279.4) < 6)) {
                 paper = 'Letter';
             } else {
                 paper = 'A4';
-                customDimensions = { width: `${pageW}mm`, height: `${pageH}mm` };
+                customDimensions = { width: pageW + 'mm', height: pageH + 'mm' };
             }
 
             const mapItems = [];
             const labelItems = [];
+            const shapeItems = [];
             let scale = null, compass = null, legend = null;
 
-            // QGIS 3 LayoutItems
+            // QGIS 3 LayoutItems (QgsLayoutItemRegistry: 65638=Page, 65639=Map, 65640=Picture, 65641=Label, 65642=Legend, 65643=Shape, 65646=Scalebar)
             const items = Array.from(lay.querySelectorAll('LayoutItem'));
             for (const it of items) {
                 const itype = it.getAttribute('type');
@@ -13962,27 +14115,57 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
                 if (itype === '65639') { // Map
                     const ext = it.querySelector('Extent');
+                    const mapCrs = it.querySelector('spatialrefsys authid')?.textContent?.trim() || projectCrs;
                     const extent = ext ? {
                         xmin: parseFloat(ext.getAttribute('xmin')),
                         ymin: parseFloat(ext.getAttribute('ymin')),
                         xmax: parseFloat(ext.getAttribute('xmax')),
                         ymax: parseFloat(ext.getAttribute('ymax')),
-                        crs: projectCrs
+                        crs: mapCrs
                     } : null;
                     mapItems.push({ x, y, w, h, area: w * h, extent });
+                } else if (itype === '65640') { // Picture / North arrow
+                    compass = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
                 } else if (itype === '65641') { // Label
                     const txt = it.querySelector('LabelText')?.textContent || it.getAttribute('labelText') || '';
-                    labelItems.push({ x, y, w, h, text: txt.trim() });
-                } else if (itype === '65642') { // Scalebar
-                    scale = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
-                } else if (itype === '65646') { // Picture / North arrow
-                    compass = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
-                } else if (itype === '65643') { // Legend
-                    legend = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                    const fntEl = it.querySelector('LabelFont');
+                    const fntDesc = fntEl?.getAttribute('description') || '';
+                    let fSize = 9;
+                    const fSizeMatch = fntDesc.match(/,\s*(\d+(?:\.\d+)?)/);
+                    if (fSizeMatch) fSize = parseFloat(fSizeMatch[1]);
+                    const halign = it.getAttribute('halign') || 'left';
+                    labelItems.push({ x, y, w, h, text: txt.trim(), fontSize: fSize, halign });
+                } else if (itype === '65642') { // Legend
+                    legend = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
+                } else if (itype === '65643') { // Shape
+                    let shColor = '#ffffff';
+                    let shStroke = '#333333';
+                    let shStrokeW = 1;
+                    const sym = it.querySelector('symbol');
+                    if (sym) {
+                        const optColor = sym.querySelector('Option[name="color"]')?.getAttribute('value');
+                        const optStroke = sym.querySelector('Option[name="outline_color"]')?.getAttribute('value');
+                        const optW = sym.querySelector('Option[name="outline_width"]')?.getAttribute('value');
+                        if (optColor) {
+                            const parsed = qgisRgbaToCss(optColor);
+                            if (parsed) shColor = parsed.hex;
+                        }
+                        if (optStroke) {
+                            const parsed = qgisRgbaToCss(optStroke);
+                            if (parsed) shStroke = parsed.hex;
+                        }
+                        if (optW) {
+                            const pw = parseFloat(optW);
+                            if (!isNaN(pw)) shStrokeW = Math.max(0.5, pw * 2);
+                        }
+                    }
+                    shapeItems.push({ x, y, w, h, backgroundColor: shColor, borderColor: shStroke, borderWidth: shStrokeW });
+                } else if (itype === '65646') { // Scalebar
+                    scale = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
                 }
             }
 
-            // QGIS 2 Composers
+            // QGIS 2 Composers fallback
             const compMaps = Array.from(lay.querySelectorAll('ComposerMap'));
             for (const cm of compMaps) {
                 const x = parseFloat(cm.getAttribute('x')) || 0;
@@ -14006,7 +14189,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const w = parseFloat(cl.getAttribute('width')) || 0;
                 const h = parseFloat(cl.getAttribute('height')) || 0;
                 const txt = cl.querySelector('labelText')?.textContent || cl.getAttribute('labelText') || '';
-                labelItems.push({ x, y, w, h, text: txt.trim() });
+                labelItems.push({ x, y, w, h, text: txt.trim(), fontSize: 9, halign: 'left' });
             }
             const compPictures = Array.from(lay.querySelectorAll('ComposerPicture'));
             for (const cp of compPictures) {
@@ -14014,7 +14197,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const y = parseFloat(cp.getAttribute('y')) || 0;
                 const w = parseFloat(cp.getAttribute('width')) || 0;
                 const h = parseFloat(cp.getAttribute('height')) || 0;
-                compass = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                compass = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
             }
             const compScaleBars = Array.from(lay.querySelectorAll('ComposerScaleBar'));
             for (const cs of compScaleBars) {
@@ -14022,7 +14205,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const y = parseFloat(cs.getAttribute('y')) || 0;
                 const w = parseFloat(cs.getAttribute('width')) || 0;
                 const h = parseFloat(cs.getAttribute('height')) || 0;
-                scale = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                scale = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
             }
             const compLegends = Array.from(lay.querySelectorAll('ComposerLegend'));
             for (const clg of compLegends) {
@@ -14030,7 +14213,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const y = parseFloat(clg.getAttribute('y')) || 0;
                 const w = parseFloat(clg.getAttribute('width')) || 0;
                 const h = parseFloat(clg.getAttribute('height')) || 0;
-                legend = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                legend = { top: y + 'mm', left: x + 'mm', width: w + 'mm', height: h + 'mm' };
             }
 
             let mapFrame = null;
@@ -14039,7 +14222,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (mapItems.length > 0) {
                 mapItems.sort((a, b) => b.area - a.area);
                 const main = mapItems[0];
-                mapFrame = { top: `${main.y}mm`, left: `${main.x}mm`, width: `${main.w}mm`, height: `${main.h}mm`, visible: true };
+                mapFrame = { top: main.y + 'mm', left: main.x + 'mm', width: main.w + 'mm', height: main.h + 'mm', visible: true };
                 extent = main.extent;
                 secondaryMaps = mapItems.slice(1);
             }
@@ -14055,11 +14238,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const upper = t.toUpperCase();
                 const isMeta = ['INFORMACIÓN TÉCNICA', 'INFORMACION TECNICA', 'AUTOR', 'PROYECTO', 'SISTEMA DE COORDENADAS', 'FUENTE', 'ESCALA', 'MEMBRETE'].some(k => upper.includes(k));
                 if (isMeta && !metadata) {
-                    metadata = { top: `${l.y}mm`, left: `${l.x}mm`, width: `${l.w}mm`, height: `${l.h}mm` };
+                    metadata = { top: l.y + 'mm', left: l.x + 'mm', width: l.w + 'mm', height: l.h + 'mm' };
                     metadataText = t;
                 } else if (!titleText && l.y < pageH * 0.35 && l.w > 50) {
                     titleText = t.replace(/\n+/g, ' — ');
-                    titleProps = { top: `${l.y}mm`, left: `${l.x}mm`, width: `${l.w}mm`, height: `${l.h}mm` };
+                    titleProps = { top: l.y + 'mm', left: l.x + 'mm', width: l.w + 'mm', height: l.h + 'mm' };
                 } else {
                     customItems.push(l);
                 }
@@ -14074,7 +14257,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 pageHeight: pageH,
                 mapFrame,
                 extent,
-                extentCrs: projectCrs,
+                extentCrs: extent ? extent.crs : projectCrs,
                 titleText,
                 titleProps,
                 metadata,
@@ -14083,6 +14266,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 compass,
                 legend,
                 secondaryMaps,
+                shapeItems,
+                labelItems,
                 customItems
             });
         }
@@ -14094,11 +14279,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             layouts
         };
     }
-
     function applyQgisLayout(layout) {
         if (!layout) return;
         console.log('[QGIS Layout] Aplicando layout:', layout.name, layout);
 
+        layoutConfig.qgisLayout = layout;
         layoutConfig.paper = layout.paper || 'A4';
         layoutConfig.orientation = layout.orientation || 'landscape';
         if (layout.customDimensions) {
@@ -14154,16 +14339,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layoutConfig.extentCrs = layout.extentCrs || 'EPSG:4326';
         layoutConfig.initialized = true;
 
-        // Formas secundarias (como minimapa de localización)
+        // Custom shapes from QGIS
+        layoutConfig.shapeItems = layout.shapeItems || [];
+        layoutConfig.customItems = layout.customItems || [];
+        layoutConfig.secondaryMaps = layout.secondaryMaps || [];
+
         layoutConfig.shapes = [];
-        if (layout.secondaryMaps && layout.secondaryMaps.length > 0) {
-            layout.secondaryMaps.forEach((sm, idx) => {
+        if (layoutConfig.shapeItems && layoutConfig.shapeItems.length > 0) {
+            layoutConfig.shapeItems.forEach((sh, idx) => {
+                layoutConfig.shapes.push({
+                    id: 'shape-qgis-sh-' + idx,
+                    top: sh.y + 'mm',
+                    left: sh.x + 'mm',
+                    width: sh.w + 'mm',
+                    height: sh.h + 'mm',
+                    borderColor: sh.borderColor || '#333333',
+                    borderWidth: sh.borderWidth || 1,
+                    backgroundColor: sh.backgroundColor || 'transparent'
+                });
+            });
+        }
+        if (layoutConfig.secondaryMaps && layoutConfig.secondaryMaps.length > 0) {
+            layoutConfig.secondaryMaps.forEach((sm, idx) => {
                 layoutConfig.shapes.push({
                     id: 'shape-qgis-map-' + idx,
-                    top: `${sm.y}mm`,
-                    left: `${sm.x}mm`,
-                    width: `${sm.w}mm`,
-                    height: `${sm.h}mm`,
+                    top: sm.y + 'mm',
+                    left: sm.x + 'mm',
+                    width: sm.w + 'mm',
+                    height: sm.h + 'mm',
                     borderColor: '#333333',
                     borderWidth: 1.5,
                     backgroundColor: 'rgba(245, 245, 245, 0.85)'
@@ -14447,16 +14650,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         const dbfFile = dbfBlob ? new File([dbfBlob], dbfEntry.fileName, { type: 'application/octet-stream' }) : null;
                         const prjFile = prjBlob ? new File([prjBlob], prjEntry.fileName, { type: 'text/plain' }) : null;
 
-                        await loadShapefileDirect(shpFile, dbfFile, prjFile, {
-                            originalName: ql.name,
-                            color: ql.color?.hex,
-                            strokeColor: ql.strokeColor?.hex,
-                            strokeWidth: ql.strokeWidth,
-                            fillOpacity: ql.fillOpacity,
-                            opacity: ql.opacity,
-                            visible: ql.visible,
-                            skipAutoCloudUpload: true
-                        });
+                        await loadShapefileDirect(shpFile, dbfFile, prjFile, getQgisLayerStylingOpts(ql));
                         loadedBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
                         loadedCount++;
                     } else if (gpkgEntry) {
@@ -14480,16 +14674,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 const gpkgData = await gpkgRes.json();
                                 if (gpkgData.geojson && gpkgData.geojson.features && gpkgData.geojson.features.length > 0) {
                                     let reprojected = await reprojectGeoJSON(gpkgData.geojson);
-                                    await addVectorLayer(reprojected, ql.name, {
-                                        originalName: ql.name,
-                                        color: ql.color?.hex,
-                                        strokeColor: ql.strokeColor?.hex,
-                                        strokeWidth: ql.strokeWidth,
-                                        fillOpacity: ql.fillOpacity,
-                                        opacity: ql.opacity,
-                                        visible: ql.visible,
-                                        skipAutoCloudUpload: true
-                                    });
+                                    await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                     loadedBases.add(gpkgEntry.fileName.replace(/\.gpkg$/i, '').toLowerCase());
                                     loadedCount++;
                                     continue;
@@ -14533,44 +14718,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                         }
                                     }
                                     if (shpFile) {
-                                        await loadShapefileDirect(shpFile, dbfFile, prjFile, {
-                                            originalName: ql.name,
-                                            color: ql.color?.hex,
-                                            strokeColor: ql.strokeColor?.hex,
-                                            strokeWidth: ql.strokeWidth,
-                                            fillOpacity: ql.fillOpacity,
-                                            opacity: ql.opacity,
-                                            visible: ql.visible,
-                                            skipAutoCloudUpload: true
-                                        });
+                                        await loadShapefileDirect(shpFile, dbfFile, prjFile, getQgisLayerStylingOpts(ql));
                                         loadedBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
                                         loadedCount++;
                                     }
                                 } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                     let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
-                                    await addVectorLayer(reprojected, ql.name, {
-                                        originalName: ql.name,
-                                        color: ql.color?.hex,
-                                        strokeColor: ql.strokeColor?.hex,
-                                        strokeWidth: ql.strokeWidth,
-                                        fillOpacity: ql.fillOpacity,
-                                        opacity: ql.opacity,
-                                        visible: ql.visible,
-                                        skipAutoCloudUpload: true
-                                    });
+                                    await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                     loadedCount++;
                                 } else if (resData.found && resData.type === 'geojson' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                     let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
-                                    await addVectorLayer(reprojected, ql.name, {
-                                        originalName: ql.name,
-                                        color: ql.color?.hex,
-                                        strokeColor: ql.strokeColor?.hex,
-                                        strokeWidth: ql.strokeWidth,
-                                        fillOpacity: ql.fillOpacity,
-                                        opacity: ql.opacity,
-                                        visible: ql.visible,
-                                        skipAutoCloudUpload: true
-                                    });
+                                    await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                     loadedCount++;
                                 }
                             }
@@ -14873,16 +15031,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const base = sFile.name.replace(/\.shp$/i, '');
                 const dFile = folderFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
                 const pFile = folderFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
-                await loadShapefileDirect(sFile, dFile, pFile, {
-                    originalName: ql.name,
-                    color: ql.color?.hex,
-                    strokeColor: ql.strokeColor?.hex,
-                    strokeWidth: ql.strokeWidth,
-                    fillOpacity: ql.fillOpacity,
-                    opacity: ql.opacity,
-                    visible: ql.visible,
-                    skipAutoCloudUpload: true
-                });
+                await loadShapefileDirect(sFile, dFile, pFile, getQgisLayerStylingOpts(ql));
                 newlyLoaded++;
                 continue;
             }
@@ -14898,16 +15047,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         const gData = await gRes.json();
                         if (gData.geojson && gData.geojson.features && gData.geojson.features.length > 0) {
                             let rep = await reprojectGeoJSON(gData.geojson, ql.srs);
-                            await addVectorLayer(rep, ql.name, {
-                                originalName: ql.name,
-                                color: ql.color?.hex,
-                                strokeColor: ql.strokeColor?.hex,
-                                strokeWidth: ql.strokeWidth,
-                                fillOpacity: ql.fillOpacity,
-                                opacity: ql.opacity,
-                                visible: ql.visible,
-                                skipAutoCloudUpload: true
-                            });
+                            await addVectorLayer(rep, ql.name, getQgisLayerStylingOpts(ql));
                             newlyLoaded++;
                             continue;
                         }
@@ -14924,16 +15064,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     parsed = applyGeoJsonSubset(parsed, ql.datasource);
                     if (parsed && parsed.features && parsed.features.length > 0) {
                         let rep = await reprojectGeoJSON(parsed, ql.srs);
-                        await addVectorLayer(rep, ql.name, {
-                            originalName: ql.name,
-                            color: ql.color?.hex,
-                            strokeColor: ql.strokeColor?.hex,
-                            strokeWidth: ql.strokeWidth,
-                            fillOpacity: ql.fillOpacity,
-                            opacity: ql.opacity,
-                            visible: ql.visible,
-                            skipAutoCloudUpload: true
-                        });
+                        await addVectorLayer(rep, ql.name, getQgisLayerStylingOpts(ql));
                         newlyLoaded++;
                         continue;
                     }
@@ -14974,17 +15105,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!subsetMatch || !subsetMatch[1]) return geojson;
         const subsetStr = subsetMatch[1].trim();
         try {
-            let expr = subsetStr
-                .replace(/([a-zA-Z0-9_]+)\s*=\s*'([^']*)'/g, "p['$1'] === '$2'")
-                .replace(/([a-zA-Z0-9_]+)\s*<>\s*'([^']*)'/g, "p['$1'] !== '$2'")
-                .replace(/([a-zA-Z0-9_]+)\s*=\s*([0-9.]+)/g, "p['$1'] === $2")
-                .replace(/([a-zA-Z0-9_]+)\s*<>\s*([0-9.]+)/g, "p['$1'] !== $2")
-                .replace(/\bAND\b/gi, " && ")
-                .replace(/\bOR\b/gi, " || ")
-                .replace(/\bNOT\b/gi, " !");
-            const filterFn = new Function('p', `return (${expr});`);
             const filteredFeatures = geojson.features.filter(f => {
-                try { return filterFn(f.properties || {}); } catch (_) { return true; }
+                return evaluateQgisRuleFilter(subsetStr, f.properties || {});
             });
             return { ...geojson, features: filteredFeatures };
         } catch (err) {
@@ -15184,16 +15306,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             const gpkgData = await gpkgRes.json();
                             if (gpkgData.geojson && gpkgData.geojson.features && gpkgData.geojson.features.length > 0) {
                                 let reprojected = await reprojectGeoJSON(gpkgData.geojson, ql.srs);
-                                await addVectorLayer(reprojected, ql.name, {
-                                    originalName: ql.name,
-                                    color: ql.color?.hex,
-                                    strokeColor: ql.strokeColor?.hex,
-                                    strokeWidth: ql.strokeWidth,
-                                    fillOpacity: ql.fillOpacity,
-                                    opacity: ql.opacity,
-                                    visible: ql.visible,
-                                    skipAutoCloudUpload: true
-                                });
+                                await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                 loadedCount++;
                                 continue;
                             }
@@ -15227,16 +15340,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         parsed = applyGeoJsonSubset(parsed, ql.datasource);
                         if (parsed && parsed.features && parsed.features.length > 0) {
                             let reprojected = await reprojectGeoJSON(parsed, ql.srs);
-                            await addVectorLayer(reprojected, ql.name, {
-                                originalName: ql.name,
-                                color: ql.color?.hex,
-                                strokeColor: ql.strokeColor?.hex,
-                                strokeWidth: ql.strokeWidth,
-                                fillOpacity: ql.fillOpacity,
-                                opacity: ql.opacity,
-                                visible: ql.visible,
-                                skipAutoCloudUpload: true
-                            });
+                            await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                             loadedCount++;
                             continue;
                         }
@@ -15286,32 +15390,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 }
                             } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                 let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
-                                await addVectorLayer(reprojected, ql.name, {
-                                    originalName: ql.name,
-                                    color: ql.color?.hex,
-                                    strokeColor: ql.strokeColor?.hex,
-                                    strokeWidth: ql.strokeWidth,
-                                    fillOpacity: ql.fillOpacity,
-                                    opacity: ql.opacity,
-                                    visible: ql.visible,
-                                    skipAutoCloudUpload: true
-                                });
+                                await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                 loadedCount++;
                                 updateLayersSidebar();
                                 if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
                                 continue;
                             } else if (resData.found && resData.type === 'geojson' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                 let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
-                                await addVectorLayer(reprojected, ql.name, {
-                                    originalName: ql.name,
-                                    color: ql.color?.hex,
-                                    strokeColor: ql.strokeColor?.hex,
-                                    strokeWidth: ql.strokeWidth,
-                                    fillOpacity: ql.fillOpacity,
-                                    opacity: ql.opacity,
-                                    visible: ql.visible,
-                                    skipAutoCloudUpload: true
-                                });
+                                await addVectorLayer(reprojected, ql.name, getQgisLayerStylingOpts(ql));
                                 loadedCount++;
                                 updateLayersSidebar();
                                 if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
@@ -15346,16 +15432,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
 
                 if (shpFile) {
-                    await loadShapefileDirect(shpFile, dbfFile, prjFile, {
-                        originalName: ql.name,
-                        color: ql.color?.hex,
-                        strokeColor: ql.strokeColor?.hex,
-                        strokeWidth: ql.strokeWidth,
-                        fillOpacity: ql.fillOpacity,
-                        opacity: ql.opacity,
-                        visible: ql.visible,
-                        skipAutoCloudUpload: true
-                    });
+                    await loadShapefileDirect(shpFile, dbfFile, prjFile, getQgisLayerStylingOpts(ql));
                     if (!window._loadedByQgisFiles) window._loadedByQgisFiles = new Set();
                     window._loadedByQgisFiles.add(shpFile.name.toLowerCase());
                     if (dbfFile) window._loadedByQgisFiles.add(dbfFile.name.toLowerCase());
@@ -15475,9 +15552,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 showProgress('Procesando geometrías...', 60, 'Importador Shapefile');
                 const parsedGeoms = window.shp.parseShp(shpBuffer);
                 const parsedAttrs = dbfBuffer ? window.shp.parseDbf(dbfBuffer) : Array(parsedGeoms.length).fill({});
-                let geojson = await window.shp.combine([parsedGeoms, parsedAttrs]);
+                                let geojson = await window.shp.combine([parsedGeoms, parsedAttrs]);
                 if (prjText) {
                     geojson = await reprojectGeoJSON(geojson, prjText);
+                }
+                if (opts.datasource) {
+                    geojson = applyGeoJsonSubset(geojson, opts.datasource);
                 }
                 await addVectorLayer(geojson, layerName, opts);
                 hideProgress();
@@ -16645,6 +16725,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         symbologyType: opts.symbologyType || 'single',
         symbologyField: opts.symbologyField || '',
         symbologyMap: opts.symbologyMap || {}, // { value: color }
+        rules: opts.rules || null,
         dbId: opts.dbId || null,
         storageUrl: opts.storageUrl || null,
         isHeatmap: opts.isHeatmap || false,
@@ -17002,25 +17083,78 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
 
     function getVectorFeatureStyle(layer, feature) {
-        const p = feature.properties || {};
+        const p = (feature && feature.properties) ? feature.properties : {};
         let fillColor = layer.color;
+        let strokeColor = layer.strokeColor;
+        let strokeWidth = layer.strokeWidth || 1.5;
+        let fillOpacity = layer.fillOpacity !== undefined ? layer.fillOpacity : 0.8;
+        let strokeOpacity = layer.strokeOpacity ?? layer.opacity ?? 1.0;
         let featureVisible = true;
 
         // Custom Heatmap Coloring
         if (layer.isHeatmap && p._intensity !== undefined) {
              const max = layer.maxIntensity || 10;
              const norm = Math.min(1, p._intensity / max);
-             // Heatmap ramp: Blue (low) -> Green -> Yellow -> Red (high)
              if (norm < 0.25) fillColor = interpolateColor('#3b82f6', '#22c55e', norm * 4);
              else if (norm < 0.5) fillColor = interpolateColor('#22c55e', '#facc15', (norm - 0.25) * 4);
              else fillColor = interpolateColor('#facc15', '#ef4444', (norm - 0.5) * 2);
+        } else if (layer.rules && Array.isArray(layer.rules) && layer.rules.length > 0) {
+            // QGIS RuleRenderer
+            let matched = false;
+            let elseRule = null;
+            for (const r of layer.rules) {
+                if (r.filter && r.filter.trim().toUpperCase() === 'ELSE') {
+                    elseRule = r;
+                    continue;
+                }
+                if (evaluateQgisRuleFilter(r.filter, p)) {
+                    fillColor = r.color || fillColor;
+                    if (r.strokeColor) strokeColor = r.strokeColor;
+                    if (r.strokeWidth) strokeWidth = r.strokeWidth;
+                    if (r.fillOpacity !== undefined) fillOpacity = r.fillOpacity;
+                    featureVisible = r.visible ?? true;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && elseRule) {
+                fillColor = elseRule.color || fillColor;
+                if (elseRule.strokeColor) strokeColor = elseRule.strokeColor;
+                if (elseRule.strokeWidth) strokeWidth = elseRule.strokeWidth;
+                if (elseRule.fillOpacity !== undefined) fillOpacity = elseRule.fillOpacity;
+                featureVisible = elseRule.visible ?? true;
+            }
         } else if (layer.symbologyType === 'categorized' && layer.symbologyField) {
-
-            const rawVal = p[layer.symbologyField];
+            // QGIS categorizedSymbol
+            let rawVal = p[layer.symbologyField];
+            if (rawVal === undefined) {
+                const fLower = String(layer.symbologyField).toLowerCase();
+                for (const k of Object.keys(p)) {
+                    if (k.toLowerCase() === fLower) {
+                        rawVal = p[k];
+                        break;
+                    }
+                }
+            }
             const val = (rawVal === null || rawVal === undefined) ? 'null' : String(rawVal).trim();
-            if (layer.symbologyMap && layer.symbologyMap[val]) {
-                fillColor = layer.symbologyMap[val].color;
-                featureVisible = layer.symbologyMap[val].visible ?? true;
+            if (layer.symbologyMap) {
+                let cat = layer.symbologyMap[val];
+                if (!cat) {
+                    const vLower = val.toLowerCase();
+                    for (const [k, v] of Object.entries(layer.symbologyMap)) {
+                        if (String(k).trim().toLowerCase() === vLower) {
+                            cat = v;
+                            break;
+                        }
+                    }
+                }
+                if (cat) {
+                    fillColor = cat.color || fillColor;
+                    if (cat.strokeColor) strokeColor = cat.strokeColor;
+                    if (cat.strokeWidth) strokeWidth = cat.strokeWidth;
+                    if (cat.fillOpacity !== undefined) fillOpacity = cat.fillOpacity;
+                    featureVisible = cat.visible ?? true;
+                }
             }
         } else if (layer.symbologyType === 'graduated' && layer.symbologyField) {
             const val = parseFloat(p[layer.symbologyField]);
@@ -17041,20 +17175,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const geomType = feature && feature.geometry ? feature.geometry.type : '';
         const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
 
-        // Color de relleno (respetar layer.color elegido por el usuario, incluido #000000)
-        let effectiveFill = (layer.color) ? layer.color : (p.fill || p.fillColor || p['fill-color'] || p.color || p.COLOR || p.HEX || p.HEX_COLOR || '#38bdf8');
+        // Color de relleno efectivo
+        let effectiveFill = fillColor || (p.fill || p.fillColor || p['fill-color'] || p.color || p.COLOR || p.HEX || p.HEX_COLOR || '#38bdf8');
         if (!effectiveFill || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(effectiveFill).toLowerCase().trim())) {
-            effectiveFill = layer.color || '#38bdf8';
+            effectiveFill = fillColor || '#38bdf8';
         }
 
-        // Color de borde / trazo (respetar layer.strokeColor elegido por el usuario, incluido #000000)
-        let strokeColor = (layer.strokeColor) ? layer.strokeColor : (p.stroke || p.strokeColor || p['stroke-color'] || effectiveFill || '#000000');
-        if (!strokeColor || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(strokeColor).toLowerCase().trim())) {
-            strokeColor = layer.strokeColor || effectiveFill || '#000000';
+        // Color de borde / trazo efectivo
+        let effectiveStroke = strokeColor || (p.stroke || p.strokeColor || p['stroke-color'] || '#333333');
+        if (!effectiveStroke || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(effectiveStroke).toLowerCase().trim())) {
+            effectiveStroke = strokeColor || '#333333';
         }
 
-        const rawWeight = p['stroke-width'] || p.strokeWidth || layer.strokeWidth;
-        const minW = isLine ? 2.5 : 2.0;
+        const rawWeight = p['stroke-width'] || p.strokeWidth || strokeWidth;
+        const minW = isLine ? 2.0 : 1.2;
         const weight = Math.max(minW, parseFloat(rawWeight) || minW);
 
         const fOp = p['fill-opacity'] !== undefined ? p['fill-opacity'] : (p.fillOpacity !== undefined ? p.fillOpacity : 1);
@@ -17062,11 +17196,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (!featureVisible) return { fillOpacity: 0, opacity: 0, weight: 0, stroke: false };
 
-        let baseFill = (layer.fillOpacity !== undefined) ? layer.fillOpacity : 0.22;
-        let baseStrokeOp = (layer.strokeOpacity !== undefined) ? layer.strokeOpacity : 1.0;
+        let baseFill = (fillOpacity !== undefined) ? fillOpacity : 0.8;
+        let baseStrokeOp = (strokeOpacity !== undefined) ? strokeOpacity : 1.0;
 
         var style = {
-            color: strokeColor,
+            color: effectiveStroke,
             fillColor: effectiveFill,
             fillOpacity: isLine ? 0 : (fOp * baseFill),
             opacity: sOp * baseStrokeOp,
@@ -22579,18 +22713,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (layoutConfig && layoutConfig.extent && window.layoutLeafletMap) {
                 const ext = layoutConfig.extent;
                 let b = null;
-                const crs = layoutConfig.extentCrs || 'EPSG:4326';
+                let crs = layoutConfig.extentCrs || 'EPSG:4326';
+                if (crs === 'EPSG:4326' && (Math.abs(ext.ymin) > 90 || Math.abs(ext.xmin) > 180)) {
+                    if (Math.abs(ext.xmin) > 3000000 && Math.abs(ext.xmin) < 7000000) crs = 'EPSG:9377';
+                    else if (Math.abs(ext.xmin) > 7000000) crs = 'EPSG:3857';
+                    else if (Math.abs(ext.xmin) > 500000 && Math.abs(ext.xmin) < 2000000) crs = 'EPSG:3116';
+                }
                 if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
                     try {
                         const p1 = proj4(crs, 'EPSG:4326', [ext.xmin, ext.ymin]);
                         const p2 = proj4(crs, 'EPSG:4326', [ext.xmax, ext.ymax]);
-                        b = [[Math.min(p1[1], p2[1]), Math.min(p1[0], p2[0])], [Math.max(p1[1], p2[1]), Math.max(p1[0], p2[0])]];
+                        if (Math.abs(p1[1]) <= 90 && Math.abs(p2[1]) <= 90) {
+                            b = [[Math.min(p1[1], p2[1]), Math.min(p1[0], p2[0])], [Math.max(p1[1], p2[1]), Math.max(p1[0], p2[0])]];
+                        }
                     } catch(e) {}
                 } else if (Math.abs(ext.ymin) <= 90 && Math.abs(ext.ymax) <= 90) {
                     b = [[ext.ymin, ext.xmin], [ext.ymax, ext.xmax]];
                 }
                 if (b) {
-                    window.layoutLeafletMap.fitBounds(b, { animate: false, padding: [10, 10] });
+                    window.layoutLeafletMap.fitBounds(b, { animate: false, padding: [0, 0] });
                 }
             }
         }, 150);
@@ -22692,8 +22833,73 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             layoutApplyTheme('standard');
         }
 
-        // Restore each shape
+                // Clean up previously injected QGIS elements
         const paper = document.getElementById('layoutPaper');
+        if (paper) {
+            paper.querySelectorAll('.layout-qgis-injected').forEach(el => el.remove());
+        }
+
+        // Render QGIS shape items (legend boxes, borders, swatches)
+        if (paper && layoutConfig.shapeItems && Array.isArray(layoutConfig.shapeItems)) {
+            layoutConfig.shapeItems.forEach((sh, sIdx) => {
+                const sDiv = document.createElement('div');
+                sDiv.id = 'layout-qgis-sh-' + sIdx;
+                sDiv.className = 'absolute pointer-events-none layout-qgis-injected';
+                sDiv.style.top = sh.y + 'mm';
+                sDiv.style.left = sh.x + 'mm';
+                sDiv.style.width = sh.w + 'mm';
+                sDiv.style.height = sh.h + 'mm';
+                sDiv.style.backgroundColor = sh.backgroundColor || 'transparent';
+                sDiv.style.borderColor = sh.borderColor || '#333333';
+                sDiv.style.borderWidth = (sh.borderWidth || 1) + 'px';
+                sDiv.style.borderStyle = 'solid';
+                sDiv.style.zIndex = '12';
+                paper.appendChild(sDiv);
+            });
+        }
+
+        // Render QGIS custom label items (section titles, references, subtitles)
+        if (paper && layoutConfig.customItems && Array.isArray(layoutConfig.customItems)) {
+            layoutConfig.customItems.forEach((lbl, lIdx) => {
+                if (layoutConfig.titleProps && Math.abs(lbl.x - parseFloat(layoutConfig.titleProps.left)) < 3 && Math.abs(lbl.y - parseFloat(layoutConfig.titleProps.top)) < 3) return;
+                if (layoutConfig.metadata && Math.abs(lbl.x - parseFloat(layoutConfig.metadata.left)) < 3 && Math.abs(lbl.y - parseFloat(layoutConfig.metadata.top)) < 3) return;
+
+                const lDiv = document.createElement('div');
+                lDiv.id = 'layout-qgis-lbl-' + lIdx;
+                lDiv.className = 'absolute layout-qgis-injected cursor-move flex items-center p-0.5';
+                lDiv.style.top = lbl.y + 'mm';
+                lDiv.style.left = lbl.x + 'mm';
+                lDiv.style.width = lbl.w + 'mm';
+                lDiv.style.minHeight = lbl.h + 'mm';
+                lDiv.style.zIndex = '22';
+                lDiv.style.fontSize = Math.max(7.5, Math.min(18, lbl.fontSize || 9)) + 'px';
+                lDiv.style.fontWeight = (lbl.text.length < 50 && lbl.y < 35) ? '800' : '600';
+                lDiv.style.lineHeight = '1.2';
+                lDiv.style.color = '#111827';
+                lDiv.style.whiteSpace = 'pre-wrap';
+                lDiv.style.textAlign = lbl.halign || 'left';
+                lDiv.textContent = lbl.text;
+                paper.appendChild(lDiv);
+            });
+        }
+
+        // Render secondary maps (locator / inset maps)
+        if (paper && layoutConfig.secondaryMaps && Array.isArray(layoutConfig.secondaryMaps)) {
+            layoutConfig.secondaryMaps.forEach((sm, mIdx) => {
+                const mDiv = document.createElement('div');
+                mDiv.id = 'layout-qgis-map-' + mIdx;
+                mDiv.className = 'absolute layout-qgis-injected bg-zinc-50/90 border border-zinc-800 shadow-sm flex flex-col items-center justify-center';
+                mDiv.style.top = sm.y + 'mm';
+                mDiv.style.left = sm.x + 'mm';
+                mDiv.style.width = sm.w + 'mm';
+                mDiv.style.height = sm.h + 'mm';
+                mDiv.style.zIndex = '10';
+                mDiv.innerHTML = '<span class="text-[7.5px] font-black uppercase text-zinc-500 tracking-wider">Mapa Secundario ' + (mIdx + 1) + '</span>';
+                paper.appendChild(mDiv);
+            });
+        }
+
+        // Restore each shape
         if (layoutConfig.shapes && Array.isArray(layoutConfig.shapes)) {
             layoutConfig.shapes.forEach(sh => layoutRenderShape(sh));
         }
@@ -23793,15 +23999,49 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 iconClass = 'w-8 h-1 my-1 rounded-full';
             }
 
-            item.className = itemClass;
-            const style = layoutConfig.styles.legend;
-            const textStyle = `font-family: ${style.fontFamily}; font-size: ${style.fontSize}px; color: ${style.color}; font-weight: ${style.bold ? '700' : '400'}; font-style: ${style.italic ? 'italic' : 'normal'}; text-decoration: ${style.underline ? 'underline' : 'none'};`;
+                        if (l.symbologyType === 'categorized' && l.symbologyMap && Object.keys(l.symbologyMap).length > 0) {
+                const grp = document.createElement('div');
+                grp.className = 'w-full flex flex-col gap-1.5 my-1';
+                grp.innerHTML = '<span class="text-[9px] font-black uppercase text-zinc-500 tracking-wider border-b border-zinc-200/50 pb-0.5">' + l.name + '</span>';
+                const catsContainer = document.createElement('div');
+                catsContainer.className = 'flex flex-wrap gap-x-4 gap-y-1.5';
+                
+                Object.entries(l.symbologyMap).forEach(([val, cat]) => {
+                    if (cat.visible === false) return;
+                    const catEl = document.createElement('div');
+                    catEl.className = 'flex items-center gap-1.5';
+                    catEl.innerHTML = '<span style="width:12px;height:8px;background:' + (cat.color || '#888') + ';border:1px solid ' + (cat.strokeColor || 'rgba(0,0,0,0.3)') + ';display:inline-block;border-radius:1px;shrink:0;"></span><span class="text-[8.5px] font-bold text-zinc-800 uppercase tracking-tight">' + (cat.label || val) + '</span>';
+                    catsContainer.appendChild(catEl);
+                });
+                grp.appendChild(catsContainer);
+                legendList.appendChild(grp);
+            } else if (l.rules && Array.isArray(l.rules) && l.rules.length > 0) {
+                const grp = document.createElement('div');
+                grp.className = 'w-full flex flex-col gap-1.5 my-1';
+                grp.innerHTML = '<span class="text-[9px] font-black uppercase text-zinc-500 tracking-wider border-b border-zinc-200/50 pb-0.5">' + l.name + '</span>';
+                const rulesContainer = document.createElement('div');
+                rulesContainer.className = 'flex flex-wrap gap-x-4 gap-y-1.5';
+                
+                l.rules.forEach(r => {
+                    if (r.visible === false) return;
+                    const rEl = document.createElement('div');
+                    rEl.className = 'flex items-center gap-1.5';
+                    rEl.innerHTML = '<span style="width:12px;height:8px;background:' + (r.color || '#888') + ';border:1px solid ' + (r.strokeColor || 'rgba(0,0,0,0.3)') + ';display:inline-block;border-radius:1px;shrink:0;"></span><span class="text-[8.5px] font-bold text-zinc-800 uppercase tracking-tight">' + (r.label || r.filter || 'Regla') + '</span>';
+                    rulesContainer.appendChild(rEl);
+                });
+                grp.appendChild(rulesContainer);
+                legendList.appendChild(grp);
+            } else {
+                item.className = itemClass;
+                const style = layoutConfig.styles.legend;
+                const textStyle = `font-family: ${style.fontFamily}; font-size: ${style.fontSize}px; color: ${style.color}; font-weight: ${style.bold ? '700' : '400'}; font-style: ${style.italic ? 'italic' : 'normal'}; text-decoration: ${style.underline ? 'underline' : 'none'};`;
 
-            item.innerHTML = `
-                <div class="${iconClass}" style="background: ${l.type === 'vector' ? (l.color || '#555') : '#555'}"></div>
-                <span contenteditable="true" spellcheck="false" class="uppercase tracking-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-text transition-all" style="${textStyle}">${l.name}</span>
-            `;
-            legendList.appendChild(item);
+                item.innerHTML = `
+                    <div class="${iconClass}" style="background: ${l.type === 'vector' ? (l.color || '#555') : '#555'}"></div>
+                    <span contenteditable="true" spellcheck="false" class="uppercase tracking-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-text transition-all" style="${textStyle}">${l.name}</span>
+                `;
+                legendList.appendChild(item);
+            }
 
             // Logic to keep the existing toggle item generation
             const t = document.createElement('div');
@@ -23960,23 +24200,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         for (const l of visibleLayers) {
             try {
-                if (l.type === 'vector' && l.geoJson) {
+                                if (l.type === 'vector' && l.geoJson) {
                     const vLayer = L.geoJSON(l.geoJson, {
-                        style: (feat) => ({
-                            color: l.strokeColor || '#222222',
-                            weight: l.strokeWidth ?? 1.5,
-                            opacity: l.strokeOpacity ?? l.opacity ?? 1.0,
-                            fillColor: l.color || '#9333ea',
-                            fillOpacity: l.fillOpacity ?? 0.6
-                        }),
-                        pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
-                            radius: l.pointRadius || 6,
-                            fillColor: l.color || '#9333ea',
-                            color: l.strokeColor || '#ffffff',
-                            weight: l.strokeWidth || 1.5,
-                            opacity: 1,
-                            fillOpacity: l.fillOpacity ?? 0.8
-                        })
+                        style: (feat) => {
+                            return getVectorFeatureStyle(l, feat);
+                        },
+                        pointToLayer: (feat, latlng) => {
+                            const st = getVectorFeatureStyle(l, feat);
+                            return L.circleMarker(latlng, {
+                                radius: l.pointRadius || 6,
+                                fillColor: st.fillColor || l.color || '#38bdf8',
+                                color: st.color || l.strokeColor || '#ffffff',
+                                weight: st.weight || l.strokeWidth || 1.5,
+                                opacity: st.opacity || 1,
+                                fillOpacity: st.fillOpacity ?? 0.8
+                            });
+                        }
                     });
                     window.layoutLayersGroup.addLayer(vLayer);
                 } else if (l.type === 'raster') {
