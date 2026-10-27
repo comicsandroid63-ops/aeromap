@@ -8451,6 +8451,66 @@ self.onmessage = async function(e) {
       }
     }
 
+    async function uploadLayerToCloudflare(layer, onProgress) {
+      if (!layer) return null;
+      if (layer.storageUrl && layer.storageUrl.includes('.r2.dev')) {
+        return { success: true, url: layer.storageUrl, cached: true };
+      }
+
+      const cleanBase = _safeCloudName(layer.name || 'capa', 'capa').replace(/\.[^/.]+$/, "");
+      const uniqueName = `${Date.now().toString(36)}_${cleanBase}`;
+
+      if (layer.type === 'vector' && layer.geoJson) {
+        const geoStr = JSON.stringify(layer.geoJson);
+        const fileName = `${uniqueName}.geojson`;
+        const file = new File([new Blob([geoStr], { type: 'application/geo+json' })], fileName, { type: 'application/geo+json' });
+        
+        let res = null;
+        try {
+          res = await uploadFileToR2Direct(file, onProgress);
+        } catch (xhrErr) {
+          console.warn('[R2 Direct] Presigned PUT falló, intentando POST backend:', xhrErr.message);
+          const postRes = await fetch(`/api/cloud-upload?service=r2&action=upload&filename=${encodeURIComponent(fileName)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/geo+json' },
+            body: geoStr
+          });
+          if (postRes.ok) {
+            res = await postRes.json();
+          } else {
+            throw xhrErr;
+          }
+        }
+
+        if (res && res.publicUrl) {
+          layer.storageUrl = res.publicUrl;
+          layer.r2Key = res.key;
+          const projId = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
+          const usrId = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
+          if (typeof saveLayerToDatabase === 'function') {
+            await saveLayerToDatabase(layer, projId, usrId).catch(() => {});
+          }
+          return { success: true, url: res.publicUrl, key: res.key };
+        }
+      } else if (layer.type === 'raster') {
+        if (layer.file) {
+          const res = await uploadFileToR2Direct(layer.file, onProgress);
+          if (res && res.publicUrl) {
+            layer.storageUrl = res.publicUrl;
+            layer.r2Key = res.key;
+            const projId = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
+            const usrId = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
+            if (typeof saveLayerToDatabase === 'function') {
+              await saveLayerToDatabase(layer, projId, usrId).catch(() => {});
+            }
+            return { success: true, url: res.publicUrl, key: res.key };
+          }
+        }
+      }
+      return null;
+    }
+    window.uploadLayerToCloudflare = uploadLayerToCloudflare;
+
     async function uploadLayerToCloud(layerId) {
       console.log('[uploadLayerToCloud] Triggered for layer:', layerId);
       const layer = state.layers.find(l => l.id === layerId);
@@ -8458,40 +8518,30 @@ self.onmessage = async function(e) {
         console.warn('Layer not found in state!');
         return;
       }
-      console.log('[uploadLayerToCloud] Found layer:', layer.serverFilename);
 
-      if (layer.type === 'vector') {
-        // ... (vector upload code stays same, but I need to make sure I don't delete anything, wait I will just replace the beginning)
-        try {
-          $cloudUploadStatus.textContent = `Preparando vector ${layer.name}...`;
-          const jsonStr = JSON.stringify(layer.geoJson);
-          const blob = new Blob([jsonStr], { type: 'application/json' });
-          const compressedBlob = await compressGzip(blob);
-          const baseName = layer.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '_');
-          const file = new File([compressedBlob], `${baseName}.json.gz`, { type: 'application/gzip' });
-          
-          const uploadRes = await uploadFileToSupabase(file);
-          if (uploadRes && uploadRes.success) {
-            layer.storageUrl = uploadRes.url;
-            await saveLayerToDatabase(layer);
-            toast('Capa guardada y registrada en la nube', 'success');
-            await listSupabaseFiles();
-          }
-        } catch (e) {
-          console.error('[Manual Upload] failed:', e);
-          toast('Error al subir capa: ' + e.message, 'error');
+      if (layer.storageUrl && layer.storageUrl.includes('.r2.dev')) {
+        toast('Esta capa ya fue subida a Cloudflare R2', 'success');
+        return;
+      }
+
+      try {
+        $cloudUploadStatus.textContent = `Subiendo ${layer.name} a Cloudflare R2...`;
+        showProgress(`Subiendo ${layer.name} a Cloudflare R2...`, 20, 'Cloudflare R2');
+        const res = await uploadLayerToCloudflare(layer, (pct) => {
+          showProgress(`Subiendo ${layer.name} a Cloudflare R2 (${pct}%)...`, pct, 'Cloudflare R2');
+          $cloudUploadStatus.textContent = `Subiendo: ${pct}%`;
+        });
+        hideProgress();
+        if (res && res.success) {
+          $cloudUploadStatus.textContent = `¡Subida a Cloudflare exitosa: ${layer.name}!`;
+          toast(`✓ Capa guardada en Cloudflare R2: ${layer.name}`, 'success');
+          if (typeof listSupabaseFiles === 'function') await listSupabaseFiles();
         }
-      } else {
-        if (layer.storageUrl) {
-          toast('Esta capa ya fue subida a la nube', 'success');
-          return;
-        }
-        if (!layer.file) {
-          toast('La capa no tiene el archivo local para optimizar. Vuelve a importar el TIFF.', 'warning');
-          return;
-        }
-        await optimizeAndUploadRasterToCloud(layer, layer.file, null);
-        if (layer.storageUrl) await listSupabaseFiles();
+      } catch (e) {
+        hideProgress();
+        console.error('[Manual Upload] failed:', e);
+        toast('Error al subir capa a Cloudflare: ' + e.message, 'error');
+        $cloudUploadStatus.textContent = `Error: ${e.message}`;
       }
     }
 
@@ -12761,7 +12811,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function qgisRgbaToCss(v) {
         if (!v) return null;
-        const parts = v.split(',').map(n => parseFloat(n.trim()));
+        const cleanV = String(v).split('rgb:')[0];
+        const parts = cleanV.split(',').map(n => parseFloat(n.trim())).filter(n => !isNaN(n));
         if (parts.length >= 3) {
             const r = Math.max(0, Math.min(255, Math.round(parts[0])));
             const g = Math.max(0, Math.min(255, Math.round(parts[1])));
@@ -12858,6 +12909,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             const renderer = ml.querySelector('renderer-v2');
             if (renderer) {
+                // Support both QGIS 2 (<prop k="..." v="..." />) and QGIS 3 (<Option name="..." value="..." />)
                 const props = Array.from(renderer.getElementsByTagName('prop'));
                 for (const p of props) {
                     const k = p.getAttribute('k');
@@ -12873,6 +12925,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         if (parsed) strokeColor = parsed;
                     } else if ((k === 'outline_width' || k === 'line_width') && v) {
                         strokeWidth = parseFloat(v) || 1.5;
+                    }
+                }
+                const options = Array.from(renderer.getElementsByTagName('Option'));
+                for (const opt of options) {
+                    const k = opt.getAttribute('name');
+                    const v = opt.getAttribute('value');
+                    if (k === 'color' && v && !color) {
+                        const parsed = qgisRgbaToCss(v);
+                        if (parsed) {
+                            color = parsed;
+                            fillOpacity = parsed.opacity;
+                        }
+                    } else if ((k === 'outline_color' || k === 'line_color') && v && !strokeColor) {
+                        const parsed = qgisRgbaToCss(v);
+                        if (parsed) strokeColor = parsed;
+                    } else if ((k === 'outline_width' || k === 'line_width') && v) {
+                        strokeWidth = parseFloat(v) || strokeWidth;
                     }
                 }
             }
@@ -13363,8 +13432,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 clearProjectLayers();
             }
 
+            const initialLayerIds = new Set(state.layers.map(l => l.id));
             const allEntries = ctx.allZipEntries || [];
-            const loadedShpBases = new Set();
+            const loadedBases = new Set();
             let loadedCount = 0;
 
             for (const ql of project.layers) {
@@ -13373,10 +13443,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
 
                 if (ql.type === 'vector' || ql.geometry) {
+                    // A. Buscar Shapefile en el ZIP
                     const shpEntry = allEntries.find(e => {
                         const fn = e.fileName.toLowerCase();
                         return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
                     });
+
+                    // B. Buscar GeoPackage en el ZIP
+                    const gpkgEntry = !shpEntry ? allEntries.find(e => {
+                        const fn = e.fileName.toLowerCase();
+                        return fn.endsWith('.gpkg') && (fn === dsFileName || fn === (dsBaseName + '.gpkg') || fn.includes(dsBaseName));
+                    }) : null;
 
                     if (shpEntry) {
                         const basePrefix = shpEntry.path.substring(0, shpEntry.path.length - 4);
@@ -13401,10 +13478,50 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             strokeWidth: ql.strokeWidth,
                             fillOpacity: ql.fillOpacity,
                             opacity: ql.opacity,
-                            visible: ql.visible
+                            visible: ql.visible,
+                            skipAutoCloudUpload: true
                         });
-                        loadedShpBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
+                        loadedBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
                         loadedCount++;
+                    } else if (gpkgEntry) {
+                        showProgress(`Extrayendo GeoPackage: ${ql.name}...`, 60, 'Importador QGIS');
+                        try {
+                            const gBlob = await extractZipEntrySafe(zipFile, gpkgEntry);
+                            const gFile = new File([gBlob], gpkgEntry.fileName, { type: 'application/octet-stream' });
+                            const baseGpkg = gpkgEntry.path.substring(0, gpkgEntry.path.length - 5);
+                            const walEntry = allEntries.find(e => e.path.toLowerCase() === (baseGpkg + '.gpkg-wal').toLowerCase());
+                            const shmEntry = allEntries.find(e => e.path.toLowerCase() === (baseGpkg + '.gpkg-shm').toLowerCase());
+                            const walFile = walEntry ? new File([await extractZipEntrySafe(zipFile, walEntry)], walEntry.fileName, { type: 'application/octet-stream' }) : null;
+                            const shmFile = shmEntry ? new File([await extractZipEntrySafe(zipFile, shmEntry)], shmEntry.fileName, { type: 'application/octet-stream' }) : null;
+
+                            const formData = new FormData();
+                            formData.append('file', gFile);
+                            if (walFile) formData.append('wal', walFile);
+                            if (shmFile) formData.append('shm', shmFile);
+
+                            const gpkgRes = await fetch('/api/gpkg-geojson', { method: 'POST', body: formData });
+                            if (gpkgRes.ok) {
+                                const gpkgData = await gpkgRes.json();
+                                if (gpkgData.geojson && gpkgData.geojson.features && gpkgData.geojson.features.length > 0) {
+                                    let reprojected = await reprojectGeoJSON(gpkgData.geojson);
+                                    await addVectorLayer(reprojected, ql.name, {
+                                        originalName: ql.name,
+                                        color: ql.color?.hex,
+                                        strokeColor: ql.strokeColor?.hex,
+                                        strokeWidth: ql.strokeWidth,
+                                        fillOpacity: ql.fillOpacity,
+                                        opacity: ql.opacity,
+                                        visible: ql.visible,
+                                        skipAutoCloudUpload: true
+                                    });
+                                    loadedBases.add(gpkgEntry.fileName.replace(/\.gpkg$/i, '').toLowerCase());
+                                    loadedCount++;
+                                    continue;
+                                }
+                            }
+                        } catch (gpkgErr) {
+                            console.warn('[QGIS ZIP] Error procesando GeoPackage:', ql.name, gpkgErr);
+                        }
                     } else {
                         // Buscar en rutas locales del usuario via servidor
                         try {
@@ -13427,9 +13544,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                         strokeWidth: ql.strokeWidth,
                                         fillOpacity: ql.fillOpacity,
                                         opacity: ql.opacity,
-                                        visible: ql.visible
+                                        visible: ql.visible,
+                                        skipAutoCloudUpload: true
                                     });
-                                    loadedShpBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
+                                    loadedBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
                                     loadedCount++;
                                 } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
                                     let reprojected = await reprojectGeoJSON(resData.geojson);
@@ -13440,7 +13558,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                         strokeWidth: ql.strokeWidth,
                                         fillOpacity: ql.fillOpacity,
                                         opacity: ql.opacity,
-                                        visible: ql.visible
+                                        visible: ql.visible,
+                                        skipAutoCloudUpload: true
                                     });
                                     loadedCount++;
                                 }
@@ -13468,7 +13587,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (ctx.layersMap) {
                 for (const [baseKey, lObj] of Object.entries(ctx.layersMap)) {
                     const baseName = lObj.name.toLowerCase();
-                    if (!loadedShpBases.has(baseName)) {
+                    if (!loadedBases.has(baseName)) {
                         const shpEntry = allEntries.find(e => e.path.toLowerCase() === (baseKey + '.shp').toLowerCase() || e.fileName.toLowerCase() === (baseName + '.shp'));
                         if (shpEntry) {
                             const dbfEntry = allEntries.find(e => e.path.toLowerCase() === (baseKey + '.dbf').toLowerCase());
@@ -13479,14 +13598,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             const shpFile = new File([shpBlob], shpEntry.fileName, { type: 'application/octet-stream' });
                             const dbfFile = dbfBlob ? new File([dbfBlob], dbfEntry.fileName, { type: 'application/octet-stream' }) : null;
                             const prjFile = prjBlob ? new File([prjBlob], prjEntry.fileName, { type: 'text/plain' }) : null;
-                            await loadShapefileDirect(shpFile, dbfFile, prjFile, { originalName: lObj.name });
+                            await loadShapefileDirect(shpFile, dbfFile, prjFile, { originalName: lObj.name, skipAutoCloudUpload: true });
                             loadedCount++;
                         }
                     }
                 }
             }
 
-            // Forzar refresco de capas y dropdowns
+            // Actualizar interfaz de capas inmediatamente
             updateLayersSidebar();
             if (typeof $emptyState !== 'undefined' && $emptyState && state.layers.length > 0) {
                 $emptyState.style.display = 'none';
@@ -13495,20 +13614,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 updateGeoprocessingDropdowns();
             }
 
-            // Ajuste de vista del mapa
-            setTimeout(() => {
-                const vectorWithBounds = state.layers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
-                if (vectorWithBounds.length > 0 && state.map) {
-                    let combined = null;
-                    for (const l of vectorWithBounds) {
-                        if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
-                        else combined.extend(l.bounds);
-                    }
-                    if (combined && combined.isValid()) {
-                        state.map.fitBounds(combined, { padding: [30, 30], maxZoom: 14, animate: true });
-                    }
+            // Identificar capas importadas en esta sesión
+            const newQgisLayers = state.layers.filter(l => !initialLayerIds.has(l.id));
+
+            // Ajuste inmediato de vista del mapa
+            const vectorWithBounds = newQgisLayers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+            if (vectorWithBounds.length > 0 && state.map) {
+                let combined = null;
+                for (const l of vectorWithBounds) {
+                    if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                    else combined.extend(l.bounds);
                 }
-            }, 300);
+                if (combined && combined.isValid()) {
+                    state.map.fitBounds(combined, { padding: [40, 40], maxZoom: 15, animate: true });
+                }
+            }
+            if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
 
             // 4. Salida Gráfica (Print Layouts)
             const layouts = project.layouts || [];
@@ -13526,6 +13647,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             showQgisImportNotification(projDisplay, layouts.length, loadedCount, () => {
                 openLayoutModal();
             });
+
+            // 5. SUBIDA AUTOMÁTICA A CLOUDFLARE R2 UNA VEZ PROCESADAS Y CARGADAS LAS CAPAS
+            if (newQgisLayers.length > 0) {
+                showProgress(`Subiendo ${newQgisLayers.length} capa(s) a Cloudflare R2...`, 15, 'Cloudflare R2');
+                $cloudUploadStatus.textContent = `Subiendo capas a Cloudflare R2: 0/${newQgisLayers.length}`;
+                let r2Uploaded = 0;
+                for (let i = 0; i < newQgisLayers.length; i++) {
+                    const l = newQgisLayers[i];
+                    if (l.storageUrl && l.storageUrl.includes('.r2.dev')) {
+                        r2Uploaded++;
+                        continue;
+                    }
+                    try {
+                        const pctBase = Math.round((i / newQgisLayers.length) * 100);
+                        showProgress(`Subiendo a Cloudflare R2 (${i + 1}/${newQgisLayers.length}): ${l.name}...`, pctBase, 'Cloudflare R2');
+                        await uploadLayerToCloudflare(l, (pct) => {
+                            const totalPct = Math.round(pctBase + (pct / newQgisLayers.length));
+                            showProgress(`Subiendo a Cloudflare R2 (${i + 1}/${newQgisLayers.length}): ${l.name} (${pct}%)`, totalPct, 'Cloudflare R2');
+                            $cloudUploadStatus.textContent = `Subiendo ${l.name}: ${pct}%`;
+                        });
+                        r2Uploaded++;
+                    } catch (r2Err) {
+                        console.warn(`[QGIS R2 Upload] Error subiendo capa "${l.name}" a Cloudflare:`, r2Err);
+                    }
+                }
+                hideProgress();
+                $cloudUploadStatus.textContent = `✓ ${r2Uploaded} capa(s) subidas a Cloudflare R2`;
+                toast(`✓ ${r2Uploaded} capa(s) de QGIS procesadas y subidas a Cloudflare R2`, 'success');
+                if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+            }
 
         } catch (err) {
             console.error('[QGIS Import] Error importando proyecto QGIS:', err);
@@ -13567,6 +13718,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 clearProjectLayers();
             }
 
+            const initialLayerIds = new Set(state.layers.map(l => l.id));
             let loadedCount = 0;
             const availableFiles = Array.isArray(allFiles) ? allFiles : [];
 
@@ -13575,6 +13727,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const dsFileName = cleanDs.split('/').pop().toLowerCase();
                 const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
 
+                // A. Buscar Shapefile en archivos disponibles
                 let shpFile = availableFiles.find(f => {
                     const fn = f.name.toLowerCase();
                     return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
@@ -13582,6 +13735,73 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 let dbfFile = null;
                 let prjFile = null;
 
+                // B. Buscar GeoPackage en archivos disponibles o dentro de .qgz
+                let gpkgFile = !shpFile ? availableFiles.find(f => {
+                    const fn = f.name.toLowerCase();
+                    return fn.endsWith('.gpkg') && (fn === dsFileName || fn === (dsBaseName + '.gpkg') || fn.includes(dsBaseName));
+                }) : null;
+
+                if (!shpFile && !gpkgFile && bundledEntries.length > 0) {
+                    const bGpkg = bundledEntries.find(e => {
+                        const fn = e.fileName.toLowerCase();
+                        return fn.endsWith('.gpkg') && (fn === dsFileName || fn === (dsBaseName + '.gpkg') || fn.includes(dsBaseName));
+                    });
+                    if (bGpkg) {
+                        try {
+                            const bBlob = await extractZipEntrySafe(file, bGpkg);
+                            gpkgFile = new File([bBlob], bGpkg.fileName, { type: 'application/octet-stream' });
+                        } catch (_) {}
+                    }
+                    if (!gpkgFile) {
+                        const bShp = bundledEntries.find(e => {
+                            const fn = e.fileName.toLowerCase();
+                            return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
+                        });
+                        if (bShp) {
+                            try {
+                                const bBlob = await extractZipEntrySafe(file, bShp);
+                                shpFile = new File([bBlob], bShp.fileName, { type: 'application/octet-stream' });
+                                const basePfx = bShp.path.substring(0, bShp.path.length - 4);
+                                const bDbf = bundledEntries.find(e => e.path.toLowerCase() === (basePfx + '.dbf').toLowerCase());
+                                const bPrj = bundledEntries.find(e => e.path.toLowerCase() === (basePfx + '.prj').toLowerCase());
+                                if (bDbf) dbfFile = new File([await extractZipEntrySafe(file, bDbf)], bDbf.fileName, { type: 'application/octet-stream' });
+                                if (bPrj) prjFile = new File([await extractZipEntrySafe(file, bPrj)], bPrj.fileName, { type: 'text/plain' });
+                            } catch (_) {}
+                        }
+                    }
+                }
+
+                // C. Si es GPKG disponible, procesar vía /api/gpkg-geojson
+                if (gpkgFile) {
+                    showProgress(`Procesando GeoPackage: ${ql.name}...`, 50, 'Importador QGIS');
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', gpkgFile);
+                        const gpkgRes = await fetch('/api/gpkg-geojson', { method: 'POST', body: formData });
+                        if (gpkgRes.ok) {
+                            const gpkgData = await gpkgRes.json();
+                            if (gpkgData.geojson && gpkgData.geojson.features && gpkgData.geojson.features.length > 0) {
+                                let reprojected = await reprojectGeoJSON(gpkgData.geojson);
+                                await addVectorLayer(reprojected, ql.name, {
+                                    originalName: ql.name,
+                                    color: ql.color?.hex,
+                                    strokeColor: ql.strokeColor?.hex,
+                                    strokeWidth: ql.strokeWidth,
+                                    fillOpacity: ql.fillOpacity,
+                                    opacity: ql.opacity,
+                                    visible: ql.visible,
+                                    skipAutoCloudUpload: true
+                                });
+                                loadedCount++;
+                                continue;
+                            }
+                        }
+                    } catch (gpkgErr) {
+                        console.warn('[QGIS Standalone Import] Falló GPKG disponible:', ql.name, gpkgErr);
+                    }
+                }
+
+                // D. Si no se encontró en archivos locales, buscar vía resolver backend
                 if (!shpFile) {
                     showProgress(`Resolviendo capa: ${ql.name}...`, 30 + Math.min(45, loadedCount * 15), 'Importador QGIS');
                     try {
@@ -13614,7 +13834,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     strokeWidth: ql.strokeWidth,
                                     fillOpacity: ql.fillOpacity,
                                     opacity: ql.opacity,
-                                    visible: ql.visible
+                                    visible: ql.visible,
+                                    skipAutoCloudUpload: true
                                 });
                                 loadedCount++;
                                 continue;
@@ -13625,8 +13846,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                 } else {
                     const base = shpFile.name.replace(/\.shp$/i, '');
-                    dbfFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
-                    prjFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
+                    if (!dbfFile) dbfFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
+                    if (!prjFile) prjFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
                 }
 
                 if (shpFile) {
@@ -13637,7 +13858,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         strokeWidth: ql.strokeWidth,
                         fillOpacity: ql.fillOpacity,
                         opacity: ql.opacity,
-                        visible: ql.visible
+                        visible: ql.visible,
+                        skipAutoCloudUpload: true
                     });
                     if (!window._loadedByQgisFiles) window._loadedByQgisFiles = new Set();
                     window._loadedByQgisFiles.add(shpFile.name.toLowerCase());
@@ -13658,21 +13880,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 updateGeoprocessingDropdowns();
             }
 
-            // Centrar mapa si hay capas vectoriales cargadas
-            setTimeout(() => {
-                const vectorWithBounds = state.layers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
-                if (vectorWithBounds.length > 0 && state.map) {
-                    let combined = null;
-                    for (const l of vectorWithBounds) {
-                        if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
-                        else combined.extend(l.bounds);
-                    }
-                    if (combined && combined.isValid()) {
-                        state.map.fitBounds(combined, { padding: [30, 30], maxZoom: 14, animate: true });
-                    }
-                }
-            }, 300);
+            // Identificar capas importadas en esta sesión
+            const newQgisLayers = state.layers.filter(l => !initialLayerIds.has(l.id));
 
+            // Ajuste inmediato de vista del mapa
+            const vectorWithBounds = newQgisLayers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+            if (vectorWithBounds.length > 0 && state.map) {
+                let combined = null;
+                for (const l of vectorWithBounds) {
+                    if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                    else combined.extend(l.bounds);
+                }
+                if (combined && combined.isValid()) {
+                    state.map.fitBounds(combined, { padding: [40, 40], maxZoom: 15, animate: true });
+                }
+            }
+            if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
+
+            // 4. Salida Gráfica (Print Layouts)
             const layouts = project.layouts || [];
             if (layouts.length > 0) {
                 window._importedQgisLayouts = layouts;
@@ -13688,6 +13913,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             showQgisImportNotification(projDisplay, layouts.length, loadedCount, () => {
                 openLayoutModal();
             });
+
+            // 5. SUBIDA AUTOMÁTICA A CLOUDFLARE R2 UNA VEZ PROCESADAS Y CARGADAS LAS CAPAS
+            if (newQgisLayers.length > 0) {
+                showProgress(`Subiendo ${newQgisLayers.length} capa(s) a Cloudflare R2...`, 15, 'Cloudflare R2');
+                $cloudUploadStatus.textContent = `Subiendo capas a Cloudflare R2: 0/${newQgisLayers.length}`;
+                let r2Uploaded = 0;
+                for (let i = 0; i < newQgisLayers.length; i++) {
+                    const l = newQgisLayers[i];
+                    if (l.storageUrl && l.storageUrl.includes('.r2.dev')) {
+                        r2Uploaded++;
+                        continue;
+                    }
+                    try {
+                        const pctBase = Math.round((i / newQgisLayers.length) * 100);
+                        showProgress(`Subiendo a Cloudflare R2 (${i + 1}/${newQgisLayers.length}): ${l.name}...`, pctBase, 'Cloudflare R2');
+                        await uploadLayerToCloudflare(l, (pct) => {
+                            const totalPct = Math.round(pctBase + (pct / newQgisLayers.length));
+                            showProgress(`Subiendo a Cloudflare R2 (${i + 1}/${newQgisLayers.length}): ${l.name} (${pct}%)`, totalPct, 'Cloudflare R2');
+                            $cloudUploadStatus.textContent = `Subiendo ${l.name}: ${pct}%`;
+                        });
+                        r2Uploaded++;
+                    } catch (r2Err) {
+                        console.warn(`[QGIS R2 Upload] Error subiendo capa "${l.name}" a Cloudflare:`, r2Err);
+                    }
+                }
+                hideProgress();
+                $cloudUploadStatus.textContent = `✓ ${r2Uploaded} capa(s) subidas a Cloudflare R2`;
+                toast(`✓ ${r2Uploaded} capa(s) de QGIS procesadas y subidas a Cloudflare R2`, 'success');
+                if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+            }
 
         } catch (err) {
             console.error('[QGIS Standalone Import] Error:', err);
@@ -13724,29 +13979,39 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 return;
             }
             
-            // Usar un listener temporal para no interferir con otros procesos
-            const onMsg = async (e) => {
-                if (e.data.action === 'processResults') {
-                    for (const res of e.data.results) {
-                        await addVectorLayer(res.geojson, res.name, opts);
+            // Usar un listener temporal envuelto en Promise para esperar la carga completa
+            await new Promise((resolve) => {
+                const onMsg = async (e) => {
+                    if (e.data.action === 'processResults') {
+                        try {
+                            for (const res of e.data.results) {
+                                await addVectorLayer(res.geojson, res.name, opts);
+                            }
+                            hideProgress();
+                            shpWorker.removeEventListener('message', onMsg);
+                            resolve();
+                        } catch (errAdd) {
+                            console.error('[loadShapefileDirect addVectorLayer error]', errAdd);
+                            shpWorker.removeEventListener('message', onMsg);
+                            resolve();
+                        }
+                    } else if (e.data.action === 'error') {
+                        hideProgress();
+                        toast(`Error: ${e.data.message}`, 'error');
+                        shpWorker.removeEventListener('message', onMsg);
+                        resolve();
                     }
-                    hideProgress();
-                    shpWorker.removeEventListener('message', onMsg);
-                } else if (e.data.action === 'error') {
-                    hideProgress();
-                    toast(`Error: ${e.data.message}`, 'error');
-                    shpWorker.removeEventListener('message', onMsg);
-                }
-            };
-            shpWorker.addEventListener('message', onMsg);
+                };
+                shpWorker.addEventListener('message', onMsg);
 
-            shpWorker.postMessage({
-                action: 'processDirect',
-                shpBuffer,
-                dbfBuffer,
-                prjText,
-                name: layerName
-            }, [shpBuffer, ...(dbfBuffer ? [dbfBuffer] : [])]);
+                shpWorker.postMessage({
+                    action: 'processDirect',
+                    shpBuffer,
+                    dbfBuffer,
+                    prjText,
+                    name: layerName
+                }, [shpBuffer, ...(dbfBuffer ? [dbfBuffer] : [])]);
+            });
 
         } catch (err) {
             console.error(err);
@@ -14927,41 +15192,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       }
       
-      // PERSISTIR EN BD: guardar con URL en Turso
-      if (!opts.isRestored) {
+      // PERSISTIR EN BD / CLOUDFLARE R2
+      if (!opts.isRestored && !opts.skipAutoCloudUpload) {
         const projId = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
         const usrId = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
         
-        // Subir archivo primero (con compresión gzip)
         if (!layer.storageUrl) {
-          try {
-            const jsonStr = JSON.stringify(layer.geoJson);
-            const originalSize = (jsonStr.length / 1024 / 1024).toFixed(2);
-            
-            // Comprimir con gzip
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const compressedBlob = await compressGzip(blob);
-            const compressedSize = (compressedBlob.size / 1024 / 1024).toFixed(2);
-            console.log(`[Persist] Compressed: ${originalSize}MB -> ${compressedSize}MB`);
-            
-            const baseName = 'layer_' + Date.now() + '_' + (layer.id || idCounter) + '_' + String(layer.name).replace(/\s+/g, '_').slice(0, 40);
-            const file = new File([compressedBlob], `${baseName}.json.gz`, { type: 'application/gzip' });
-            const uploadRes = await uploadFileToSupabase(file);
-            if (uploadRes && uploadRes.success) {
-              layer.storageUrl = uploadRes.url;
-              console.log(`[Persist] File uploaded: ${uploadRes.url}`);
-            }
-          } catch (e) {
-            console.warn('[Persist] Upload failed:', e);
-          }
-        }
-        
-        // Guardar en BD con el storage_url (si existe) y refrescar lista de la nube
-        saveLayerToDatabase(layer, projId, usrId)
-          .then(() => {
+          uploadLayerToCloudflare(layer).then(() => {
             if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
-          })
-          .catch(e => console.warn('[Persist] Save failed:', e));
+          }).catch(e => console.warn('[Background R2 Upload] skipped:', e.message));
+        } else {
+          saveLayerToDatabase(layer, projId, usrId).catch(() => {});
+        }
       }
 
       if (layer.bounds.isValid() && !opts.silent) {

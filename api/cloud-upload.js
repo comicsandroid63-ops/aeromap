@@ -70,7 +70,53 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // 1. Cloudflare R2 Presigned Upload (Sin límite de tamaño ni timeouts)
+  // 1. Cloudflare R2 Direct Upload via POST (para GeoJSON, vectores o rasters pequeños/medianos)
+  if (req.method === 'POST' && (req.query.service === 'r2' || req.query.action === 'upload')) {
+    const s3 = getS3Client();
+    if (!s3) {
+      return res.status(500).json({ error: 'Credenciales de Cloudflare R2 no configuradas' });
+    }
+    try {
+      const cleanName = safeKey(req.query.filename || 'layer_data.json');
+      const uniqueName = (req.query.exact === 'true' || req.query.exact === '1')
+        ? cleanName
+        : `${Date.now().toString(36)}_${cleanName}`;
+      const type = req.query.contentType || req.headers['content-type'] || 'application/json';
+
+      let bodyBuf = null;
+      if (Buffer.isBuffer(req.body)) {
+        bodyBuf = req.body;
+      } else if (typeof req.body === 'string') {
+        bodyBuf = Buffer.from(req.body, 'utf-8');
+      } else if (req.body && typeof req.body === 'object') {
+        bodyBuf = Buffer.from(JSON.stringify(req.body), 'utf-8');
+      } else {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        bodyBuf = Buffer.concat(buffers);
+      }
+
+      await s3.send(new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: uniqueName,
+        Body: bodyBuf,
+        ContentType: type
+      }));
+
+      const publicUrl = `${R2_PUBLIC_URL}/${uniqueName}`;
+      return res.status(200).json({
+        success: true,
+        publicUrl,
+        key: uniqueName,
+        bucket: R2_BUCKET
+      });
+    } catch (err) {
+      console.error('[R2 Direct Upload Error]:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // 2. Cloudflare R2 Presigned Upload (Sin límite de tamaño ni timeouts)
   const isR2 = req.query.service === 'r2' || req.query.action === 'presign' || req.method === 'GET';
   if (isR2) {
     const s3 = getS3Client();
@@ -106,7 +152,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 2. Vercel Blob Fallback
+  // 3. Vercel Blob Fallback
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const token = getToken();

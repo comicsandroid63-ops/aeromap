@@ -95,6 +95,7 @@ mountApi('/api/files', require('./api/files'));
 mountApi('/api/upload', require('./api/upload'));
 mountApi('/api/gpkg-geojson', require('./api/gpkg-geojson'));
 mountApi('/api/qgis', require('./api/qgis'));
+mountApi('/api/cloud-upload', require('./api/cloud-upload'));
 app.use('/api/upload-visualization', require('./api/upload'));
 mountApi('/api/dashboard', require('./api/dashboard'));
 mountApi('/api/admin/dashboard', require('./api/dashboard'));
