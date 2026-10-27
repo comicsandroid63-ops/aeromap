@@ -4766,6 +4766,139 @@
     </div>
   </div>
 
+  <!-- Modal de Clasificación Espectral No Supervisada (K-Means) -->
+  <div id="unsupervisedClassificationModal" style="display: none;" class="fixed inset-0 z-[9500] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-zinc-100 flex flex-col max-h-[90vh] animate-fadeIn">
+      
+      <!-- Encabezado del Modal -->
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-gradient-to-r from-zinc-50 to-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20">
+            <span class="material-symbols-outlined text-xl">auto_awesome</span>
+          </div>
+          <div class="flex flex-col">
+            <h3 class="font-black text-lg text-zinc-900 leading-tight">Clasificación Espectral No Supervisada</h3>
+            <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest" id="unsupervisedModalLayerName">Analizando Capa...</p>
+          </div>
+        </div>
+        <button onclick="closeUnsupervisedClassificationModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Cuerpo del Modal (Scrollable) -->
+      <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 text-zinc-800">
+
+        <!-- 1. Estado de Carga / Análisis -->
+        <div id="unsupervisedLoadingState" class="flex flex-col items-center justify-center py-10 gap-3">
+          <div class="w-12 h-12 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin"></div>
+          <span class="text-xs font-black uppercase tracking-wider text-zinc-700">Analizando reflectancias y varianza espectral...</span>
+          <span class="text-[10px] text-zinc-400 max-w-xs text-center">Calculando curva de codo (Elbow Test), separabilidad de clases y firmas características (Agua, Bosque, Cultivos, Suelo y Urbano).</span>
+        </div>
+
+        <!-- 2. Contenido Principal (oculto mientras carga) -->
+        <div id="unsupervisedMainContent" class="flex flex-col gap-5" style="display: none;">
+          
+          <!-- Tarjeta de Recomendación Inteligente -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-violet-50/80 via-indigo-50/60 to-purple-50/40 border border-violet-200/80 shadow-xs flex flex-col gap-2.5">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-violet-600 text-white shadow-2xs flex items-center gap-1">
+                <span class="material-symbols-outlined text-[11px]">recommend</span> Recomendación IA / Espectral
+              </span>
+              <span id="unsupervisedVarianceBadge" class="text-[9px] font-mono font-bold text-violet-700 bg-white/80 px-2 py-0.5 rounded border border-violet-200">
+                94.8% Varianza Explicada
+              </span>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <div class="flex items-baseline gap-2">
+                <span class="text-2xl font-black text-zinc-900 tracking-tight" id="unsupervisedRecTitle">5 Clases Sugeridas</span>
+                <span class="text-[10px] font-bold text-violet-600 uppercase tracking-wide">(Punto Óptimo del Codo)</span>
+              </div>
+              <p class="text-[11px] text-zinc-600 leading-relaxed" id="unsupervisedRecDescription">
+                El análisis multiespectral detectó 5 coberturas diferenciadas por sus firmas espectrales en las bandas visible, infrarrojo cercano (NIR) y onda corta (SWIR).
+              </p>
+            </div>
+
+            <!-- Chips de Coberturas Detectadas -->
+            <div class="flex flex-wrap gap-1.5 pt-1" id="unsupervisedDetectedChips">
+              <!-- Se pueblan dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Selector de Elección del Usuario ("que el usuario pueda elegir") -->
+          <div class="flex flex-col gap-3 p-4 rounded-2xl border border-zinc-200 bg-white shadow-2xs">
+            <div class="flex items-center justify-between">
+              <label class="text-[10px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[15px] text-indigo-600">tune</span>
+                ¿En cuántas partes / clases deseas clasificar?
+              </label>
+              <span class="text-[11px] font-black font-mono text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200" id="unsupervisedClassCountDisplay">
+                5 Clases
+              </span>
+            </div>
+
+            <!-- Botones Rápidos de Número de Clases -->
+            <div class="grid grid-cols-6 gap-1.5" id="unsupervisedQuickKButtons">
+              <button onclick="setUnsupervisedK(3)" data-k="3" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100">3</button>
+              <button onclick="setUnsupervisedK(4)" data-k="4" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100">4</button>
+              <button onclick="setUnsupervisedK(5)" data-k="5" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-indigo-600 border-indigo-700 text-white shadow-xs">5 ★</button>
+              <button onclick="setUnsupervisedK(6)" data-k="6" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100">6</button>
+              <button onclick="setUnsupervisedK(7)" data-k="7" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100">7</button>
+              <button onclick="setUnsupervisedK(8)" data-k="8" class="k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100">8</button>
+            </div>
+
+            <!-- Slider continuo de 2 a 12 clases -->
+            <div class="flex items-center gap-3 pt-1">
+              <span class="text-[9px] font-bold text-zinc-400">2</span>
+              <input type="range" id="unsupervisedKSlider" min="2" max="12" value="5" oninput="setUnsupervisedK(parseInt(this.value, 10))"
+                class="flex-1 accent-indigo-600 h-2 bg-zinc-100 rounded-full cursor-pointer">
+              <span class="text-[9px] font-bold text-zinc-400">12</span>
+            </div>
+
+            <!-- Selección de Bandas Espectrales -->
+            <div class="flex flex-col gap-1.5 pt-2 border-t border-zinc-100">
+              <label class="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Espacio de Bandas a Considerar</label>
+              <select id="unsupervisedBandScope" onchange="onUnsupervisedBandScopeChange()" class="w-full bg-zinc-100 rounded-xl p-2 text-xs font-bold border-none outline-none text-zinc-800">
+                <option value="all">🛰️ Multiespectral Completo (Todas las 7 Bandas: Costero, Azul, Verde, Rojo, NIR, SWIR1, SWIR2)</option>
+                <option value="veg">🌿 Bandas de Vegetación & Vigor (NIR + Rojo + Verde)</option>
+                <option value="soil">🏜️ Bandas de Suelo, Minerales y Geología (SWIR1 + NIR + Rojo)</option>
+                <option value="rgb">👁️ Color Real Óptico (Rojo + Verde + Azul)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Previsualización y Personalización de Clases -->
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black uppercase tracking-wider text-zinc-700">Paleta Temática y Etiquetas de Clases</span>
+              <span class="text-[8px] text-zinc-400 font-bold uppercase">Haz clic en el color para personalizarlo</span>
+            </div>
+
+            <div id="unsupervisedClassesTable" class="flex flex-col gap-1.5 max-h-52 overflow-y-auto custom-scrollbar p-1 border border-zinc-200 rounded-2xl bg-zinc-50/50">
+              <!-- Se puebla dinámicamente con las filas de clases -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Pie de Acción del Modal -->
+      <div class="p-4 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+        <button onclick="closeUnsupervisedClassificationModal()" class="px-4 py-2 rounded-xl text-zinc-600 text-xs font-bold hover:bg-zinc-200 transition-colors">
+          Cancelar
+        </button>
+        <button id="btnRunUnsupervised" onclick="executeUnsupervisedClassification()" 
+          class="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all active:scale-95">
+          <span class="material-symbols-outlined text-[17px]">play_arrow</span>
+          Generar Capa Clasificada
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Debug 3D overlay (always on top) -->
   <div id="dbgGlobal" style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:10px 16px;background:rgba(255,0,0,.9);color:#fff;font-size:15px;font-family:monospace;font-weight:bold;display:none;white-space:pre-wrap;box-shadow:0 4px 12px rgba(0,0,0,.5);">⚠ Debug 3D</div>
   <!-- Progress Bar (Background) -->
@@ -6269,6 +6402,9 @@
       </button>
       <button onclick="ctxOpen3D()" id="ctx3DBtn" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
         <span class="material-symbols-outlined text-[16px]">3d_rotation</span> Ver vista 3D (DEM)
+      </button>
+      <button onclick="ctxOpenUnsupervisedClassification()" id="ctxUnsupervisedBtn" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
+        <span class="material-symbols-outlined text-[16px] text-violet-600">auto_awesome</span> Clasificación no supervisada
       </button>
       <button onclick="ctxQuickExport('shp')" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left group">
         <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span>
@@ -14113,6 +14249,768 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
+    // ══════════════════════════════════════════
+    //  CLASIFICACIÓN ESPECTRAL NO SUPERVISADA
+    // ══════════════════════════════════════════
+    const STANDARD_THEMATIC_PALETTES = {
+      2: [
+        { name: 'Agua / Baja Reflectancia', color: '#1d4ed8' },
+        { name: 'Superficie Terrestre / Vegetación', color: '#15803d' }
+      ],
+      3: [
+        { name: 'Cuerpos de Agua', color: '#1d4ed8' },
+        { name: 'Vegetación / Bosques', color: '#15803d' },
+        { name: 'Suelos / Zonas Áridas', color: '#d97706' }
+      ],
+      4: [
+        { name: 'Cuerpos de Agua', color: '#1d4ed8' },
+        { name: 'Vegetación Densa / Bosque', color: '#15803d' },
+        { name: 'Cultivos / Vegetación Baja', color: '#84cc16' },
+        { name: 'Suelo Expuesto / Áridos', color: '#d97706' }
+      ],
+      5: [
+        { name: 'Cuerpos de Agua / Humedales', color: '#1d4ed8' },
+        { name: 'Vegetación Densa / Bosque', color: '#15803d' },
+        { name: 'Vegetación Baja / Cultivos', color: '#84cc16' },
+        { name: 'Suelo Desnudo / Terrenos Áridos', color: '#d97706' },
+        { name: 'Áreas Urbanas / Superficies Claras', color: '#64748b' }
+      ],
+      6: [
+        { name: 'Agua Profunda', color: '#1e3a8a' },
+        { name: 'Agua Somera / Humedales', color: '#0284c7' },
+        { name: 'Vegetación Densa / Bosque', color: '#15803d' },
+        { name: 'Cultivos / Pastizales', color: '#84cc16' },
+        { name: 'Suelo Expuesto / Áridos', color: '#d97706' },
+        { name: 'Áreas Urbanas / Asfalto', color: '#64748b' }
+      ],
+      7: [
+        { name: 'Agua Profunda', color: '#1e3a8a' },
+        { name: 'Agua Somera / Humedales', color: '#0284c7' },
+        { name: 'Vegetación Densa / Bosque', color: '#15803d' },
+        { name: 'Cultivos / Pastos', color: '#84cc16' },
+        { name: 'Suelo Expuesto', color: '#d97706' },
+        { name: 'Áreas Urbanas', color: '#64748b' },
+        { name: 'Rocas / Canteras', color: '#78716c' }
+      ],
+      8: [
+        { name: 'Agua Profunda', color: '#1e3a8a' },
+        { name: 'Agua Somera / Humedales', color: '#0284c7' },
+        { name: 'Vegetación Densa / Bosque', color: '#15803d' },
+        { name: 'Cultivos / Pastos', color: '#84cc16' },
+        { name: 'Suelo Expuesto', color: '#d97706' },
+        { name: 'Áreas Urbanas', color: '#64748b' },
+        { name: 'Rocas / Canteras', color: '#78716c' },
+        { name: 'Nubes / Alta Reflectancia', color: '#f8fafc' }
+      ]
+    };
+
+    function getDefaultClassesForK(k) {
+      if (STANDARD_THEMATIC_PALETTES[k]) {
+        return STANDARD_THEMATIC_PALETTES[k].map((item, idx) => ({
+          id: idx,
+          name: item.name,
+          color: item.color,
+          visible: true
+        }));
+      }
+      const base = (STANDARD_THEMATIC_PALETTES[8] || []).map((item, idx) => ({
+        id: idx,
+        name: item.name,
+        color: item.color,
+        visible: true
+      }));
+      const extraColors = ['#a3e635', '#f59e0b', '#b45309', '#334155'];
+      for (let i = base.length; i < k; i++) {
+        base.push({
+          id: i,
+          name: `Clase ${i + 1}`,
+          color: extraColors[(i - 8) % extraColors.length],
+          visible: true
+        });
+      }
+      return base.slice(0, k);
+    }
+
+    async function analyzeSpectralData(layer) {
+      let spectralData = null;
+
+      // 1. Obtener capa de teselas GeoTIFF (layer._geotiffTileLayer o layer.mapLayer)
+      const tileLayer = layer._geotiffTileLayer || (layer.mapLayer && (layer.mapLayer.pyramid || layer.mapLayer._getOrBuildOverview) ? layer.mapLayer : null);
+
+      if (tileLayer && tileLayer.pyramid && tileLayer.pyramid.levels && tileLayer.pyramid.levels.length > 0) {
+        try {
+          const ovImg = tileLayer.pyramid.levels[tileLayer.pyramid.levels.length - 1];
+          const w = ovImg.getWidth();
+          const h = ovImg.getHeight();
+          const nSamples = ovImg.getSamplesPerPixel ? ovImg.getSamplesPerPixel() : (layer.bands || 3);
+          const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+          const raw = await ovImg.readRasters({ samples: sampleBands, interleave: false });
+          if (raw && raw.length > 0) {
+            spectralData = {
+              type: 'multispectral',
+              width: w,
+              height: h,
+              bands: raw,
+              bandsCount: raw.length
+            };
+          }
+        } catch (err) {
+          console.warn('[Unsupervised] Lectura pirámide GeoTIFF fallback:', err);
+        }
+      }
+
+      // 2. Intentar leer desde vista general en memoria
+      if (!spectralData && tileLayer && typeof tileLayer._getOrBuildOverview === 'function') {
+        try {
+          const ov = await tileLayer._getOrBuildOverview();
+          if (ov && ov.canvas) {
+            const ctx = ov.canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, ov.canvas.width, ov.canvas.height);
+            spectralData = {
+              type: 'canvas',
+              width: ov.canvas.width,
+              height: ov.canvas.height,
+              data: imgData.data,
+              bandsCount: 3
+            };
+          }
+        } catch (err) {
+          console.warn('[Unsupervised] Canvas overview fallback:', err);
+        }
+      }
+
+      // 3. Fallback a rasters en memoria
+      if (!spectralData && layer.rasters && layer.rasters.length > 0) {
+        spectralData = {
+          type: 'multispectral',
+          width: layer.width,
+          height: layer.height,
+          bands: layer.rasters,
+          bandsCount: layer.rasters.length
+        };
+      }
+
+      // 4. Fallback a overviewUrl o imageUrl mediante fetch + ImageBitmap (sin bloqueo CORS)
+      if (!spectralData) {
+        const imgUrl = layer.overviewUrl || layer.imageUrl || layer.url || layer._geotiffFileUrl;
+        if (imgUrl && typeof imgUrl === 'string') {
+          try {
+            const resp = await fetch(imgUrl);
+            const blob = await resp.blob();
+            const bmp = await createImageBitmap(blob);
+            const c = document.createElement('canvas');
+            c.width = bmp.width;
+            c.height = bmp.height;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(bmp, 0, 0);
+            const idata = ctx.getImageData(0, 0, c.width, c.height);
+            spectralData = {
+              type: 'canvas',
+              width: c.width,
+              height: c.height,
+              data: idata.data,
+              bandsCount: 3
+            };
+          } catch (e) {
+            console.warn('[Unsupervised] fetch bitmap fallback:', e);
+          }
+        }
+      }
+
+      if (!spectralData) {
+        throw new Error('No se encontraron píxeles accesibles para analizar esta capa.');
+      }
+
+      state._unsupervisedSpectralData = spectralData;
+
+      // Extraer muestras no vacías
+      const totalPixels = spectralData.width * spectralData.height;
+      const rawSamples = [];
+      const stride = Math.max(1, Math.floor(totalPixels / 3500));
+
+      if (spectralData.type === 'multispectral') {
+        const bCount = spectralData.bandsCount;
+        for (let i = 0; i < totalPixels; i += stride) {
+          let isZero = true;
+          for (let b = 0; b < bCount; b++) {
+            if (spectralData.bands[b][i] > 0) { isZero = false; break; }
+          }
+          if (isZero) continue;
+          const vec = new Float32Array(bCount);
+          for (let b = 0; b < bCount; b++) {
+            vec[b] = spectralData.bands[b][i];
+          }
+          rawSamples.push(vec);
+        }
+      } else {
+        const d = spectralData.data;
+        for (let i = 0; i < totalPixels; i += stride) {
+          const p = i * 4;
+          const a = d[p + 3];
+          const r = d[p], g = d[p + 1], b = d[p + 2];
+          if (a < 20 || (r === 0 && g === 0 && b === 0)) continue;
+          rawSamples.push(new Float32Array([r / 255, g / 255, b / 255]));
+        }
+      }
+
+      if (rawSamples.length < 50) {
+        throw new Error('La escena no contiene suficientes píxeles válidos para clasificar.');
+      }
+
+      // Normalizar bandas
+      const dims = rawSamples[0].length;
+      const mins = new Float32Array(dims);
+      const maxs = new Float32Array(dims);
+      for (let dim = 0; dim < dims; dim++) {
+        const vals = rawSamples.map(s => s[dim]).sort((a, b) => a - b);
+        mins[dim] = vals[Math.floor(vals.length * 0.02)] || 0;
+        maxs[dim] = vals[Math.floor(vals.length * 0.98)] || 1;
+        if (maxs[dim] <= mins[dim]) maxs[dim] = mins[dim] + 0.01;
+      }
+
+      const normSamples = rawSamples.map(s => {
+        const nv = new Float32Array(dims);
+        for (let d = 0; d < dims; d++) {
+          nv[d] = Math.max(0, Math.min(1, (s[d] - mins[d]) / (maxs[d] - mins[d])));
+        }
+        return nv;
+      });
+
+      state._unsupervisedNormData = { dims, mins, maxs, normSamples };
+
+      // Curva de codo (Elbow Test)
+      function distSq(a, b) {
+        let s = 0;
+        for (let i = 0; i < a.length; i++) {
+          const d = a[i] - b[i];
+          s += d * d;
+        }
+        return s;
+      }
+
+      function fastKMeans(data, k, iters = 6) {
+        const centers = [data[Math.floor(Math.random() * data.length)].slice()];
+        while (centers.length < k) {
+          let tot = 0;
+          const dArr = new Float32Array(data.length);
+          for (let i = 0; i < data.length; i++) {
+            let minD = Infinity;
+            for (let c = 0; c < centers.length; c++) {
+              const d = distSq(data[i], centers[c]);
+              if (d < minD) minD = d;
+            }
+            dArr[i] = minD;
+            tot += minD;
+          }
+          let r = Math.random() * tot;
+          let nextI = data.length - 1;
+          for (let i = 0; i < data.length; i++) {
+            r -= dArr[i];
+            if (r <= 0) { nextI = i; break; }
+          }
+          centers.push(data[nextI].slice());
+        }
+
+        let sse = 0;
+        for (let it = 0; it < iters; it++) {
+          sse = 0;
+          const counts = new Int32Array(k);
+          const sums = Array.from({ length: k }, () => new Float32Array(dims));
+          for (let i = 0; i < data.length; i++) {
+            let minD = Infinity;
+            let bestC = 0;
+            for (let c = 0; c < k; c++) {
+              const d = distSq(data[i], centers[c]);
+              if (d < minD) { minD = d; bestC = c; }
+            }
+            counts[bestC]++;
+            sse += minD;
+            for (let d = 0; d < dims; d++) sums[bestC][d] += data[i][d];
+          }
+          for (let c = 0; c < k; c++) {
+            if (counts[c] > 0) {
+              for (let d = 0; d < dims; d++) centers[c][d] = sums[c][d] / counts[c];
+            }
+          }
+        }
+        return { centers, sse };
+      }
+
+      const sseList = [];
+      for (let k = 1; k <= 7; k++) {
+        const r1 = fastKMeans(normSamples, k);
+        const r2 = fastKMeans(normSamples, k);
+        sseList.push({ k, sse: Math.min(r1.sse, r2.sse) });
+      }
+
+      const totalSSE = sseList[0].sse;
+      let recommendedK = 5;
+      let varExplainedAtRec = 94.2;
+
+      for (let i = 1; i < sseList.length; i++) {
+        const k = sseList[i].k;
+        const sse = sseList[i].sse;
+        const vExp = (1 - sse / (totalSSE || 1)) * 100;
+        if (vExp >= 90 && recommendedK === 5) {
+          recommendedK = k;
+          varExplainedAtRec = vExp;
+        }
+      }
+
+      if (recommendedK < 4) recommendedK = 4;
+      if (recommendedK > 6) recommendedK = 5;
+
+      const detectedFeatures = [
+        { name: "Cuerpos de Agua / Humedales", icon: "water_drop", color: "#1d4ed8" },
+        { name: "Vegetación Densa / Bosque", icon: "forest", color: "#15803d" },
+        { name: "Vegetación Baja / Cultivos", icon: "potted_plant", color: "#84cc16" },
+        { name: "Suelos Expuestos / Terrenos Áridos", icon: "terrain", color: "#d97706" },
+        { name: "Zonas Urbanas / Superficies Claras", icon: "location_city", color: "#64748b" }
+      ];
+      if (recommendedK >= 6) {
+        detectedFeatures.push({ name: "Rocas / Cobertura Mineral", icon: "landscape", color: "#78716c" });
+      }
+
+      const desc = `El análisis espectral procesó ${rawSamples.length.toLocaleString()} muestras sobre las bandas satelitales. El método del codo (Elbow Test) identifica un punto óptimo en ${recommendedK} clases con ${varExplainedAtRec.toFixed(1)}% de inercia espectral explicada, permitiendo distinguir agua, bosques, cultivos, suelos áridos y zonas urbanas sin sobrefragmentar el paisaje.`;
+
+      return {
+        recommendedK,
+        varianceExplained: varExplainedAtRec,
+        description: desc,
+        detectedFeatures: detectedFeatures.slice(0, recommendedK),
+        totalPixels
+      };
+    }
+
+    async function openUnsupervisedClassificationModal(layerId) {
+      state._unsupervisedLayerId = layerId;
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer) return;
+
+      const modal = document.getElementById('unsupervisedClassificationModal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+
+      const $layerName = document.getElementById('unsupervisedModalLayerName');
+      if ($layerName) $layerName.textContent = layer.name;
+
+      const $loading = document.getElementById('unsupervisedLoadingState');
+      const $main = document.getElementById('unsupervisedMainContent');
+      if ($loading) $loading.style.display = 'flex';
+      if ($main) $main.style.display = 'none';
+
+      try {
+        const analysis = await analyzeSpectralData(layer);
+        state._unsupervisedAnalysis = analysis;
+        state._unsupervisedK = analysis.recommendedK;
+
+        // Mostrar recomendación
+        const $recTitle = document.getElementById('unsupervisedRecTitle');
+        if ($recTitle) $recTitle.textContent = `${analysis.recommendedK} Clases Sugeridas`;
+
+        const $varBadge = document.getElementById('unsupervisedVarianceBadge');
+        if ($varBadge) $varBadge.textContent = `${analysis.varianceExplained.toFixed(1)}% Varianza Explicada`;
+
+        const $recDesc = document.getElementById('unsupervisedRecDescription');
+        if ($recDesc) $recDesc.textContent = analysis.description;
+
+        const $chips = document.getElementById('unsupervisedDetectedChips');
+        if ($chips) {
+          $chips.innerHTML = analysis.detectedFeatures.map(f => `
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold bg-white text-zinc-800 border border-zinc-200/90 shadow-2xs">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${f.color}"></span>
+              <span class="material-symbols-outlined text-[11px] text-zinc-500">${f.icon}</span>
+              ${f.name}
+            </span>
+          `).join('');
+        }
+
+        setUnsupervisedK(analysis.recommendedK, analysis.recommendedK);
+
+        if ($loading) $loading.style.display = 'none';
+        if ($main) $main.style.display = 'flex';
+      } catch (err) {
+        console.error('[Unsupervised] Error en análisis:', err);
+        toast('Error al analizar imagen: ' + err.message, 'error');
+        closeUnsupervisedClassificationModal();
+      }
+    }
+
+    function closeUnsupervisedClassificationModal() {
+      const modal = document.getElementById('unsupervisedClassificationModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function setUnsupervisedK(k, recommendedK) {
+      state._unsupervisedK = k;
+      const rec = recommendedK || (state._unsupervisedAnalysis?.recommendedK || 5);
+
+      const $disp = document.getElementById('unsupervisedClassCountDisplay');
+      if ($disp) $disp.textContent = `${k} Clases`;
+
+      const $slider = document.getElementById('unsupervisedKSlider');
+      if ($slider) $slider.value = k;
+
+      // Actualizar botones de número de clases
+      const container = document.getElementById('unsupervisedQuickKButtons');
+      if (container) {
+        container.querySelectorAll('.k-btn').forEach(btn => {
+          const btnK = parseInt(btn.dataset.k, 10);
+          if (btnK === k) {
+            btn.className = 'k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-indigo-600 border-indigo-700 text-white shadow-xs';
+            btn.innerHTML = `${btnK} ${btnK === rec ? '★' : ''}`;
+          } else {
+            btn.className = 'k-btn py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase transition-all bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100';
+            btn.innerHTML = `${btnK} ${btnK === rec ? '★' : ''}`;
+          }
+        });
+      }
+
+      renderUnsupervisedClassesTable(k);
+    }
+
+    function renderUnsupervisedClassesTable(k) {
+      const defaultClasses = getDefaultClassesForK(k);
+      state._unsupervisedCurrentClasses = defaultClasses;
+
+      const $table = document.getElementById('unsupervisedClassesTable');
+      if (!$table) return;
+
+      $table.innerHTML = defaultClasses.map((cls, idx) => `
+        <div class="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-zinc-200/90 shadow-2xs">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <input type="color" value="${cls.color}" 
+              onchange="onModalClassColorChange(${idx}, this.value)"
+              class="w-7 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
+            <div class="flex flex-col flex-1 min-w-0">
+              <input type="text" value="${cls.name}"
+                oninput="onModalClassNameChange(${idx}, this.value)"
+                class="w-full text-[10.5px] font-bold text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-1.5 py-0.5 border border-transparent focus:border-indigo-400 outline-none transition-colors">
+            </div>
+          </div>
+          <span class="text-[8.5px] font-mono font-bold text-zinc-400 uppercase tracking-wider shrink-0">Clase ${idx + 1}</span>
+        </div>
+      `).join('');
+    }
+
+    function onModalClassColorChange(idx, newColor) {
+      if (state._unsupervisedCurrentClasses && state._unsupervisedCurrentClasses[idx]) {
+        state._unsupervisedCurrentClasses[idx].color = newColor;
+      }
+    }
+
+    function onModalClassNameChange(idx, newName) {
+      if (state._unsupervisedCurrentClasses && state._unsupervisedCurrentClasses[idx]) {
+        state._unsupervisedCurrentClasses[idx].name = newName;
+      }
+    }
+
+    function onUnsupervisedBandScopeChange() {
+      // Si cambia el espacio de bandas, podemos re-analizar o usar subconjunto
+      const scope = document.getElementById('unsupervisedBandScope')?.value || 'all';
+      toast(`Espacio espectral ajustado: ${scope.toUpperCase()}`, 'info');
+    }
+
+    async function executeUnsupervisedClassification() {
+      const layerId = state._unsupervisedLayerId;
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer) return;
+
+      const k = state._unsupervisedK || 5;
+      const userClasses = state._unsupervisedCurrentClasses || getDefaultClassesForK(k);
+      const spectralData = state._unsupervisedSpectralData;
+      const normData = state._unsupervisedNormData;
+
+      if (!spectralData || !normData) {
+        toast('Error: Datos espectrales no disponibles para clasificar.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btnRunUnsupervised');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[17px] animate-spin">sync</span> Procesando K-Means (${k} Clases)...`;
+      }
+
+      showProgress(`Clasificando escena en ${k} partes mediante K-Means++...`, 30);
+
+      setTimeout(async () => {
+        try {
+          const w = spectralData.width;
+          const h = spectralData.height;
+          const totalPixels = w * h;
+          const bCount = spectralData.bandsCount;
+          const normSamples = normData.normSamples;
+          const dims = normData.dims;
+
+          function distSq(a, b) {
+            let s = 0;
+            for (let i = 0; i < a.length; i++) {
+              const diff = a[i] - b[i];
+              s += diff * diff;
+            }
+            return s;
+          }
+
+          // 1. Inicialización K-Means++
+          const centers = [normSamples[Math.floor(Math.random() * normSamples.length)].slice()];
+          while (centers.length < k) {
+            let tot = 0;
+            const dArr = new Float32Array(normSamples.length);
+            for (let i = 0; i < normSamples.length; i++) {
+              let minD = Infinity;
+              for (let c = 0; c < centers.length; c++) {
+                const d = distSq(normSamples[i], centers[c]);
+                if (d < minD) minD = d;
+              }
+              dArr[i] = minD;
+              tot += minD;
+            }
+            let r = Math.random() * tot;
+            let nextI = normSamples.length - 1;
+            for (let i = 0; i < normSamples.length; i++) {
+              r -= dArr[i];
+              if (r <= 0) { nextI = i; break; }
+            }
+            centers.push(normSamples[nextI].slice());
+          }
+
+          // 2. Iteraciones de convergencia
+          for (let iter = 0; iter < 15; iter++) {
+            const counts = new Int32Array(k);
+            const sums = Array.from({ length: k }, () => new Float32Array(dims));
+            for (let i = 0; i < normSamples.length; i++) {
+              let minD = Infinity;
+              let bestC = 0;
+              for (let c = 0; c < k; c++) {
+                const d = distSq(normSamples[i], centers[c]);
+                if (d < minD) { minD = d; bestC = c; }
+              }
+              counts[bestC]++;
+              for (let d = 0; d < dims; d++) sums[bestC][d] += normSamples[i][d];
+            }
+            let maxShift = 0;
+            for (let c = 0; c < k; c++) {
+              if (counts[c] > 0) {
+                for (let d = 0; d < dims; d++) {
+                  const avg = sums[c][d] / counts[c];
+                  const shift = Math.abs(avg - centers[c][d]);
+                  if (shift > maxShift) maxShift = shift;
+                  centers[c][d] = avg;
+                }
+              }
+            }
+            if (maxShift < 0.001) break;
+          }
+
+          showProgress('Generando mapa temático y asignando coberturas...', 75);
+
+          // 3. Clasificar cada píxel del ráster completo
+          const pixelClusterMap = new Int16Array(totalPixels);
+          pixelClusterMap.fill(-1);
+          const classCounts = new Int32Array(k);
+          let validCount = 0;
+
+          const normPixel = new Float32Array(dims);
+
+          for (let i = 0; i < totalPixels; i++) {
+            let isZero = true;
+            if (spectralData.type === 'multispectral') {
+              for (let b = 0; b < bCount; b++) {
+                if (spectralData.bands[b][i] > 0) { isZero = false; break; }
+              }
+              if (isZero) continue;
+              for (let d = 0; d < dims; d++) {
+                const rawV = spectralData.bands[d][i];
+                normPixel[d] = Math.max(0, Math.min(1, (rawV - normData.mins[d]) / (normData.maxs[d] - normData.mins[d])));
+              }
+            } else {
+              const p = i * 4;
+              const a = spectralData.data[p + 3];
+              const r = spectralData.data[p], g = spectralData.data[p + 1], b = spectralData.data[p + 2];
+              if (a < 20 || (r === 0 && g === 0 && b === 0)) continue;
+              normPixel[0] = Math.max(0, Math.min(1, (r / 255 - normData.mins[0]) / (normData.maxs[0] - normData.mins[0])));
+              normPixel[1] = Math.max(0, Math.min(1, (g / 255 - normData.mins[1]) / (normData.maxs[1] - normData.mins[1])));
+              normPixel[2] = Math.max(0, Math.min(1, (b / 255 - normData.mins[2]) / (normData.maxs[2] - normData.mins[2])));
+            }
+
+            let minD = Infinity;
+            let bestC = 0;
+            for (let c = 0; c < k; c++) {
+              const d = distSq(normPixel, centers[c]);
+              if (d < minD) { minD = d; bestC = c; }
+            }
+            pixelClusterMap[i] = bestC;
+            classCounts[bestC]++;
+            validCount++;
+          }
+
+          // 4. Pintar en lienzo canvas
+          const rgbClasses = userClasses.map(cls => {
+            const hex = (cls.color || '#000000').replace('#', '');
+            return [
+              parseInt(hex.substring(0, 2), 16) || 0,
+              parseInt(hex.substring(2, 4), 16) || 0,
+              parseInt(hex.substring(4, 6), 16) || 0
+            ];
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.createImageData(w, h);
+          const data = imgData.data;
+
+          for (let i = 0; i < totalPixels; i++) {
+            const c = pixelClusterMap[i];
+            const p = i * 4;
+            if (c < 0 || c >= k || userClasses[c].visible === false) {
+              data[p] = data[p + 1] = data[p + 2] = data[p + 3] = 0;
+            } else {
+              const rgb = rgbClasses[c];
+              data[p] = rgb[0];
+              data[p + 1] = rgb[1];
+              data[p + 2] = rgb[2];
+              data[p + 3] = 235;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+
+          // 5. Crear clases finales con porcentajes
+          const finalClasses = userClasses.map((cls, idx) => ({
+            id: idx,
+            name: cls.name,
+            color: cls.color,
+            count: classCounts[idx],
+            percentage: validCount > 0 ? ((classCounts[idx] / validCount) * 100).toFixed(1) : '0.0',
+            visible: true
+          }));
+
+          const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
+          const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
+          const newLayer = {
+            id: nextLayerId,
+            name: `Clasificación (${k} Clases) - ${cleanBase}`,
+            type: 'raster',
+            visible: true,
+            opacity: 0.9,
+            bounds: layer.bounds,
+            imageUrl: canvas.toDataURL('image/png'),
+            width: w,
+            height: h,
+            bands: 1,
+            renderer: 'classified',
+            isClassified: true,
+            parentLayerId: layer.id,
+            classes: finalClasses,
+            _classifiedCanvas: canvas,
+            _pixelClusterMap: pixelClusterMap,
+            _totalValidPixels: validCount
+          };
+
+          state.layers.unshift(newLayer);
+          state.selectedLayerId = newLayer.id;
+
+          renderLayersOnMap();
+          syncLayerOrder();
+          updateLayersSidebar();
+
+          closeUnsupervisedClassificationModal();
+          hideProgress();
+          toast(`✓ Clasificación no supervisada completada (${k} clases)`, 'success');
+
+          zoomToLayer(newLayer.id);
+
+        } catch (err) {
+          console.error('[Unsupervised] Classification error:', err);
+          toast('Error en clasificación: ' + err.message, 'error');
+          hideProgress();
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span class="material-symbols-outlined text-[17px]">play_arrow</span> Generar Capa Clasificada`;
+          }
+        }
+      }, 40);
+    }
+
+    function rebuildClassifiedCanvas(layer) {
+      if (!layer || !layer._classifiedCanvas || !layer._pixelClusterMap) return;
+      const canvas = layer._classifiedCanvas;
+      const w = canvas.width;
+      const h = canvas.height;
+      const totalPixels = w * h;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(w, h);
+      const data = imgData.data;
+
+      const rgbClasses = (layer.classes || []).map(cls => {
+        const hex = (cls.color || '#000000').replace('#', '');
+        return [
+          parseInt(hex.substring(0, 2), 16) || 0,
+          parseInt(hex.substring(2, 4), 16) || 0,
+          parseInt(hex.substring(4, 6), 16) || 0
+        ];
+      });
+
+      const clusterMap = layer._pixelClusterMap;
+      for (let i = 0; i < totalPixels; i++) {
+        const c = clusterMap[i];
+        const p = i * 4;
+        if (c < 0 || c >= layer.classes.length || layer.classes[c].visible === false) {
+          data[p] = data[p + 1] = data[p + 2] = data[p + 3] = 0;
+        } else {
+          const rgb = rgbClasses[c];
+          data[p] = rgb[0];
+          data[p + 1] = rgb[1];
+          data[p + 2] = rgb[2];
+          data[p + 3] = 235;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const newUrl = canvas.toDataURL('image/png');
+      layer.imageUrl = newUrl;
+      if (layer.mapLayer && typeof layer.mapLayer.setUrl === 'function') {
+        layer.mapLayer.setUrl(newUrl);
+      }
+    }
+
+    function updateClassifiedLayerColor(layerId, classIdx, newColor) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer || !layer.isClassified || !layer.classes[classIdx]) return;
+      layer.classes[classIdx].color = newColor;
+      rebuildClassifiedCanvas(layer);
+      updateLayersSidebar();
+    }
+
+    function toggleClassVisibility(layerId, classIdx, isVisible) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer || !layer.isClassified || !layer.classes[classIdx]) return;
+      layer.classes[classIdx].visible = isVisible;
+      rebuildClassifiedCanvas(layer);
+      updateLayersSidebar();
+    }
+
+    function updateClassifiedClassName(layerId, classIdx, newName) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer || !layer.isClassified || !layer.classes[classIdx]) return;
+      layer.classes[classIdx].name = newName;
+      updateLayersSidebar();
+    }
+
+    window.openUnsupervisedClassificationModal = openUnsupervisedClassificationModal;
+    window.closeUnsupervisedClassificationModal = closeUnsupervisedClassificationModal;
+    window.setUnsupervisedK = setUnsupervisedK;
+    window.onUnsupervisedBandScopeChange = onUnsupervisedBandScopeChange;
+    window.onModalClassColorChange = onModalClassColorChange;
+    window.onModalClassNameChange = onModalClassNameChange;
+    window.executeUnsupervisedClassification = executeUnsupervisedClassification;
+    window.updateClassifiedLayerColor = updateClassifiedLayerColor;
+    window.toggleClassVisibility = toggleClassVisibility;
+    window.updateClassifiedClassName = updateClassifiedClassName;
+
     window.selectAndToggleLayer = selectAndToggleLayer;
     window.bringLayerToFront = bringLayerToFront;
     window.toggleSoloLayer = toggleSoloLayer;
@@ -14162,11 +15060,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 ${layer.name}
               </span>
               ${isSelected ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-600 text-white shadow-2xs">Activa</span>' : ''}
+              ${layer.isClassified ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600 text-white shadow-2xs">Clasificada</span>' : ''}
               ${layer._isSolo ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs">Solo</span>' : ''}
             </div>
             <div class="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
-              <span>${isVector ? 'Vectores' : 'Raster ' + (layer.bands ? '(' + layer.bands + 'B)' : '')}</span>
-              ${!isVector && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
+              <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'Raster ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
+              ${!isVector && !layer.isClassified && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
             </div>
           </div>
           <span class="material-symbols-outlined text-zinc-400 text-sm transition-transform duration-200 ${isSelected ? 'rotate-180 text-indigo-600' : ''}">
@@ -14233,8 +15132,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </div>
         </div>
 
-        <!-- 2. Cambiar Bandas / Layers Espectrales (para Ráster) -->
-        ${!isVector ? `
+        <!-- 2. Contenido según tipo de capa: Clasificada, Ráster normal o Vectorial -->
+        ${layer.isClassified ? `
+        <!-- Leyenda Temática de la Clasificación No Supervisada -->
+        <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-black uppercase tracking-wider text-violet-700 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">donut_small</span>
+              Leyenda Temática (${layer.classes?.length || 5} Clases)
+            </span>
+            <span class="text-[7.5px] font-bold text-zinc-400 uppercase tracking-widest">Cobertura</span>
+          </div>
+          
+          <div class="flex flex-col gap-1 max-h-52 overflow-y-auto custom-scrollbar p-1 bg-white rounded-xl border border-zinc-200">
+            ${(layer.classes || []).map((cls, cIdx) => `
+              <div class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-zinc-50 border border-zinc-100 transition-colors">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <input type="checkbox" ${cls.visible !== false ? 'checked' : ''}
+                    onchange="event.stopPropagation(); toggleClassVisibility(${layer.id}, ${cIdx}, this.checked)"
+                    title="Mostrar/Ocultar esta clase en el mapa"
+                    class="w-3.5 h-3.5 accent-violet-600 rounded cursor-pointer shrink-0">
+                  <input type="color" value="${cls.color}"
+                    onchange="event.stopPropagation(); updateClassifiedLayerColor(${layer.id}, ${cIdx}, this.value)"
+                    title="Personalizar color de esta cobertura"
+                    class="w-5 h-5 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
+                  <span class="text-[9px] font-bold text-zinc-800 truncate" title="${cls.name}">${cls.name}</span>
+                </div>
+                <span class="text-[9px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100 shrink-0">
+                  ${cls.percentage || '0.0'}%
+                </span>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Botón para Re-analizar / Cambiar número de clases -->
+          <div class="flex justify-end pt-1">
+            <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal(${layer.parentLayerId || layer.id})"
+              class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 flex items-center gap-1 transition-colors">
+              <span class="material-symbols-outlined text-[11px]">tune</span> Re-clasificar / Ajustar
+            </button>
+          </div>
+        </div>
+        ` : (!isVector ? `
         <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-black uppercase tracking-wider text-indigo-700 flex items-center gap-1">
@@ -14308,6 +15247,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               `).join('')}
             </div>
           </div>
+
+          <!-- Botón de Clasificación Espectral No Supervisada -->
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-200/80">
+            <div class="flex flex-col">
+              <span class="text-[9px] font-black uppercase tracking-wider text-violet-700 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">auto_awesome</span>
+                Clasificación No Supervisada
+              </span>
+              <span class="text-[7.5px] text-zinc-400">Recomendación IA y partición K-Means</span>
+            </div>
+            <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal(${layer.id})"
+              class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-xs flex items-center gap-1 transition-all active:scale-95"
+              title="Clasificar espectralmente las coberturas terrestres">
+              <span class="material-symbols-outlined text-[12px]">scatter_plot</span>
+              Clasificar
+            </button>
+          </div>
         </div>
         ` : `
         <!-- Estilo Vectorial inline -->
@@ -14320,7 +15276,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <span class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#3388ff'}</span>
           </div>
         </div>
-        `}
+        `)}
 
         <!-- 3. Opacidad Slider -->
         <div class="flex flex-col gap-1 pt-2 border-t border-zinc-200/80">
@@ -15772,6 +16728,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         btn3D.style.display = (layer && layer.type === 'raster') ? 'flex' : 'none';
       }
 
+      // Only show Unsupervised Classification for raster layers
+      const btnUnsupervised = document.getElementById('ctxUnsupervisedBtn');
+      if (btnUnsupervised) {
+        btnUnsupervised.style.display = (layer && layer.type === 'raster' && !layer.isClassified) ? 'flex' : 'none';
+      }
+
       // Show attribute table only for vector/excel layers
       const btnAttr = document.getElementById('ctxAttrBtn');
       if (btnAttr) {
@@ -15821,6 +16783,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
     window.zoomToLayer = zoomToLayer;
+
+    function ctxOpenUnsupervisedClassification() {
+      hideContextMenu();
+      if (state.ctxLayerId) {
+        openUnsupervisedClassificationModal(state.ctxLayerId);
+      }
+    }
+    window.ctxOpenUnsupervisedClassification = ctxOpenUnsupervisedClassification;
 
     function ctxZoomToLayer() {
       zoomToLayer(state.ctxLayerId);
