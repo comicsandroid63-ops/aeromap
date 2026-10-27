@@ -2594,6 +2594,9 @@
         <div class="flex items-center gap-2 cursor-pointer select-none" onclick="toggleNetworkPanel()">
           <span class="material-symbols-outlined text-[16px] text-rose-600">alt_route</span>
           <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900 flex-1">Análisis de Redes</span>
+          <button onclick="event.stopPropagation(); clearNetworkResults(true);" title="Reiniciar análisis y paradas" class="p-1 text-zinc-400 hover:text-rose-600 rounded transition-colors flex items-center">
+            <span class="material-symbols-outlined text-[14px]">restart_alt</span>
+          </button>
           <span class="material-symbols-outlined text-zinc-400 transition-transform duration-200" id="networkChevron">expand_less</span>
         </div>
         <div id="networkPanelBody" class="space-y-2 mt-3">
@@ -2610,35 +2613,47 @@
             </button>
           </div>
 
-          <div id="networkStopInfo" class="text-[9px] text-zinc-500 font-medium px-1 hidden">
-            <span id="networkOriginLabel">Origen: —</span> · <span id="networkDestLabel">Destino: —</span>
+          <div id="networkStopInfo" class="text-[9px] text-zinc-600 font-medium px-2 py-1.5 bg-zinc-50 rounded-lg border border-zinc-200 hidden flex items-center justify-between">
+            <div class="truncate flex-1">
+              <span id="networkOriginLabel" class="text-rose-600 font-bold">Origen: —</span> · <span id="networkDestLabel" class="text-violet-600 font-bold">Destino: —</span>
+            </div>
+            <button onclick="clearNetworkResults(true)" title="Borrar paradas" class="text-zinc-400 hover:text-rose-600 ml-1">
+              <span class="material-symbols-outlined text-[13px]">close</span>
+            </button>
           </div>
 
           <div class="grid grid-cols-3 gap-2">
-            <button onclick="solveShortestPath()" class="py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+            <button onclick="solveShortestPath()" class="py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase shadow-sm">
               <span class="material-symbols-outlined text-[12px]">route</span> Ruta
             </button>
-            <button onclick="solveServiceArea()" class="py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+            <button onclick="solveServiceArea()" class="py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase shadow-sm">
               <span class="material-symbols-outlined text-[12px]">radio_button_checked</span> Área
             </button>
-            <button onclick="startFacilityPick()" class="py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase">
+            <button onclick="toggleFacilityMode()" class="py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all flex items-center justify-center gap-1 text-[8px] font-bold uppercase shadow-sm">
               <span class="material-symbols-outlined text-[12px]">local_fire_department</span> Facility
             </button>
           </div>
 
-          <div id="networkServiceAreaOpts" class="hidden space-y-1">
-            <label class="text-[7px] font-black text-zinc-400 uppercase tracking-widest">Distancia máxima (m)</label>
-            <input type="number" id="serviceAreaDist" value="1000" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none" />
-            <button onclick="solveServiceAreaExecute()" class="w-full py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1">
+          <div id="networkServiceAreaOpts" class="hidden space-y-1.5 p-2 bg-amber-50/60 rounded-xl border border-amber-100">
+            <div class="flex items-center justify-between">
+              <label class="text-[7px] font-black text-amber-800 uppercase tracking-widest">Distancia máxima (m)</label>
+              <span class="text-[8px] text-amber-600 font-bold" id="serviceAreaDistLabel">1000 m</span>
+            </div>
+            <input type="number" id="serviceAreaDist" value="1000" min="50" max="50000" step="50" oninput="document.getElementById('serviceAreaDistLabel').textContent = this.value + ' m'" class="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1 text-[10px] font-bold outline-none" />
+            <button onclick="solveServiceAreaExecute()" class="w-full py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1 shadow-sm">
               <span class="material-symbols-outlined text-[12px]">play_arrow</span> Calcular Área de Servicio
             </button>
           </div>
 
-          <div id="networkFacilityOpts" class="hidden space-y-1">
-            <select id="networkFacilityLayer" class="w-full bg-zinc-100 rounded-xl p-2 text-[10px] font-bold border border-zinc-200 outline-none">
-              <option value="">Capa de facilities...</option>
+          <div id="networkFacilityOpts" class="hidden space-y-1.5 p-2 bg-sky-50/60 rounded-xl border border-sky-100">
+            <div class="text-[8px] font-bold text-sky-800 uppercase flex items-center justify-between">
+              <span>Facilities (Destinos)</span>
+              <button onclick="startFacilityPick()" class="text-[8px] font-bold text-sky-600 hover:text-sky-800 underline">Añadir en mapa</button>
+            </div>
+            <select id="networkFacilityLayer" class="w-full bg-white rounded-lg p-1.5 text-[9px] font-bold border border-zinc-200 outline-none">
+              <option value="">O seleccionar capa de facilities (puntos)...</option>
             </select>
-            <button onclick="solveClosestFacility()" class="w-full py-1.5 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1">
+            <button onclick="solveClosestFacility()" class="w-full py-1.5 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-all text-[8px] font-bold uppercase flex items-center justify-center gap-1 shadow-sm">
               <span class="material-symbols-outlined text-[12px]">play_arrow</span> Encontrar Facility Más Cercana
             </button>
           </div>
@@ -26362,15 +26377,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const lineLayers = state.layers.filter(l => {
             if (l.type !== 'vector' || !l.geoJson) return false;
-            const types = new Set();
             for (const f of l.geoJson.features || []) {
-                if (f.geometry) types.add(f.geometry.type);
+                const t = f.geometry?.type;
+                if (t === 'LineString' || t === 'MultiLineString') return true;
             }
-            return types.has('LineString') || types.has('MultiLineString');
+            return false;
         });
-        const opts = lineLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-        $net.innerHTML = '<option value="">Seleccionar capa de red...</option>' + opts;
-        if ($fac) $fac.innerHTML = '<option value="">Capa de facilities...</option>' + opts;
+        const lineOpts = lineLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        $net.innerHTML = '<option value="">Seleccionar capa de red...</option>' + lineOpts;
+
+        if ($fac) {
+            const pointLayers = state.layers.filter(l => {
+                if (l.type !== 'vector' || !l.geoJson) return false;
+                for (const f of l.geoJson.features || []) {
+                    const t = f.geometry?.type;
+                    if (t === 'Point' || t === 'MultiPoint') return true;
+                }
+                return false;
+            });
+            const facOpts = pointLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            $fac.innerHTML = '<option value="">O seleccionar capa de facilities (puntos)...</option>' + facOpts;
+        }
     }
 
     function updateGeoprocessingDropdowns() {
@@ -28361,8 +28388,359 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     // =========================================
-    //  NETWORK ANALYSIS
+    //  CLIENT-SIDE NETWORK ANALYSIS ENGINE (100% SIN API)
     // =========================================
+    const ClientNetwork = (function() {
+        class MinHeap {
+            constructor() { this.heap = []; }
+            push(item) { this.heap.push(item); this._bubbleUp(this.heap.length - 1); }
+            pop() {
+                if (this.heap.length === 0) return null;
+                const top = this.heap[0];
+                const bottom = this.heap.pop();
+                if (this.heap.length > 0) { this.heap[0] = bottom; this._sinkDown(0); }
+                return top;
+            }
+            isEmpty() { return this.heap.length === 0; }
+            _bubbleUp(idx) {
+                const el = this.heap[idx];
+                while (idx > 0) {
+                    const pIdx = (idx - 1) >> 1;
+                    const p = this.heap[pIdx];
+                    if (el.priority >= p.priority) break;
+                    this.heap[idx] = p;
+                    idx = pIdx;
+                }
+                this.heap[idx] = el;
+            }
+            _sinkDown(idx) {
+                const len = this.heap.length;
+                const el = this.heap[idx];
+                while (true) {
+                    let left = (idx << 1) + 1;
+                    let right = left + 1;
+                    let swap = -1;
+                    if (left < len && this.heap[left].priority < el.priority) swap = left;
+                    if (right < len && this.heap[right].priority < (swap === -1 ? el.priority : this.heap[left].priority)) swap = right;
+                    if (swap === -1) break;
+                    this.heap[idx] = this.heap[swap];
+                    idx = swap;
+                }
+                this.heap[idx] = el;
+            }
+        }
+
+        function haversineMeters(c1, c2) {
+            const R = 6371000;
+            const dLat = (c2[1] - c1[1]) * Math.PI / 180;
+            const dLng = (c2[0] - c1[0]) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(c1[1] * Math.PI / 180) * Math.cos(c2[1] * Math.PI / 180) *
+                      Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function buildGraph(geoJson, snapToleranceMeters = 3) {
+            const nodes = new Map();
+            const edges = [];
+            const grid = new Map();
+
+            function gridKey(lng, lat) {
+                return Math.floor(lng * 1000) + ':' + Math.floor(lat * 1000);
+            }
+
+            function getOrCreateNode(lng, lat) {
+                const [gx, gy] = [Math.floor(lng * 1000), Math.floor(lat * 1000)];
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const cell = grid.get((gx + dx) + ':' + (gy + dy));
+                        if (cell) {
+                            for (const candidate of cell) {
+                                if (haversineMeters([lng, lat], [candidate.lng, candidate.lat]) <= snapToleranceMeters) {
+                                    return candidate;
+                                }
+                            }
+                        }
+                    }
+                }
+                const id = lng.toFixed(6) + ',' + lat.toFixed(6);
+                const node = { id, lng, lat, adj: [] };
+                nodes.set(id, node);
+                const gk = gridKey(lng, lat);
+                if (!grid.has(gk)) grid.set(gk, []);
+                grid.get(gk).push(node);
+                return node;
+            }
+
+            for (const feat of (geoJson.features || [])) {
+                if (!feat.geometry) continue;
+                const geom = feat.geometry;
+                const lines = geom.type === 'LineString' ? [geom.coordinates]
+                            : geom.type === 'MultiLineString' ? geom.coordinates : [];
+                for (const line of lines) {
+                    if (!line || line.length < 2) continue;
+                    for (let i = 0; i < line.length - 1; i++) {
+                        const p1 = line[i];
+                        const p2 = line[i + 1];
+                        const u = getOrCreateNode(p1[0], p1[1]);
+                        const v = getOrCreateNode(p2[0], p2[1]);
+                        if (u.id === v.id) continue;
+                        const dist = haversineMeters([u.lng, u.lat], [v.lng, v.lat]);
+                        const edge1 = { from: u.id, to: v.id, dist, coords: [p1, p2], props: feat.properties || {} };
+                        const edge2 = { from: v.id, to: u.id, dist, coords: [p2, p1], props: feat.properties || {} };
+                        u.adj.push(edge1);
+                        v.adj.push(edge2);
+                        edges.push(edge1);
+                    }
+                }
+            }
+
+            function findClosestNode(lng, lat, maxDistMeters = 80000) {
+                let best = null;
+                let bestDist = Infinity;
+                for (const n of nodes.values()) {
+                    const d = haversineMeters([lng, lat], [n.lng, n.lat]);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        best = n;
+                    }
+                }
+                return best;
+            }
+
+            return { nodes, edges, findClosestNode, haversineMeters };
+        }
+
+        function dijkstra(graph, startLngLat, endLngLat) {
+            if (!graph || graph.nodes.size === 0) return null;
+            const startNode = graph.findClosestNode(startLngLat[0], startLngLat[1]);
+            const endNode = graph.findClosestNode(endLngLat[0], endLngLat[1]);
+            if (!startNode || !endNode) return null;
+
+            const dist = new Map();
+            const prev = new Map();
+            const visited = new Set();
+            const pq = new MinHeap();
+
+            for (const key of graph.nodes.keys()) {
+                dist.set(key, Infinity);
+            }
+            dist.set(startNode.id, 0);
+            pq.push({ priority: 0, id: startNode.id });
+
+            while (!pq.isEmpty()) {
+                const { id: uId, priority: uDist } = pq.pop();
+                if (uId === endNode.id) break;
+                if (visited.has(uId)) continue;
+                visited.add(uId);
+
+                const uNode = graph.nodes.get(uId);
+                if (!uNode) continue;
+                for (const edge of uNode.adj) {
+                    if (visited.has(edge.to)) continue;
+                    const newDist = uDist + edge.dist;
+                    if (newDist < dist.get(edge.to)) {
+                        dist.set(edge.to, newDist);
+                        prev.set(edge.to, { from: uId, edge: edge });
+                        pq.push({ priority: newDist, id: edge.to });
+                    }
+                }
+            }
+
+            if (dist.get(endNode.id) === Infinity) {
+                const directDist = haversineMeters(startLngLat, endLngLat);
+                return {
+                    path: { type: 'LineString', coordinates: [startLngLat, endLngLat] },
+                    distance_meters: Math.round(directDist),
+                    distance_km: parseFloat((directDist / 1000).toFixed(3)),
+                    nodes_visited: visited.size,
+                    isDirectFallback: true
+                };
+            }
+
+            const coords = [];
+            let curr = endNode.id;
+            while (curr !== startNode.id) {
+                const p = prev.get(curr);
+                if (!p) break;
+                const node = graph.nodes.get(curr);
+                coords.unshift([node.lng, node.lat]);
+                curr = p.from;
+            }
+            coords.unshift([startNode.lng, startNode.lat]);
+
+            if (haversineMeters(startLngLat, coords[0]) > 5) {
+                coords.unshift(startLngLat);
+            }
+            if (haversineMeters(endLngLat, coords[coords.length - 1]) > 5) {
+                coords.push(endLngLat);
+            }
+
+            const totalDist = dist.get(endNode.id) +
+                              haversineMeters(startLngLat, [startNode.lng, startNode.lat]) +
+                              haversineMeters(endLngLat, [endNode.lng, endNode.lat]);
+
+            return {
+                path: { type: 'LineString', coordinates: coords },
+                distance_meters: Math.round(totalDist),
+                distance_km: parseFloat((totalDist / 1000).toFixed(3)),
+                nodes_visited: visited.size,
+                isDirectFallback: false
+            };
+        }
+
+        function serviceArea(graph, originLngLat, maxDistanceMeters) {
+            if (!graph || graph.nodes.size === 0) return null;
+            const startNode = graph.findClosestNode(originLngLat[0], originLngLat[1]);
+            if (!startNode) return null;
+
+            const dist = new Map();
+            const visited = new Set();
+            const reachedEdges = [];
+            const pq = new MinHeap();
+
+            for (const key of graph.nodes.keys()) dist.set(key, Infinity);
+            dist.set(startNode.id, 0);
+            pq.push({ priority: 0, id: startNode.id });
+
+            while (!pq.isEmpty()) {
+                const { id: uId, priority: uDist } = pq.pop();
+                if (uDist > maxDistanceMeters) break;
+                if (visited.has(uId)) continue;
+                visited.add(uId);
+
+                const uNode = graph.nodes.get(uId);
+                if (!uNode) continue;
+                for (const edge of uNode.adj) {
+                    const alt = uDist + edge.dist;
+                    if (alt <= maxDistanceMeters) {
+                        if (alt < dist.get(edge.to)) {
+                            dist.set(edge.to, alt);
+                            pq.push({ priority: alt, id: edge.to });
+                        }
+                        reachedEdges.push(edge);
+                    }
+                }
+            }
+
+            const reachableCoords = [];
+            for (const [id, d] of dist.entries()) {
+                if (d <= maxDistanceMeters) {
+                    const n = graph.nodes.get(id);
+                    if (n) reachableCoords.push([n.lng, n.lat]);
+                }
+            }
+
+            return {
+                reachableCoords,
+                reachedEdges,
+                edgeCount: reachedEdges.length,
+                nodeCount: reachableCoords.length
+            };
+        }
+
+        function closestFacility(graph, originLngLat, facilities) {
+            if (!facilities || facilities.length === 0) return null;
+            let bestFacility = null;
+            let bestDist = Infinity;
+            let bestPath = null;
+
+            for (let i = 0; i < facilities.length; i++) {
+                const fac = facilities[i];
+                const facLngLat = [fac.lng, fac.lat];
+                let res = null;
+                if (graph && graph.nodes.size > 0) {
+                    res = dijkstra(graph, originLngLat, facLngLat);
+                }
+                if (!res) {
+                    const d = haversineMeters(originLngLat, facLngLat);
+                    res = {
+                        path: { type: 'LineString', coordinates: [originLngLat, facLngLat] },
+                        distance_meters: Math.round(d),
+                        distance_km: parseFloat((d / 1000).toFixed(3)),
+                        nodes_visited: 1
+                    };
+                }
+                if (res.distance_meters < bestDist) {
+                    bestDist = res.distance_meters;
+                    bestFacility = { index: i, point: fac, label: fac.label || ('Facility ' + (i + 1)) };
+                    bestPath = res;
+                }
+            }
+
+            return {
+                facility: bestFacility,
+                distance_meters: bestDist,
+                distance_km: parseFloat((bestDist / 1000).toFixed(3)),
+                path: bestPath?.path || null
+            };
+        }
+
+        function solveTripTSP(waypoints) {
+            if (waypoints.length <= 2) return waypoints.slice();
+            const n = waypoints.length;
+            const unvisited = new Set();
+            for (let i = 1; i < n; i++) unvisited.add(i);
+            const tour = [0];
+            let current = 0;
+
+            while (unvisited.size > 0) {
+                let nearest = -1;
+                let minDist = Infinity;
+                for (const cand of unvisited) {
+                    const d = haversineMeters(
+                        [waypoints[current].lng, waypoints[current].lat],
+                        [waypoints[cand].lng, waypoints[cand].lat]
+                    );
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = cand;
+                    }
+                }
+                unvisited.delete(nearest);
+                tour.push(nearest);
+                current = nearest;
+            }
+
+            let improved = true;
+            let iterations = 0;
+            while (improved && iterations < 50) {
+                improved = false;
+                iterations++;
+                for (let i = 1; i < tour.length - 1; i++) {
+                    for (let k = i + 1; k < tour.length; k++) {
+                        const a = waypoints[tour[i - 1]];
+                        const b = waypoints[tour[i]];
+                        const c = waypoints[tour[k]];
+                        const d = (k + 1 < tour.length) ? waypoints[tour[k + 1]] : null;
+
+                        const curDist = haversineMeters([a.lng, a.lat], [b.lng, b.lat]) +
+                                        (d ? haversineMeters([c.lng, c.lat], [d.lng, d.lat]) : 0);
+                        const newDist = haversineMeters([a.lng, a.lat], [c.lng, c.lat]) +
+                                        (d ? haversineMeters([b.lng, b.lat], [d.lng, d.lat]) : 0);
+
+                        if (newDist < curDist - 0.01) {
+                            const reversed = tour.slice(i, k + 1).reverse();
+                            tour.splice(i, reversed.length, ...reversed);
+                            improved = true;
+                        }
+                    }
+                }
+            }
+
+            return tour.map(idx => waypoints[idx]);
+        }
+
+        return {
+            haversineMeters,
+            buildGraph,
+            dijkstra,
+            serviceArea,
+            closestFacility,
+            solveTripTSP
+        };
+    })();
+
     const _net = {
         origin: null,
         destination: null,
@@ -28386,17 +28764,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     };
 
     function getNetworkLayer() {
-        const id = document.getElementById('networkLayerSelect').value;
-        if (!id) { toast('Selecciona una capa de red.', 'warning'); return null; }
-        const l = state.layers.find(l => l.id == id);
-        if (!l) { toast('Capa de red no encontrada.', 'error'); return null; }
-        return l;
+        const id = document.getElementById('networkLayerSelect')?.value;
+        if (!id) return null;
+        return state.layers.find(l => l.id == id) || null;
     }
 
     function getNetworkFeature() {
-        const id = document.getElementById('networkLayerSelect').value;
-        if (!id) return null;
-        const l = state.layers.find(l => l.id == id);
+        const l = getNetworkLayer();
         return l?.geoJson || null;
     }
 
@@ -28440,27 +28814,56 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } else {
                 txt = hours.toFixed(1) + ' h';
             }
-            document.getElementById(s.el).textContent = txt;
+            var el = document.getElementById(s.el);
+            if (el) el.textContent = txt;
         }
         panel.classList.remove('hidden');
     }
 
-    async function fetchOsrmRoute(origin, dest) {
-        try {
-            var res = await fetch('/api/osrm/route?origin=' + origin.lng + ',' + origin.lat + '&dest=' + dest.lng + ',' + dest.lat);
-            var data = await res.json();
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                var route = data.routes[0];
-                var coords = route.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-                var distKm = route.distance / 1000;
-                var durationSec = route.duration;
-                return { coords: coords, distanceKm: distKm, durationSec: durationSec };
+    // Client-side road/line route calculation (no external API needed)
+    function calculateClientRoute(origin, dest) {
+        var originLngLat = [origin.lng, origin.lat];
+        var destLngLat = [dest.lng, dest.lat];
+        var network = getNetworkFeature();
+
+        if (network && network.features && network.features.length) {
+            var selectedLayer = getNetworkLayer();
+            var graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
+            if (selectedLayer) selectedLayer._clientGraph = graph;
+
+            var res = ClientNetwork.dijkstra(graph, originLngLat, destLngLat);
+            if (res && res.path && res.path.coordinates && res.path.coordinates.length > 1) {
+                var coords = res.path.coordinates.map(function(c) { return [c[1], c[0]]; });
+                var distKm = res.distance_km;
+                var durationSec = (distKm / 45) * 3600;
+                return {
+                    coords: coords,
+                    distanceKm: distKm,
+                    durationSec: durationSec,
+                    nodes: res.nodes_visited,
+                    isNetwork: true
+                };
             }
-        } catch(e) {}
-        return null;
+        }
+
+        // Direct geodesic line fallback
+        var distKm = haversineKm(origin, dest);
+        var durationSec = (distKm / 50) * 3600;
+        var coords = [[origin.lat, origin.lng], [dest.lat, dest.lng]];
+        return {
+            coords: coords,
+            distanceKm: parseFloat(distKm.toFixed(3)),
+            durationSec: durationSec,
+            nodes: 2,
+            isNetwork: false
+        };
     }
 
-        async function saveNumberedPoints(points, layerName, pointColor, pointSize, pointIcon) {
+    async function fetchOsrmRoute(origin, dest) {
+        return calculateClientRoute(origin, dest);
+    }
+
+    async function saveNumberedPoints(points, layerName, pointColor, pointSize, pointIcon) {
         if (!points || !points.length) return;
         pointColor = pointColor || '#6366f1';
         pointSize = pointSize || 20;
@@ -28483,7 +28886,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             showLabels: false,
             silent: true,
         });
-        // Forzar subida si no se subió automáticamente
         if (layer && !layer.storageUrl) {
             try {
                 var jsonStr = JSON.stringify(layer.geoJson);
@@ -28494,13 +28896,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 var uploadRes = await uploadFileToSupabase(file);
                 if (uploadRes && uploadRes.success) {
                     layer.storageUrl = uploadRes.url;
-                    console.log('[Puntos] Storage URL forzada:', layer.storageUrl);
                     var uid = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
                     var pid = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
                     await saveLayerToDatabase(layer, pid, uid);
                 }
             } catch(e) {
-                console.warn('[Puntos] Error en subida forzada:', e);
+                console.warn('[Puntos] Error en subida:', e);
             }
         }
         toast('Puntos guardados: ' + layerName, 'success');
@@ -28570,7 +28971,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         document.getElementById('routeDesignPanel').style.display = 'block';
     }
 
-    function clearNetworkResults() {
+    function clearNetworkResults(fullReset) {
         var m = state.map;
         if (_net.pathLayer) { m.removeLayer(_net.pathLayer); _net.pathLayer = null; }
         if (_net.areaLayer) { m.removeLayer(_net.areaLayer); _net.areaLayer = null; }
@@ -28587,16 +28988,37 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _net.pointIcon = '';
         clearNetOverlays();
         clearNetPointPreview();
-        document.getElementById('networkResults').classList.add('hidden');
-        document.getElementById('travelTimePanel').classList.add('hidden');
-        document.getElementById('waypointList').classList.add('hidden');
-        document.getElementById('waypointList').innerHTML = '';
-        document.getElementById('btnCalcTrip').classList.add('hidden');
-        document.getElementById('networkStylePanel').style.display = 'none';
+        var resEl = document.getElementById('networkResults');
+        if (resEl) resEl.classList.add('hidden');
+        var ttPanel = document.getElementById('travelTimePanel');
+        if (ttPanel) ttPanel.classList.add('hidden');
+        var wpList = document.getElementById('waypointList');
+        if (wpList) { wpList.classList.add('hidden'); wpList.innerHTML = ''; }
+        var btnTrip = document.getElementById('btnCalcTrip');
+        if (btnTrip) btnTrip.classList.add('hidden');
+        var netStyle = document.getElementById('networkStylePanel');
+        if (netStyle) netStyle.style.display = 'none';
+
+        if (fullReset) {
+            if (_net.originMarker) { m.removeLayer(_net.originMarker); _net.originMarker = null; }
+            if (_net.destMarker) { m.removeLayer(_net.destMarker); _net.destMarker = null; }
+            _net.origin = null;
+            _net.destination = null;
+            _net.facilities = [];
+            _net.picking = null;
+            var stopInfo = document.getElementById('networkStopInfo');
+            if (stopInfo) stopInfo.classList.add('hidden');
+            var origLbl = document.getElementById('networkOriginLabel');
+            if (origLbl) origLbl.textContent = 'Origen: —';
+            var destLbl = document.getElementById('networkDestLabel');
+            if (destLbl) destLbl.textContent = 'Destino: —';
+            document.getElementById('map').style.cursor = '';
+            toast('Análisis de red reiniciado.', 'info');
+        }
     }
 
     function startNetworkStopPick(type) {
-        clearNetworkResults();
+        clearNetworkResults(false);
         _net.picking = type;
         var m = state.map;
         if (type === 'origin') {
@@ -28615,10 +29037,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function startFacilityPick() {
-        clearNetworkResults();
+        var opts = document.getElementById('networkFacilityOpts');
+        if (opts) opts.classList.remove('hidden');
         _net.picking = 'facility';
-        _net.facilities = [];
-        toast('Haz clic en el mapa para anadir facilities (clic derecho para terminar).', 'info');
+        document.getElementById('map').style.cursor = 'crosshair';
+        toast('Haz clic en el mapa para añadir facilities (clic derecho para finalizar).', 'info');
+    }
+
+    function toggleFacilityMode() {
+        var opts = document.getElementById('networkFacilityOpts');
+        if (!opts) return;
+        var isHidden = opts.classList.contains('hidden');
+        if (isHidden) {
+            opts.classList.remove('hidden');
+            startFacilityPick();
+        } else {
+            opts.classList.add('hidden');
+            if (_net.picking === 'facility') {
+                _net.picking = null;
+                document.getElementById('map').style.cursor = '';
+            }
+        }
     }
 
     function handleNetworkMapClick(latlng) {
@@ -28633,7 +29072,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('networkStopInfo').classList.remove('hidden');
             _net.originMarker = L.circleMarker(latlng, { radius: 8, color: '#e11d48', fillColor: '#e11d48', fillOpacity: 0.8, weight: 2 }).addTo(m)
                 .bindTooltip('Origen', { permanent: true, direction: 'top' }).openTooltip();
-            toast('Origen seleccionado. Ahora elige el destino.', 'success');
+            if (_net.destination) {
+                solveShortestPath();
+            } else {
+                toast('Origen seleccionado. Ahora elige el destino.', 'success');
+            }
         } else if (_net.picking === 'destination') {
             _net.destination = latlng;
             _net.picking = null;
@@ -28642,26 +29085,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             _net.destMarker = L.circleMarker(latlng, { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8, weight: 2 }).addTo(m)
                 .bindTooltip('Destino', { permanent: true, direction: 'top' }).openTooltip();
             if (_net.origin) {
-                if (_net.routeLayer) m.removeLayer(_net.routeLayer);
-                var line = L.polyline([_net.origin, latlng], { color: '#10b981', weight: 3, opacity: 0.8, dashArray: '8 4' });
-                _net.routeLayer = line.addTo(m);
-                updateTravelTimes(_net.origin, latlng);
-                toast('Buscando ruta por carretera...', 'info');
-                fetchOsrmRoute(_net.origin, latlng).then(function(result) {
-                    if (result) {
-                        m.removeLayer(line);
-                        _net.routeLayer = L.polyline(result.coords, { color: '#10b981', weight: 4, opacity: 0.9 }).addTo(m);
-                        m.fitBounds(_net.routeLayer.getBounds().pad(0.2));
-                        updateTravelTimes(_net.origin, latlng, result.distanceKm);
-                        document.getElementById('travelTimeCar').textContent = formatDuration(result.durationSec);
-                        toast('Ruta por carretera: ' + result.distanceKm.toFixed(1) + ' km', 'success');
-                        var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }, { lat: latlng.lat, lng: latlng.lng, label: 'D' }];
-                        var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: result.coords.map(function(c) { return [c[1], c[0]]; }) }, properties: {} }] };
-                        showNetworkStylePanel(routeGeo, 'Ruta ' + _net.origin.lat.toFixed(3) + '-' + latlng.lat.toFixed(3), pts);
-                    }
-                });
+                solveShortestPath();
             } else {
-                toast('Destino seleccionado.', 'success');
+                toast('Destino seleccionado. Ahora elige el origen.', 'success');
             }
         } else if (_net.picking === 'waypoint') {
             var wpIdx = _net.waypoints.length + 1;
@@ -28670,14 +29096,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 .bindTooltip('Punto ' + wpIdx, { permanent: true, direction: 'top' }).openTooltip();
             _net.waypointMarkers.push(mk);
             updateWaypointList();
-            toast('Punto ' + wpIdx + ' agregado. Sigue añadiendo o presiona "Calcular Ruta".', 'success');
+            toast('Punto ' + wpIdx + ' agregado. Sigue añadiendo o presiona "Calcular Ruta Óptima".', 'success');
         } else if (_net.picking === 'facility') {
             _net.facilities.push(latlng);
             var mkIdx = _net.facilities.length;
             var mk = L.circleMarker(latlng, { radius: 6, color: '#0284c7', fillColor: '#0284c7', fillOpacity: 0.8, weight: 2 }).addTo(m)
                 .bindTooltip('Facility ' + mkIdx, { permanent: true, direction: 'top' }).openTooltip();
             _net.facilityMarkers.push(mk);
-            toast('Facility ' + mkIdx + ' anadida. Sigue anadiendo o haz clic derecho para terminar.', 'success');
+            toast('Facility ' + mkIdx + ' añadida (' + _net.facilities.length + ' en total). Presiona "Encontrar Facility Más Cercana".', 'success');
         }
     }
 
@@ -28685,7 +29111,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         clearWaypoints();
         _net.picking = 'waypoint';
         document.getElementById('map').style.cursor = 'crosshair';
-        toast('Haz clic en el mapa para agregar puntos de reparto. Al terminar, presiona "Calcular Ruta".', 'info');
+        toast('Haz clic en el mapa para agregar puntos de reparto. Al terminar, presiona "Calcular Ruta Óptima".', 'info');
     }
 
     function clearWaypoints() {
@@ -28710,259 +29136,348 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         document.getElementById('btnCalcTrip').classList.remove('hidden');
     }
 
-    function nearestNeighborOrder(points) {
-        if (points.length < 3) return points.slice();
-        var ordered = [points[0]];
-        var remaining = points.slice(1);
-        var current = points[0];
-        while (remaining.length > 0) {
-            var best = 0;
-            var bestDist = Infinity;
-            for (var i = 0; i < remaining.length; i++) {
-                var d = Math.hypot(remaining[i].lat - current.lat, remaining[i].lng - current.lng);
-                if (d < bestDist) { bestDist = d; best = i; }
-            }
-            current = remaining[best];
-            ordered.push(remaining[best]);
-            remaining.splice(best, 1);
-        }
-        return ordered;
-    }
-
-    async function solveTripRoute() {
+    function solveTripRoute() {
         if (_net.waypoints.length < 2) {
-            toast('Agrega al menos 2 puntos de reparto.', 'warning');
+            toast('Agrega al menos 2 puntos de reparto en el mapa.', 'warning');
             return;
         }
         _net.picking = null;
         document.getElementById('map').style.cursor = '';
-        var wp = nearestNeighborOrder(_net.waypoints);
-        var wpMarkers = _net.waypointMarkers.slice();
 
-        if (_net.pathLayer) { state.map.removeLayer(_net.pathLayer); _net.pathLayer = null; }
-        if (_net.areaLayer) { state.map.removeLayer(_net.areaLayer); _net.areaLayer = null; }
-        if (_net.routeLayer) { state.map.removeLayer(_net.routeLayer); _net.routeLayer = null; }
-        _net.facilityMarkers.forEach(function(mk) { state.map.removeLayer(mk); });
-        _net.facilityMarkers = [];
-        if (_net.facilityLayer) { state.map.removeLayer(_net.facilityLayer); _net.facilityLayer = null; }
-        document.getElementById('networkResults').classList.add('hidden');
-        document.getElementById('travelTimePanel').classList.add('hidden');
+        var optimizedWp = ClientNetwork.solveTripTSP(_net.waypoints);
+        var m = state.map;
 
-        var coordsStr = wp.map(function(w) { return w.lng + ',' + w.lat; }).join(';');
-        console.log('[Trip] Orden optimizado:', coordsStr);
-        showProgress('Calculando ruta inteligente por carretera...', 30);
-        try {
-            var res = await fetch('/api/osrm/route?waypoints=' + encodeURIComponent(coordsStr));
-            var data = await res.json();
-            hideProgress();
-            if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
-                wpMarkers.forEach(function(mk) { mk.addTo(state.map); });
-                toast('OSRM: ' + (data.message || data.code || 'Error'), 'error');
-                return;
-            }
-            var route = data.routes[0];
-            var coords = route.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-            var m = state.map;
-            _net.routeLayer = L.polyline(coords, { color: '#6366f1', weight: 4, opacity: 0.9 }).addTo(m);
-            _net.styleTarget = _net.routeLayer;
-            wpMarkers.forEach(function(mk) { mk.addTo(m); });
-            m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
+        if (_net.pathLayer) { m.removeLayer(_net.pathLayer); _net.pathLayer = null; }
+        if (_net.areaLayer) { m.removeLayer(_net.areaLayer); _net.areaLayer = null; }
+        if (_net.routeLayer) { m.removeLayer(_net.routeLayer); _net.routeLayer = null; }
 
-            var totalKm = (route.distance / 1000).toFixed(1);
-            var totalMin = Math.round(route.duration / 60);
-            var resEl = document.getElementById('networkResults');
-            resEl.innerHTML = '<div class="font-bold text-indigo-600 mb-1">Ruta de Reparto Inteligente</div>' +
-                '<div>Distancia: <strong>' + totalKm + ' km</strong></div>' +
-                '<div>Tiempo: <strong>' + totalMin + ' min</strong> (' + (totalMin / 60).toFixed(1) + ' h)</div>' +
-                '<div class="text-[8px] text-zinc-400">Paradas: ' + wp.length + ' · Orden optimizado</div>';
-            resEl.classList.remove('hidden');
-            toast('Ruta optimizada: ' + totalKm + ' km, ' + totalMin + ' min', 'success');
-            var pts = wp.map(function(w, i) { return { lat: w.lat, lng: w.lng, label: String(i + 1) }; });
-            var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { paradas: wp.length }, geometry: { type: 'LineString', coordinates: coords.map(function(c) { return [c[1], c[0]]; }) } }] };
-            showNetworkStylePanel(routeGeo, 'Ruta reparto ' + totalKm + 'km', pts);
-        } catch (e) {
-            hideProgress();
-            console.warn('[Trip] Error OSRM, dibujando ruta lineal optimizada:', e.message);
-            // Fallback: dibujar líneas rectas entre puntos en orden óptimo
-            var m = state.map;
-            var linearCoords = wp.map(function(w) { return [w.lat, w.lng]; });
-            _net.routeLayer = L.polyline(linearCoords, { color: '#6366f1', weight: 4, opacity: 0.8, dashArray: '6 4' }).addTo(m);
-            _net.styleTarget = _net.routeLayer;
-            wpMarkers.forEach(function(mk) { mk.addTo(m); });
-            m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
-            toast('Ruta lineal (OSRM no disponible). Verifica internet o reinicia el servidor.', 'warning');
-            var pts = wp.map(function(w, i) { return { lat: w.lat, lng: w.lng, label: String(i + 1) }; });
-            var routeGeo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { paradas: wp.length }, geometry: { type: 'LineString', coordinates: linearCoords.map(function(c) { return [c[1], c[0]]; }) } }] };
-            showNetworkStylePanel(routeGeo, 'Ruta reparto ' + wp.length + ' paradas', pts);
+        _net.waypointMarkers.forEach(function(mk) { m.removeLayer(mk); });
+        _net.waypointMarkers = [];
+
+        optimizedWp.forEach(function(p, i) {
+            var mk = L.circleMarker([p.lat, p.lng], {
+                radius: 8,
+                color: '#6366f1',
+                fillColor: '#818cf8',
+                fillOpacity: 0.9,
+                weight: 2
+            }).addTo(m).bindTooltip('Parada ' + (i + 1), { permanent: true, direction: 'top' }).openTooltip();
+            _net.waypointMarkers.push(mk);
+        });
+
+        var network = getNetworkFeature();
+        var graph = null;
+        if (network && network.features && network.features.length) {
+            var selectedLayer = getNetworkLayer();
+            graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
+            if (selectedLayer) selectedLayer._clientGraph = graph;
         }
+
+        var fullCoords = [];
+        var totalDistMeters = 0;
+
+        for (var i = 0; i < optimizedWp.length - 1; i++) {
+            var p1 = [optimizedWp[i].lng, optimizedWp[i].lat];
+            var p2 = [optimizedWp[i + 1].lng, optimizedWp[i + 1].lat];
+            var segmentSolved = false;
+
+            if (graph) {
+                var segRes = ClientNetwork.dijkstra(graph, p1, p2);
+                if (segRes && segRes.path && segRes.path.coordinates && segRes.path.coordinates.length > 1) {
+                    var segCoords = segRes.path.coordinates;
+                    if (fullCoords.length > 0) segCoords = segCoords.slice(1);
+                    fullCoords = fullCoords.concat(segCoords);
+                    totalDistMeters += segRes.distance_meters;
+                    segmentSolved = true;
+                }
+            }
+
+            if (!segmentSolved) {
+                var d = ClientNetwork.haversineMeters(p1, p2);
+                totalDistMeters += d;
+                if (fullCoords.length === 0) fullCoords.push(p1);
+                fullCoords.push(p2);
+            }
+        }
+
+        var latLngCoords = fullCoords.map(function(c) { return [c[1], c[0]]; });
+        _net.routeLayer = L.polyline(latLngCoords, {
+            color: '#6366f1',
+            weight: 4,
+            opacity: 0.9
+        }).addTo(m);
+        _net.styleTarget = _net.routeLayer;
+        m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
+
+        var totalKm = (totalDistMeters / 1000).toFixed(2);
+        var totalMin = Math.round((totalDistMeters / 1000 / 40) * 60);
+
+        var resEl = document.getElementById('networkResults');
+        resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
+            '<div class="font-bold text-indigo-600">Ruta de Reparto Óptima</div>' +
+            '<span class="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded text-[8px] font-bold">2-Opt TSP Sin API</span>' +
+            '</div>' +
+            '<div>Distancia total: <strong>' + totalKm + ' km</strong> (' + Math.round(totalDistMeters).toLocaleString() + ' m)</div>' +
+            '<div>Tiempo estimado: <strong>' + totalMin + ' min</strong> (' + (totalMin / 60).toFixed(1) + ' h)</div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">Paradas: ' + optimizedWp.length + ' · Orden secuencial optimizado</div>';
+        resEl.classList.remove('hidden');
+
+        toast('Ruta optimizada: ' + totalKm + ' km, ' + totalMin + ' min', 'success');
+
+        var pts = optimizedWp.map(function(w, i) {
+            return { lat: w.lat, lng: w.lng, label: String(i + 1) };
+        });
+        var routeGeo = {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                properties: { paradas: optimizedWp.length, distancia_km: parseFloat(totalKm) },
+                geometry: { type: 'LineString', coordinates: fullCoords }
+            }]
+        };
+        showNetworkStylePanel(routeGeo, 'Ruta reparto ' + totalKm + 'km', pts);
     }
 
-    async function solveShortestPath() {
-        const network = getNetworkFeature();
-        if (!network) { toast('Selecciona una capa de red.', 'warning'); return; }
+    function solveShortestPath() {
         if (!_net.origin || !_net.destination) {
             toast('Selecciona origen y destino en el mapa.', 'warning');
             return;
         }
 
-        clearNetworkResults();
-        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
-        var destPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.destination.lng, _net.destination.lat] } };
+        if (_net.pathLayer) { state.map.removeLayer(_net.pathLayer); _net.pathLayer = null; }
+        if (_net.areaLayer) { state.map.removeLayer(_net.areaLayer); _net.areaLayer = null; }
+        if (_net.routeLayer) { state.map.removeLayer(_net.routeLayer); _net.routeLayer = null; }
 
-        showProgress('Calculando ruta mas corta...', 20);
-        try {
-            var res = await fetch('/api/network/shortest-path', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ network: network, origin: originPoint, destination: destPoint }),
-            });
-            var data = await res.json();
-            hideProgress();
+        var route = calculateClientRoute(_net.origin, _net.destination);
+        var m = state.map;
 
-            if (!data.success) {
-                toast(data.error || 'Error al calcular ruta.', 'error');
-                return;
-            }
+        _net.pathLayer = L.polyline(route.coords, {
+            color: '#10b981',
+            weight: 4,
+            opacity: 0.9,
+            dashArray: route.isNetwork ? undefined : '6 4'
+        }).addTo(m);
+        _net.styleTarget = _net.pathLayer;
+        m.fitBounds(_net.pathLayer.getBounds().pad(0.2));
 
-            _net.pathLayer = L.geoJSON(data.path, {
-                style: { color: '#10b981', weight: 4, opacity: 0.9 },
-            }).addTo(state.map);
-            _net.styleTarget = _net.pathLayer;
-            state.map.fitBounds(_net.pathLayer.getBounds().pad(0.1));
+        updateTravelTimes(_net.origin, _net.destination, route.distanceKm);
 
-            var resEl = document.getElementById('networkResults');
-            resEl.innerHTML = '<div class="font-bold text-emerald-600 mb-1">Ruta encontrada</div>' +
-                '<div>Distancia: <strong>' + data.distance_km + ' km</strong> (' + data.distance_meters.toLocaleString() + ' m)</div>' +
-                '<div class="text-[8px] text-zinc-400">Nodos recorridos: ' + data.nodes_visited + '</div>';
-            resEl.classList.remove('hidden');
-            toast('Ruta: ' + data.distance_km + ' km', 'success');
-            var pts = [
-                { lat: originPoint.geometry.coordinates[1], lng: originPoint.geometry.coordinates[0], label: 'O' },
-                { lat: destPoint.geometry.coordinates[1], lng: destPoint.geometry.coordinates[0], label: 'D' },
-            ];
-            showNetworkStylePanel({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: data.path }] }, 'Ruta red ' + data.distance_km + 'km', pts);
-        } catch (e) {
-            hideProgress();
-            toast('Error de conexion: ' + e.message, 'error');
+        var resEl = document.getElementById('networkResults');
+        var modeBadge = route.isNetwork
+            ? '<span class="text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Red Vectorial (' + route.nodes + ' nodos)</span>'
+            : '<span class="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Ruta Directa Geodésica</span>';
+
+        resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
+            '<div class="font-bold text-emerald-600">Ruta Calculada</div>' +
+            modeBadge +
+            '</div>' +
+            '<div>Distancia: <strong>' + route.distanceKm.toFixed(2) + ' km</strong> (' + Math.round(route.distanceKm * 1000).toLocaleString() + ' m)</div>' +
+            '<div>Tiempo en auto: <strong>' + formatDuration(route.durationSec) + '</strong></div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">100% Cliente · Sin API externa ni servidor</div>';
+        resEl.classList.remove('hidden');
+
+        toast('Ruta: ' + route.distanceKm.toFixed(2) + ' km (' + (route.isNetwork ? 'Red' : 'Directa') + ')', 'success');
+
+        var pts = [
+            { lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' },
+            { lat: _net.destination.lat, lng: _net.destination.lng, label: 'D' }
+        ];
+        var routeGeo = {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                properties: { distancia_km: route.distanceKm, tipo: route.isNetwork ? 'red' : 'geodesica' },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: route.coords.map(function(c) { return [c[1], c[0]]; })
+                }
+            }]
+        };
+        showNetworkStylePanel(routeGeo, 'Ruta ' + route.distanceKm.toFixed(1) + 'km', pts);
+    }
+
+    function solveServiceArea() {
+        var opts = document.getElementById('networkServiceAreaOpts');
+        if (opts) opts.classList.toggle('hidden');
+        if (!_net.origin) {
+            toast('Consejo: Establece el Origen haciendo clic en "Origen" y luego en el mapa.', 'info');
         }
     }
 
-    async function solveServiceArea() {
-        if (!getNetworkLayer()) return;
-        if (!_net.origin) { toast('Selecciona un origen en el mapa.', 'warning'); return; }
-        document.getElementById('networkServiceAreaOpts').classList.toggle('hidden');
-    }
-
-    async function solveServiceAreaExecute() {
-        const network = getNetworkFeature();
-        if (!network || !_net.origin) return;
-        var maxDist = parseFloat(document.getElementById('serviceAreaDist').value) || 1000;
-
-        clearNetworkResults();
-        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
-
-        showProgress('Calculando area de servicio...', 20);
-        try {
-            var res = await fetch('/api/network/service-area', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ network: network, origin: originPoint, max_distance_meters: maxDist }),
-            });
-            var data = await res.json();
-            hideProgress();
-
-            if (!data.success) { toast(data.error || 'Error.', 'error'); return; }
-
-            if (data.points && data.points.length > 2) {
-                try {
-                    var pts = data.points.map(function(p) { return { type: 'Feature', geometry: { type: 'Point', coordinates: p } }; });
-                    var hull = turf.convex(turf.featureCollection(pts));
-                    if (hull) {
-                        _net.areaLayer = L.geoJSON(hull, {
-                            style: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2, dashArray: '4 4' },
-                        }).addTo(state.map);
-                        _net.styleTarget = _net.areaLayer;
-                        state.map.fitBounds(_net.areaLayer.getBounds().pad(0.2));
-                    }
-                } catch(e) {}
-            }
-
-            var resEl = document.getElementById('networkResults');
-            resEl.innerHTML = '<div class="font-bold text-amber-600 mb-1">Area de Servicio</div>' +
-                '<div>Nodos alcanzados: <strong>' + (data.reachable_nodes?.length || 0) + '</strong></div>' +
-                '<div>Segmentos: ' + data.edge_count + '</div>' +
-                '<div>Distancia maxima: ' + maxDist.toLocaleString() + ' m</div>';
-            resEl.classList.remove('hidden');
-            toast('Area de servicio: ' + data.edge_count + ' segmentos', 'success');
-            if (_net.areaLayer) {
-                var areaGeo = { type: 'FeatureCollection', features: [] };
-                _net.areaLayer.eachLayer(function(l) {
-                    if (l.feature) areaGeo.features.push(l.feature);
-                });
-                var pts = _net.origin ? [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'Origen' }] : [];
-                if (areaGeo.features.length) showNetworkStylePanel(areaGeo, 'Area servicio ' + maxDist + 'm', pts);
-            }
-        } catch (e) {
-            hideProgress();
-            toast('Error: ' + e.message, 'error');
-        }
-    }
-
-    async function solveClosestFacility() {
-        const network = getNetworkFeature();
-        if (!network) return;
+    function solveServiceAreaExecute() {
         if (!_net.origin) {
             toast('Selecciona un origen en el mapa.', 'warning');
             return;
         }
-        if (_net.facilities.length === 0) {
-            toast('Anade al menos una facility en el mapa.', 'warning');
+        var maxDist = parseFloat(document.getElementById('serviceAreaDist').value) || 1000;
+        if (maxDist <= 0) {
+            toast('Ingresa una distancia válida en metros.', 'warning');
             return;
         }
 
-        clearNetworkResults();
-        var originPoint = { type: 'Feature', geometry: { type: 'Point', coordinates: [_net.origin.lng, _net.origin.lat] } };
-        var facilities = {
-            type: 'FeatureCollection',
-            features: _net.facilities.map(function(f, i) { return {
-                type: 'Feature',
-                id: i,
-                geometry: { type: 'Point', coordinates: [f.lng, f.lat] },
-                properties: { name: 'Facility ' + (i + 1) },
-            }; }),
-        };
+        clearNetworkResults(false);
+        var m = state.map;
+        var originLngLat = [_net.origin.lng, _net.origin.lat];
+        var network = getNetworkFeature();
+        var areaGeo = null;
+        var nodeCount = 0;
+        var edgeCount = 0;
+        var isNetworkArea = false;
 
-        showProgress('Buscando facility mas cercana...', 20);
-        try {
-            var res = await fetch('/api/network/closest-facility', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ network: network, origin: originPoint, facilities: facilities }),
-            });
-            var data = await res.json();
-            hideProgress();
+        if (network && network.features && network.features.length) {
+            var selectedLayer = getNetworkLayer();
+            var graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
+            if (selectedLayer) selectedLayer._clientGraph = graph;
 
-            if (!data.success) { toast(data.error || 'Error.', 'error'); return; }
+            var area = ClientNetwork.serviceArea(graph, originLngLat, maxDist);
+            if (area && area.reachableCoords && area.reachableCoords.length > 0) {
+                nodeCount = area.nodeCount;
+                edgeCount = area.edgeCount;
+                isNetworkArea = true;
 
-            if (data.path) {
-                _net.pathLayer = L.geoJSON(data.path, {
-                    style: { color: '#0284c7', weight: 4, opacity: 0.9 },
-                }).addTo(state.map);
-                _net.styleTarget = _net.pathLayer;
-                state.map.fitBounds(_net.pathLayer.getBounds().pad(0.2));
+                if (area.reachableCoords.length >= 3 && typeof turf !== 'undefined' && turf.convex) {
+                    try {
+                        var ptsFC = turf.featureCollection(area.reachableCoords.map(function(c) {
+                            return turf.point(c);
+                        }));
+                        var hull = turf.convex(ptsFC);
+                        if (hull) areaGeo = hull;
+                    } catch(e) {}
+                }
+                if (!areaGeo && area.reachedEdges.length > 0 && typeof turf !== 'undefined' && turf.buffer) {
+                    try {
+                        var linesFC = turf.featureCollection(area.reachedEdges.map(function(e) {
+                            return turf.lineString(e.coords);
+                        }));
+                        areaGeo = turf.buffer(linesFC, 0.05, { units: 'kilometers' });
+                    } catch(e) {}
+                }
             }
+        }
 
-            var resEl = document.getElementById('networkResults');
-            resEl.innerHTML = '<div class="font-bold text-sky-600 mb-1">Facility Mas Cercana</div>' +
-                '<div>Distancia: <strong>' + data.distance_km + ' km</strong> (' + data.distance_meters.toLocaleString() + ' m)</div>';
-            resEl.classList.remove('hidden');
-            toast('Facility mas cercana: ' + data.distance_km + ' km', 'success');
-            var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }];
-            _net.facilities.forEach(function(f, i) { pts.push({ lat: f.lat, lng: f.lng, label: 'F' + (i + 1) }); });
-            if (data.path) showNetworkStylePanel({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: data.path }] }, 'Facility cercana ' + data.distance_km + 'km', pts);
-        } catch (e) {
-            hideProgress();
-            toast('Error: ' + e.message, 'error');
+        if (!areaGeo) {
+            if (typeof turf !== 'undefined' && turf.circle) {
+                areaGeo = turf.circle(originLngLat, maxDist / 1000, { units: 'kilometers', steps: 64 });
+            }
+        }
+
+        if (areaGeo) {
+            _net.areaLayer = L.geoJSON(areaGeo, {
+                style: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.25, weight: 2.5, dashArray: '4 4' }
+            }).addTo(m);
+            _net.styleTarget = _net.areaLayer;
+            m.fitBounds(_net.areaLayer.getBounds().pad(0.2));
+        }
+
+        var resEl = document.getElementById('networkResults');
+        var badge = isNetworkArea
+            ? '<span class="text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Red (' + nodeCount + ' nodos)</span>'
+            : '<span class="text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Iso-buffer Geodésico</span>';
+
+        resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
+            '<div class="font-bold text-amber-600">Área de Servicio</div>' +
+            badge +
+            '</div>' +
+            '<div>Distancia máxima: <strong>' + maxDist.toLocaleString() + ' m</strong> (' + (maxDist / 1000).toFixed(2) + ' km)</div>' +
+            (isNetworkArea ? '<div>Segmentos alcanzados: <strong>' + edgeCount + '</strong></div>' : '') +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">100% Cliente · Sin API externa ni servidor</div>';
+        resEl.classList.remove('hidden');
+
+        toast('Área de servicio calculada: ' + maxDist + ' m', 'success');
+
+        var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'Origen' }];
+        var fc = areaGeo.type === 'FeatureCollection' ? areaGeo : { type: 'FeatureCollection', features: [areaGeo] };
+        showNetworkStylePanel(fc, 'Área servicio ' + maxDist + 'm', pts);
+    }
+
+    function solveClosestFacility() {
+        if (!_net.origin) {
+            toast('Selecciona un origen en el mapa.', 'warning');
+            return;
+        }
+
+        var facilitiesList = _net.facilities.slice();
+
+        var facLayerSelect = document.getElementById('networkFacilityLayer');
+        if (facLayerSelect && facLayerSelect.value) {
+            var l = state.layers.find(function(layer) { return layer.id == facLayerSelect.value; });
+            if (l && l.geoJson && l.geoJson.features) {
+                l.geoJson.features.forEach(function(feat, i) {
+                    var geom = feat.geometry;
+                    if (geom) {
+                        var c = null;
+                        if (geom.type === 'Point') c = geom.coordinates;
+                        else if (geom.type === 'MultiPoint' && geom.coordinates.length) c = geom.coordinates[0];
+                        if (c) {
+                            facilitiesList.push({
+                                lng: c[0],
+                                lat: c[1],
+                                label: feat.properties?.name || ('F' + (facilitiesList.length + 1))
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        if (facilitiesList.length === 0) {
+            toast('Añade facilities haciendo clic en el mapa o selecciona una capa.', 'warning');
+            return;
+        }
+
+        clearNetworkResults(false);
+        var m = state.map;
+        var originLngLat = [_net.origin.lng, _net.origin.lat];
+        var network = getNetworkFeature();
+        var graph = null;
+        if (network && network.features && network.features.length) {
+            var selectedLayer = getNetworkLayer();
+            graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
+            if (selectedLayer) selectedLayer._clientGraph = graph;
+        }
+
+        var res = ClientNetwork.closestFacility(graph, originLngLat, facilitiesList);
+        if (!res || !res.facility) {
+            toast('No se encontró ninguna facility alcanzable.', 'error');
+            return;
+        }
+
+        if (res.path) {
+            _net.pathLayer = L.geoJSON(res.path, {
+                style: { color: '#0284c7', weight: 4, opacity: 0.9 }
+            }).addTo(m);
+            _net.styleTarget = _net.pathLayer;
+            m.fitBounds(_net.pathLayer.getBounds().pad(0.2));
+        }
+
+        var closestPt = res.facility.point;
+        var highlightMarker = L.circleMarker([closestPt.lat, closestPt.lng], {
+            radius: 12,
+            color: '#0284c7',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.9,
+            weight: 3
+        }).addTo(m).bindTooltip('★ ' + res.facility.label + ' (Más Cercana)', { permanent: true, direction: 'top' }).openTooltip();
+        _net.facilityMarkers.push(highlightMarker);
+
+        var resEl = document.getElementById('networkResults');
+        resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
+            '<div class="font-bold text-sky-600">Facility Más Cercana</div>' +
+            '<span class="text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded text-[8px] font-bold">100% Sin API</span>' +
+            '</div>' +
+            '<div>Destino óptimo: <strong>' + res.facility.label + '</strong></div>' +
+            '<div>Distancia: <strong>' + res.distance_km + ' km</strong> (' + res.distance_meters.toLocaleString() + ' m)</div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">Total evaluadas: ' + facilitiesList.length + ' facilities</div>';
+        resEl.classList.remove('hidden');
+
+        toast('Facility más cercana: ' + res.facility.label + ' (' + res.distance_km + ' km)', 'success');
+
+        var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }];
+        facilitiesList.forEach(function(f, idx) {
+            pts.push({ lat: f.lat, lng: f.lng, label: f.label || ('F' + (idx + 1)) });
+        });
+        if (res.path) {
+            showNetworkStylePanel({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: res.path }] }, 'Ruta a ' + res.facility.label, pts);
         }
     }
 
