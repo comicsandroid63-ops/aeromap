@@ -2233,16 +2233,70 @@
         </div>
       </div>
 
+      <!-- ═══════ APARTADO: IMPORTAR PROYECTO ═══════ -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Importar Proyecto</h2>
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">QGIS · ZIP · GIS</span>
+            </div>
+            <p class="text-xs sm:text-sm" style="color:#666;">Carga proyectos de QGIS (.qgz, .qgs), paquetes ZIP, Shapefiles o GeoTIFFs con sus salidas gráficas</p>
+          </div>
+          <button onclick="triggerDashboardProjectImport()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90 cursor-pointer shadow-sm" style="background:#1a1c1f;color:#fff;">
+            <span class="material-symbols-outlined text-[17px]">file_upload</span>
+            Examinar Archivo
+          </button>
+        </div>
+
+        <div id="dashboardProjectDropZone"
+             ondragover="handleDashboardDragOver(event)"
+             ondragleave="handleDashboardDragLeave(event)"
+             ondrop="handleDashboardDrop(event)"
+             onclick="triggerDashboardProjectImport()"
+             class="border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all duration-200 group hover:border-indigo-500 hover:bg-indigo-50/20"
+             style="border-color:#d4d4d8;background:#ffffff;">
+          <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json" multiple onchange="handleDashboardProjectFileSelect(event)">
+          <div class="flex flex-col items-center pointer-events-none">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 bg-zinc-100 group-hover:bg-indigo-100 group-hover:scale-105 transition-all">
+              <span class="material-symbols-outlined text-2xl text-zinc-600 group-hover:text-indigo-600 transition-colors">cloud_upload</span>
+            </div>
+            <p class="text-sm sm:text-base font-bold text-zinc-800">Arrastra y suelta tu proyecto QGIS o capas aquí</p>
+            <p class="text-xs text-zinc-500 mt-1 max-w-lg">Soporta proyectos completos <strong>.qgz</strong> y <strong>.qgs</strong> (con Salida Gráfica, simbología y resolución automática de capas locales), <strong>.zip</strong> con Shapefiles/GeoTIFF, o capas sueltas.</p>
+            <div class="flex flex-wrap items-center justify-center gap-2.5 mt-3.5 text-[11px] font-semibold text-zinc-600">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200">
+                <span class="material-symbols-outlined text-[14px] text-emerald-600">check_circle</span>
+                Proyectos QGIS (.qgz, .qgs)
+              </span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200">
+                <span class="material-symbols-outlined text-[14px] text-indigo-600">check_circle</span>
+                Salidas Gráficas / Print Layout
+              </span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200">
+                <span class="material-symbols-outlined text-[14px] text-amber-600">check_circle</span>
+                Shapefile (.shp, .dbf, .prj) y GeoTIFF
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Mis Proyectos -->
       <div class="flex items-center justify-between mb-6">
         <div>
           <h2 class="text-xl font-bold" style="color:#1a1c1f;">Mis Proyectos</h2>
           <p class="text-sm" style="color:#666;">Tus mapas y análisis geoespaciales</p>
         </div>
-        <button onclick="createProject()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          Nuevo
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="triggerDashboardProjectImport()" class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-zinc-100 border border-zinc-200" style="background:#fff;color:#1a1c1f;">
+            <span class="material-symbols-outlined text-[18px] text-indigo-600">file_upload</span>
+            Importar Proyecto
+          </button>
+          <button onclick="createProject()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Nuevo
+          </button>
+        </div>
       </div>
 
       <div id="projectsList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -13225,6 +13279,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }, 15000);
     }
 
+    function base64ToBlob(base64, mimeType = 'application/octet-stream') {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+    }
+    window.base64ToBlob = base64ToBlob;
+
     async function handleQgisProjectFromZip(zipFile, qgisEntries, ctx = {}) {
         showProgress(`Analizando proyecto QGIS en: ${zipFile.name}...`, 20, 'Importador QGIS');
         try {
@@ -13298,6 +13363,58 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         });
                         loadedShpBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
                         loadedCount++;
+                    } else {
+                        // Buscar en rutas locales del usuario via servidor o fallback a capa en estado
+                        let resolvedLocally = false;
+                        try {
+                            const resp = await fetch('/api/qgis/resolve-layer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ datasource: ql.datasource, filename: dsFileName, layerName: ql.name })
+                            });
+                            if (resp.ok) {
+                                const resData = await resp.json();
+                                if (resData.found && resData.type === 'shapefile' && resData.shpBase64) {
+                                    const shpBlob = base64ToBlob(resData.shpBase64);
+                                    const shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                    const dbfFile = resData.dbfBase64 ? new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' }) : null;
+                                    const prjFile = resData.prjText ? new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' }) : null;
+                                    await loadShapefileDirect(shpFile, dbfFile, prjFile, {
+                                        originalName: ql.name,
+                                        color: ql.color?.hex,
+                                        strokeColor: ql.strokeColor?.hex,
+                                        strokeWidth: ql.strokeWidth,
+                                        fillOpacity: ql.fillOpacity,
+                                        opacity: ql.opacity,
+                                        visible: ql.visible
+                                    });
+                                    loadedShpBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
+                                    loadedCount++;
+                                    resolvedLocally = true;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[QGIS ZIP] No se pudo resolver capa localmente:', ql.name, e);
+                        }
+                        if (!resolvedLocally) {
+                            state.layers.unshift({
+                                id: ++idCounter,
+                                name: ql.name || dsBaseName || 'Capa QGIS',
+                                type: ql.type || 'vector',
+                                geometry: ql.geometry || 'Polygon',
+                                datasource: ql.datasource || '',
+                                visible: ql.visible !== false,
+                                opacity: ql.opacity ?? 1.0,
+                                fillOpacity: ql.fillOpacity ?? 0.7,
+                                strokeOpacity: 1.0,
+                                color: ql.color?.hex || '#6366f1',
+                                strokeColor: ql.strokeColor?.hex || '#333333',
+                                strokeWidth: ql.strokeWidth ?? 1.5,
+                                mapLayer: null,
+                                unresolved: true
+                            });
+                            loadedCount++;
+                        }
                     }
                 } else if (ql.type === 'raster') {
                     const tiffEntry = (ctx.tiffEntries || []).find(e => {
@@ -13335,6 +13452,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                 }
             }
+
+            // Forzar refresco de capas y dropdowns
+            updateLayersSidebar();
+            if (typeof $emptyState !== 'undefined' && $emptyState && state.layers.length > 0) {
+                $emptyState.style.display = 'none';
+            }
+            if (typeof updateGeoprocessingDropdowns === 'function') {
+                updateGeoprocessingDropdowns();
+            }
+
+            // Ajuste de vista del mapa
+            setTimeout(() => {
+                const vectorWithBounds = state.layers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+                if (vectorWithBounds.length > 0 && state.map) {
+                    let combined = null;
+                    for (const l of vectorWithBounds) {
+                        if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                        else combined.extend(l.bounds);
+                    }
+                    if (combined && combined.isValid()) {
+                        state.map.fitBounds(combined, { padding: [30, 30], maxZoom: 14, animate: true });
+                    }
+                }
+            }, 300);
 
             // 4. Salida Gráfica (Print Layouts)
             const layouts = project.layouts || [];
@@ -13396,15 +13537,49 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const dsFileName = cleanDs.split('/').pop().toLowerCase();
                 const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
 
-                const shpFile = availableFiles.find(f => {
+                let shpFile = availableFiles.find(f => {
                     const fn = f.name.toLowerCase();
                     return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
                 });
+                let dbfFile = null;
+                let prjFile = null;
+
+                if (!shpFile) {
+                    showProgress(`Resolviendo capa local: ${ql.name}...`, 30 + Math.min(45, loadedCount * 15), 'Importador QGIS');
+                    try {
+                        const resp = await fetch('/api/qgis/resolve-layer', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                datasource: ql.datasource,
+                                filename: dsFileName,
+                                layerName: ql.name
+                            })
+                        });
+                        if (resp.ok) {
+                            const resData = await resp.json();
+                            if (resData.found && resData.type === 'shapefile' && resData.shpBase64) {
+                                const shpBlob = base64ToBlob(resData.shpBase64);
+                                shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
+                                if (resData.dbfBase64) {
+                                    const dbfBlob = base64ToBlob(resData.dbfBase64);
+                                    dbfFile = new File([dbfBlob], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                }
+                                if (resData.prjText) {
+                                    prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
+                                }
+                            }
+                        }
+                    } catch (resolveErr) {
+                        console.warn('[QGIS Standalone Import] Falló resolución automática:', ql.name, resolveErr);
+                    }
+                } else {
+                    const base = shpFile.name.replace(/\.shp$/i, '');
+                    dbfFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
+                    prjFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
+                }
 
                 if (shpFile) {
-                    const base = shpFile.name.replace(/\.shp$/i, '');
-                    const dbfFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
-                    const prjFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
                     await loadShapefileDirect(shpFile, dbfFile, prjFile, {
                         originalName: ql.name,
                         color: ql.color?.hex,
@@ -13419,8 +13594,52 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (dbfFile) window._loadedByQgisFiles.add(dbfFile.name.toLowerCase());
                     if (prjFile) window._loadedByQgisFiles.add(prjFile.name.toLowerCase());
                     loadedCount++;
+                } else {
+                    // Fallback: Si no se encuentra el archivo, agregar capa a state.layers para que aparezca en ACTIVE LAYERS
+                    const placeholderLayer = {
+                        id: ++idCounter,
+                        name: ql.name || dsBaseName || 'Capa QGIS',
+                        type: ql.type || 'vector',
+                        geometry: ql.geometry || 'Polygon',
+                        datasource: ql.datasource || '',
+                        visible: ql.visible !== false,
+                        opacity: ql.opacity ?? 1.0,
+                        fillOpacity: ql.fillOpacity ?? 0.7,
+                        strokeOpacity: 1.0,
+                        color: ql.color?.hex || '#6366f1',
+                        strokeColor: ql.strokeColor?.hex || '#333333',
+                        strokeWidth: ql.strokeWidth ?? 1.5,
+                        mapLayer: null,
+                        unresolved: true
+                    };
+                    state.layers.unshift(placeholderLayer);
+                    loadedCount++;
                 }
             }
+
+            // Actualizar interfaz de capas inmediatamente
+            updateLayersSidebar();
+            if (typeof $emptyState !== 'undefined' && $emptyState && state.layers.length > 0) {
+                $emptyState.style.display = 'none';
+            }
+            if (typeof updateGeoprocessingDropdowns === 'function') {
+                updateGeoprocessingDropdowns();
+            }
+
+            // Centrar mapa si hay capas vectoriales cargadas
+            setTimeout(() => {
+                const vectorWithBounds = state.layers.filter(l => l.mapLayer && l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+                if (vectorWithBounds.length > 0 && state.map) {
+                    let combined = null;
+                    for (const l of vectorWithBounds) {
+                        if (!combined) combined = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                        else combined.extend(l.bounds);
+                    }
+                    if (combined && combined.isValid()) {
+                        state.map.fitBounds(combined, { padding: [30, 30], maxZoom: 14, animate: true });
+                    }
+                }
+            }, 300);
 
             const layouts = project.layouts || [];
             if (layouts.length > 0) {
@@ -13432,7 +13651,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             hideProgress();
             const projDisplay = project.title || file.name.replace(/\.[^/.]+$/, "");
-            toast(`Proyecto QGIS "${projDisplay}" importado (${layouts.length} salida(s) gráfica(s))`, 'success');
+            toast(`Proyecto QGIS "${projDisplay}" importado (${loadedCount} capa(s), ${layouts.length} salida(s) gráfica(s))`, 'success');
 
             showQgisImportNotification(projDisplay, layouts.length, loadedCount, () => {
                 openLayoutModal();
@@ -13456,7 +13675,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const shpBuffer = await shpFile.arrayBuffer();
             const dbfBuffer = dbfFile ? await dbfFile.arrayBuffer() : null;
             const prjText = prjFile ? await prjFile.text() : null;
-            const layerName = shpFile.name.replace(/\.shp$/i, '');
+            const layerName = opts.originalName || shpFile.name.replace(/\.shp$/i, '');
 
             // 1. Ejecución directa en hilo principal con shpjs si está disponible
             if (typeof window.shp !== 'undefined' && typeof window.shp.combine === 'function' && typeof window.shp.parseShp === 'function') {
@@ -13494,7 +13713,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 shpBuffer,
                 dbfBuffer,
                 prjText,
-                name: shpFile.name.replace(/\.shp$/i, '')
+                name: layerName
             }, [shpBuffer, ...(dbfBuffer ? [dbfBuffer] : [])]);
 
         } catch (err) {
@@ -14588,7 +14807,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const color = opts.color || ('#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'));
       const layer = {
         id: ++idCounter,
-        name: name,
+        name: opts.originalName || name,
         type: 'vector',
         geoJson: geoJson,
         visible: opts.visible !== undefined ? opts.visible : true,
@@ -18111,6 +18330,72 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
       if (window._loadedByQgisFiles) window._loadedByQgisFiles.clear();
     }
+
+    // ─── Dashboard Project Import Handlers ───
+    function triggerDashboardProjectImport() {
+      const inp = document.getElementById('dashboardProjectInput');
+      if (inp) inp.click();
+    }
+    window.triggerDashboardProjectImport = triggerDashboardProjectImport;
+
+    function handleDashboardDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const zone = document.getElementById('dashboardProjectDropZone');
+      if (zone) {
+        zone.style.borderColor = '#6366f1';
+        zone.style.backgroundColor = 'rgba(238, 242, 255, 0.6)';
+      }
+    }
+    window.handleDashboardDragOver = handleDashboardDragOver;
+
+    function handleDashboardDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const zone = document.getElementById('dashboardProjectDropZone');
+      if (zone) {
+        zone.style.borderColor = '#d4d4d8';
+        zone.style.backgroundColor = '#ffffff';
+      }
+    }
+    window.handleDashboardDragLeave = handleDashboardDragLeave;
+
+    function handleDashboardDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const zone = document.getElementById('dashboardProjectDropZone');
+      if (zone) {
+        zone.style.borderColor = '#d4d4d8';
+        zone.style.backgroundColor = '#ffffff';
+      }
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) {
+        handleDashboardProjectImportFiles(files);
+      }
+    }
+    window.handleDashboardDrop = handleDashboardDrop;
+
+    function handleDashboardProjectFileSelect(e) {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        handleDashboardProjectImportFiles(files);
+      }
+      e.target.value = '';
+    }
+    window.handleDashboardProjectFileSelect = handleDashboardProjectFileSelect;
+
+    async function handleDashboardProjectImportFiles(files) {
+      const ws = document.getElementById('workspace');
+      if (ws) {
+        document.getElementById('landingPage')?.classList.add('hidden');
+        document.getElementById('projectDashboard')?.classList.add('hidden');
+        ws.classList.remove('hidden');
+        if (typeof window.__globeHide === 'function') window.__globeHide();
+        if (state.map) setTimeout(() => state.map.invalidateSize(), 150);
+      }
+      await processIncomingFiles(files);
+    }
+    window.handleDashboardProjectImportFiles = handleDashboardProjectImportFiles;
 
     function _yield() { return new Promise(r => setTimeout(r, 5)); }
 

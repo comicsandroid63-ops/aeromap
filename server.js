@@ -111,6 +111,124 @@ const rgbUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024
   { name: 'bFile', maxCount: 1 },
 ]);
 
+// ─── /api/qgis/resolve-layer — Búsqueda y resolución local de capas de proyectos QGIS ───
+app.post('/api/qgis/resolve-layer', async (req, res) => {
+  try {
+    const { datasource, filename, layerName } = req.body;
+    if (!datasource && !filename) {
+      return res.status(400).json({ error: 'datasource or filename required' });
+    }
+
+    const cleanDs = (datasource || '').split('|')[0].replace(/\\/g, '/');
+    const targetFile = filename || cleanDs.split('/').pop();
+
+    const userHome = process.env.USERPROFILE || 'C:\\Users\\HOME';
+    const searchDirs = [
+      path.join(userHome, 'Downloads'),
+      path.join(userHome, 'Documents'),
+      path.join(userHome, 'Desktop'),
+      UPLOADS
+    ];
+
+    let foundPath = null;
+
+    // 1. Direct relative match from datasource in search dirs
+    for (const d of searchDirs) {
+      const relClean = cleanDs.replace(/^\.\//, '').replace(/\//g, path.sep);
+      const candidate = path.join(d, relClean);
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        foundPath = candidate;
+        break;
+      }
+      const candidateDirect = path.join(d, targetFile);
+      if (fs.existsSync(candidateDirect) && fs.statSync(candidateDirect).isFile()) {
+        foundPath = candidateDirect;
+        break;
+      }
+    }
+
+    // 2. If not found directly, shallow recursive search in Downloads and Documents (up to 4 levels)
+    if (!foundPath) {
+      function findFile(dir, target, depth = 0) {
+        if (depth > 4) return null;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            const full = path.join(dir, f);
+            try {
+              const stat = fs.statSync(full);
+              if (stat.isFile() && f.toLowerCase() === target.toLowerCase()) {
+                return full;
+              } else if (stat.isDirectory() && !f.startsWith('.') && f !== 'node_modules') {
+                const sub = findFile(full, target, depth + 1);
+                if (sub) return sub;
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+        return null;
+      }
+
+      foundPath = findFile(path.join(userHome, 'Downloads'), targetFile) ||
+                  findFile(path.join(userHome, 'Documents'), targetFile);
+    }
+
+    if (!foundPath) {
+      return res.json({ found: false, message: 'Archivo no encontrado en rutas locales' });
+    }
+
+    const ext = path.extname(foundPath).toLowerCase();
+    const foundBase = foundPath.substring(0, foundPath.length - ext.length);
+
+    if (ext === '.shp') {
+      const shpBuf = fs.readFileSync(foundPath);
+      let dbfBuf = null;
+      let prjText = null;
+
+      if (fs.existsSync(foundBase + '.dbf')) dbfBuf = fs.readFileSync(foundBase + '.dbf');
+      if (fs.existsSync(foundBase + '.prj')) prjText = fs.readFileSync(foundBase + '.prj', 'utf-8');
+
+      return res.json({
+        found: true,
+        type: 'shapefile',
+        fileName: path.basename(foundPath),
+        shpBase64: shpBuf.toString('base64'),
+        dbfBase64: dbfBuf ? dbfBuf.toString('base64') : null,
+        prjText: prjText
+      });
+    } else if (ext === '.gpkg') {
+      const destName = path.basename(foundPath);
+      const destPath = path.join(UPLOADS, destName);
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(foundPath, destPath);
+      }
+      return res.json({
+        found: true,
+        type: 'geopackage',
+        fileName: destName,
+        url: `/uploads/${destName}`
+      });
+    } else if (/\.(tiff?|img)$/i.test(ext)) {
+      const destName = path.basename(foundPath);
+      const destPath = path.join(UPLOADS, destName);
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(foundPath, destPath);
+      }
+      return res.json({
+        found: true,
+        type: 'raster',
+        fileName: destName,
+        url: `/uploads/${destName}`
+      });
+    }
+
+    return res.json({ found: false, message: 'Tipo de archivo no soportado' });
+  } catch (err) {
+    console.error('[resolve-layer Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── /api/zip-to-rgb — upload ZIP + extract bands + merge RGB en background (no bloquea UI 10%) ───
 const zipUpload = multer({ dest: UPLOADS, limits: { fileSize: 2000 * 1024 * 1024 } }).single('zip');
 app.post('/api/zip-to-rgb', (req, res) => {
