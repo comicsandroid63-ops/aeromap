@@ -125,14 +125,14 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       status: 'completed',
       message: 'Escena multiespectral vinculada desde Cloudflare R2',
-      savedAs: '1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif',
-      storageUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif',
-      cloudUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif',
-      overviewUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB_overview.png',
+      savedAs: 'LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif',
+      storageUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif',
+      cloudUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif',
+      overviewUrl: 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/LC08_L2SP_008053_20250216_02_T1_Multiespectral_overview.png',
       metadata: {
         width: 7561,
         height: 7721,
-        bands: 3,
+        bands: 7,
         bounds: { west: -74.2867, south: 9.0648, east: -72.2056, north: 11.1695 }
       }
     });

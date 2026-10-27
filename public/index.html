@@ -7743,7 +7743,7 @@ self.onmessage = async function(e) {
         if (fname.includes('1996')) return `${r2Base}/Mosaico_Cesar_1996_L5TM.tif`;
         if (fname.includes('2011')) return `${r2Base}/Mosaico_Cesar_2011_L7ETM.tif`;
         if (fname.includes('2026')) return `${r2Base}/Mosaico_Cesar_2026_L89OLI.tif`;
-        if (fname.includes('LC08') || fname.includes('2025')) return `${r2Base}/1793050656701-LC08_L2SP_008053_20250216_02_T1_RGB.tif`;
+        if (fname.includes('LC08') || fname.includes('2025')) return `${r2Base}/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif`;
         if (isServerless) return `${r2Base}/${encodeURIComponent(fname)}`;
         return `/uploads/${encodeURIComponent(fname)}`;
       }
@@ -9654,10 +9654,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const bits = baseImg.fileDirectory?.BitsPerSample?.[0] || 8;
             const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
 
-            // Fast-path instantáneo (0ms) calibrado para Mosaico Cesar
+            // Fast-path instantáneo (0ms) calibrado para Mosaico Cesar (solo cuando se usan bandas estándar RGB)
             const fileUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl || '';
             const isCesarMosaic = typeof fileUrl === 'string' && fileUrl.includes('Mosaico_Cesar');
-            if (isCesarMosaic && (sampleFormat === 3 || bits === 32)) {
+            const isDefaultBands = !this.options.bands || (
+              this.options.bands.length === 3 &&
+              this.options.bands[0] === 0 &&
+              this.options.bands[1] === 1 &&
+              this.options.bands[2] === 2
+            );
+            if (isCesarMosaic && (sampleFormat === 3 || bits === 32) && isDefaultBands) {
               this._globalStats = {
                 isRgb: isRgbRender,
                 r: { p2: 0.012, p98: 0.165, rng: 0.153, maxV: 1.0, shouldStretch: true },
@@ -9805,26 +9811,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const fullH = this.pyramid.baseHeight;
 
             // 1. FAST CLOUD OVERVIEW (Cloudflare R2 / CDN):
-            // Si la imagen ya tiene su overview en Cloudflare R2, cargarla directamente (< 50ms)
+            // Si la imagen ya tiene su overview en Cloudflare R2 y se usan bandas RGB estándar, cargarla (< 50ms)
+            const isDefaultBands = !this.options.bands || (
+              this.options.bands.length === 3 &&
+              this.options.bands[0] === 0 &&
+              this.options.bands[1] === 1 &&
+              this.options.bands[2] === 2
+            );
             const tiffUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl;
             let candidateUrls = [];
-            if (this.options.overviewUrl) candidateUrls.push(this.options.overviewUrl);
-            if (tiffUrl && typeof tiffUrl === 'string') {
-              const cdnBase = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/';
-              const rawName = tiffUrl.split('/').pop().replace(/\.(tiff?|ztif)$/i, '');
-              const cleanBase = rawName.replace(/^[a-z0-9]{8}_/i, '');
-              const deDuped = cleanBase.replace(/__\d+_?$/i, '').replace(/_\d+$/i, '');
-              
-              // Prioridad 1: Vistas generales base estándar ultra-brillantes y verificadas
-              if (rawName.includes('1996')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_1996_L5TM_overview.png');
-              if (rawName.includes('2011')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2011_L7ETM_overview.png');
-              if (rawName.includes('2026')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2026_L89OLI_overview.png');
+            if (isDefaultBands) {
+              if (this.options.overviewUrl) candidateUrls.push(this.options.overviewUrl);
+              if (tiffUrl && typeof tiffUrl === 'string') {
+                const cdnBase = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/';
+                const rawName = tiffUrl.split('/').pop().replace(/\.(tiff?|ztif)$/i, '');
+                const cleanBase = rawName.replace(/^[a-z0-9]{8}_/i, '');
+                const deDuped = cleanBase.replace(/__\d+_?$/i, '').replace(/_\d+$/i, '');
+                
+                // Prioridad 1: Vistas generales base estándar ultra-brillantes y verificadas
+                if (rawName.includes('1996')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_1996_L5TM_overview.png');
+                if (rawName.includes('2011')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2011_L7ETM_overview.png');
+                if (rawName.includes('2026')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2026_L89OLI_overview.png');
 
-              candidateUrls.push(cdnBase + encodeURIComponent(deDuped) + '_overview.png');
-              candidateUrls.push(cdnBase + encodeURIComponent(cleanBase) + '_overview.png');
-              candidateUrls.push(cdnBase + encodeURIComponent(rawName) + '_overview.png');
-              if (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')) {
-                candidateUrls.push(tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png'));
+                candidateUrls.push(cdnBase + encodeURIComponent(deDuped) + '_overview.png');
+                candidateUrls.push(cdnBase + encodeURIComponent(cleanBase) + '_overview.png');
+                candidateUrls.push(cdnBase + encodeURIComponent(rawName) + '_overview.png');
+                if (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')) {
+                  candidateUrls.push(tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png'));
+                }
               }
             }
             candidateUrls = [...new Set(candidateUrls.filter(Boolean))];
@@ -13870,8 +13884,243 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     // ══════════════════════════════════════════
-    //  LAYERS SIDEBAR
+    //  LAYERS SIDEBAR & MULTIBAND/LAYER SWITCHER
     // ══════════════════════════════════════════
+    function selectAndToggleLayer(id) {
+      if (state.selectedLayerId === id) {
+        // Si ya está seleccionada, centrar la vista en el mapa
+        zoomToLayer(id);
+      } else {
+        state.selectedLayerId = id;
+        const layer = state.layers.find(l => l.id === id);
+        if (layer && layer.mapLayer && typeof layer.mapLayer.bringToFront === 'function') {
+          layer.mapLayer.bringToFront();
+        }
+      }
+      updateLayersSidebar();
+      if ($propsPanel && $propsPanel.style.display !== 'none') {
+        openProperties(id);
+      }
+    }
+
+    function bringLayerToFront(id) {
+      const idx = state.layers.findIndex(l => l.id === id);
+      if (idx < 0) return;
+      const [layer] = state.layers.splice(idx, 1);
+      state.layers.unshift(layer);
+      syncLayerOrder();
+      updateLayersSidebar();
+      if (layer.mapLayer && typeof layer.mapLayer.bringToFront === 'function') {
+        layer.mapLayer.bringToFront();
+      }
+      toast(`Capa "${layer.name}" traída al frente`, 'success');
+    }
+
+    function toggleSoloLayer(id) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer) return;
+      if (layer._isSolo) {
+        if (layer._prevVisibilities) {
+          layer._prevVisibilities.forEach(v => {
+            const target = state.layers.find(l => l.id === v.id);
+            if (target) target.visible = v.visible;
+          });
+          delete layer._prevVisibilities;
+        } else {
+          state.layers.forEach(l => l.visible = true);
+        }
+        layer._isSolo = false;
+        toast('Visibilidad de todas las capas restaurada', 'info');
+      } else {
+        state.layers.forEach(l => { if (l._isSolo) l._isSolo = false; });
+        layer._prevVisibilities = state.layers.map(l => ({ id: l.id, visible: !!l.visible }));
+        state.layers.forEach(l => {
+          l.visible = (l.id === id);
+        });
+        layer._isSolo = true;
+        toast(`Capa "${layer.name}" aislada (solo visible)`, 'info');
+      }
+      renderLayersOnMap();
+      updateLayersSidebar();
+    }
+
+    function getBandNameHint(layer, bIdx) {
+      const n = (layer.name || '').toUpperCase();
+      const isLandsat8 = n.includes('LC08') || n.includes('LC09') || n.includes('L8') || n.includes('2025') || n.includes('2026');
+      const isLandsat7 = n.includes('LE07') || n.includes('L7') || n.includes('2011');
+      const isLandsat5 = n.includes('LT05') || n.includes('L5') || n.includes('1996');
+
+      if (isLandsat8) {
+        const names = ['(Costero)', '(Azul)', '(Verde)', '(Rojo)', '(NIR)', '(SWIR1)', '(SWIR2)', '(Pan)', '(Cirros)', '(TIRS1)', '(TIRS2)'];
+        return names[bIdx] || '';
+      }
+      if (isLandsat7 || isLandsat5) {
+        const names = ['(Azul)', '(Verde)', '(Rojo)', '(NIR)', '(SWIR1)', '(TIRS)', '(SWIR2)'];
+        return names[bIdx] || '';
+      }
+      const defaultNames = ['(Rojo)', '(Verde)', '(Azul)'];
+      return defaultNames[bIdx] || '';
+    }
+
+    function isCurrentPreset(layer, preset) {
+      const b = layer.rendererParams?.bands;
+      if (!b || b.length < 3) return false;
+      const totalBands = Math.max(1, layer.bands || 3);
+      if (totalBands >= 7) {
+        if (preset === 'truecolor') return b[0] === 3 && b[1] === 2 && b[2] === 1;
+        if (preset === 'nir') return b[0] === 4 && b[1] === 3 && b[2] === 2;
+        if (preset === 'agriculture') return b[0] === 5 && b[1] === 4 && b[2] === 1;
+        if (preset === 'swir') return b[0] === 6 && b[1] === 5 && b[2] === 3;
+      } else {
+        if (preset === 'truecolor') return b[0] === 0 && b[1] === 1 && b[2] === 2;
+        if (preset === 'nir') return b[0] === 0 && b[1] === 2 && b[2] === 1;
+        if (preset === 'agriculture') return b[0] === 1 && b[1] === 0 && b[2] === 2;
+        if (preset === 'swir') return b[0] === 2 && b[1] === 1 && b[2] === 0;
+      }
+      return false;
+    }
+
+    function applyLayerPreset(id, preset) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer) return;
+      const totalBands = Math.max(1, layer.bands || 3);
+      let bands = [0, 1, 2];
+      let label = 'Color Real';
+      
+      if (totalBands >= 7) {
+        if (preset === 'truecolor') {
+          bands = [3, 2, 1];
+          label = 'Color Real (4-3-2)';
+        } else if (preset === 'nir') {
+          bands = [4, 3, 2];
+          label = 'Infrarrojo NIR (5-4-3)';
+        } else if (preset === 'agriculture') {
+          bands = [5, 4, 1];
+          label = 'Agricultura (6-5-2)';
+        } else if (preset === 'swir') {
+          bands = [6, 5, 3];
+          label = 'SWIR Urbano (7-6-4)';
+        }
+      } else if (totalBands >= 4) {
+        if (preset === 'truecolor') {
+          bands = [2, 1, 0];
+          label = 'Color Real (3-2-1)';
+        } else if (preset === 'nir') {
+          bands = [3, 2, 1];
+          label = 'Infrarrojo NIR (4-3-2)';
+        } else if (preset === 'agriculture') {
+          bands = [Math.min(4, totalBands-1), 3, 0];
+          label = 'Agricultura';
+        } else if (preset === 'swir') {
+          bands = [Math.min(5, totalBands-1), Math.min(4, totalBands-1), 2];
+          label = 'SWIR';
+        }
+      } else {
+        if (preset === 'truecolor') {
+          bands = [0, 1, 2];
+          label = 'Color Real (RGB)';
+        } else if (preset === 'nir') {
+          bands = [0, 2, 1];
+          label = 'Falso Color';
+        } else if (preset === 'agriculture') {
+          bands = [1, 0, 2];
+          label = 'Combinación G-R-B';
+        } else if (preset === 'swir') {
+          bands = [2, 1, 0];
+          label = 'Inverso B-G-R';
+        }
+      }
+
+      if (!layer.rendererParams) layer.rendererParams = {};
+      layer.renderer = 'multiband';
+      layer.rendererParams.bands = bands;
+
+      if (layer._geotiffTileLayer && typeof layer._geotiffTileLayer.setBands === 'function') {
+        layer._geotiffTileLayer.setBands(bands);
+      } else if (layer.mapLayer && typeof layer.mapLayer.setBands === 'function') {
+        layer.mapLayer.setBands(bands);
+      }
+      
+      if (typeof rebuildRasterLayer === 'function') {
+        rebuildRasterLayer(layer);
+      }
+
+      if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+
+      toast(`Capa "${layer.name}": ${label}`, 'success');
+      updateLayersSidebar();
+      if ($propsPanel && $propsPanel.style.display !== 'none') {
+        updateRasterBandUI(layer);
+      }
+    }
+
+    function updateRasterBandCustom(id, channelIdx, bandIdx) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer) return;
+      if (!layer.rendererParams) layer.rendererParams = { bands: [0, 1, 2] };
+      if (!Array.isArray(layer.rendererParams.bands)) layer.rendererParams.bands = [0, 1, 2];
+      
+      layer.rendererParams.bands[channelIdx] = parseInt(bandIdx, 10);
+      layer.renderer = 'multiband';
+
+      if (layer._geotiffTileLayer && typeof layer._geotiffTileLayer.setBands === 'function') {
+        layer._geotiffTileLayer.setBands(layer.rendererParams.bands);
+      } else if (layer.mapLayer && typeof layer.mapLayer.setBands === 'function') {
+        layer.mapLayer.setBands(layer.rendererParams.bands);
+      }
+      
+      if (typeof rebuildRasterLayer === 'function') {
+        rebuildRasterLayer(layer);
+      }
+
+      if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+
+      const chNames = ['Rojo', 'Verde', 'Azul'];
+      toast(`Canal ${chNames[channelIdx]}: Banda ${parseInt(bandIdx)+1}`, 'info');
+      updateLayersSidebar();
+      if ($propsPanel && $propsPanel.style.display !== 'none') {
+        updateRasterBandUI(layer);
+      }
+    }
+
+    function setLayerOpacity(id, val) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer) return;
+      layer.opacity = val / 100;
+      const el = document.getElementById(`sidebar-opv-${id}`);
+      if (el) el.textContent = val + '%';
+      if (layer.mapLayer && typeof layer.mapLayer.setOpacity === 'function') {
+        layer.mapLayer.setOpacity(layer.opacity);
+      }
+      if (typeof emitLayerUpdate === 'function' && layer.dbId) {
+        emitLayerUpdate(layer.dbId, { opacity: layer.opacity });
+      }
+    }
+
+    function updateVectorColorInline(id, color) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer || layer.type !== 'vector') return;
+      layer.color = color;
+      if (layer.mapLayer && typeof layer.mapLayer.setStyle === 'function') {
+        layer.mapLayer.setStyle({ fillColor: color, color: color });
+      }
+      if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+    }
+
+    window.selectAndToggleLayer = selectAndToggleLayer;
+    window.bringLayerToFront = bringLayerToFront;
+    window.toggleSoloLayer = toggleSoloLayer;
+    window.applyLayerPreset = applyLayerPreset;
+    window.updateRasterBandCustom = updateRasterBandCustom;
+    window.setLayerOpacity = setLayerOpacity;
+    window.updateVectorColorInline = updateVectorColorInline;
+
     function updateLayersSidebar() {
       $layerCount.textContent = state.layers.length;
 
@@ -13887,51 +14136,204 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       state.layers.forEach((layer, idx) => {
         const item = document.createElement('div');
         const isSelected = state.selectedLayerId === layer.id;
-        item.className = `flex flex-col p-3 rounded-xl layer-item-solid shadow-sm border transition-all ${layer.visible ? '' : 'opacity-60'} ${isSelected ? 'border-black ring-1 ring-black/5' : 'border-zinc-100'}`;
+        item.className = `flex flex-col p-3 rounded-xl layer-item-solid shadow-xs border transition-all duration-200 ${
+          layer.visible ? '' : 'opacity-60'
+        } ${
+          isSelected
+            ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/15 shadow-sm'
+            : 'border-zinc-200/80 hover:border-zinc-300'
+        }`;
         item.dataset.id = layer.id;
 
         const isVector = layer.type === 'vector';
 
         item.innerHTML = `
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-3 overflow-hidden cursor-pointer" onclick="zoomToLayer(${layer.id})" title="Haz clic para centrar en el mapa">
-          <button class="flex items-center justify-center transition-colors ${layer.visible ? 'text-black' : 'text-zinc-300'}" 
-            onclick="event.stopPropagation(); toggleVisibility(${layer.id})">
-            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' ${layer.visible ? 1 : 0}">${layer.visible ? 'visibility' : 'visibility_off'}</span>
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5 overflow-hidden flex-1 cursor-pointer select-none" onclick="selectAndToggleLayer(${layer.id})">
+          <button class="flex items-center justify-center transition-colors ${layer.visible ? 'text-zinc-900' : 'text-zinc-300'} hover:scale-110 active:scale-95" 
+            onclick="event.stopPropagation(); toggleVisibility(${layer.id})" title="${layer.visible ? 'Ocultar capa' : 'Mostrar capa'}">
+            <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' ${layer.visible ? 1 : 0}">
+              ${layer.visible ? 'visibility' : 'visibility_off'}
+            </span>
           </button>
-          <div class="flex flex-col truncate">
-            <span class="text-[11px] font-bold text-zinc-900 truncate uppercase tracking-tight hover:underline" title="${layer.name}">${layer.name}</span>
-            <span class="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">${isVector ? 'Vectores' : 'Raster'}</span>
+          <div class="flex flex-col truncate flex-1">
+            <div class="flex items-center gap-1.5 truncate">
+              <span class="text-[11px] font-black text-zinc-900 truncate uppercase tracking-tight hover:text-indigo-600 transition-colors" title="${layer.name}">
+                ${layer.name}
+              </span>
+              ${isSelected ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-600 text-white shadow-2xs">Activa</span>' : ''}
+              ${layer._isSolo ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs">Solo</span>' : ''}
+            </div>
+            <div class="flex items-center gap-2 text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+              <span>${isVector ? 'Vectores' : 'Raster ' + (layer.bands ? '(' + layer.bands + 'B)' : '')}</span>
+              ${!isVector && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
+            </div>
           </div>
+          <span class="material-symbols-outlined text-zinc-400 text-sm transition-transform duration-200 ${isSelected ? 'rotate-180 text-indigo-600' : ''}">
+            expand_more
+          </span>
         </div>
-        <div class="flex items-center gap-1">
-          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
-            onclick="zoomToLayer(${layer.id}); event.stopPropagation();" title="Centrar mapa en esta capa">
+        <div class="flex items-center gap-0.5">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
+            onclick="event.stopPropagation(); zoomToLayer(${layer.id});" title="Centrar mapa en esta capa">
             <span class="material-symbols-outlined text-xs">center_focus_strong</span>
           </button>
-          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
-            onclick="uploadLayerToCloud(${layer.id}); event.stopPropagation();" title="Subir a Nube">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
+            onclick="event.stopPropagation(); uploadLayerToCloud(${layer.id});" title="Subir a Nube">
             <span class="material-symbols-outlined text-xs">cloud_upload</span>
           </button>
-          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
-            onclick="openProperties(${layer.id})" title="Propiedades">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
+            onclick="event.stopPropagation(); openProperties(${layer.id})" title="Propiedades avanzadas">
             <span class="material-symbols-outlined text-xs">info</span>
           </button>
           ${isVector ? `
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-zinc-400 hover:text-indigo-600 transition-colors"
-            onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa (GeoPackage, Shapefile .zip...)">
+            onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa">
             <span class="material-symbols-outlined text-xs">download</span>
           </button>` : ''}
-          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-50 text-zinc-400 hover:text-black transition-colors"
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
             onclick="event.stopPropagation(); openLayerContextMenu(event, ${layer.id})" title="Más opciones">
             <span class="material-symbols-outlined text-xs">more_vert</span>
           </button>
-          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-error/10 text-zinc-300 hover:text-error transition-colors ml-1" 
-             onclick="removeLayer(${layer.id})">
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-red-50 text-zinc-300 hover:text-red-600 transition-colors ml-0.5" 
+            onclick="event.stopPropagation(); removeLayer(${layer.id})" title="Eliminar capa">
             <span class="material-symbols-outlined text-xs">close</span>
           </button>
         </div>
       </div>
+
+      ${isSelected ? `
+      <!-- Drawer de Control de Capa & Bandas -->
+      <div class="mt-2.5 pt-2.5 border-t border-zinc-200/90 flex flex-col gap-2.5 bg-zinc-50/90 -mx-3 -mb-3 p-3 rounded-b-xl animate-fadeIn">
+        <!-- 1. Stacking y Modo Solo -->
+        <div class="flex items-center justify-between gap-1">
+          <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-500">Mover Capa</span>
+          <div class="flex items-center gap-1">
+            <button onclick="event.stopPropagation(); bringLayerToFront(${layer.id})" 
+              class="px-2 py-1 rounded-md text-[8.5px] font-black uppercase tracking-wider bg-white border border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300 text-zinc-800 transition-colors shadow-2xs flex items-center gap-1" 
+              title="Traer al frente (encima de todas las demás capas)">
+              <span class="material-symbols-outlined text-[12px]">flip_to_front</span> Al frente
+            </button>
+            <button onclick="event.stopPropagation(); moveLayer(${idx}, -1)" 
+              class="w-6 h-6 rounded-md flex items-center justify-center bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-800 transition-colors shadow-2xs ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}" 
+              title="Subir posición (adelante)" ${idx === 0 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined text-[13px]">arrow_upward</span>
+            </button>
+            <button onclick="event.stopPropagation(); moveLayer(${idx}, 1)" 
+              class="w-6 h-6 rounded-md flex items-center justify-center bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-800 transition-colors shadow-2xs ${idx === state.layers.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" 
+              title="Bajar posición (atrás)" ${idx === state.layers.length - 1 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined text-[13px]">arrow_downward</span>
+            </button>
+            <button onclick="event.stopPropagation(); toggleSoloLayer(${layer.id})" 
+              class="px-2 py-1 rounded-md text-[8.5px] font-black uppercase tracking-wider ${layer._isSolo ? 'bg-amber-500 text-white shadow-xs' : 'bg-white border border-zinc-200 hover:bg-amber-50 text-amber-700'} transition-colors shadow-2xs flex items-center gap-1" 
+              title="Aislar esta capa (oculta las demás para comparar)">
+              <span class="material-symbols-outlined text-[12px]">${layer._isSolo ? 'star' : 'star_border'}</span>
+              ${layer._isSolo ? 'Aislada' : 'Aislar'}
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Cambiar Bandas / Layers Espectrales (para Ráster) -->
+        ${!isVector ? `
+        <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-black uppercase tracking-wider text-indigo-700 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px]">palette</span>
+              Cambiar Capas / Bandas
+            </span>
+            <span class="text-[8px] font-mono font-bold text-zinc-500">
+              ${(layer.rendererParams?.bands || [0, 1, 2]).map(b => 'B' + (b + 1)).join('-')}
+            </span>
+          </div>
+          
+          <!-- Presets Rápidos -->
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="event.stopPropagation(); applyLayerPreset(${layer.id}, 'truecolor')"
+              class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${isCurrentPreset(layer, 'truecolor') ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}"
+              title="Color Real Natural (RGB)">
+              <span class="text-[13px]">🌿</span>
+              <div class="flex flex-col leading-tight">
+                <span class="text-[9px] font-bold">Color Real</span>
+                <span class="text-[7.5px] opacity-75">RGB Natural</span>
+              </div>
+            </button>
+            
+            <button onclick="event.stopPropagation(); applyLayerPreset(${layer.id}, 'nir')"
+              class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${isCurrentPreset(layer, 'nir') ? 'bg-rose-600 text-white border-rose-700 shadow-xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}"
+              title="Infrarrojo Cercano (NIR) - Vegetación viva y vigorosa en rojo intenso">
+              <span class="text-[13px]">🔴</span>
+              <div class="flex flex-col leading-tight">
+                <span class="text-[9px] font-bold">Infrarrojo NIR</span>
+                <span class="text-[7.5px] opacity-75">Vegetación viva</span>
+              </div>
+            </button>
+            
+            <button onclick="event.stopPropagation(); applyLayerPreset(${layer.id}, 'agriculture')"
+              class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${isCurrentPreset(layer, 'agriculture') ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}"
+              title="Agricultura / Cultivos - Salud de vegetación y suelo">
+              <span class="text-[13px]">🌾</span>
+              <div class="flex flex-col leading-tight">
+                <span class="text-[9px] font-bold">Agricultura</span>
+                <span class="text-[7.5px] opacity-75">Cultivos & Suelo</span>
+              </div>
+            </button>
+            
+            <button onclick="event.stopPropagation(); applyLayerPreset(${layer.id}, 'swir')"
+              class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${isCurrentPreset(layer, 'swir') ? 'bg-amber-600 text-white border-amber-700 shadow-xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}"
+              title="SWIR / Urbano - Geología, zonas urbanas y suelo desnudo">
+              <span class="text-[13px]">🏙️</span>
+              <div class="flex flex-col leading-tight">
+                <span class="text-[9px] font-bold">SWIR Urbano</span>
+                <span class="text-[7.5px] opacity-75">Geología & Urbano</span>
+              </div>
+            </button>
+          </div>
+
+          <!-- Selectores manuales R-G-B -->
+          <div class="p-2 bg-white rounded-lg border border-zinc-200 flex flex-col gap-1.5 shadow-2xs">
+            <span class="text-[8px] font-black uppercase tracking-wider text-zinc-400">Canales R-G-B Manuales:</span>
+            <div class="grid grid-cols-3 gap-1.5">
+              ${['Rojo (R)', 'Verde (G)', 'Azul (B)'].map((cLabel, cIdx) => `
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[7.5px] font-bold text-zinc-500">${cLabel}</span>
+                  <select onchange="event.stopPropagation(); updateRasterBandCustom(${layer.id}, ${cIdx}, this.value)"
+                    class="w-full bg-zinc-50 border border-zinc-200 rounded p-1 text-[8.5px] font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-indigo-500">
+                    ${Array.from({ length: Math.max(3, layer.bands || 3) }, (_, b) => `
+                      <option value="${b}" ${(layer.rendererParams?.bands?.[cIdx] === b) ? 'selected' : ''}>
+                        B${b + 1} ${getBandNameHint(layer, b)}
+                      </option>
+                    `).join('')}
+                  </select>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        ` : `
+        <!-- Estilo Vectorial inline -->
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200/80">
+          <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-500">Color Vectorial:</span>
+          <div class="flex items-center gap-1.5">
+            <input type="color" value="${layer.color || '#3388ff'}" 
+              onchange="event.stopPropagation(); updateVectorColorInline(${layer.id}, this.value)"
+              class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white">
+            <span class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#3388ff'}</span>
+          </div>
+        </div>
+        `}
+
+        <!-- 3. Opacidad Slider -->
+        <div class="flex flex-col gap-1 pt-2 border-t border-zinc-200/80">
+          <div class="flex items-center justify-between">
+            <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-500">Opacidad</span>
+            <span class="text-[8.5px] font-mono font-bold text-zinc-800" id="sidebar-opv-${layer.id}">${Math.round((layer.opacity ?? 1) * 100)}%</span>
+          </div>
+          <input type="range" min="0" max="100" value="${Math.round((layer.opacity ?? 1) * 100)}"
+            oninput="event.stopPropagation(); setLayerOpacity(${layer.id}, this.value)"
+            class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+        </div>
+      </div>
+      ` : ''}
     `;
         $layersList.appendChild(item);
       });
@@ -15064,17 +15466,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const $container = document.getElementById('rasterBandConfig');
       if (!$container) return;
       let html = '';
-      if (layer.renderer === 'rgb') {
-        html = '<div class="text-[9px] text-zinc-400 p-2 bg-zinc-50 rounded">RGB Composite (bandas fijas: 0,1,2)</div>';
-      } else if (layer.renderer === 'multiband') {
-        const bands = layer.rendererParams.bands || [0, 1, 2];
-        html = `<div class="grid grid-cols-3 gap-2">${['R','G','B'].map((label, i) => `
-          <div class="flex flex-col gap-1">
-            <label class="text-[8px] font-bold text-zinc-400">${label}</label>
-            <select onchange="updateRasterBand(${i}, this.value)" class="bg-zinc-100 rounded p-1 text-[9px] border-none outline-none">
-              ${Array.from({length: layer.bands}, (_, bIdx) => `<option value="${bIdx}" ${bands[i] == bIdx ? 'selected' : ''}>B${bIdx+1}</option>`).join('')}
-            </select>
-          </div>`).join('')}</div>`;
+      if (layer.renderer === 'rgb' || layer.renderer === 'multiband') {
+        const bands = layer.rendererParams?.bands || [0, 1, 2];
+        html = `
+        <div class="flex flex-col gap-2">
+          <label class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Combinaciones Rápidas (Presets)</label>
+          <div class="grid grid-cols-2 gap-1 mb-2">
+            <button onclick="applyLayerPreset(${layer.id}, 'truecolor')" class="p-1.5 rounded border text-[9px] font-bold text-left bg-zinc-50 hover:bg-zinc-100 ${isCurrentPreset(layer, 'truecolor') ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700' : 'border-zinc-200 text-zinc-700'}">🌿 Color Real</button>
+            <button onclick="applyLayerPreset(${layer.id}, 'nir')" class="p-1.5 rounded border text-[9px] font-bold text-left bg-zinc-50 hover:bg-zinc-100 ${isCurrentPreset(layer, 'nir') ? 'border-rose-500 bg-rose-50/50 text-rose-700' : 'border-zinc-200 text-zinc-700'}">🔴 Infrarrojo NIR</button>
+            <button onclick="applyLayerPreset(${layer.id}, 'agriculture')" class="p-1.5 rounded border text-[9px] font-bold text-left bg-zinc-50 hover:bg-zinc-100 ${isCurrentPreset(layer, 'agriculture') ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700' : 'border-zinc-200 text-zinc-700'}">🌾 Agricultura</button>
+            <button onclick="applyLayerPreset(${layer.id}, 'swir')" class="p-1.5 rounded border text-[9px] font-bold text-left bg-zinc-50 hover:bg-zinc-100 ${isCurrentPreset(layer, 'swir') ? 'border-amber-500 bg-amber-50/50 text-amber-700' : 'border-zinc-200 text-zinc-700'}">🏙️ SWIR Urbano</button>
+          </div>
+          <label class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Canales R-G-B</label>
+          <div class="grid grid-cols-3 gap-2">
+            ${['R','G','B'].map((label, i) => `
+              <div class="flex flex-col gap-1">
+                <label class="text-[8px] font-bold text-zinc-400">${label}</label>
+                <select onchange="updateRasterBand(${i}, this.value)" class="bg-zinc-100 rounded p-1 text-[9px] border-none outline-none">
+                  ${Array.from({length: Math.max(3, layer.bands || 3)}, (_, bIdx) => `<option value="${bIdx}" ${bands[i] == bIdx ? 'selected' : ''}>B${bIdx+1} ${getBandNameHint(layer, bIdx)}</option>`).join('')}
+                </select>
+              </div>`).join('')}
+          </div>
+        </div>`;
       } else {
         const band = layer.rendererParams.bands[0] || 0;
         html = `<div class="flex flex-col gap-1">
@@ -28854,13 +29267,13 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         const isVercelLive = location.hostname.includes('vercel.app') || (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1'));
         if (isVercelLive) {
           showProgress('Conectando imagen multiespectral optimizada desde Cloudflare R2 (100% en la nube)...', 50);
-          const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
-          const overviewUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB_overview.png';
+          const cloudUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif';
+          const overviewUrl = 'https://pub-db02e3ad3c454cad9ec72c9176035fa6.r2.dev/LC08_L2SP_008053_20250216_02_T1_Multiespectral_overview.png';
           const bounds = L.latLngBounds([9.0648269, -74.2867222], [11.1694877, -72.205652]);
-          const serverFilename = '1793057181871-LC08_L2SP_008053_20250216_02_T1_RGB.tif';
+          const serverFilename = 'LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif';
           const layer = {
             id: ++idCounter,
-            name: zipFile.name.replace(/\.zip$/i, '') + ' (Multibanda)',
+            name: zipFile.name.replace(/\.zip$/i, '') + ' (Multiespectral 7 Bandas)',
             type: 'raster',
             visible: true,
             opacity: 1,
@@ -28875,9 +29288,9 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
             bounds: bounds,
             width: 7561,
             height: 7721,
-            bands: 3,
+            bands: 7,
             renderer: 'multiband',
-            rendererParams: { bands: [0, 1, 2], colormap: null, invert: false, classes: 5 },
+            rendererParams: { bands: [3, 2, 1], colormap: null, invert: false, classes: 5 },
             _geotiffFileUrl: cloudUrl,
             overviewUrl: overviewUrl,
             _bandStats: null
