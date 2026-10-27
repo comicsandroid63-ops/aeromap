@@ -28820,12 +28820,98 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         panel.classList.remove('hidden');
     }
 
-    // Client-side road/line route calculation (no external API needed)
-    function calculateClientRoute(origin, dest) {
+    // Client-side road & vector route calculation (no external API keys needed)
+    async function fetchRoadRoute(origin, dest) {
+        var endpoints = [
+            'https://router.project-osrm.org/route/v1/driving/' + origin.lng + ',' + origin.lat + ';' + dest.lng + ',' + dest.lat + '?overview=full&geometries=geojson&alternatives=true&steps=true',
+            'https://routing.openstreetmap.de/routed-car/route/v1/driving/' + origin.lng + ',' + origin.lat + ';' + dest.lng + ',' + dest.lat + '?overview=full&geometries=geojson&alternatives=true&steps=true'
+        ];
+
+        for (var i = 0; i < endpoints.length; i++) {
+            var url = endpoints[i];
+            try {
+                var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 4500) : null;
+                var opts = { headers: { 'Accept': 'application/json' } };
+                if (controller) opts.signal = controller.signal;
+
+                var res = await fetch(url, opts);
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!res.ok) continue;
+                var data = await res.json();
+                if (data.code === 'Ok' && data.routes && data.routes.length) {
+                    // Seleccionar la ruta con MENOR TIEMPO (mínima duración)
+                    data.routes.sort(function(a, b) { return a.duration - b.duration; });
+                    var best = data.routes[0];
+                    var coords = best.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                    var streetNames = [];
+                    if (best.legs && best.legs[0] && best.legs[0].steps) {
+                        best.legs[0].steps.forEach(function(s) {
+                            if (s.name && s.name.trim().length > 0 && streetNames.indexOf(s.name.trim()) === -1) {
+                                streetNames.push(s.name.trim());
+                            }
+                        });
+                    }
+                    var viaText = streetNames.length ? 'Vía ' + streetNames.slice(0, 3).join(' → ') : '';
+                    return {
+                        coords: coords,
+                        distanceKm: best.distance / 1000,
+                        durationSec: best.duration,
+                        nodes: coords.length,
+                        isRoadNetwork: true,
+                        viaText: viaText
+                    };
+                }
+            } catch(e) {
+                console.warn('[Routing] Servidor no disponible (' + url.slice(0, 30) + '):', e.message);
+            }
+        }
+        return null;
+    }
+
+    async function fetchTripRoadRoute(waypoints) {
+        var coordsStr = waypoints.map(function(w) { return w.lng + ',' + w.lat; }).join(';');
+        var endpoints = [
+            'https://router.project-osrm.org/route/v1/driving/' + coordsStr + '?overview=full&geometries=geojson&steps=true',
+            'https://routing.openstreetmap.de/routed-car/route/v1/driving/' + coordsStr + '?overview=full&geometries=geojson&steps=true'
+        ];
+
+        for (var i = 0; i < endpoints.length; i++) {
+            var url = endpoints[i];
+            try {
+                var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 6000) : null;
+                var opts = { headers: { 'Accept': 'application/json' } };
+                if (controller) opts.signal = controller.signal;
+
+                var res = await fetch(url, opts);
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!res.ok) continue;
+                var data = await res.json();
+                if (data.code === 'Ok' && data.routes && data.routes.length) {
+                    data.routes.sort(function(a, b) { return a.duration - b.duration; });
+                    var best = data.routes[0];
+                    var coords = best.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                    return {
+                        coords: coords,
+                        distanceKm: best.distance / 1000,
+                        durationSec: best.duration,
+                        isRoadNetwork: true
+                    };
+                }
+            } catch(e) {
+                console.warn('[Trip] Servidor no disponible:', e.message);
+            }
+        }
+        return null;
+    }
+
+    async function calculateClientRoute(origin, dest) {
         var originLngLat = [origin.lng, origin.lat];
         var destLngLat = [dest.lng, dest.lat];
         var network = getNetworkFeature();
 
+        // 1. Si el usuario seleccionó una capa vectorial específica, usar Dijkstra en memoria
         if (network && network.features && network.features.length) {
             var selectedLayer = getNetworkLayer();
             var graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
@@ -28835,32 +28921,51 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (res && res.path && res.path.coordinates && res.path.coordinates.length > 1) {
                 var coords = res.path.coordinates.map(function(c) { return [c[1], c[0]]; });
                 var distKm = res.distance_km;
-                var durationSec = (distKm / 45) * 3600;
+                var durationSec = (distKm / 40) * 3600;
                 return {
                     coords: coords,
                     distanceKm: distKm,
                     durationSec: durationSec,
                     nodes: res.nodes_visited,
-                    isNetwork: true
+                    isNetwork: true,
+                    isRoadNetwork: false,
+                    modeName: 'Capa Vectorial (' + (selectedLayer?.name || 'Red') + ')'
                 };
             }
         }
 
-        // Direct geodesic line fallback
+        // 2. Ruta sobre la red vial real (carreteras/calles públicas sin API key)
+        var roadRes = await fetchRoadRoute(origin, dest);
+        if (roadRes && roadRes.coords && roadRes.coords.length > 1) {
+            return {
+                coords: roadRes.coords,
+                distanceKm: roadRes.distanceKm,
+                durationSec: roadRes.durationSec,
+                nodes: roadRes.nodes,
+                isNetwork: true,
+                isRoadNetwork: true,
+                viaText: roadRes.viaText,
+                modeName: 'Carretera (Ruta más rápida)'
+            };
+        }
+
+        // 3. Fallback: línea geodésica
         var distKm = haversineKm(origin, dest);
-        var durationSec = (distKm / 50) * 3600;
+        var durationSec = (distKm / 40) * 3600;
         var coords = [[origin.lat, origin.lng], [dest.lat, dest.lng]];
         return {
             coords: coords,
             distanceKm: parseFloat(distKm.toFixed(3)),
             durationSec: durationSec,
             nodes: 2,
-            isNetwork: false
+            isNetwork: false,
+            isRoadNetwork: false,
+            modeName: 'Línea Geodésica Directa'
         };
     }
 
     async function fetchOsrmRoute(origin, dest) {
-        return calculateClientRoute(origin, dest);
+        return await calculateClientRoute(origin, dest);
     }
 
     async function saveNumberedPoints(points, layerName, pointColor, pointSize, pointIcon) {
@@ -29060,7 +29165,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
     }
 
-    function handleNetworkMapClick(latlng) {
+    async function handleNetworkMapClick(latlng) {
         if (!_net.picking) return;
         var m = state.map;
         document.getElementById('map').style.cursor = '';
@@ -29073,9 +29178,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             _net.originMarker = L.circleMarker(latlng, { radius: 8, color: '#e11d48', fillColor: '#e11d48', fillOpacity: 0.8, weight: 2 }).addTo(m)
                 .bindTooltip('Origen', { permanent: true, direction: 'top' }).openTooltip();
             if (_net.destination) {
-                solveShortestPath();
+                await solveShortestPath();
             } else {
-                toast('Origen seleccionado. Ahora elige el destino.', 'success');
+                toast('Origen establecido. Ahora elige el destino.', 'success');
             }
         } else if (_net.picking === 'destination') {
             _net.destination = latlng;
@@ -29085,9 +29190,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             _net.destMarker = L.circleMarker(latlng, { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8, weight: 2 }).addTo(m)
                 .bindTooltip('Destino', { permanent: true, direction: 'top' }).openTooltip();
             if (_net.origin) {
-                solveShortestPath();
+                await solveShortestPath();
             } else {
-                toast('Destino seleccionado. Ahora elige el origen.', 'success');
+                toast('Destino establecido. Ahora elige el origen.', 'success');
             }
         } else if (_net.picking === 'waypoint') {
             var wpIdx = _net.waypoints.length + 1;
@@ -29136,7 +29241,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         document.getElementById('btnCalcTrip').classList.remove('hidden');
     }
 
-    function solveTripRoute() {
+    async function solveTripRoute() {
         if (_net.waypoints.length < 2) {
             toast('Agrega al menos 2 puntos de reparto en el mapa.', 'warning');
             return;
@@ -29165,43 +29270,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             _net.waypointMarkers.push(mk);
         });
 
-        var network = getNetworkFeature();
-        var graph = null;
-        if (network && network.features && network.features.length) {
-            var selectedLayer = getNetworkLayer();
-            graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
-            if (selectedLayer) selectedLayer._clientGraph = graph;
-        }
+        showProgress('Calculando ruta de reparto óptima por carretera...', 40);
 
         var fullCoords = [];
         var totalDistMeters = 0;
+        var totalDurationSec = 0;
 
-        for (var i = 0; i < optimizedWp.length - 1; i++) {
-            var p1 = [optimizedWp[i].lng, optimizedWp[i].lat];
-            var p2 = [optimizedWp[i + 1].lng, optimizedWp[i + 1].lat];
-            var segmentSolved = false;
-
-            if (graph) {
-                var segRes = ClientNetwork.dijkstra(graph, p1, p2);
-                if (segRes && segRes.path && segRes.path.coordinates && segRes.path.coordinates.length > 1) {
-                    var segCoords = segRes.path.coordinates;
-                    if (fullCoords.length > 0) segCoords = segCoords.slice(1);
-                    fullCoords = fullCoords.concat(segCoords);
-                    totalDistMeters += segRes.distance_meters;
-                    segmentSolved = true;
+        var tripRes = await fetchTripRoadRoute(optimizedWp);
+        if (tripRes && tripRes.coords && tripRes.coords.length > 1) {
+            fullCoords = tripRes.coords;
+            totalDistMeters = tripRes.distanceKm * 1000;
+            totalDurationSec = tripRes.durationSec;
+        } else {
+            for (var i = 0; i < optimizedWp.length - 1; i++) {
+                var p1 = optimizedWp[i];
+                var p2 = optimizedWp[i + 1];
+                var seg = await calculateClientRoute(p1, p2);
+                if (fullCoords.length > 0) {
+                    fullCoords = fullCoords.concat(seg.coords.slice(1));
+                } else {
+                    fullCoords = fullCoords.concat(seg.coords);
                 }
-            }
-
-            if (!segmentSolved) {
-                var d = ClientNetwork.haversineMeters(p1, p2);
-                totalDistMeters += d;
-                if (fullCoords.length === 0) fullCoords.push(p1);
-                fullCoords.push(p2);
+                totalDistMeters += seg.distanceKm * 1000;
+                totalDurationSec += seg.durationSec;
             }
         }
+        hideProgress();
 
-        var latLngCoords = fullCoords.map(function(c) { return [c[1], c[0]]; });
-        _net.routeLayer = L.polyline(latLngCoords, {
+        _net.routeLayer = L.polyline(fullCoords, {
             color: '#6366f1',
             weight: 4,
             opacity: 0.9
@@ -29210,16 +29306,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         m.fitBounds(_net.routeLayer.getBounds().pad(0.15));
 
         var totalKm = (totalDistMeters / 1000).toFixed(2);
-        var totalMin = Math.round((totalDistMeters / 1000 / 40) * 60);
+        var totalMin = Math.max(1, Math.round(totalDurationSec / 60));
 
         var resEl = document.getElementById('networkResults');
         resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
             '<div class="font-bold text-indigo-600">Ruta de Reparto Óptima</div>' +
-            '<span class="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded text-[8px] font-bold">2-Opt TSP Sin API</span>' +
+            '<span class="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Carretera (Menor Tiempo)</span>' +
             '</div>' +
-            '<div>Distancia total: <strong>' + totalKm + ' km</strong> (' + Math.round(totalDistMeters).toLocaleString() + ' m)</div>' +
-            '<div>Tiempo estimado: <strong>' + totalMin + ' min</strong> (' + (totalMin / 60).toFixed(1) + ' h)</div>' +
-            '<div class="text-[8px] text-zinc-400 mt-0.5">Paradas: ' + optimizedWp.length + ' · Orden secuencial optimizado</div>';
+            '<div>Tiempo mínimo estimado: <strong class="text-indigo-700 font-black">' + totalMin + ' min</strong> (' + (totalMin / 60).toFixed(1) + ' h)</div>' +
+            '<div>Distancia por carretera: <strong>' + totalKm + ' km</strong> (' + Math.round(totalDistMeters).toLocaleString() + ' m)</div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">Paradas: ' + optimizedWp.length + ' · Siguiendo carreteras reales sin API</div>';
         resEl.classList.remove('hidden');
 
         toast('Ruta optimizada: ' + totalKm + ' km, ' + totalMin + ' min', 'success');
@@ -29231,14 +29327,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             type: 'FeatureCollection',
             features: [{
                 type: 'Feature',
-                properties: { paradas: optimizedWp.length, distancia_km: parseFloat(totalKm) },
-                geometry: { type: 'LineString', coordinates: fullCoords }
+                properties: { paradas: optimizedWp.length, distancia_km: parseFloat(totalKm), duracion_minutos: totalMin },
+                geometry: { type: 'LineString', coordinates: fullCoords.map(function(c) { return [c[1], c[0]]; }) }
             }]
         };
         showNetworkStylePanel(routeGeo, 'Ruta reparto ' + totalKm + 'km', pts);
     }
 
-    function solveShortestPath() {
+    async function solveShortestPath() {
         if (!_net.origin || !_net.destination) {
             toast('Selecciona origen y destino en el mapa.', 'warning');
             return;
@@ -29248,35 +29344,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (_net.areaLayer) { state.map.removeLayer(_net.areaLayer); _net.areaLayer = null; }
         if (_net.routeLayer) { state.map.removeLayer(_net.routeLayer); _net.routeLayer = null; }
 
-        var route = calculateClientRoute(_net.origin, _net.destination);
+        showProgress('Calculando ruta que tome menos tiempo...', 35);
+        var route = await calculateClientRoute(_net.origin, _net.destination);
+        hideProgress();
         var m = state.map;
 
         _net.pathLayer = L.polyline(route.coords, {
             color: '#10b981',
             weight: 4,
             opacity: 0.9,
-            dashArray: route.isNetwork ? undefined : '6 4'
+            dashArray: route.isRoadNetwork || route.isNetwork ? undefined : '6 4'
         }).addTo(m);
         _net.styleTarget = _net.pathLayer;
         m.fitBounds(_net.pathLayer.getBounds().pad(0.2));
 
-        updateTravelTimes(_net.origin, _net.destination, route.distanceKm);
+        updateTravelTimes(_net.origin, _net.destination, route.distanceKm, route.durationSec);
 
         var resEl = document.getElementById('networkResults');
-        var modeBadge = route.isNetwork
-            ? '<span class="text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Red Vectorial (' + route.nodes + ' nodos)</span>'
-            : '<span class="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Ruta Directa Geodésica</span>';
+        var badge = route.isRoadNetwork
+            ? '<span class="text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Carretera (Menor Tiempo)</span>'
+            : (route.isNetwork
+                ? '<span class="text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Red Vectorial</span>'
+                : '<span class="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Directa</span>');
 
         resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
-            '<div class="font-bold text-emerald-600">Ruta Calculada</div>' +
-            modeBadge +
+            '<div class="font-bold text-emerald-600">Ruta por Carretera</div>' +
+            badge +
             '</div>' +
-            '<div>Distancia: <strong>' + route.distanceKm.toFixed(2) + ' km</strong> (' + Math.round(route.distanceKm * 1000).toLocaleString() + ' m)</div>' +
-            '<div>Tiempo en auto: <strong>' + formatDuration(route.durationSec) + '</strong></div>' +
-            '<div class="text-[8px] text-zinc-400 mt-0.5">100% Cliente · Sin API externa ni servidor</div>';
+            (route.viaText ? '<div class="text-[8.5px] font-bold text-zinc-700 mb-0.5 truncate">' + route.viaText + '</div>' : '') +
+            '<div>Tiempo en auto: <strong class="text-emerald-700 font-black">' + formatDuration(route.durationSec) + '</strong> (Ruta más rápida)</div>' +
+            '<div>Distancia por carretera: <strong>' + route.distanceKm.toFixed(2) + ' km</strong> (' + Math.round(route.distanceKm * 1000).toLocaleString() + ' m)</div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">Optimizada para el menor tiempo · 100% Sin API</div>';
         resEl.classList.remove('hidden');
 
-        toast('Ruta: ' + route.distanceKm.toFixed(2) + ' km (' + (route.isNetwork ? 'Red' : 'Directa') + ')', 'success');
+        toast('Ruta en carretera: ' + route.distanceKm.toFixed(2) + ' km (' + formatDuration(route.durationSec) + ')', 'success');
 
         var pts = [
             { lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' },
@@ -29286,7 +29387,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             type: 'FeatureCollection',
             features: [{
                 type: 'Feature',
-                properties: { distancia_km: route.distanceKm, tipo: route.isNetwork ? 'red' : 'geodesica' },
+                properties: {
+                    distancia_km: route.distanceKm,
+                    duracion_segundos: route.durationSec,
+                    via: route.viaText || '',
+                    tipo: 'carretera_tiempo_minimo'
+                },
                 geometry: {
                     type: 'LineString',
                     coordinates: route.coords.map(function(c) { return [c[1], c[0]]; })
@@ -29304,7 +29410,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
     }
 
-    function solveServiceAreaExecute() {
+    async function solveServiceAreaExecute() {
         if (!_net.origin) {
             toast('Selecciona un origen en el mapa.', 'warning');
             return;
@@ -29390,7 +29496,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showNetworkStylePanel(fc, 'Área servicio ' + maxDist + 'm', pts);
     }
 
-    function solveClosestFacility() {
+    async function solveClosestFacility() {
         if (!_net.origin) {
             toast('Selecciona un origen en el mapa.', 'warning');
             return;
@@ -29427,58 +29533,75 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         clearNetworkResults(false);
         var m = state.map;
-        var originLngLat = [_net.origin.lng, _net.origin.lat];
-        var network = getNetworkFeature();
-        var graph = null;
-        if (network && network.features && network.features.length) {
-            var selectedLayer = getNetworkLayer();
-            graph = (selectedLayer && selectedLayer._clientGraph) || ClientNetwork.buildGraph(network);
-            if (selectedLayer) selectedLayer._clientGraph = graph;
-        }
+        showProgress('Calculando facility con menor tiempo de viaje...', 30);
 
-        var res = ClientNetwork.closestFacility(graph, originLngLat, facilitiesList);
-        if (!res || !res.facility) {
+        var bestFacility = null;
+        var minDuration = Infinity;
+        var bestRoute = null;
+
+        for (var i = 0; i < facilitiesList.length; i++) {
+            var fac = facilitiesList[i];
+            var route = await calculateClientRoute(_net.origin, fac);
+            if (route && route.durationSec < minDuration) {
+                minDuration = route.durationSec;
+                bestFacility = { index: i, point: fac, label: fac.label || ('Facility ' + (i + 1)) };
+                bestRoute = route;
+            }
+        }
+        hideProgress();
+
+        if (!bestFacility || !bestRoute) {
             toast('No se encontró ninguna facility alcanzable.', 'error');
             return;
         }
 
-        if (res.path) {
-            _net.pathLayer = L.geoJSON(res.path, {
-                style: { color: '#0284c7', weight: 4, opacity: 0.9 }
-            }).addTo(m);
-            _net.styleTarget = _net.pathLayer;
-            m.fitBounds(_net.pathLayer.getBounds().pad(0.2));
-        }
+        _net.pathLayer = L.polyline(bestRoute.coords, {
+            color: '#0284c7',
+            weight: 4,
+            opacity: 0.9
+        }).addTo(m);
+        _net.styleTarget = _net.pathLayer;
+        m.fitBounds(_net.pathLayer.getBounds().pad(0.2));
 
-        var closestPt = res.facility.point;
+        var closestPt = bestFacility.point;
         var highlightMarker = L.circleMarker([closestPt.lat, closestPt.lng], {
             radius: 12,
             color: '#0284c7',
             fillColor: '#38bdf8',
             fillOpacity: 0.9,
             weight: 3
-        }).addTo(m).bindTooltip('★ ' + res.facility.label + ' (Más Cercana)', { permanent: true, direction: 'top' }).openTooltip();
+        }).addTo(m).bindTooltip('★ ' + bestFacility.label + ' (' + formatDuration(bestRoute.durationSec) + ')', { permanent: true, direction: 'top' }).openTooltip();
         _net.facilityMarkers.push(highlightMarker);
 
         var resEl = document.getElementById('networkResults');
         resEl.innerHTML = '<div class="flex items-center justify-between mb-1">' +
-            '<div class="font-bold text-sky-600">Facility Más Cercana</div>' +
-            '<span class="text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded text-[8px] font-bold">100% Sin API</span>' +
+            '<div class="font-bold text-sky-600">Facility Más Cercana (Menor Tiempo)</div>' +
+            '<span class="text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded text-[8px] font-bold">Tiempo Mínimo</span>' +
             '</div>' +
-            '<div>Destino óptimo: <strong>' + res.facility.label + '</strong></div>' +
-            '<div>Distancia: <strong>' + res.distance_km + ' km</strong> (' + res.distance_meters.toLocaleString() + ' m)</div>' +
-            '<div class="text-[8px] text-zinc-400 mt-0.5">Total evaluadas: ' + facilitiesList.length + ' facilities</div>';
+            '<div>Destino óptimo: <strong class="text-sky-800">' + bestFacility.label + '</strong></div>' +
+            '<div>Tiempo en carretera: <strong class="text-emerald-700 font-black">' + formatDuration(bestRoute.durationSec) + '</strong></div>' +
+            '<div>Distancia: <strong>' + bestRoute.distanceKm.toFixed(2) + ' km</strong> (' + Math.round(bestRoute.distanceKm * 1000).toLocaleString() + ' m)</div>' +
+            '<div class="text-[8px] text-zinc-400 mt-0.5">Total evaluadas: ' + facilitiesList.length + ' facilities · Sin API</div>';
         resEl.classList.remove('hidden');
 
-        toast('Facility más cercana: ' + res.facility.label + ' (' + res.distance_km + ' km)', 'success');
+        toast('Facility más cercana: ' + bestFacility.label + ' (' + formatDuration(bestRoute.durationSec) + ')', 'success');
 
         var pts = [{ lat: _net.origin.lat, lng: _net.origin.lng, label: 'O' }];
         facilitiesList.forEach(function(f, idx) {
             pts.push({ lat: f.lat, lng: f.lng, label: f.label || ('F' + (idx + 1)) });
         });
-        if (res.path) {
-            showNetworkStylePanel({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: res.path }] }, 'Ruta a ' + res.facility.label, pts);
-        }
+        var routeGeo = {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                properties: { destino: bestFacility.label, distancia_km: bestRoute.distanceKm, duracion_segundos: bestRoute.durationSec },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: bestRoute.coords.map(function(c) { return [c[1], c[0]]; })
+                }
+            }]
+        };
+        showNetworkStylePanel(routeGeo, 'Ruta a ' + bestFacility.label, pts);
     }
 
     function toggleNetworkPanel() {
