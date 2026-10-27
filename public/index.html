@@ -384,6 +384,17 @@
     #hoverInfo .text-amber-400 { color: #fbbf24 !important; }
     #hoverInfo .text-white { color: #ffffff !important; }
     #hoverInfo .text-zinc-500 { color: #94a3b8 !important; }
+    #pixelInspectorCard .text-white { color: #ffffff !important; }
+    #pixelInspectorCard .text-zinc-300 { color: #cbd5e1 !important; }
+    #pixelInspectorCard .text-zinc-400 { color: #94a3b8 !important; }
+    #pixelInspectorCard .text-zinc-500 { color: #64748b !important; }
+    #pixelInspectorCard .text-emerald-300 { color: #6ee7b7 !important; }
+    #pixelInspectorCard .text-emerald-400 { color: #34d399 !important; }
+    #pixelInspectorCard .text-cyan-300 { color: #67e8f9 !important; }
+    #pixelInspectorCard .text-cyan-400 { color: #22d3ee !important; }
+    #pixelInspectorCard .text-amber-300 { color: #fcd34d !important; }
+    #pixelInspectorCard .text-amber-400 { color: #fbbf24 !important; }
+    #pixelInspectorCard .text-violet-400 { color: #a78bfa !important; }
     .text-white { color: #ffffff !important; }
     .text-emerald-500, .text-emerald-600 { color: #059669 !important; }
     .text-blue-600, .text-blue-700 { color: #2563eb !important; }
@@ -1206,6 +1217,36 @@
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.15);
       font-family: 'Inter', sans-serif;
+    }
+    /* Pixel Inspector Card for Classified Layers */
+    #pixelInspectorCard {
+      position: fixed;
+      pointer-events: none;
+      z-index: 10005;
+      background: rgba(15, 23, 42, 0.96);
+      color: #ffffff;
+      padding: 12px 15px;
+      border-radius: 14px;
+      font-size: 11px;
+      line-height: 1.4;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 24px rgba(139, 92, 246, 0.3);
+      display: none;
+      min-width: 250px;
+      max-width: 320px;
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .thematic-class-highlight-overlay {
+      image-rendering: pixelated;
+      pointer-events: none !important;
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 14px rgba(139, 92, 246, 0.65));
+      transition: opacity 0.15s ease-out;
+    }
+    .legend-class-row-focused {
+      background-color: #f5f3ff !important;
+      border-color: #8b5cf6 !important;
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3) !important;
     }
     #viewModeToggle button:hover { background: #fff !important; border-color: #202124 !important; color: #202124 !important; box-shadow: 0 2px 6px rgba(0,0,0,.25) !important; }
     #viewModeToggle button:active { transform: scale(0.92); }
@@ -2303,6 +2344,7 @@
     <span class="material-symbols-outlined">content_cut</span>
   </div>
   <div id="hoverInfo"></div>
+  <div id="pixelInspectorCard"></div>
   <div id="featureCtx"></div>
   <!-- TopNavBar -->
   <header
@@ -7768,15 +7810,181 @@ self.onmessage = async function(e) {
           // Raster hover: detectar si el cursor está sobre algún raster visible
           const hoverInfo = document.getElementById('hoverInfo');
           let found = null;
+          // Priorizar capas clasificadas temáticas si están visibles bajo el cursor
           for (const l of state.layers) {
             if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
+            if (!l.isClassified) continue;
             const b = l.bounds;
             const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
             if (latlngBounds.contains(e.latlng)) { found = l; break; }
           }
+          // Si no hay clasificada, evaluar rasters convencionales
+          if (!found) {
+            for (const l of state.layers) {
+              if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
+              const b = l.bounds;
+              const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+              if (latlngBounds.contains(e.latlng)) { found = l; break; }
+            }
+          }
           if (found) {
             const b = found.bounds;
             const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+
+            // Resalte e inspección temática de píxel individual si la capa es clasificada
+            if (found.isClassified && found._pixelClusterMap) {
+              const west = latlngBounds.getWest(), east = latlngBounds.getEast();
+              const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
+              const fracX = (e.latlng.lng - west) / (east - west);
+              const fracY = (north - e.latlng.lat) / (north - south);
+
+              if (fracX >= 0 && fracX <= 1 && fracY >= 0 && fracY <= 1) {
+                const mapW = found._canvasWidth || (found._classifiedCanvas ? found._classifiedCanvas.width : found.width);
+                const mapH = found._canvasHeight || (found._classifiedCanvas ? found._classifiedCanvas.height : found.height);
+                const px = Math.min(Math.max(Math.floor(fracX * mapW), 0), mapW - 1);
+                const py = Math.min(Math.max(Math.floor(fracY * mapH), 0), mapH - 1);
+                const pixelIdx = py * mapW + px;
+                const classId = found._pixelClusterMap[pixelIdx];
+
+                if (classId >= 0 && found.classes && found.classes[classId]) {
+                  const cls = found.classes[classId];
+
+                  // Resaltar la cobertura como capa individual
+                  if (typeof highlightThematicClass === 'function') {
+                    highlightThematicClass(found.id, classId);
+                  }
+
+                  // Quitar recuadro general para vista despejada
+                  if (window._rasterHoverRect) {
+                    try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
+                    window._rasterHoverRect = null;
+                  }
+                  window._lastRasterHoverId = null;
+
+                  // Cálculo de área
+                  const key = found.id;
+                  if (!window._rasterAreaCache[key]) {
+                    try {
+                      const poly = [[west, south], [east, south], [east, north], [west, north], [west, south]];
+                      window._rasterAreaCache[key] = turf.area(turf.polygon([poly]));
+                    } catch(err) { window._rasterAreaCache[key] = 0; }
+                  }
+                  const areaHa = (window._rasterAreaCache[key] || 0) / 10000;
+                  const totalClsArea = areaHa;
+                  const pct = cls.percentage || ((cls.count / (found._totalValidPixels || 1)) * 100).toFixed(1);
+                  const clsHa = ((parseFloat(pct) / 100) * totalClsArea);
+                  const clsAreaStr = clsHa >= 100 ? `${(clsHa / 100).toFixed(1)} km²` : `${clsHa.toFixed(1)} ha`;
+
+                  // Píxel en coordenadas nativas satelitales (30m)
+                  const natW = found.width || mapW;
+                  const natH = found.height || mapH;
+                  const satPx = Math.min(Math.max(Math.floor(fracX * natW), 0), natW - 1);
+                  const satPy = Math.min(Math.max(Math.floor(fracY * natH), 0), natH - 1);
+
+                  // Extracción de firma/valores espectrales de ese píxel
+                  let pixelValuesHtml = '';
+                  if (found._rawSpectralBands && found._rawSpectralBands.length >= 4) {
+                    const bCount = found._rawSpectralBands.length;
+                    const red = found._rawSpectralBands[bCount >= 7 ? 3 : 0][pixelIdx] || 0;
+                    const nir = found._rawSpectralBands[bCount >= 7 ? 4 : (bCount >= 4 ? 3 : 1)][pixelIdx] || 0;
+                    const green = found._rawSpectralBands[bCount >= 7 ? 2 : 1][pixelIdx] || 0;
+                    const swir = bCount >= 6 ? (found._rawSpectralBands[5][pixelIdx] || 0) : null;
+
+                    const pixelNdvi = (nir + red) !== 0 ? ((nir - red) / (nir + red)) : 0;
+                    const pixelNdwi = (green + nir) !== 0 ? ((green - nir) / (green + nir)) : 0;
+
+                    pixelValuesHtml = `
+                      <div class="grid grid-cols-2 gap-1.5 py-1.5 border-y border-white/10 my-1.5">
+                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
+                          <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">Índice NDVI (Píxel)</span>
+                          <span class="text-[12px] font-mono font-black ${pixelNdvi >= 0.2 ? 'text-emerald-300' : (pixelNdvi < 0 ? 'text-cyan-300' : 'text-amber-300')}">${pixelNdvi >= 0 ? '+' : ''}${pixelNdvi.toFixed(3)}</span>
+                        </div>
+                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
+                          <span class="text-[8px] text-cyan-400 font-bold uppercase tracking-wider">Índice NDWI (Agua)</span>
+                          <span class="text-[12px] font-mono font-black ${pixelNdwi > 0 ? 'text-cyan-300' : 'text-zinc-400'}">${pixelNdwi >= 0 ? '+' : ''}${pixelNdwi.toFixed(3)}</span>
+                        </div>
+                      </div>
+                      <div class="flex items-center justify-between text-[8px] text-zinc-300 font-mono py-0.5">
+                        <span>RED: <strong class="text-white">${Math.round(red)}</strong></span>
+                        <span>NIR: <strong class="text-white">${Math.round(nir)}</strong></span>
+                        ${swir !== null ? `<span>SWIR: <strong class="text-white">${Math.round(swir)}</strong></span>` : `<span>GREEN: <strong class="text-white">${Math.round(green)}</strong></span>`}
+                      </div>
+                    `;
+                  } else {
+                    pixelValuesHtml = `
+                      <div class="grid grid-cols-2 gap-1.5 py-1.5 border-y border-white/10 my-1.5">
+                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
+                          <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">Firma NDVI Promedio</span>
+                          <span class="text-[12px] font-mono font-black text-emerald-300">${cls.ndvi !== undefined ? (cls.ndvi >= 0 ? '+' : '') + cls.ndvi.toFixed(3) : 'N/A'}</span>
+                        </div>
+                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
+                          <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider">Clase Temática</span>
+                          <span class="text-[11px] font-bold text-white truncate">Clase ${classId + 1} de ${found.classes.length}</span>
+                        </div>
+                      </div>
+                    `;
+                  }
+
+                  const pixelCard = document.getElementById('pixelInspectorCard');
+                  if (pixelCard) {
+                    pixelCard.innerHTML = `
+                      <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-white/15">
+                        <div class="flex items-center gap-2 min-w-0">
+                          <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${cls.color}; box-shadow: 0 0 8px ${cls.color}; flex-shrink:0;"></span>
+                          <span class="text-[11.5px] font-black text-white truncate tracking-tight">${cls.name}</span>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/90 text-white border border-violet-400/40 shrink-0">
+                          Capa Individual
+                        </span>
+                      </div>
+
+                      <div class="flex items-center justify-between gap-2 mt-1.5 text-[8.5px]">
+                        <span class="text-zinc-400 font-medium">Cobertura de la clase:</span>
+                        <span class="text-amber-300 font-mono font-bold">${clsAreaStr} <span class="text-zinc-400 font-normal">(${pct}%)</span></span>
+                      </div>
+
+                      ${pixelValuesHtml}
+
+                      ${cls.signatureLabel ? `
+                        <div class="text-[8.5px] text-zinc-300 italic mb-1 flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[11px] text-violet-400">insights</span>
+                          ${cls.signatureLabel}
+                        </div>
+                      ` : ''}
+
+                      <div class="pt-1 mt-1 border-t border-white/10 flex items-center justify-between text-[8px] text-zinc-400 font-mono">
+                        <span>Píxel satelital: <strong class="text-white">[X:${satPx}, Y:${satPy}]</strong></span>
+                        <span>Res: 30m</span>
+                      </div>
+                      <div class="text-[7.5px] text-zinc-500 font-mono text-right mt-0.5">
+                        Lat: ${e.latlng.lat.toFixed(5)}°, Lng: ${e.latlng.lng.toFixed(5)}°
+                      </div>
+                    `;
+
+                    const cardW = 270;
+                    const cardH = 220;
+                    let left = e.originalEvent.clientX + 20;
+                    let top = e.originalEvent.clientY + 12;
+                    if (left + cardW > window.innerWidth - 10) left = e.originalEvent.clientX - cardW - 15;
+                    if (top + cardH > window.innerHeight - 10) top = e.originalEvent.clientY - cardH - 10;
+                    pixelCard.style.left = `${Math.max(10, left)}px`;
+                    pixelCard.style.top = `${Math.max(10, top)}px`;
+                    pixelCard.style.display = 'block';
+                  }
+
+                  if (hoverInfo) hoverInfo.style.display = 'none';
+                  return; // Fin de gestión para píxel clasificado
+                }
+              }
+            }
+
+            // Si no está sobre un píxel clasificado activo, limpiar resalte temático
+            if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
+              clearThematicClassHighlight(found.id);
+            }
+            const pixelCard = document.getElementById('pixelInspectorCard');
+            if (pixelCard) pixelCard.style.display = 'none';
+
             // Actualiza rectángulo de resalte siempre que haya raster bajo el cursor
             if (window._lastRasterHoverId !== found.id) {
               window._lastRasterHoverId = found.id;
@@ -7874,6 +8082,12 @@ self.onmessage = async function(e) {
               hoverInfo.style.top = (e.originalEvent.clientY + 10) + 'px';
             }
           } else {
+            if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
+              clearThematicClassHighlight();
+            }
+            const pixelCard = document.getElementById('pixelInspectorCard');
+            if (pixelCard) pixelCard.style.display = 'none';
+
             if (window._lastRasterHoverId !== null) {
               window._lastRasterHoverId = null;
               window._lastRasterHoverInfoId = null;
@@ -7881,6 +8095,23 @@ self.onmessage = async function(e) {
             }
             if (!window._vectorHoverActive) hoverInfo.style.display = 'none';
           }
+      });
+
+      state.map.on('mouseout', () => {
+        if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
+          clearThematicClassHighlight();
+        }
+        const pixelCard = document.getElementById('pixelInspectorCard');
+        if (pixelCard) pixelCard.style.display = 'none';
+        const hoverInfo = document.getElementById('hoverInfo');
+        if (hoverInfo && !window._vectorHoverActive) hoverInfo.style.display = 'none';
+      });
+
+      state.map.on('dragstart', () => {
+        const pixelCard = document.getElementById('pixelInspectorCard');
+        if (pixelCard) pixelCard.style.display = 'none';
+        const hoverInfo = document.getElementById('hoverInfo');
+        if (hoverInfo && !window._vectorHoverActive) hoverInfo.style.display = 'none';
       });
 
       updateZoomDisplay();
@@ -15519,6 +15750,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             _classifiedCanvas: canvas,
             _pixelClusterMap: pixelClusterMap,
             _totalValidPixels: validCount,
+            _rawSpectralBands: spectralData.bands || null,
+            _rawCanvasData: spectralData.data || null,
+            _spectralDataType: spectralData.type || null,
+            _spectralBandCount: spectralData.bandsCount || 0,
+            _highlightMasks: {},
             _classificationConfig: {
               k: k,
               centers: centers,
@@ -15597,6 +15833,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const newUrl = canvas.toDataURL('image/png');
       layer.imageUrl = newUrl;
+      layer._highlightMasks = {};
+      if (typeof clearThematicClassHighlight === 'function') {
+        clearThematicClassHighlight(layer.id);
+      }
 
       if (layer._geotiffTileLayer) {
         if (typeof layer._geotiffTileLayer.setClassification === 'function') {
@@ -15615,6 +15855,157 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       } else if (layer.mapLayer && typeof layer.mapLayer.setUrl === 'function') {
         layer.mapLayer.setUrl(newUrl);
       }
+    }
+
+    function getOrCreateClassHighlightMask(layer, classId) {
+      if (!layer || !layer._pixelClusterMap || !layer._classifiedCanvas) return null;
+      if (!layer._highlightMasks) layer._highlightMasks = {};
+      if (layer._highlightMasks[classId]) return layer._highlightMasks[classId];
+
+      const w = layer._canvasWidth || layer._classifiedCanvas.width;
+      const h = layer._canvasHeight || layer._classifiedCanvas.height;
+      const clusterMap = layer._pixelClusterMap;
+      const cls = (layer.classes && layer.classes[classId]) || {};
+      const hex = (cls.color || '#3b82f6').replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = w;
+      maskCanvas.height = h;
+      const ctx = maskCanvas.getContext('2d');
+      const imgData = ctx.createImageData(w, h);
+      const data = imgData.data;
+
+      // Resalte temático: delimitar el perímetro con borde nítido luminoso y rellenar la cobertura
+      for (let y = 0; y < h; y++) {
+        const rowOffset = y * w;
+        for (let x = 0; x < w; x++) {
+          const idx = rowOffset + x;
+          if (clusterMap[idx] === classId) {
+            // Detección de contorno/perímetro en 8 direcciones
+            const isBorder = (x === 0 || clusterMap[idx - 1] !== classId) ||
+                             (x === w - 1 || clusterMap[idx + 1] !== classId) ||
+                             (y === 0 || clusterMap[idx - w] !== classId) ||
+                             (y === h - 1 || clusterMap[idx + w] !== classId) ||
+                             (x > 0 && y > 0 && clusterMap[idx - w - 1] !== classId) ||
+                             (x < w - 1 && y > 0 && clusterMap[idx - w + 1] !== classId) ||
+                             (x > 0 && y < h - 1 && clusterMap[idx + w - 1] !== classId) ||
+                             (x < w - 1 && y < h - 1 && clusterMap[idx + w + 1] !== classId);
+            const p = idx * 4;
+            if (isBorder) {
+              data[p] = 255;
+              data[p + 1] = 255;
+              data[p + 2] = 255;
+              data[p + 3] = 255;
+            } else {
+              data[p] = r;
+              data[p + 1] = g;
+              data[p + 2] = b;
+              data[p + 3] = 245;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      const dataUrl = maskCanvas.toDataURL('image/png');
+      layer._highlightMasks[classId] = {
+        canvas: maskCanvas,
+        dataUrl: dataUrl
+      };
+      return layer._highlightMasks[classId];
+    }
+
+    window._activeThematicHighlightClass = null;
+    window._activeThematicHighlightLayerId = null;
+
+    function highlightThematicClass(layerId, classIdx) {
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer || !layer.isClassified || !layer.classes || !layer.classes[classIdx]) return;
+      if (window._activeThematicHighlightClass === classIdx && window._activeThematicHighlightLayerId === layerId) return;
+
+      window._activeThematicHighlightClass = classIdx;
+      window._activeThematicHighlightLayerId = layerId;
+
+      const maskObj = getOrCreateClassHighlightMask(layer, classIdx);
+      if (!maskObj) return;
+
+      // Suavizar capa base para que la zona resaltada se aprecie como capa temática individual
+      if (layer.mapLayer) {
+        const el = typeof layer.mapLayer.getElement === 'function' 
+          ? layer.mapLayer.getElement() 
+          : (typeof layer.mapLayer.getContainer === 'function' ? layer.mapLayer.getContainer() : null);
+        if (el) {
+          el.style.opacity = '0.35';
+          el.style.filter = 'brightness(0.65) saturate(0.6)';
+          el.style.transition = 'opacity 0.15s ease, filter 0.15s ease';
+        }
+      }
+
+      // Proyectar overlay temático nítido con contorno luminoso
+      if (!window._thematicHighlightOverlay) {
+        window._thematicHighlightOverlay = L.imageOverlay(maskObj.dataUrl, layer.bounds, {
+          opacity: 1.0,
+          interactive: false,
+          zIndex: 9000,
+          className: 'thematic-class-highlight-overlay'
+        }).addTo(state.map);
+      } else {
+        window._thematicHighlightOverlay.setBounds(layer.bounds);
+        window._thematicHighlightOverlay.setUrl(maskObj.dataUrl);
+        if (!state.map.hasLayer(window._thematicHighlightOverlay)) {
+          window._thematicHighlightOverlay.addTo(state.map);
+        }
+      }
+
+      // Sincronizar foco visual en la leyenda lateral
+      document.querySelectorAll('.legend-class-row-focused').forEach(row => {
+        row.classList.remove('legend-class-row-focused');
+        const badge = row.querySelector('.legend-focus-badge');
+        if (badge) badge.remove();
+      });
+
+      const row = document.getElementById(`legendClassRow_${layer.id}_${classIdx}`);
+      if (row) {
+        row.classList.add('legend-class-row-focused');
+        const rightSpan = row.querySelector('.legend-class-pct');
+        if (rightSpan && !row.querySelector('.legend-focus-badge')) {
+          const b = document.createElement('span');
+          b.className = 'legend-focus-badge px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600 text-white animate-pulse shadow-2xs shrink-0';
+          b.textContent = 'En foco';
+          row.appendChild(b);
+        }
+      }
+    }
+
+    function clearThematicClassHighlight(layerId) {
+      if (window._thematicHighlightOverlay) {
+        try { state.map.removeLayer(window._thematicHighlightOverlay); } catch(e) {}
+        window._thematicHighlightOverlay = null;
+      }
+      window._activeThematicHighlightClass = null;
+      window._activeThematicHighlightLayerId = null;
+
+      // Restaurar opacidad y filtros de capa base
+      const targetLayer = layerId ? state.layers.find(l => l.id === layerId) : state.layers.find(l => l.isClassified);
+      if (targetLayer && targetLayer.mapLayer) {
+        const el = typeof targetLayer.mapLayer.getElement === 'function' 
+          ? targetLayer.mapLayer.getElement() 
+          : (typeof targetLayer.mapLayer.getContainer === 'function' ? targetLayer.mapLayer.getContainer() : null);
+        if (el) {
+          el.style.opacity = targetLayer.opacity ?? 0.9;
+          el.style.filter = '';
+        }
+      }
+
+      // Quitar foco de filas en leyenda
+      document.querySelectorAll('.legend-class-row-focused').forEach(row => {
+        row.classList.remove('legend-class-row-focused');
+        const badge = row.querySelector('.legend-focus-badge');
+        if (badge) badge.remove();
+      });
     }
 
     function updateClassifiedLayerColor(layerId, classIdx, newColor) {
@@ -15650,6 +16041,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.updateClassifiedLayerColor = updateClassifiedLayerColor;
     window.toggleClassVisibility = toggleClassVisibility;
     window.updateClassifiedClassName = updateClassifiedClassName;
+    window.getOrCreateClassHighlightMask = getOrCreateClassHighlightMask;
+    window.highlightThematicClass = highlightThematicClass;
+    window.clearThematicClassHighlight = clearThematicClassHighlight;
 
     window.selectAndToggleLayer = selectAndToggleLayer;
     window.bringLayerToFront = bringLayerToFront;
@@ -15786,7 +16180,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           
           <div class="flex flex-col gap-1 max-h-52 overflow-y-auto custom-scrollbar p-1 bg-white rounded-xl border border-zinc-200">
             ${(layer.classes || []).map((cls, cIdx) => `
-              <div class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-zinc-50 border border-zinc-100 transition-colors">
+              <div id="legendClassRow_${layer.id}_${cIdx}"
+                onmouseenter="highlightThematicClass(${layer.id}, ${cIdx})"
+                onmouseleave="clearThematicClassHighlight(${layer.id})"
+                class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-zinc-50 border border-zinc-100 transition-all cursor-pointer">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <input type="checkbox" ${cls.visible !== false ? 'checked' : ''}
                     onchange="event.stopPropagation(); toggleClassVisibility(${layer.id}, ${cIdx}, this.checked)"
@@ -15801,7 +16198,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     ${cls.signatureLabel ? `<span class="text-[7.5px] font-mono text-zinc-400 font-bold">${cls.signatureLabel}</span>` : ''}
                   </div>
                 </div>
-                <span class="text-[9px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100 shrink-0">
+                <span class="legend-class-pct text-[9px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100 shrink-0">
                   ${cls.percentage || '0.0'}%
                 </span>
               </div>
