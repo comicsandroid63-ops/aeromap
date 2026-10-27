@@ -48,28 +48,24 @@
   </script>
 
   <!-- GeoTIFF.js -->
-  <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="/3d-map.js"></script>
   <!-- Leaflet Side-By-Side (Swipe) -->
-  <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side/leaflet-side-by-side.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side/leaflet-side-by-side.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Proj4 for coordinate transformations -->
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
-  <!-- GeoTIFF Geokeys to Proj4 -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/geotiff-geokeys-to-proj4@2.1.1/dist-browser/geotiff-geokeys-to-proj4.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
-  <script src="https://unpkg.com/shpjs@3.6.3/dist/shp.js"></script>
-  <script src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/shpjs@3.6.3/dist/shp.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- html2canvas for map snapshots -->
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- jsPDF for layout export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Supabase client for cloud upload -->
   <!-- Supabase removed — using local server + Turso -->
   <!-- App version for cache busting - changes on every page load -->
@@ -98,18 +94,18 @@
     } catch(e) {}
   </script>
   <!-- Three.js for 3D Terrain -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/effects/AnaglyphEffect.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/effects/AnaglyphEffect.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- SheetJS for Excel/CSV -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- togeojson for KML/GPX -->
-  <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
+  <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Turf.js for Geoprocessing -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Geoblaze for Zonal Statistics -->
-  <script src="https://unpkg.com/geoblaze"></script>
+  <script src="https://unpkg.com/geoblaze@2.8.0/dist/geoblaze.web.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 
   <link href="/output.css" rel="stylesheet">
@@ -8317,7 +8313,22 @@ self.onmessage = async function(e) {
                 }
 
                 if (!L.storage_url) {
-                  console.warn(`[Zima] Skipping layer ${L.name} (no cloud URL)`);
+                  let restoredFromCache = false;
+                  // Intentar restaurar desde backup en localStorage
+                  try {
+                    const localBackup = localStorage.getItem(`layer_backup_${L.id}`);
+                    if (localBackup) {
+                      const geoJson = JSON.parse(localBackup);
+                      if (geoJson && (geoJson.type === 'FeatureCollection' || geoJson.features)) {
+                        await addVectorLayer(geoJson, L.name, { isRestored: true, dbId: L.id, ...L.config });
+                        restoredFromCache = true;
+                      }
+                    }
+                  } catch (_) {}
+
+                  if (!restoredFromCache) {
+                    console.debug(`[Zima] Capa "${L.name}" omitida (sin URL en Cloudflare ni datos locales)`);
+                  }
                   continue;
                 }
                 await loadFromCloud(L.storage_url, L.name, { 
