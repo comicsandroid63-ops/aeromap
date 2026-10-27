@@ -7849,11 +7849,6 @@ self.onmessage = async function(e) {
                 if (classId >= 0 && found.classes && found.classes[classId]) {
                   const cls = found.classes[classId];
 
-                  // Resaltar la cobertura como capa individual
-                  if (typeof highlightThematicClass === 'function') {
-                    highlightThematicClass(found.id, classId);
-                  }
-
                   // Quitar recuadro general para vista despejada
                   if (window._rasterHoverRect) {
                     try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
@@ -7925,6 +7920,11 @@ self.onmessage = async function(e) {
                     `;
                   }
 
+                  const isClassHighlighted = window._activeThematicHighlightClass === classId && window._activeThematicHighlightLayerId === found.id;
+                  const badgeHtml = isClassHighlighted
+                    ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/90 text-white border border-violet-400/40 shrink-0 shadow-2xs">Capa Individual Activa</span>`
+                    : `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-medium tracking-tight bg-white/10 text-zinc-300 border border-white/10 shrink-0">Clic para aislar cobertura</span>`;
+
                   const pixelCard = document.getElementById('pixelInspectorCard');
                   if (pixelCard) {
                     pixelCard.innerHTML = `
@@ -7933,9 +7933,7 @@ self.onmessage = async function(e) {
                           <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${cls.color}; box-shadow: 0 0 8px ${cls.color}; flex-shrink:0;"></span>
                           <span class="text-[11.5px] font-black text-white truncate tracking-tight">${cls.name}</span>
                         </div>
-                        <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/90 text-white border border-violet-400/40 shrink-0">
-                          Capa Individual
-                        </span>
+                        ${badgeHtml}
                       </div>
 
                       <div class="flex items-center justify-between gap-2 mt-1.5 text-[8.5px]">
@@ -7978,10 +7976,6 @@ self.onmessage = async function(e) {
               }
             }
 
-            // Si no está sobre un píxel clasificado activo, limpiar resalte temático
-            if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
-              clearThematicClassHighlight(found.id);
-            }
             const pixelCard = document.getElementById('pixelInspectorCard');
             if (pixelCard) pixelCard.style.display = 'none';
 
@@ -8082,9 +8076,6 @@ self.onmessage = async function(e) {
               hoverInfo.style.top = (e.originalEvent.clientY + 10) + 'px';
             }
           } else {
-            if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
-              clearThematicClassHighlight();
-            }
             const pixelCard = document.getElementById('pixelInspectorCard');
             if (pixelCard) pixelCard.style.display = 'none';
 
@@ -8098,9 +8089,6 @@ self.onmessage = async function(e) {
       });
 
       state.map.on('mouseout', () => {
-        if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
-          clearThematicClassHighlight();
-        }
         const pixelCard = document.getElementById('pixelInspectorCard');
         if (pixelCard) pixelCard.style.display = 'none';
         const hoverInfo = document.getElementById('hoverInfo');
@@ -8112,6 +8100,53 @@ self.onmessage = async function(e) {
         if (pixelCard) pixelCard.style.display = 'none';
         const hoverInfo = document.getElementById('hoverInfo');
         if (hoverInfo && !window._vectorHoverActive) hoverInfo.style.display = 'none';
+      });
+
+      // Selección de capa temática individual mediante CLIC en el mapa
+      state.map.on('click', (e) => {
+        if (window._isMeasuringActive || (typeof _net !== 'undefined' && _net?.picking) || (state.drawMode && state.drawMode !== 'select')) return;
+
+        let foundClassified = null;
+        for (const l of state.layers) {
+          if (l.type !== 'raster' || !l.visible || !l.bounds || !l.isClassified || !l._pixelClusterMap) continue;
+          const b = l.bounds;
+          const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+          if (latlngBounds.contains(e.latlng)) { foundClassified = l; break; }
+        }
+
+        if (foundClassified) {
+          const b = foundClassified.bounds;
+          const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+          const west = latlngBounds.getWest(), east = latlngBounds.getEast();
+          const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
+          const fracX = (e.latlng.lng - west) / (east - west);
+          const fracY = (north - e.latlng.lat) / (north - south);
+
+          if (fracX >= 0 && fracX <= 1 && fracY >= 0 && fracY <= 1) {
+            const mapW = foundClassified._canvasWidth || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.width : foundClassified.width);
+            const mapH = foundClassified._canvasHeight || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.height : foundClassified.height);
+            const px = Math.min(Math.max(Math.floor(fracX * mapW), 0), mapW - 1);
+            const py = Math.min(Math.max(Math.floor(fracY * mapH), 0), mapH - 1);
+            const pixelIdx = py * mapW + px;
+            const classId = foundClassified._pixelClusterMap[pixelIdx];
+
+            if (classId >= 0 && foundClassified.classes && foundClassified.classes[classId]) {
+              if (window._activeThematicHighlightClass === classId && window._activeThematicHighlightLayerId === foundClassified.id) {
+                // Si se clickea la clase ya seleccionada, alternar y deseleccionar
+                clearThematicClassHighlight(foundClassified.id);
+              } else {
+                // Resaltar la cobertura como capa individual
+                highlightThematicClass(foundClassified.id, classId);
+              }
+              return;
+            }
+          }
+        }
+
+        // Si se hace clic en un espacio vacío, limpiar resalte
+        if (window._activeThematicHighlightClass !== null && typeof clearThematicClassHighlight === 'function') {
+          clearThematicClassHighlight();
+        }
       });
 
       updateZoomDisplay();
@@ -16008,6 +16043,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
     }
 
+    function toggleThematicClassClick(layerId, classIdx) {
+      if (window._activeThematicHighlightClass === classIdx && window._activeThematicHighlightLayerId === layerId) {
+        clearThematicClassHighlight(layerId);
+      } else {
+        highlightThematicClass(layerId, classIdx);
+      }
+    }
+
     function updateClassifiedLayerColor(layerId, classIdx, newColor) {
       const layer = state.layers.find(l => l.id === layerId);
       if (!layer || !layer.isClassified || !layer.classes[classIdx]) return;
@@ -16044,6 +16087,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.getOrCreateClassHighlightMask = getOrCreateClassHighlightMask;
     window.highlightThematicClass = highlightThematicClass;
     window.clearThematicClassHighlight = clearThematicClassHighlight;
+    window.toggleThematicClassClick = toggleThematicClassClick;
 
     window.selectAndToggleLayer = selectAndToggleLayer;
     window.bringLayerToFront = bringLayerToFront;
@@ -16181,9 +16225,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           <div class="flex flex-col gap-1 max-h-52 overflow-y-auto custom-scrollbar p-1 bg-white rounded-xl border border-zinc-200">
             ${(layer.classes || []).map((cls, cIdx) => `
               <div id="legendClassRow_${layer.id}_${cIdx}"
-                onmouseenter="highlightThematicClass(${layer.id}, ${cIdx})"
-                onmouseleave="clearThematicClassHighlight(${layer.id})"
-                class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-zinc-50 border border-zinc-100 transition-all cursor-pointer">
+                onclick="toggleThematicClassClick(${layer.id}, ${cIdx})"
+                class="flex items-center justify-between gap-1.5 p-1.5 rounded-lg hover:bg-zinc-100/70 border border-zinc-100 transition-all cursor-pointer">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <input type="checkbox" ${cls.visible !== false ? 'checked' : ''}
                     onchange="event.stopPropagation(); toggleClassVisibility(${layer.id}, ${cIdx}, this.checked)"
@@ -18630,6 +18673,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return;
         }
         if (state.drawMode === 'select') {
+          // Si el clic fue sobre una capa temática clasificada, no abrir popup de geocodificación de dirección
+          const isOverClassified = state.layers && state.layers.some(l => {
+            if (l.type !== 'raster' || !l.visible || !l.bounds || !l.isClassified) return false;
+            const b = l.bounds;
+            const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+            return latlngBounds.contains(e.latlng);
+          });
+          if (isOverClassified) return;
+
           const lat = e.latlng.lat.toFixed(6);
           const lng = e.latlng.lng.toFixed(6);
           try {
