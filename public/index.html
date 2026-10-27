@@ -13845,6 +13845,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function showQgisFolderLinkPrompt(project, missingLayers, onFilesSelected) {
+        window._currentQgisMissingLayers = missingLayers;
+        window._currentQgisProject = project;
+        window._onQgisFolderFilesSelected = onFilesSelected;
+
         const old = document.getElementById('qgisMissingLayersModal');
         if (old) old.remove();
 
@@ -13898,7 +13902,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         document.body.appendChild(modal);
 
-        modal.querySelector('#btnCloseMissingQgisModal').onclick = () => modal.remove();
+        modal.querySelector('#btnCloseMissingQgisModal').onclick = () => {
+            window._onQgisFolderFilesSelected = null;
+            modal.remove();
+        };
 
         modal.querySelector('#btnSelectQgisFolder').onclick = async () => {
             if (typeof window.showDirectoryPicker === 'function') {
@@ -19232,6 +19239,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function processIncomingFiles(files, opts = {}) {
       if (files.length === 0) return;
+
+      if (typeof window._onQgisFolderFilesSelected === 'function') {
+          const handler = window._onQgisFolderFilesSelected;
+          window._onQgisFolderFilesSelected = null;
+          const oldModal = document.getElementById('qgisMissingLayersModal');
+          if (oldModal) oldModal.remove();
+          await handler(files);
+          return;
+      }
 
       const ws = document.getElementById('workspace');
       if (ws) {
