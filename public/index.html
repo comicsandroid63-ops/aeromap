@@ -12977,14 +12977,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (k === 'color' && v) {
                         const parsed = qgisRgbaToCss(v);
                         if (parsed) {
-                            color = parsed;
-                            fillOpacity = parsed.opacity;
+                            if (parsed.opacity > 0 && parsed.hex !== '#000000') {
+                                color = parsed;
+                                fillOpacity = parsed.opacity;
+                            } else if (parsed.opacity > 0) {
+                                color = parsed;
+                                fillOpacity = 0.35;
+                            } else {
+                                color = null; // No forzar negro transparente
+                                fillOpacity = 0.22;
+                            }
                         }
                     } else if ((k === 'outline_color' || k === 'line_color') && v) {
                         const parsed = qgisRgbaToCss(v);
-                        if (parsed) strokeColor = parsed;
+                        if (parsed && parsed.opacity > 0) {
+                            strokeColor = parsed;
+                        }
                     } else if ((k === 'outline_width' || k === 'line_width') && v) {
-                        strokeWidth = parseFloat(v) || 1.5;
+                        const pW = parseFloat(v);
+                        strokeWidth = (!isNaN(pW) && pW > 0) ? Math.max(2.0, pW * 2.5) : 2.0;
                     }
                 }
                 const options = Array.from(renderer.getElementsByTagName('Option'));
@@ -12994,14 +13005,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (k === 'color' && v && !color) {
                         const parsed = qgisRgbaToCss(v);
                         if (parsed) {
-                            color = parsed;
-                            fillOpacity = parsed.opacity;
+                            if (parsed.opacity > 0 && parsed.hex !== '#000000') {
+                                color = parsed;
+                                fillOpacity = parsed.opacity;
+                            } else if (parsed.opacity > 0) {
+                                color = parsed;
+                                fillOpacity = 0.35;
+                            } else {
+                                color = null;
+                                fillOpacity = 0.22;
+                            }
                         }
                     } else if ((k === 'outline_color' || k === 'line_color') && v && !strokeColor) {
                         const parsed = qgisRgbaToCss(v);
-                        if (parsed) strokeColor = parsed;
+                        if (parsed && parsed.opacity > 0) {
+                            strokeColor = parsed;
+                        }
                     } else if ((k === 'outline_width' || k === 'line_width') && v) {
-                        strokeWidth = parseFloat(v) || strokeWidth;
+                        const pW = parseFloat(v);
+                        strokeWidth = (!isNaN(pW) && pW > 0) ? Math.max(2.0, pW * 2.5) : strokeWidth;
                     }
                 }
             }
@@ -15717,7 +15739,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function addVectorLayer(geoJson, name, opts = {}) {
       console.log('[MB] addVectorLayer', { name, color: opts.color, fillOpacity: opts.fillOpacity });
-      const color = opts.color || ('#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'));
+      const VECTOR_PALETTE = ['#38bdf8', '#818cf8', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#60a5fa', '#c084fc'];
+      const rawColor = opts.color;
+      const isColorDarkOrMissing = !rawColor || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(rawColor).toLowerCase().trim());
+      const color = !isColorDarkOrMissing ? rawColor : VECTOR_PALETTE[idCounter % VECTOR_PALETTE.length];
+      const rawStroke = opts.strokeColor;
+      const isStrokeDarkOrMissing = !rawStroke || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(rawStroke).toLowerCase().trim());
+      const strokeColor = !isStrokeDarkOrMissing ? rawStroke : color;
+      const strokeWidth = Math.max(2.0, parseFloat(opts.strokeWidth) || 2.0);
+      const fillOpacity = (opts.fillOpacity !== undefined && opts.fillOpacity > 0.05) ? opts.fillOpacity : 0.22;
+
       const layer = {
         id: ++idCounter,
         name: opts.originalName || name,
@@ -15725,11 +15756,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         geoJson: geoJson,
         visible: opts.visible !== undefined ? opts.visible : true,
         opacity: opts.opacity ?? 1.0,
-        fillOpacity: opts.fillOpacity ?? 1.0,
+        fillOpacity: fillOpacity,
         strokeOpacity: opts.strokeOpacity ?? 1.0,
         color: color,
-        strokeColor: opts.strokeColor || '#333333',
-        strokeWidth: opts.strokeWidth ?? 1.5,
+        strokeColor: strokeColor,
+        strokeWidth: strokeWidth,
         mapLayer: null,
         bounds: null,
         coordInfo: 'WGS84 (Shapefile-js)',
@@ -16043,11 +16074,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         
                         if (l.setStyle) {
                             const origStyle = getVectorFeatureStyle(layer, feature);
-                            const hoverWeight = Math.max((origStyle.weight || 2) + 2, 4);
+                            const hoverWeight = Math.max((origStyle.weight || 2) + 2, 4.5);
                             l.setStyle({
                                 weight: hoverWeight,
                                 color: '#38bdf8',
-                                opacity: 1
+                                opacity: 1,
+                                fillOpacity: origStyle.fill ? Math.min(1, (origStyle.fillOpacity || 0.22) + 0.25) : 0
                             });
                         }
                     },
@@ -16138,21 +16170,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return { fillColor, color: '#d97706', weight: 3, fillOpacity: 0.6, dashArray: '' };
         }
 
-        const strokeColor = p.stroke || p.strokeColor || p['stroke-color'] || layer.strokeColor || '#333333';
-        const weight = p['stroke-width'] || p.strokeWidth || layer.strokeWidth || 1.5;
+        const geomType = feature.geometry ? feature.geometry.type : '';
+        const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
 
-        const fOp = p['fill-opacity'] || p.fillOpacity || 1;
-        const sOp = p['opacity'] || p.opacity || 1;
+        // Garantizar color de relleno visible y no negro invisible
+        let effectiveFill = fillColor;
+        if (!effectiveFill || ['#000000', '#000', '#232323', '#353535', '#333333', 'rgba(0,0,0,0)', 'transparent'].includes(String(effectiveFill).toLowerCase().trim())) {
+            effectiveFill = layer.color && layer.color !== '#000000' ? layer.color : '#38bdf8';
+        }
+
+        // Garantizar borde contrastante y visible en mapas satelitales / oscuros
+        let strokeColor = p.stroke || p.strokeColor || p['stroke-color'] || layer.strokeColor;
+        if (!strokeColor || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(strokeColor).toLowerCase().trim())) {
+            strokeColor = effectiveFill || layer.color || '#38bdf8';
+        }
+
+        const rawWeight = p['stroke-width'] || p.strokeWidth || layer.strokeWidth;
+        const minW = isLine ? 2.5 : 2.0;
+        const weight = Math.max(minW, parseFloat(rawWeight) || minW);
+
+        const fOp = p['fill-opacity'] !== undefined ? p['fill-opacity'] : (p.fillOpacity !== undefined ? p.fillOpacity : 1);
+        const sOp = p['opacity'] !== undefined ? p.opacity : 1;
 
         if (!featureVisible) return { fillOpacity: 0, opacity: 0, weight: 0, stroke: false };
 
+        let baseFill = layer.fillOpacity !== undefined ? layer.fillOpacity : (layer.opacity ?? 0.6);
+        if (baseFill <= 0.05 && !isLine) baseFill = 0.22;
+
+        let baseStrokeOp = layer.strokeOpacity !== undefined ? layer.strokeOpacity : (layer.opacity ?? 1.0);
+        if (baseStrokeOp <= 0.1) baseStrokeOp = 1.0;
+
         var style = {
             color: strokeColor,
-            fillColor: fillColor,
-            fillOpacity: fOp * (layer.fillOpacity !== undefined ? layer.fillOpacity : layer.opacity),
-            opacity: sOp * (layer.strokeOpacity !== undefined ? layer.strokeOpacity : layer.opacity),
+            fillColor: effectiveFill,
+            fillOpacity: isLine ? 0 : (fOp * baseFill),
+            opacity: sOp * baseStrokeOp,
             weight: weight,
-            fill: true
+            fill: !isLine,
+            stroke: true
         };
         if (layer.dashArray) style.dashArray = layer.dashArray;
         var featDash = p['dash-array'] || p.dashArray || p.dash;
@@ -16603,10 +16658,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === id);
       if (!layer) return;
       layer.opacity = val / 100;
+      layer.strokeOpacity = layer.opacity;
+      layer.fillOpacity = layer.opacity * 0.6;
       const el = document.getElementById(`sidebar-opv-${id}`);
       if (el) el.textContent = val + '%';
-      if (layer.mapLayer && typeof layer.mapLayer.setOpacity === 'function') {
-        layer.mapLayer.setOpacity(layer.opacity);
+      if (layer.mapLayer) {
+        if (typeof layer.mapLayer.setStyle === 'function') {
+          layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+        }
+        if (typeof layer.mapLayer.setOpacity === 'function') {
+          layer.mapLayer.setOpacity(layer.opacity);
+        }
       }
       if (typeof emitLayerUpdate === 'function' && layer.dbId) {
         emitLayerUpdate(layer.dbId, { opacity: layer.opacity });
@@ -16617,8 +16679,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === id);
       if (!layer || layer.type !== 'vector') return;
       layer.color = color;
+      layer.strokeColor = color;
+      if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.05) {
+        layer.fillOpacity = 0.35;
+      }
       if (layer.mapLayer && typeof layer.mapLayer.setStyle === 'function') {
-        layer.mapLayer.setStyle({ fillColor: color, color: color });
+        layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
       }
       if (typeof saveLayerToDatabase === 'function') {
         saveLayerToDatabase(layer);
