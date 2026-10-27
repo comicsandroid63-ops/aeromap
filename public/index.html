@@ -16173,16 +16173,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const geomType = feature && feature.geometry ? feature.geometry.type : '';
         const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
 
-        // Color de relleno (respetar negro #000000 y solo reemplazar si es transparente o nulo)
-        let effectiveFill = fillColor;
+        // Color de relleno (respetar layer.color elegido por el usuario, incluido #000000)
+        let effectiveFill = (layer.color) ? layer.color : (p.fill || p.fillColor || p['fill-color'] || p.color || p.COLOR || p.HEX || p.HEX_COLOR || '#38bdf8');
         if (!effectiveFill || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(effectiveFill).toLowerCase().trim())) {
             effectiveFill = layer.color || '#38bdf8';
         }
 
-        // Color de borde / trazo (respetar negro #000000 del layer)
-        let strokeColor = layer.strokeColor || p.stroke || p.strokeColor || p['stroke-color'] || effectiveFill || layer.color || '#38bdf8';
+        // Color de borde / trazo (respetar layer.strokeColor elegido por el usuario, incluido #000000)
+        let strokeColor = (layer.strokeColor) ? layer.strokeColor : (p.stroke || p.strokeColor || p['stroke-color'] || effectiveFill || '#000000');
         if (!strokeColor || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(strokeColor).toLowerCase().trim())) {
-            strokeColor = layer.strokeColor || effectiveFill || layer.color || '#38bdf8';
+            strokeColor = layer.strokeColor || effectiveFill || '#000000';
         }
 
         const rawWeight = p['stroke-width'] || p.strokeWidth || layer.strokeWidth;
@@ -16194,11 +16194,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (!featureVisible) return { fillOpacity: 0, opacity: 0, weight: 0, stroke: false };
 
-        let baseFill = layer.fillOpacity !== undefined ? layer.fillOpacity : (layer.opacity ?? 0.6);
-        if (baseFill <= 0.05 && !isLine) baseFill = 0.22;
-
-        let baseStrokeOp = layer.strokeOpacity !== undefined ? layer.strokeOpacity : (layer.opacity ?? 1.0);
-        if (baseStrokeOp <= 0.1) baseStrokeOp = 1.0;
+        let baseFill = (layer.fillOpacity !== undefined) ? layer.fillOpacity : 0.22;
+        let baseStrokeOp = (layer.strokeOpacity !== undefined) ? layer.strokeOpacity : 1.0;
 
         var style = {
             color: strokeColor,
@@ -16206,7 +16203,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             fillOpacity: isLine ? 0 : (fOp * baseFill),
             opacity: sOp * baseStrokeOp,
             weight: weight,
-            fill: !isLine,
+            fill: !isLine && baseFill > 0,
             stroke: true
         };
         if (layer.dashArray) style.dashArray = layer.dashArray;
@@ -16675,13 +16672,47 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
-    function updateVectorColorInline(id, color) {
+    function updateVectorStrokeColorInline(id, color) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer || layer.type !== 'vector') return;
+      layer.strokeColor = color;
+      if (layer.mapLayer) {
+        if (typeof layer.mapLayer.setStyle === 'function') {
+          layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+        }
+        if (typeof layer.mapLayer.eachLayer === 'function') {
+          layer.mapLayer.eachLayer(l => {
+            if (l.setStyle) {
+              l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
+            }
+          });
+        }
+      }
+      const hexSpan = document.getElementById(`vector-stroke-hex-${layer.id}`);
+      if (hexSpan) {
+        hexSpan.textContent = color;
+      }
+      const bullet = document.getElementById(`layer-bullet-${layer.id}`);
+      if (bullet) {
+        bullet.style.borderColor = color;
+      }
+      if (typeof debouncedSave === 'function') {
+        debouncedSave(layer);
+      } else if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+    }
+
+    function updateVectorFillColorInline(id, color) {
       const layer = state.layers.find(l => l.id === id);
       if (!layer || layer.type !== 'vector') return;
       layer.color = color;
-      layer.strokeColor = color;
-      if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.05) {
+      if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.02) {
         layer.fillOpacity = 0.35;
+        const opSlider = document.querySelector(`input[oninput*="updateVectorFillOpacityInline(${layer.id}"]`);
+        if (opSlider) opSlider.value = 35;
+        const opSpan = document.getElementById(`sidebar-fill-opv-${layer.id}`);
+        if (opSpan) opSpan.textContent = '35%';
       }
       if (layer.mapLayer) {
         if (typeof layer.mapLayer.setStyle === 'function') {
@@ -16695,7 +16726,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           });
         }
       }
-      const hexSpan = document.getElementById(`vector-color-hex-${layer.id}`);
+      const hexSpan = document.getElementById(`vector-fill-hex-${layer.id}`);
       if (hexSpan) {
         hexSpan.textContent = color;
       }
@@ -16708,6 +16739,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       } else if (typeof saveLayerToDatabase === 'function') {
         saveLayerToDatabase(layer);
       }
+    }
+
+    function updateVectorFillOpacityInline(id, value) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer || layer.type !== 'vector') return;
+      const val = parseFloat(value) / 100;
+      layer.fillOpacity = val;
+      if (layer.mapLayer) {
+        if (typeof layer.mapLayer.setStyle === 'function') {
+          layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+        }
+        if (typeof layer.mapLayer.eachLayer === 'function') {
+          layer.mapLayer.eachLayer(l => {
+            if (l.setStyle) {
+              l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
+            }
+          });
+        }
+      }
+      const span = document.getElementById(`sidebar-fill-opv-${layer.id}`);
+      if (span) span.textContent = `${Math.round(val * 100)}%`;
+      if (typeof debouncedSave === 'function') {
+        debouncedSave(layer);
+      } else if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+    }
+
+    function updateVectorColorInline(id, color) {
+      updateVectorFillColorInline(id, color);
     }
 
     // ══════════════════════════════════════════
@@ -18109,6 +18170,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.updateRasterBandCustom = updateRasterBandCustom;
     window.setLayerOpacity = setLayerOpacity;
     window.updateVectorColorInline = updateVectorColorInline;
+    window.updateVectorFillColorInline = updateVectorFillColorInline;
+    window.updateVectorStrokeColorInline = updateVectorStrokeColorInline;
+    window.updateVectorFillOpacityInline = updateVectorFillOpacityInline;
 
     function updateLayersSidebar() {
       $layerCount.textContent = state.layers.length;
@@ -18365,15 +18429,47 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </div>
         </div>
         ` : `
-        <!-- Estilo Vectorial inline -->
-        <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200/80">
-          <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-500">Color Vectorial:</span>
-          <div class="flex items-center gap-1.5">
-            <input type="color" value="${layer.color || '#38bdf8'}" 
-              oninput="event.stopPropagation(); updateVectorColorInline(${layer.id}, this.value)"
-              onchange="event.stopPropagation(); updateVectorColorInline(${layer.id}, this.value)"
-              class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white">
-            <span id="vector-color-hex-${layer.id}" class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#38bdf8'}</span>
+        <!-- Estilo Vectorial inline: Borde y Relleno -->
+        <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
+          <!-- 1. Color de Borde / Trazo -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-600 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-zinc-400">border_color</span>
+              Color Borde / Trazo:
+            </span>
+            <div class="flex items-center gap-1.5">
+              <input type="color" value="${layer.strokeColor || '#000000'}" 
+                oninput="event.stopPropagation(); updateVectorStrokeColorInline(${layer.id}, this.value)"
+                onchange="event.stopPropagation(); updateVectorStrokeColorInline(${layer.id}, this.value)"
+                class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white" title="Color del borde o contorno">
+              <span id="vector-stroke-hex-${layer.id}" class="text-[8.5px] font-mono text-zinc-500">${layer.strokeColor || '#000000'}</span>
+            </div>
+          </div>
+
+          <!-- 2. Color de Relleno -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-600 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-zinc-400">format_color_fill</span>
+              Color de Relleno:
+            </span>
+            <div class="flex items-center gap-1.5">
+              <input type="color" value="${layer.color || '#38bdf8'}" 
+                oninput="event.stopPropagation(); updateVectorFillColorInline(${layer.id}, this.value)"
+                onchange="event.stopPropagation(); updateVectorFillColorInline(${layer.id}, this.value)"
+                class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white" title="Color del relleno">
+              <span id="vector-fill-hex-${layer.id}" class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#38bdf8'}</span>
+            </div>
+          </div>
+
+          <!-- 3. Opacidad de Relleno -->
+          <div class="flex flex-col gap-1 pt-1 border-t border-zinc-100">
+            <div class="flex items-center justify-between">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-zinc-400">Opacidad Relleno</span>
+              <span class="text-[8px] font-mono font-bold text-zinc-600" id="sidebar-fill-opv-${layer.id}">${Math.round((layer.fillOpacity ?? 0.35) * 100)}%</span>
+            </div>
+            <input type="range" min="0" max="100" value="${Math.round((layer.fillOpacity ?? 0.35) * 100)}"
+              oninput="event.stopPropagation(); updateVectorFillOpacityInline(${layer.id}, this.value)"
+              class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
           </div>
         </div>
         `)}
