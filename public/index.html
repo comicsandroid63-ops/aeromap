@@ -26724,44 +26724,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const listCont = document.getElementById('mergeLayersCheckList');
         const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
 
-        if (vectorLayers.length === 0) {
-            toast('No hay capas vectoriales cargadas en el mapa.', 'warning');
-            return;
+        if (listCont) {
+            if (vectorLayers.length === 0) {
+                listCont.innerHTML = '<div class="p-3 text-center text-xs text-zinc-400 italic">No hay capas vectoriales cargadas en el mapa. Carga o dibuja capas para fusionar.</div>';
+            } else {
+                listCont.innerHTML = vectorLayers.map((l, i) => {
+                    const count = (l.geoJson && l.geoJson.features) ? l.geoJson.features.length : 1;
+                    return `
+                      <label class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-100 cursor-pointer transition-colors group">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                          <input type="checkbox" value="${l.id}" checked class="merge-layer-chk w-4 h-4 rounded text-emerald-600 border-zinc-300 focus:ring-emerald-500 cursor-pointer" onchange="updateMergeCount()">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${l.color || '#3b82f6'};"></span>
+                          <span class="text-xs font-semibold text-zinc-800 truncate">${l.name}</span>
+                        </div>
+                        <span class="text-[10px] text-zinc-400 font-mono shrink-0">${count} ent.</span>
+                      </label>`;
+                }).join('');
+            }
         }
-
-        listCont.innerHTML = vectorLayers.map((l, i) => {
-            const count = (l.geoJson && l.geoJson.features) ? l.geoJson.features.length : 1;
-            return `
-              <label class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-100 cursor-pointer transition-colors group">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <input type="checkbox" value="${l.id}" checked class="merge-layer-chk w-4 h-4 rounded text-emerald-600 border-zinc-300 focus:ring-emerald-500 cursor-pointer" onchange="updateMergeCount()">
-                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${l.color || '#3b82f6'};"></span>
-                  <span class="text-xs font-semibold text-zinc-900 truncate" title="${l.name}">${l.name}</span>
-                </div>
-                <span class="text-[9px] font-bold text-zinc-400 shrink-0">${count} obj</span>
-              </label>
-            `;
-        }).join('');
-
-        updateMergeCount();
-        document.getElementById('mergeOutputName').value = `Capas Unidas (${vectorLayers.length})`;
+        if (typeof updateMergeCount === 'function') updateMergeCount();
         modal.style.display = 'flex';
-    }
-
-    function updateMergeCount() {
-        const checked = document.querySelectorAll('.merge-layer-chk:checked');
-        const lbl = document.getElementById('mergeSelectedCount');
-        if (lbl) lbl.textContent = `${checked.length} seleccionadas`;
-    }
-
-    function toggleSelectAllMergeLayers() {
-        const chks = document.querySelectorAll('.merge-layer-chk');
-        if (chks.length === 0) return;
-        const allChecked = Array.from(chks).every(c => c.checked);
-        chks.forEach(c => c.checked = !allChecked);
-        const btn = document.getElementById('btnSelectAllMerge');
-        if (btn) btn.textContent = allChecked ? 'Seleccionar Todas' : 'Deseleccionar Todas';
-        updateMergeCount();
     }
 
     function closeVectorAdvancedModal() {
