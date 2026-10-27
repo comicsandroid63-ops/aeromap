@@ -14312,6 +14312,306 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       ]
     };
 
+    function getBandIndices(bCount) {
+      if (bCount >= 7) {
+        // Landsat 8/9 Level 2: 0: Coastal, 1: Blue, 2: Green, 3: Red, 4: NIR, 5: SWIR1, 6: SWIR2
+        return { coastal: 0, blue: 1, green: 2, red: 3, nir: 4, swir1: 5, swir2: 6 };
+      } else if (bCount >= 5) {
+        return { blue: 0, green: 1, red: 2, nir: 3, swir1: 4 };
+      } else if (bCount === 4) {
+        return { blue: 0, green: 1, red: 2, nir: 3 };
+      } else {
+        return { red: 0, green: 1, blue: 2 };
+      }
+    }
+
+    function analyzeClusterSpectralValues(meanVals, bCount, globalMaxVal = 10000) {
+      const bIdx = getBandIndices(bCount);
+      let ndvi = null;
+      let ndwi = null;
+      let mndwi = null;
+      let ndbi = null;
+      let brightness = 0;
+
+      if (bIdx.nir !== undefined && bIdx.red !== undefined) {
+        const nir = meanVals[bIdx.nir] || 0;
+        const red = meanVals[bIdx.red] || 0;
+        const green = meanVals[bIdx.green] || 0;
+        const blue = meanVals[bIdx.blue] || 0;
+        const swir1 = bIdx.swir1 !== undefined ? (meanVals[bIdx.swir1] || 0) : 0;
+
+        if (nir + red > 1e-4) ndvi = (nir - red) / (nir + red);
+        if (green + nir > 1e-4) ndwi = (green - nir) / (green + nir);
+        if (bIdx.swir1 !== undefined && green + swir1 > 1e-4) {
+          mndwi = (green - swir1) / (green + swir1);
+        }
+        if (bIdx.swir1 !== undefined && swir1 + nir > 1e-4) {
+          ndbi = (swir1 - nir) / (swir1 + nir);
+        }
+        brightness = (blue + green + red + nir) / 4;
+      } else {
+        const r = meanVals[0] || 0;
+        const g = meanVals[1] || 0;
+        const b = meanVals[2] || 0;
+        brightness = (r + g + b) / 3;
+        if (g + r > 1e-4) ndvi = (g - r) / (g + r);
+        if (b + r > 1e-4) ndwi = (b - r) / (b + r);
+      }
+
+      const normBrightness = brightness / (globalMaxVal || 1);
+      return { ndvi, ndwi, mndwi, ndbi, brightness, normBrightness, meanVals };
+    }
+
+    function getDomainIcon(domain) {
+      switch (domain) {
+        case 'water': return 'water_drop';
+        case 'veg_dense': return 'forest';
+        case 'veg_moderate': return 'potted_plant';
+        case 'veg_low': return 'grass';
+        case 'soil': return 'terrain';
+        case 'urban': return 'location_city';
+        case 'bright': return 'landscape';
+        case 'shadow': return 'dark_mode';
+        default: return 'scatter_plot';
+      }
+    }
+
+    function characterizeClusters(clustersInfo, bCount, globalMaxVal = 10000) {
+      const analyzed = clustersInfo.map(c => {
+        const metrics = analyzeClusterSpectralValues(c.meanVals, bCount, globalMaxVal);
+        let domain = 'urban';
+        const ndvi = metrics.ndvi ?? 0;
+        const ndwi = metrics.ndwi ?? 0;
+        const mndwi = metrics.mndwi ?? 0;
+        const bIdx = getBandIndices(bCount);
+
+        const isWaterMultispectral = bIdx.nir !== undefined && (
+          ndwi > 0 || mndwi > 0.05 ||
+          (c.meanVals[bIdx.nir] < 0.14 * globalMaxVal && c.meanVals[bIdx.red] < 0.18 * globalMaxVal && (c.meanVals[bIdx.blue] >= c.meanVals[bIdx.red] || c.meanVals[bIdx.green] >= c.meanVals[bIdx.red]))
+        );
+        const isWaterRGB = bIdx.nir === undefined && (
+          (metrics.normBrightness < 0.20 && metrics.meanVals[2] >= metrics.meanVals[0]) ||
+          (metrics.meanVals[2] > metrics.meanVals[0] * 1.15 && metrics.normBrightness < 0.45)
+        );
+
+        if (metrics.normBrightness < 0.05 && ndvi < 0.10) {
+          domain = 'shadow';
+        } else if (isWaterMultispectral || isWaterRGB) {
+          domain = 'water';
+        } else if (ndvi >= 0.45) {
+          domain = 'veg_dense';
+        } else if (ndvi >= 0.22) {
+          domain = 'veg_moderate';
+        } else if (ndvi >= 0.12) {
+          domain = 'veg_low';
+        } else if (bCount >= 5 && bIdx.swir1 !== undefined && (c.meanVals[bIdx.swir1] > c.meanVals[bIdx.red] || c.meanVals[bIdx.red] > c.meanVals[bIdx.green])) {
+          domain = 'soil';
+        } else if (bCount === 3 && metrics.meanVals[0] > metrics.meanVals[1] && metrics.meanVals[0] > metrics.meanVals[2] * 1.15) {
+          domain = 'soil';
+        } else if (metrics.normBrightness > 0.48) {
+          domain = 'bright';
+        } else {
+          domain = 'urban';
+        }
+        return { ...c, ...metrics, domain };
+      });
+
+      // Group by domain and differentiate
+      const domains = {};
+      analyzed.forEach(a => {
+        if (!domains[a.domain]) domains[a.domain] = [];
+        domains[a.domain].push(a);
+      });
+
+      // Differentiate water
+      if (domains['water']) {
+        domains['water'].sort((a, b) => a.brightness - b.brightness);
+        const wColors = ['#1e3a8a', '#1d4ed8', '#0284c7', '#06b6d4'];
+        const wNames = [
+          'Agua Profunda / Humedales Densos',
+          'Cuerpos de Agua Someros / Ríos',
+          'Agua Turbia / Planicie Inundable',
+          'Humedales / Zonas Anegadas'
+        ];
+        domains['water'].forEach((item, idx) => {
+          item.assignedColor = wColors[Math.min(idx, wColors.length - 1)];
+          item.assignedName = domains['water'].length === 1 ? 'Cuerpos de Agua / Humedales' : (wNames[idx] || `Agua (Clase ${idx + 1})`);
+          item.signatureLabel = `NDWI ${item.ndwi >= 0 ? '+' : ''}${item.ndwi.toFixed(2)}`;
+        });
+      }
+
+      // Differentiate dense vegetation
+      if (domains['veg_dense']) {
+        domains['veg_dense'].sort((a, b) => b.ndvi - a.ndvi);
+        const vdColors = ['#15803d', '#166534', '#14532d', '#052e16'];
+        const vdNames = [
+          'Vegetación Muy Densa / Dosel Cerrado',
+          'Bosque Denso / Vigor Alto',
+          'Vegetación Densa / Bosque Húmedo',
+          'Bosque de Galería / Cobertura Alta'
+        ];
+        domains['veg_dense'].forEach((item, idx) => {
+          item.assignedColor = vdColors[Math.min(idx, vdColors.length - 1)];
+          item.assignedName = domains['veg_dense'].length === 1 ? 'Vegetación Densa / Bosque' : (vdNames[idx] || `Bosque Denso ${idx + 1}`);
+          item.signatureLabel = `NDVI ${item.ndvi >= 0 ? '+' : ''}${item.ndvi.toFixed(2)}`;
+        });
+      }
+
+      // Differentiate moderate vegetation
+      if (domains['veg_moderate']) {
+        domains['veg_moderate'].sort((a, b) => b.ndvi - a.ndvi);
+        const vmColors = ['#22c55e', '#65a30d', '#16a34a', '#4d7c0f'];
+        const vmNames = [
+          'Cultivos / Vegetación Activa',
+          'Vegetación Moderada / Matorral',
+          'Pastos Mejorados / Cultivos Menores',
+          'Sabana Arbolada / Cobertura Mixta'
+        ];
+        domains['veg_moderate'].forEach((item, idx) => {
+          item.assignedColor = vmColors[Math.min(idx, vmColors.length - 1)];
+          item.assignedName = domains['veg_moderate'].length === 1 ? 'Vegetación Moderada / Cultivos' : (vmNames[idx] || `Cultivos/Vegetación ${idx + 1}`);
+          item.signatureLabel = `NDVI ${item.ndvi >= 0 ? '+' : ''}${item.ndvi.toFixed(2)}`;
+        });
+      }
+
+      // Differentiate low vegetation
+      if (domains['veg_low']) {
+        domains['veg_low'].sort((a, b) => b.ndvi - a.ndvi);
+        const vlColors = ['#84cc16', '#a3e635', '#bef264', '#d9f99d'];
+        const vlNames = [
+          'Pastizales / Sabana Herbácea',
+          'Vegetación Baja / Rastrojo',
+          'Pastos Secos / Vegetación Dispersa',
+          'Matorral Espinoso / Sabana Abierta'
+        ];
+        domains['veg_low'].forEach((item, idx) => {
+          item.assignedColor = vlColors[Math.min(idx, vlColors.length - 1)];
+          item.assignedName = domains['veg_low'].length === 1 ? 'Pastizales / Vegetación Baja' : (vlNames[idx] || `Pastos/Baja ${idx + 1}`);
+          item.signatureLabel = `NDVI ${item.ndvi >= 0 ? '+' : ''}${item.ndvi.toFixed(2)}`;
+        });
+      }
+
+      // Differentiate soils
+      if (domains['soil']) {
+        domains['soil'].sort((a, b) => b.brightness - a.brightness);
+        const sColors = ['#d97706', '#b45309', '#92400e', '#78350f'];
+        const sNames = [
+          'Suelo Árido Seco / Arena',
+          'Suelo Expuesto / Barbecho',
+          'Suelo con Cobertura Dispersa',
+          'Suelo Húmedo / Sustrato Arcilloso'
+        ];
+        domains['soil'].forEach((item, idx) => {
+          item.assignedColor = sColors[Math.min(idx, sColors.length - 1)];
+          item.assignedName = domains['soil'].length === 1 ? 'Suelo Expuesto / Terrenos Áridos' : (sNames[idx] || `Suelo ${idx + 1}`);
+          item.signatureLabel = `NDVI ${item.ndvi >= 0 ? '+' : ''}${item.ndvi.toFixed(2)} | Refl: ${Math.round(item.brightness)}`;
+        });
+      }
+
+      // Differentiate urban
+      if (domains['urban']) {
+        domains['urban'].sort((a, b) => a.brightness - b.brightness);
+        const uColors = ['#64748b', '#475569', '#334155'];
+        const uNames = [
+          'Áreas Urbanas / Asfalto / Vías',
+          'Construcciones / Infraestructura',
+          'Zonas Urbanas Consolidadas'
+        ];
+        domains['urban'].forEach((item, idx) => {
+          item.assignedColor = uColors[Math.min(idx, uColors.length - 1)];
+          item.assignedName = domains['urban'].length === 1 ? 'Áreas Urbanas / Asfalto' : (uNames[idx] || `Urbano ${idx + 1}`);
+          item.signatureLabel = `Refl: ${Math.round(item.brightness)}`;
+        });
+      }
+
+      // Differentiate bright / rock / high albedo
+      if (domains['bright']) {
+        domains['bright'].sort((a, b) => a.brightness - b.brightness);
+        const bColors = ['#94a3b8', '#cbd5e1', '#f1f5f9'];
+        const bNames = [
+          'Superficies Claras / Rocas / Canteras',
+          'Calizas / Techos Metálicos / Arena Muy Clara',
+          'Nubes / Alta Reflectancia'
+        ];
+        domains['bright'].forEach((item, idx) => {
+          item.assignedColor = bColors[Math.min(idx, bColors.length - 1)];
+          item.assignedName = domains['bright'].length === 1 ? 'Superficies Claras / Rocas' : (bNames[idx] || `Alta Reflectancia ${idx + 1}`);
+          item.signatureLabel = `Refl: ${Math.round(item.brightness)}`;
+        });
+      }
+
+      // Differentiate shadows
+      if (domains['shadow']) {
+        domains['shadow'].forEach((item) => {
+          item.assignedColor = '#1e293b';
+          item.assignedName = 'Sombras Topográficas / Terrenos Ocupados';
+          item.signatureLabel = `Sombra`;
+        });
+      }
+
+      return analyzed;
+    }
+
+    function fastKMeans(data, k, iters = 6, dataDims = null) {
+      const dims = dataDims || (data[0] ? data[0].length : 1);
+      function distSq(a, b) {
+        let s = 0;
+        for (let i = 0; i < dims; i++) {
+          const d = a[i] - b[i];
+          s += d * d;
+        }
+        return s;
+      }
+
+      const centers = [data[Math.floor(Math.random() * data.length)].slice()];
+      while (centers.length < k) {
+        let tot = 0;
+        const dArr = new Float32Array(data.length);
+        for (let i = 0; i < data.length; i++) {
+          let minD = Infinity;
+          for (let c = 0; c < centers.length; c++) {
+            const d = distSq(data[i], centers[c]);
+            if (d < minD) minD = d;
+          }
+          dArr[i] = minD;
+          tot += minD;
+        }
+        let r = Math.random() * tot;
+        let nextI = data.length - 1;
+        for (let i = 0; i < data.length; i++) {
+          r -= dArr[i];
+          if (r <= 0) { nextI = i; break; }
+        }
+        centers.push(data[nextI].slice());
+      }
+
+      let sse = 0;
+      let finalCounts = new Int32Array(k);
+      for (let it = 0; it < iters; it++) {
+        sse = 0;
+        const counts = new Int32Array(k);
+        const sums = Array.from({ length: k }, () => new Float32Array(dims));
+        for (let i = 0; i < data.length; i++) {
+          let minD = Infinity;
+          let bestC = 0;
+          for (let c = 0; c < k; c++) {
+            const d = distSq(data[i], centers[c]);
+            if (d < minD) { minD = d; bestC = c; }
+          }
+          counts[bestC]++;
+          sse += minD;
+          for (let d = 0; d < dims; d++) sums[bestC][d] += data[i][d];
+        }
+        for (let c = 0; c < k; c++) {
+          if (counts[c] > 0) {
+            for (let d = 0; d < dims; d++) centers[c][d] = sums[c][d] / counts[c];
+          }
+        }
+        finalCounts = counts;
+      }
+      return { centers, counts: finalCounts, sse };
+    }
+
     function getDefaultClassesForK(k) {
       if (STANDARD_THEMATIC_PALETTES[k]) {
         return STANDARD_THEMATIC_PALETTES[k].map((item, idx) => ({
@@ -14487,67 +14787,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       state._unsupervisedNormData = { dims, mins, maxs, normSamples };
 
       // Curva de codo (Elbow Test)
-      function distSq(a, b) {
-        let s = 0;
-        for (let i = 0; i < a.length; i++) {
-          const d = a[i] - b[i];
-          s += d * d;
-        }
-        return s;
-      }
-
-      function fastKMeans(data, k, iters = 6) {
-        const centers = [data[Math.floor(Math.random() * data.length)].slice()];
-        while (centers.length < k) {
-          let tot = 0;
-          const dArr = new Float32Array(data.length);
-          for (let i = 0; i < data.length; i++) {
-            let minD = Infinity;
-            for (let c = 0; c < centers.length; c++) {
-              const d = distSq(data[i], centers[c]);
-              if (d < minD) minD = d;
-            }
-            dArr[i] = minD;
-            tot += minD;
-          }
-          let r = Math.random() * tot;
-          let nextI = data.length - 1;
-          for (let i = 0; i < data.length; i++) {
-            r -= dArr[i];
-            if (r <= 0) { nextI = i; break; }
-          }
-          centers.push(data[nextI].slice());
-        }
-
-        let sse = 0;
-        for (let it = 0; it < iters; it++) {
-          sse = 0;
-          const counts = new Int32Array(k);
-          const sums = Array.from({ length: k }, () => new Float32Array(dims));
-          for (let i = 0; i < data.length; i++) {
-            let minD = Infinity;
-            let bestC = 0;
-            for (let c = 0; c < k; c++) {
-              const d = distSq(data[i], centers[c]);
-              if (d < minD) { minD = d; bestC = c; }
-            }
-            counts[bestC]++;
-            sse += minD;
-            for (let d = 0; d < dims; d++) sums[bestC][d] += data[i][d];
-          }
-          for (let c = 0; c < k; c++) {
-            if (counts[c] > 0) {
-              for (let d = 0; d < dims; d++) centers[c][d] = sums[c][d] / counts[c];
-            }
-          }
-        }
-        return { centers, sse };
-      }
-
       const sseList = [];
       for (let k = 1; k <= 7; k++) {
-        const r1 = fastKMeans(normSamples, k);
-        const r2 = fastKMeans(normSamples, k);
+        const r1 = fastKMeans(normSamples, k, 5, dims);
+        const r2 = fastKMeans(normSamples, k, 5, dims);
         sseList.push({ k, sse: Math.min(r1.sse, r2.sse) });
       }
 
@@ -14568,18 +14811,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (recommendedK < 4) recommendedK = 4;
       if (recommendedK > 6) recommendedK = 5;
 
-      const detectedFeatures = [
-        { name: "Cuerpos de Agua / Humedales", icon: "water_drop", color: "#1d4ed8" },
-        { name: "Vegetación Densa / Bosque", icon: "forest", color: "#15803d" },
-        { name: "Vegetación Baja / Cultivos", icon: "potted_plant", color: "#84cc16" },
-        { name: "Suelos Expuestos / Terrenos Áridos", icon: "terrain", color: "#d97706" },
-        { name: "Zonas Urbanas / Superficies Claras", icon: "location_city", color: "#64748b" }
-      ];
-      if (recommendedK >= 6) {
-        detectedFeatures.push({ name: "Rocas / Cobertura Mineral", icon: "landscape", color: "#78716c" });
-      }
+      const globalMaxVal = Math.max(...maxs) || (spectralData.type === 'multispectral' ? 10000 : 255);
+      const bCount = spectralData.bandsCount;
+      const rRec = fastKMeans(normSamples, recommendedK, 6, dims);
+      const sampleClusters = rRec.centers.map((cNorm, idx) => {
+        const meanVals = new Float32Array(dims);
+        for (let d = 0; d < dims; d++) {
+          meanVals[d] = mins[d] + cNorm[d] * (maxs[d] - mins[d]);
+        }
+        const cnt = rRec.counts ? rRec.counts[idx] : 1;
+        const pct = rRec.counts ? ((cnt / (normSamples.length || 1)) * 100).toFixed(1) : '0.0';
+        return { id: idx, meanVals, count: cnt, percentage: pct };
+      });
 
-      const desc = `El análisis espectral procesó ${rawSamples.length.toLocaleString()} muestras sobre las bandas satelitales. El método del codo (Elbow Test) identifica un punto óptimo en ${recommendedK} clases con ${varExplainedAtRec.toFixed(1)}% de inercia espectral explicada, permitiendo distinguir agua, bosques, cultivos, suelos áridos y zonas urbanas sin sobrefragmentar el paisaje.`;
+      const recChar = characterizeClusters(sampleClusters, bCount, globalMaxVal);
+      const detectedFeatures = recChar.map(c => ({
+        name: c.assignedName,
+        icon: getDomainIcon(c.domain),
+        color: c.assignedColor
+      }));
+
+      const desc = `El análisis espectral procesó ${rawSamples.length.toLocaleString()} muestras sobre las bandas satelitales. El método del codo (Elbow Test) identifica un punto óptimo en ${recommendedK} clases con ${varExplainedAtRec.toFixed(1)}% de inercia espectral explicada. Se detectaron coberturas diferenciadas por sus firmas espectrales reales (${recChar.map(c => c.assignedName).join(', ')}).`;
 
       return {
         recommendedK,
@@ -14680,13 +14932,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function renderUnsupervisedClassesTable(k) {
-      const defaultClasses = getDefaultClassesForK(k);
-      state._unsupervisedCurrentClasses = defaultClasses;
+      const spectralData = state._unsupervisedSpectralData;
+      const normData = state._unsupervisedNormData;
+      let classes = [];
+
+      if (normData && normData.normSamples && normData.normSamples.length > 0) {
+        const dims = normData.dims;
+        const r = fastKMeans(normData.normSamples, k, 6, dims);
+        const globalMaxVal = Math.max(...normData.maxs) || (spectralData?.type === 'multispectral' ? 10000 : 255);
+        const bCount = spectralData ? spectralData.bandsCount : dims;
+
+        const clustersInfo = r.centers.map((cNorm, idx) => {
+          const meanVals = new Float32Array(dims);
+          for (let d = 0; d < dims; d++) {
+            meanVals[d] = normData.mins[d] + cNorm[d] * (normData.maxs[d] - normData.mins[d]);
+          }
+          const cnt = r.counts ? r.counts[idx] : 1;
+          const pct = r.counts ? ((cnt / (normData.normSamples.length || 1)) * 100).toFixed(1) : '0.0';
+          return { id: idx, meanVals, count: cnt, percentage: pct };
+        });
+
+        const characterized = characterizeClusters(clustersInfo, bCount, globalMaxVal);
+        classes = characterized.map(ch => ({
+          id: ch.id,
+          name: ch.assignedName,
+          color: ch.assignedColor,
+          signatureLabel: ch.signatureLabel,
+          percentage: ch.percentage,
+          domain: ch.domain,
+          ndvi: ch.ndvi,
+          meanVals: Array.from(ch.meanVals),
+          visible: true
+        }));
+      } else {
+        classes = getDefaultClassesForK(k);
+      }
+
+      state._unsupervisedCurrentClasses = classes;
 
       const $table = document.getElementById('unsupervisedClassesTable');
       if (!$table) return;
 
-      $table.innerHTML = defaultClasses.map((cls, idx) => `
+      $table.innerHTML = classes.map((cls, idx) => `
         <div class="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-zinc-200/90 shadow-2xs">
           <div class="flex items-center gap-2 flex-1 min-w-0">
             <input type="color" value="${cls.color}" 
@@ -14696,6 +14983,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               <input type="text" value="${cls.name}"
                 oninput="onModalClassNameChange(${idx}, this.value)"
                 class="w-full text-[10.5px] font-bold text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-1.5 py-0.5 border border-transparent focus:border-indigo-400 outline-none transition-colors">
+              ${cls.signatureLabel ? `<span class="text-[8px] font-mono text-zinc-500 font-bold px-1">${cls.signatureLabel} • ${cls.percentage}% estimado</span>` : ''}
             </div>
           </div>
           <span class="text-[8.5px] font-mono font-bold text-zinc-400 uppercase tracking-wider shrink-0">Clase ${idx + 1}</span>
@@ -14706,12 +14994,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function onModalClassColorChange(idx, newColor) {
       if (state._unsupervisedCurrentClasses && state._unsupervisedCurrentClasses[idx]) {
         state._unsupervisedCurrentClasses[idx].color = newColor;
+        state._unsupervisedCurrentClasses[idx].customEdited = true;
       }
     }
 
     function onModalClassNameChange(idx, newName) {
       if (state._unsupervisedCurrentClasses && state._unsupervisedCurrentClasses[idx]) {
         state._unsupervisedCurrentClasses[idx].name = newName;
+        state._unsupervisedCurrentClasses[idx].customEdited = true;
       }
     }
 
@@ -14819,6 +15109,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const pixelClusterMap = new Int16Array(totalPixels);
           pixelClusterMap.fill(-1);
           const classCounts = new Int32Array(k);
+          const clusterSums = Array.from({ length: k }, () => new Float64Array(dims));
           let validCount = 0;
 
           const normPixel = new Float32Array(dims);
@@ -14853,10 +15144,58 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             pixelClusterMap[i] = bestC;
             classCounts[bestC]++;
             validCount++;
+
+            // Sumar valores reales de píxeles
+            if (spectralData.type === 'multispectral') {
+              for (let d = 0; d < dims; d++) {
+                clusterSums[bestC][d] += spectralData.bands[d][i];
+              }
+            } else {
+              const p = i * 4;
+              clusterSums[bestC][0] += spectralData.data[p];
+              clusterSums[bestC][1] += spectralData.data[p + 1];
+              clusterSums[bestC][2] += spectralData.data[p + 2];
+            }
           }
 
-          // 4. Pintar en lienzo canvas
-          const rgbClasses = userClasses.map(cls => {
+          // 4. Analizar los valores reales de los centroides de píxeles
+          const globalMaxVal = Math.max(...normData.maxs) || (spectralData.type === 'multispectral' ? 10000 : 255);
+          const clustersInfo = [];
+          for (let c = 0; c < k; c++) {
+            const meanVals = new Float32Array(dims);
+            for (let d = 0; d < dims; d++) {
+              meanVals[d] = classCounts[c] > 0 ? (clusterSums[c][d] / classCounts[c]) : 0;
+            }
+            const pct = validCount > 0 ? ((classCounts[c] / validCount) * 100).toFixed(1) : '0.0';
+            clustersInfo.push({ id: c, meanVals, count: classCounts[c], percentage: pct });
+          }
+
+          const characterized = characterizeClusters(clustersInfo, bCount, globalMaxVal);
+
+          // Unir con posibles personalizaciones del usuario en el modal
+          const userClasses = state._unsupervisedCurrentClasses || [];
+          const finalClasses = characterized.map((ch, idx) => {
+            const userCls = userClasses[idx];
+            const isUserEdited = userCls && userCls.customEdited;
+            const name = (isUserEdited && userCls.name) ? userCls.name : ch.assignedName;
+            const color = (isUserEdited && userCls.color) ? userCls.color : ch.assignedColor;
+
+            return {
+              id: idx,
+              name: name,
+              color: color,
+              count: ch.count,
+              percentage: ch.percentage,
+              signatureLabel: ch.signatureLabel,
+              domain: ch.domain,
+              ndvi: ch.ndvi,
+              meanVals: Array.from(ch.meanVals),
+              visible: true
+            };
+          });
+
+          // 5. Pintar en lienzo canvas con los colores asignados según valores reales
+          const rgbClasses = finalClasses.map(cls => {
             const hex = (cls.color || '#000000').replace('#', '');
             return [
               parseInt(hex.substring(0, 2), 16) || 0,
@@ -14875,7 +15214,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let i = 0; i < totalPixels; i++) {
             const c = pixelClusterMap[i];
             const p = i * 4;
-            if (c < 0 || c >= k || userClasses[c].visible === false) {
+            if (c < 0 || c >= k || finalClasses[c].visible === false) {
               data[p] = data[p + 1] = data[p + 2] = data[p + 3] = 0;
             } else {
               const rgb = rgbClasses[c];
@@ -14886,16 +15225,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
           ctx.putImageData(imgData, 0, 0);
-
-          // 5. Crear clases finales con porcentajes
-          const finalClasses = userClasses.map((cls, idx) => ({
-            id: idx,
-            name: cls.name,
-            color: cls.color,
-            count: classCounts[idx],
-            percentage: validCount > 0 ? ((classCounts[idx] / validCount) * 100).toFixed(1) : '0.0',
-            visible: true
-          }));
 
           const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
           const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
@@ -15166,7 +15495,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     onchange="event.stopPropagation(); updateClassifiedLayerColor(${layer.id}, ${cIdx}, this.value)"
                     title="Personalizar color de esta cobertura"
                     class="w-5 h-5 rounded border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
-                  <span class="text-[9px] font-bold text-zinc-800 truncate" title="${cls.name}">${cls.name}</span>
+                  <div class="flex flex-col flex-1 min-w-0">
+                    <span class="text-[9px] font-bold text-zinc-800 truncate" title="${cls.name}">${cls.name}</span>
+                    ${cls.signatureLabel ? `<span class="text-[7.5px] font-mono text-zinc-400 font-bold">${cls.signatureLabel}</span>` : ''}
+                  </div>
                 </div>
                 <span class="text-[9px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100 shrink-0">
                   ${cls.percentage || '0.0'}%
