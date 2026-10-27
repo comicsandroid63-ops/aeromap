@@ -13952,7 +13952,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             function matchF(f, ext) {
                 if (!f || !f.name) return false;
                 const fn = f.name.toLowerCase();
-                const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                const rel = (f.relativePath || f.webkitRelativePath || '').toLowerCase().replace(/\\/g, '/');
                 if (!fn.endsWith(ext)) return false;
                 if (fn === dsFileName || fn === (dsBaseName + ext) || fn === (ql.name.toLowerCase() + ext)) return true;
                 if (rel && (rel.endsWith('/' + dsFileName) || rel.endsWith(dsRelClean))) return true;
@@ -14024,6 +14024,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 try {
                     const text = await gjFile.text();
                     let parsed = JSON.parse(text);
+                    parsed = applyGeoJsonSubset(parsed, ql.datasource);
                     if (parsed && parsed.features && parsed.features.length > 0) {
                         let rep = await reprojectGeoJSON(parsed, ql.srs);
                         await addVectorLayer(rep, ql.name, {
@@ -14068,6 +14069,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         hideProgress();
     }
     window.resolveMissingQgisLayers = resolveMissingQgisLayers;
+
+    
+    function applyGeoJsonSubset(geojson, datasource) {
+        if (!geojson || !Array.isArray(geojson.features)) return geojson;
+        const subsetMatch = (datasource || '').match(/\|subset=([^|]+)/i);
+        if (!subsetMatch || !subsetMatch[1]) return geojson;
+        const subsetStr = subsetMatch[1].trim();
+        try {
+            let expr = subsetStr
+                .replace(/([a-zA-Z0-9_]+)\s*=\s*'([^']*)'/g, "p['$1'] === '$2'")
+                .replace(/([a-zA-Z0-9_]+)\s*<>\s*'([^']*)'/g, "p['$1'] !== '$2'")
+                .replace(/([a-zA-Z0-9_]+)\s*=\s*([0-9.]+)/g, "p['$1'] === $2")
+                .replace(/([a-zA-Z0-9_]+)\s*<>\s*([0-9.]+)/g, "p['$1'] !== $2")
+                .replace(/\bAND\b/gi, " && ")
+                .replace(/\bOR\b/gi, " || ")
+                .replace(/\bNOT\b/gi, " !");
+            const filterFn = new Function('p', `return (${expr});`);
+            const filteredFeatures = geojson.features.filter(f => {
+                try { return filterFn(f.properties || {}); } catch (_) { return true; }
+            });
+            return { ...geojson, features: filteredFeatures };
+        } catch (err) {
+            console.warn('[QGIS] Error aplicando filtro subset GeoJSON:', err);
+            return geojson;
+        }
+    }
+    window.applyGeoJsonSubset = applyGeoJsonSubset;
 
     async function handleQgisProjectFile(file, opts = {}, allFiles = []) {
         showProgress(`Leyendo proyecto QGIS: ${file.name}...`, 20, 'Importador QGIS');
@@ -14141,7 +14169,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 function matchFile(f, ext) {
                     if (!f || !f.name) return false;
                     const fn = f.name.toLowerCase();
-                    const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                    const rel = (f.relativePath || f.webkitRelativePath || '').toLowerCase().replace(/\\/g, '/');
                     if (!fn.endsWith(ext)) return false;
                     if (fn === dsFileName) return true;
                     if (fn === (dsBaseName + ext)) return true;
@@ -14205,12 +14233,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const base = shpFile.name.replace(/\.shp$/i, '').toLowerCase();
                     dbfFile = availableFiles.find(f => {
                         const fn = f.name.toLowerCase();
-                        const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                        const rel = (f.relativePath || f.webkitRelativePath || '').toLowerCase().replace(/\\/g, '/');
                         return fn === (base + '.dbf') || (rel && rel.endsWith('/' + base + '.dbf'));
                     });
                     prjFile = availableFiles.find(f => {
                         const fn = f.name.toLowerCase();
-                        const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                        const rel = (f.relativePath || f.webkitRelativePath || '').toLowerCase().replace(/\\/g, '/');
                         return fn === (base + '.prj') || (rel && rel.endsWith('/' + base + '.prj'));
                     });
                 }
@@ -14279,10 +14307,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
 
                 // C1. Si es GeoJSON disponible localmente o dentro del .qgz
-                let geojsonFile = !shpFile && !gpkgFile ? availableFiles.find(f => {
-                    const fn = f.name.toLowerCase();
-                    return (fn.endsWith('.geojson') || fn.endsWith('.json')) && (fn === dsFileName || fn === (dsBaseName + '.geojson') || fn === (dsBaseName + '.json') || fn.includes(dsBaseName));
-                }) : null;
+                let geojsonFile = !shpFile && !gpkgFile ? availableFiles.find(f => matchFile(f, '.geojson') || matchFile(f, '.json')) : null;
 
                 if (!shpFile && !gpkgFile && !geojsonFile && bundledEntries.length > 0) {
                     const bGj = bundledEntries.find(e => {
@@ -14302,6 +14327,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     try {
                         const gjText = await geojsonFile.text();
                         let parsed = JSON.parse(gjText);
+                        parsed = applyGeoJsonSubset(parsed, ql.datasource);
                         if (parsed && parsed.features && parsed.features.length > 0) {
                             let reprojected = await reprojectGeoJSON(parsed, ql.srs);
                             await addVectorLayer(reprojected, ql.name, {
@@ -19339,6 +19365,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function handleDashboardFolderFileSelect(e) {
       const files = Array.from(e.target.files || []);
+      files.forEach(f => {
+        if (!f.relativePath && f.webkitRelativePath) {
+          try {
+            Object.defineProperty(f, 'relativePath', { value: f.webkitRelativePath, writable: true });
+          } catch (_) {
+            f.relativePath = f.webkitRelativePath;
+          }
+        }
+      });
       if (files.length > 0) {
         handleDashboardProjectImportFiles(files);
       }
