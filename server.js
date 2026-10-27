@@ -202,10 +202,23 @@ app.post('/api/qgis/resolve-layer', async (req, res) => {
       if (!fs.existsSync(destPath)) {
         fs.copyFileSync(foundPath, destPath);
       }
+      const matchTable = (datasource || '').match(/layername=([^|]+)/i);
+      const targetTable = matchTable ? matchTable[1].trim() : (layerName || '');
+      let geojson = null;
+      try {
+        const { convertGpkgToGeoJson } = require('./api/gpkg-geojson');
+        if (typeof convertGpkgToGeoJson === 'function') {
+          geojson = await convertGpkgToGeoJson(foundPath, targetTable);
+        }
+      } catch (errGpkg) {
+        console.warn('[resolve-layer GPKG]', errGpkg.message);
+      }
       return res.json({
         found: true,
         type: 'geopackage',
         fileName: destName,
+        tableName: targetTable,
+        geojson: geojson,
         url: `/uploads/${destName}`
       });
     } else if (/\.(tiff?|img)$/i.test(ext)) {

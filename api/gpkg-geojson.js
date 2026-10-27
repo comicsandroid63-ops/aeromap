@@ -124,7 +124,7 @@ function gpkgBlobToGeoJson(blob) {
   return geom;
 }
 
-async function convertGpkgToGeoJson(gpkgPath) {
+async function convertGpkgToGeoJson(gpkgPath, targetTable = null) {
   const normPath = gpkgPath.replace(/\\/g, '/');
   const client = createClient({ url: `file:${normPath}` });
 
@@ -139,7 +139,13 @@ async function convertGpkgToGeoJson(gpkgPath) {
     geomCols = (cRes.rows || []).map(r => ({ table_name: r.table_name, column_name: 'geom', srs_id: r.srs_id }));
   }
 
+  if (targetTable) {
+    const match = geomCols.filter(gc => gc.table_name.toLowerCase() === targetTable.toLowerCase());
+    if (match.length > 0) geomCols = match;
+  }
+
   if (geomCols.length === 0) {
+    if (targetTable) return null;
     throw new Error('No se detectaron capas de entidades en el GeoPackage');
   }
 
@@ -174,6 +180,7 @@ async function convertGpkgToGeoJson(gpkgPath) {
   }
 
   if (allFeatures.length === 0) {
+    if (targetTable) return null;
     throw new Error('El GeoPackage no contiene entidades válidas');
   }
 
@@ -225,3 +232,5 @@ module.exports = async (req, res) => {
     }
   });
 };
+
+module.exports.convertGpkgToGeoJson = convertGpkgToGeoJson;

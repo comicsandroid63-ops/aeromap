@@ -12796,16 +12796,53 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const mapLayers = Array.from(doc.getElementsByTagName('maplayer'));
         for (const ml of mapLayers) {
             const id = ml.querySelector('id')?.textContent || '';
-            const name = ml.querySelector('layername')?.textContent || ml.querySelector('title')?.textContent || '';
+            const name = (ml.querySelector('layername')?.textContent || ml.querySelector('title')?.textContent || '').trim();
             const type = ml.getAttribute('type') || '';
-            const geom = ml.getAttribute('geometry') || '';
-            const ds = ml.querySelector('datasource')?.textContent || '';
+            const geom = (ml.getAttribute('geometry') || '').trim();
+            const ds = (ml.querySelector('datasource')?.textContent || '').trim();
             const srs = ml.querySelector('srs spatialrefsys authid')?.textContent || projectCrs;
 
+            // a. Filtrar capas de notas / anotaciones automáticas de QGIS
+            if (!name || ['annotations', 'notas', 'notes'].includes(name.toLowerCase())) {
+                continue;
+            }
+
+            // b. Filtrar tablas alfanuméricas sin geometría (geom="No geometry", "None", "")
+            if (type === 'vector') {
+                const g = geom.toLowerCase();
+                const validGeoms = ['polygon', 'multipolygon', 'line', 'linestring', 'multilinestring', 'point', 'multipoint'];
+                if (!validGeoms.includes(g)) {
+                    continue; // Tabla alfanumérica sin geometría espacial
+                }
+            }
+
+            // c. Filtrar servicios de mapas base web (XYZ, WMS, WMTS)
+            const dsLower = ds.toLowerCase();
+            if (dsLower.includes('type=xyz') || dsLower.includes('url=http') || dsLower.includes('arcgisonline.com') || dsLower.includes('openstreetmap.org')) {
+                continue;
+            }
+
+            // d. Filtrar tablas internas del sistema o diccionarios LADM-COL / ILI2DB
+            if (/t_ili2db|t_key_object|^t_id\d+/i.test(name)) {
+                continue;
+            }
+            if (/[—\-]\s*(t_ili2db|col_|lc_|snr_|ci_|cc_|ext|ini_|gm_)/i.test(name)) {
+                continue;
+            }
+
+            // e. Visibilidad en el árbol de capas de QGIS (Checked en QGIS 3 usa Qt::Checked o Qt::Unchecked)
             let visible = true;
             const treeLayer = doc.querySelector(`layer-tree-layer[id="${id}"]`);
-            if (treeLayer && treeLayer.getAttribute('checked') === '0') {
-                visible = false;
+            if (treeLayer) {
+                const chk = (treeLayer.getAttribute('checked') || '').toLowerCase();
+                if (chk === '0' || chk.includes('unchecked')) {
+                    visible = false;
+                }
+            }
+
+            // Solo importar capas que estén activadas / visibles en el proyecto de QGIS
+            if (!visible) {
+                continue;
             }
 
             let color = null;
@@ -13321,6 +13358,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const project = parseQgisProjectXml(qgsXml);
             console.log('[QGIS Import] Proyecto parseado:', project);
 
+            // Limpiar capas anteriores para no mezclar con sesiones o mapas previos
+            if (typeof clearProjectLayers === 'function') {
+                clearProjectLayers();
+            }
+
             const allEntries = ctx.allZipEntries || [];
             const loadedShpBases = new Set();
             let loadedCount = 0;
@@ -13364,8 +13406,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         loadedShpBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
                         loadedCount++;
                     } else {
-                        // Buscar en rutas locales del usuario via servidor o fallback a capa en estado
-                        let resolvedLocally = false;
+                        // Buscar en rutas locales del usuario via servidor
                         try {
                             const resp = await fetch('/api/qgis/resolve-layer', {
                                 method: 'POST',
@@ -13390,30 +13431,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     });
                                     loadedShpBases.add(resData.fileName.replace(/\.shp$/i, '').toLowerCase());
                                     loadedCount++;
-                                    resolvedLocally = true;
+                                } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
+                                    let reprojected = await reprojectGeoJSON(resData.geojson);
+                                    await addVectorLayer(reprojected, ql.name, {
+                                        originalName: ql.name,
+                                        color: ql.color?.hex,
+                                        strokeColor: ql.strokeColor?.hex,
+                                        strokeWidth: ql.strokeWidth,
+                                        fillOpacity: ql.fillOpacity,
+                                        opacity: ql.opacity,
+                                        visible: ql.visible
+                                    });
+                                    loadedCount++;
                                 }
                             }
                         } catch (e) {
                             console.warn('[QGIS ZIP] No se pudo resolver capa localmente:', ql.name, e);
-                        }
-                        if (!resolvedLocally) {
-                            state.layers.unshift({
-                                id: ++idCounter,
-                                name: ql.name || dsBaseName || 'Capa QGIS',
-                                type: ql.type || 'vector',
-                                geometry: ql.geometry || 'Polygon',
-                                datasource: ql.datasource || '',
-                                visible: ql.visible !== false,
-                                opacity: ql.opacity ?? 1.0,
-                                fillOpacity: ql.fillOpacity ?? 0.7,
-                                strokeOpacity: 1.0,
-                                color: ql.color?.hex || '#6366f1',
-                                strokeColor: ql.strokeColor?.hex || '#333333',
-                                strokeWidth: ql.strokeWidth ?? 1.5,
-                                mapLayer: null,
-                                unresolved: true
-                            });
-                            loadedCount++;
                         }
                     }
                 } else if (ql.type === 'raster') {
@@ -13529,6 +13562,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const project = parseQgisProjectXml(qgsXml);
             console.log('[QGIS Standalone Import] Proyecto:', project);
 
+            // Limpiar capas anteriores para no mezclar con sesiones o mapas previos
+            if (typeof clearProjectLayers === 'function') {
+                clearProjectLayers();
+            }
+
             let loadedCount = 0;
             const availableFiles = Array.isArray(allFiles) ? allFiles : [];
 
@@ -13545,7 +13583,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 let prjFile = null;
 
                 if (!shpFile) {
-                    showProgress(`Resolviendo capa local: ${ql.name}...`, 30 + Math.min(45, loadedCount * 15), 'Importador QGIS');
+                    showProgress(`Resolviendo capa: ${ql.name}...`, 30 + Math.min(45, loadedCount * 15), 'Importador QGIS');
                     try {
                         const resp = await fetch('/api/qgis/resolve-layer', {
                             method: 'POST',
@@ -13562,12 +13600,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 const shpBlob = base64ToBlob(resData.shpBase64);
                                 shpFile = new File([shpBlob], resData.fileName, { type: 'application/octet-stream' });
                                 if (resData.dbfBase64) {
-                                    const dbfBlob = base64ToBlob(resData.dbfBase64);
-                                    dbfFile = new File([dbfBlob], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
+                                    dbfFile = new File([base64ToBlob(resData.dbfBase64)], resData.fileName.replace(/\.shp$/i, '.dbf'), { type: 'application/octet-stream' });
                                 }
                                 if (resData.prjText) {
                                     prjFile = new File([new Blob([resData.prjText], { type: 'text/plain' })], resData.fileName.replace(/\.shp$/i, '.prj'), { type: 'text/plain' });
                                 }
+                            } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
+                                let reprojected = await reprojectGeoJSON(resData.geojson);
+                                await addVectorLayer(reprojected, ql.name, {
+                                    originalName: ql.name,
+                                    color: ql.color?.hex,
+                                    strokeColor: ql.strokeColor?.hex,
+                                    strokeWidth: ql.strokeWidth,
+                                    fillOpacity: ql.fillOpacity,
+                                    opacity: ql.opacity,
+                                    visible: ql.visible
+                                });
+                                loadedCount++;
+                                continue;
                             }
                         }
                     } catch (resolveErr) {
@@ -13595,25 +13645,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (prjFile) window._loadedByQgisFiles.add(prjFile.name.toLowerCase());
                     loadedCount++;
                 } else {
-                    // Fallback: Si no se encuentra el archivo, agregar capa a state.layers para que aparezca en ACTIVE LAYERS
-                    const placeholderLayer = {
-                        id: ++idCounter,
-                        name: ql.name || dsBaseName || 'Capa QGIS',
-                        type: ql.type || 'vector',
-                        geometry: ql.geometry || 'Polygon',
-                        datasource: ql.datasource || '',
-                        visible: ql.visible !== false,
-                        opacity: ql.opacity ?? 1.0,
-                        fillOpacity: ql.fillOpacity ?? 0.7,
-                        strokeOpacity: 1.0,
-                        color: ql.color?.hex || '#6366f1',
-                        strokeColor: ql.strokeColor?.hex || '#333333',
-                        strokeWidth: ql.strokeWidth ?? 1.5,
-                        mapLayer: null,
-                        unresolved: true
-                    };
-                    state.layers.unshift(placeholderLayer);
-                    loadedCount++;
+                    console.log('[QGIS Standalone Import] Capa omitida o sin archivo/entidades:', ql.name);
                 }
             }
 
