@@ -15741,10 +15741,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       console.log('[MB] addVectorLayer', { name, color: opts.color, fillOpacity: opts.fillOpacity });
       const VECTOR_PALETTE = ['#38bdf8', '#818cf8', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#60a5fa', '#c084fc'];
       const rawColor = opts.color;
-      const isColorDarkOrMissing = !rawColor || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(rawColor).toLowerCase().trim());
+      const isColorDarkOrMissing = !rawColor || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(rawColor).toLowerCase().trim());
       const color = !isColorDarkOrMissing ? rawColor : VECTOR_PALETTE[idCounter % VECTOR_PALETTE.length];
       const rawStroke = opts.strokeColor;
-      const isStrokeDarkOrMissing = !rawStroke || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(rawStroke).toLowerCase().trim());
+      const isStrokeDarkOrMissing = !rawStroke || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(rawStroke).toLowerCase().trim());
       const strokeColor = !isStrokeDarkOrMissing ? rawStroke : color;
       const strokeWidth = Math.max(2.0, parseFloat(opts.strokeWidth) || 2.0);
       const fillOpacity = (opts.fillOpacity !== undefined && opts.fillOpacity > 0.05) ? opts.fillOpacity : 0.22;
@@ -16161,7 +16161,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 fillColor = interpolateColor(layer.graduatedColorStart, layer.graduatedColorEnd, norm);
             }
         } else {
-            fillColor = p.fill || p.fillColor || p['fill-color'] || p.color || p.COLOR || p.HEX || p.HEX_COLOR || layer.color;
+            fillColor = layer.color || p.fill || p.fillColor || p['fill-color'] || p.color || p.COLOR || p.HEX || p.HEX_COLOR || '#38bdf8';
         }
 
         // Selection highlight from field calculator
@@ -16170,19 +16170,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return { fillColor, color: '#d97706', weight: 3, fillOpacity: 0.6, dashArray: '' };
         }
 
-        const geomType = feature.geometry ? feature.geometry.type : '';
+        const geomType = feature && feature.geometry ? feature.geometry.type : '';
         const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
 
-        // Garantizar color de relleno visible y no negro invisible
+        // Color de relleno (respetar negro #000000 y solo reemplazar si es transparente o nulo)
         let effectiveFill = fillColor;
-        if (!effectiveFill || ['#000000', '#000', '#232323', '#353535', '#333333', 'rgba(0,0,0,0)', 'transparent'].includes(String(effectiveFill).toLowerCase().trim())) {
-            effectiveFill = layer.color && layer.color !== '#000000' ? layer.color : '#38bdf8';
+        if (!effectiveFill || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(effectiveFill).toLowerCase().trim())) {
+            effectiveFill = layer.color || '#38bdf8';
         }
 
-        // Garantizar borde contrastante y visible en mapas satelitales / oscuros
-        let strokeColor = p.stroke || p.strokeColor || p['stroke-color'] || layer.strokeColor;
-        if (!strokeColor || ['#000000', '#000', '#232323', '#353535', '#333333', 'black', 'rgba(0,0,0,0)', 'transparent'].includes(String(strokeColor).toLowerCase().trim())) {
-            strokeColor = effectiveFill || layer.color || '#38bdf8';
+        // Color de borde / trazo (respetar negro #000000 del layer)
+        let strokeColor = layer.strokeColor || p.stroke || p.strokeColor || p['stroke-color'] || effectiveFill || layer.color || '#38bdf8';
+        if (!strokeColor || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(strokeColor).toLowerCase().trim())) {
+            strokeColor = layer.strokeColor || effectiveFill || layer.color || '#38bdf8';
         }
 
         const rawWeight = p['stroke-width'] || p.strokeWidth || layer.strokeWidth;
@@ -16683,10 +16683,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.05) {
         layer.fillOpacity = 0.35;
       }
-      if (layer.mapLayer && typeof layer.mapLayer.setStyle === 'function') {
-        layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+      if (layer.mapLayer) {
+        if (typeof layer.mapLayer.setStyle === 'function') {
+          layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+        }
+        if (typeof layer.mapLayer.eachLayer === 'function') {
+          layer.mapLayer.eachLayer(l => {
+            if (l.setStyle) {
+              l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
+            }
+          });
+        }
       }
-      if (typeof saveLayerToDatabase === 'function') {
+      const hexSpan = document.getElementById(`vector-color-hex-${layer.id}`);
+      if (hexSpan) {
+        hexSpan.textContent = color;
+      }
+      const bullet = document.getElementById(`layer-bullet-${layer.id}`);
+      if (bullet) {
+        bullet.style.backgroundColor = color;
+      }
+      if (typeof debouncedSave === 'function') {
+        debouncedSave(layer);
+      } else if (typeof saveLayerToDatabase === 'function') {
         saveLayerToDatabase(layer);
       }
     }
@@ -18128,6 +18147,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </button>
           <div class="flex flex-col truncate flex-1">
             <div class="flex items-center gap-1.5 truncate">
+              ${isVector ? `<span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 border border-black/20" style="background-color: ${layer.color || '#38bdf8'}" id="layer-bullet-${layer.id}"></span>` : ''}
               <span class="text-[11px] font-black text-zinc-900 truncate uppercase tracking-tight hover:text-indigo-600 transition-colors" title="${layer.name}">
                 ${layer.name}
               </span>
@@ -18349,10 +18369,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200/80">
           <span class="text-[8.5px] font-black uppercase tracking-wider text-zinc-500">Color Vectorial:</span>
           <div class="flex items-center gap-1.5">
-            <input type="color" value="${layer.color || '#3388ff'}" 
+            <input type="color" value="${layer.color || '#38bdf8'}" 
+              oninput="event.stopPropagation(); updateVectorColorInline(${layer.id}, this.value)"
               onchange="event.stopPropagation(); updateVectorColorInline(${layer.id}, this.value)"
               class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white">
-            <span class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#3388ff'}</span>
+            <span id="vector-color-hex-${layer.id}" class="text-[8.5px] font-mono text-zinc-500">${layer.color || '#38bdf8'}</span>
           </div>
         </div>
         `)}
@@ -18690,11 +18711,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const layer = state.layers.find(l => l.id === state.selectedLayerId);
         if (layer && layer.type === 'vector' && layer.mapLayer) {
           layer.color = val;
+          const isLine = layer.geoJson?.features?.[0]?.geometry?.type?.includes('Line');
+          if (isLine) {
+            layer.strokeColor = val;
+          }
+          if (typeof layer.mapLayer.setStyle === 'function') {
+            layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+          }
           layer.mapLayer.eachLayer(l => {
-              if (l.setStyle) l.setStyle({ fillColor: val });
+              if (l.setStyle) l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
           });
+          const hexSpan = document.getElementById(`vector-color-hex-${layer.id}`);
+          if (hexSpan) hexSpan.textContent = val;
+          const bullet = document.getElementById(`layer-bullet-${layer.id}`);
+          if (bullet) bullet.style.backgroundColor = val;
           debouncedSave(layer);
-          emitLayerUpdate(layer.dbId, { color: val });
+          if (typeof emitLayerUpdate === 'function' && layer.dbId) emitLayerUpdate(layer.dbId, { color: val });
         }
       }
     }
@@ -18704,8 +18736,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const layer = state.layers.find(l => l.id === state.selectedLayerId);
         if (layer && layer.type === 'vector' && layer.mapLayer) {
           layer.strokeColor = val;
+          if (typeof layer.mapLayer.setStyle === 'function') {
+            layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+          }
           layer.mapLayer.eachLayer(l => {
-              if (l.setStyle) l.setStyle({ color: val });
+              if (l.setStyle) l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
           });
           debouncedSave(layer); 
         }
