@@ -2676,14 +2676,87 @@
       </div>
 
       <!-- Opciones Avanzadas de Vectores -->
-      <div class="bg-white/40 border border-zinc-200 rounded-lg p-4">
-        <div class="flex items-center gap-2 mb-3">
+      <div class="bg-white/40 border border-zinc-200 rounded-lg p-4 space-y-3">
+        <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-indigo-600">polyline</span>
           <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Opciones avanzadas de vectores</span>
         </div>
         <button onclick="openVectorAdvancedModal()" class="w-full py-2.5 bg-zinc-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm">
           <span class="material-symbols-outlined text-sm">tune</span> Opciones de Vectores
         </button>
+
+        <!-- Herramientas Vectoriales Rápidas -->
+        <div class="pt-2 border-t border-zinc-200/60">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Herramientas Vectoriales</label>
+            <span class="text-[8px] font-bold text-indigo-600">Turf.js</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="openClipModal('clip')" class="p-2 bg-white hover:bg-red-50 border border-zinc-200 hover:border-red-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-red-500 shrink-0">content_cut</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Recortar (Clip)</span>
+                <span class="text-[7px] text-zinc-400 block truncate">A partir de otro</span>
+              </div>
+            </button>
+            <button onclick="openClipModal('difference')" class="p-2 bg-white hover:bg-amber-50 border border-zinc-200 hover:border-amber-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-amber-500 shrink-0">difference</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Diferencia</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Restar otra capa</span>
+              </div>
+            </button>
+            <button onclick="openClipModal('intersect')" class="p-2 bg-white hover:bg-purple-50 border border-zinc-200 hover:border-purple-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-purple-600 shrink-0">merge</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Intersectar</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Área en común</span>
+              </div>
+            </button>
+            <button onclick="openClipModal('union')" class="p-2 bg-white hover:bg-blue-50 border border-zinc-200 hover:border-blue-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-blue-600 shrink-0">join</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Unión Espacial</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Combinar capas</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('simplify')" class="p-2 bg-white hover:bg-emerald-50 border border-zinc-200 hover:border-emerald-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600 shrink-0">architecture</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Simplificar</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Reducir vértices</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('convexhull')" class="p-2 bg-white hover:bg-teal-50 border border-zinc-200 hover:border-teal-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-teal-600 shrink-0">pentagon</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Envolvente</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Convex Hull</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('bbox')" class="p-2 bg-white hover:bg-cyan-50 border border-zinc-200 hover:border-cyan-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-cyan-600 shrink-0">crop_square</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Caja BBox</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Límites mínimos</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('explode')" class="p-2 bg-white hover:bg-rose-50 border border-zinc-200 hover:border-rose-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-rose-500 shrink-0">call_split</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Descomponer</span>
+                <span class="text-[7px] text-zinc-400 block truncate">A líneas/vértices</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('calc_geometry')" class="col-span-2 p-2 bg-white hover:bg-indigo-50 border border-zinc-200 hover:border-indigo-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-indigo-600 shrink-0">calculate</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Calcular Geometría ($area, $perímetro)</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Calcula m², ha, km² y longitud en la tabla de atributos</span>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Geoprocessing Panel -->
@@ -4447,7 +4520,7 @@
 
   <!-- Modal Opciones Avanzadas de Vectores -->
   <div id="vectorAdvancedModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-zinc-100 flex flex-col">
       <!-- Modal Header -->
       <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
         <div class="flex items-center gap-3">
@@ -4456,7 +4529,7 @@
           </div>
           <div>
             <h3 class="font-bold text-base text-zinc-900">Opciones Avanzadas de Vectores</h3>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Herramientas topológicas y unión de capas</p>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Herramientas topológicas, geoprocesamiento y análisis espacial</p>
           </div>
         </div>
         <button onclick="closeVectorAdvancedModal()" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
@@ -4464,21 +4537,139 @@
         </button>
       </div>
 
-      <!-- Modal Body -->
-      <div class="p-6 space-y-6">
-        <!-- Section: Pegar / Fusionar Capas Vectoriales -->
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 overflow-y-auto custom-scrollbar space-y-6 max-h-[calc(90vh-100px)]">
+        <!-- 1. Superposición y Recorte -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-red-500 text-base">content_cut</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Superposición y Recorte Espacial</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openClipModal('clip');" class="p-4 bg-zinc-50 hover:bg-red-50/50 border border-zinc-200 hover:border-red-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-red-700">
+                  <span class="material-symbols-outlined text-red-500 text-lg">content_cut</span> Recortar (Clip)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Corta la capa A usando otra capa como tijera o máscara de contorno.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openClipModal('difference');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-500 text-lg">difference</span> Diferencia (Erase)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Resta la capa B de la capa A, borrando todo lo que coincida.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openClipModal('intersect');" class="p-4 bg-zinc-50 hover:bg-purple-50/50 border border-zinc-200 hover:border-purple-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-purple-700">
+                  <span class="material-symbols-outlined text-purple-600 text-lg">merge</span> Intersección
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Conserva únicamente las zonas comunes donde ambas capas se cruzan.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openClipModal('union');" class="p-4 bg-zinc-50 hover:bg-blue-50/50 border border-zinc-200 hover:border-blue-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-blue-700">
+                  <span class="material-symbols-outlined text-blue-600 text-lg">join</span> Unión Espacial
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Fusiona geométricamente las áreas de dos capas en un conjunto único.</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Transformación y Topología -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-600 text-base">architecture</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Transformación y Simplificación</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('simplify');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">architecture</span> Simplificar (Douglas-Peucker)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Reduce la densidad de vértices para acelerar capas pesadas.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('convexhull');" class="p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">pentagon</span> Envolvente Convexa (Hull)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula el polígono exterior envolvente mínimo de la capa.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('bbox');" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">crop_square</span> Caja Delimitadora (BBox)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera el rectángulo envolvente de extensión geográfica.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('explode');" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-500 text-lg">call_split</span> Descomponer (Explode)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Extrae vértices individuales como puntos o polígonos a líneas.</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Medición y Atributos -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-600 text-base">calculate</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Medición y Atributos</span>
+          </div>
+          <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('calc_geometry');" class="w-full p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-lg">calculate</span>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-zinc-900 group-hover:text-indigo-950">Calcular Geometría ($area, $perímetro, $longitud)</div>
+                <div class="text-[10px] text-zinc-500">Calcula hectáreas, m², km² y longitud para cada elemento y añade las columnas a la tabla de atributos</div>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-indigo-600 text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          </button>
+        </div>
+
+        <!-- 4. Pegar / Fusionar Capas Vectoriales -->
         <div class="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-emerald-600 text-lg">join_inner</span>
-              <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Pegar / Unir Capas Vectoriales</span>
+              <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Pegar / Unir Capas Vectoriales (Merge)</span>
             </div>
             <button onclick="toggleSelectAllMergeLayers()" id="btnSelectAllMerge" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-wider">
               Seleccionar Todas
             </button>
           </div>
           <p class="text-[11px] text-zinc-600 leading-relaxed">
-            Selecciona dos o más capas (o todas las capas del proyecto) para combinarlas en una sola capa consolidada conservando todas sus geometrías y atributos.
+            Selecciona dos o más capas para combinarlas en una sola capa consolidada conservando todas sus geometrías y atributos.
           </p>
 
           <div class="space-y-3">
@@ -4487,7 +4678,7 @@
                 <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500">Capas a unir:</label>
                 <span id="mergeSelectedCount" class="text-[9px] font-bold text-zinc-500">0 seleccionadas</span>
               </div>
-              <div id="mergeLayersCheckList" class="bg-white border border-zinc-300 rounded-2xl p-2.5 max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+              <div id="mergeLayersCheckList" class="bg-white border border-zinc-300 rounded-2xl p-2.5 max-h-40 overflow-y-auto custom-scrollbar space-y-1">
                 <!-- Capas inyectadas por JS -->
               </div>
             </div>
@@ -4502,7 +4693,7 @@
           </button>
         </div>
 
-        <!-- Section: Exportar Capa Vectorial -->
+        <!-- 5. Exportar Capa Vectorial -->
         <button onclick="closeVectorAdvancedModal(); openExportVectorModal();" class="w-full p-4 bg-indigo-50/60 hover:bg-indigo-100/70 border border-indigo-200 hover:border-indigo-400 rounded-2xl flex items-center justify-between transition-all group text-left">
           <div class="flex items-center gap-3.5">
             <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
@@ -4515,22 +4706,6 @@
           </div>
           <span class="material-symbols-outlined text-indigo-600 text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
         </button>
-
-        <!-- Extra Tools -->
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="closeVectorAdvancedModal(); openClipModal('clip');" class="p-3 bg-white border border-zinc-200 hover:border-black rounded-2xl text-left transition-all group">
-            <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs mb-1">
-              <span class="material-symbols-outlined text-[16px] text-red-500">content_cut</span> Recortar (Clip)
-            </div>
-            <p class="text-[9px] text-zinc-500">Corta una capa usando los límites de otra</p>
-          </button>
-          <button onclick="closeVectorAdvancedModal(); openClipModal('intersect');" class="p-3 bg-white border border-zinc-200 hover:border-black rounded-2xl text-left transition-all group">
-            <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs mb-1">
-              <span class="material-symbols-outlined text-[16px] text-purple-600">merge</span> Intersectar
-            </div>
-            <p class="text-[9px] text-zinc-500">Extrae las zonas en común entre 2 capas</p>
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -4680,6 +4855,64 @@
         <div class="flex gap-3 pt-2">
           <button onclick="closeClipModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="clipExecuteBtn" onclick="executeClipModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90" style="background:#1a1c1f;">Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Herramienta Vectorial Simple (Simplificar, Convex Hull, BBox, Explode, Geometría) -->
+  <div id="singleVectorModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div id="singleVectorIconBox" class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]" id="singleVectorIcon">architecture</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400" id="singleVectorSubtitle">Operación Vectorial</span>
+            <h3 class="font-bold text-base text-zinc-900" id="singleVectorTitle">Herramienta</h3>
+          </div>
+        </div>
+        <button onclick="closeSingleVectorModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <p class="text-[11px] text-zinc-600 leading-relaxed" id="singleVectorDesc">
+          Selecciona la capa vectorial para aplicar el geoproceso.
+        </p>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial</label>
+          <select id="singleVectorLayerSelect" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-black/10">
+            <option value="">Seleccionar capa...</option>
+          </select>
+        </div>
+
+        <!-- Dynamic Option: Tolerance for simplify -->
+        <div id="singleVectorSimplifyOpt" class="space-y-1 hidden">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tolerancia de Simplificación</label>
+          <select id="singleVectorTolerance" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+            <option value="0.0001">Muy Ligera (~10m) - Conserva máxima fidelidad</option>
+            <option value="0.0005" selected>Media (~50m) - Recomendada para optimizar</option>
+            <option value="0.002">Alta (~200m) - Máxima reducción de peso</option>
+          </select>
+        </div>
+
+        <!-- Dynamic Option: Explode mode -->
+        <div id="singleVectorExplodeOpt" class="space-y-1 hidden">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tipo de Descomposición</label>
+          <select id="singleVectorExplodeType" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+            <option value="vertices" selected>Extraer todos los Vértices como Puntos</option>
+            <option value="lines">Convertir Polígonos a Líneas de Contorno</option>
+          </select>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
+          <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
+            <span class="material-symbols-outlined text-[15px]">play_arrow</span> Ejecutar
+          </button>
         </div>
       </div>
     </div>
@@ -26591,9 +26824,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function openClipModal(mode) {
-        _clipMode = mode;
-        document.getElementById('clipModalSubtitle').textContent = mode === 'clip' ? 'Recortar capa' : 'Intersectar capas';
-        document.getElementById('clipModalTitle').textContent = mode === 'clip' ? 'Clip' : 'Intersección';
+        _clipMode = mode || 'clip';
+        const titles = {
+            clip: { sub: 'Recortar Capa', title: 'Recortar (Clip)', btn: 'Ejecutar Recorte', color: '#dc2626' },
+            difference: { sub: 'Diferencia Espacial (Resta)', title: 'Diferencia (Erase)', btn: 'Calcular Diferencia', color: '#d97706' },
+            intersect: { sub: 'Intersección de Capas', title: 'Intersección', btn: 'Calcular Intersección', color: '#7c3aed' },
+            union: { sub: 'Unión Espacial', title: 'Unión de Capas', btn: 'Ejecutar Unión', color: '#2563eb' }
+        };
+        const cfg = titles[_clipMode] || titles.clip;
+        document.getElementById('clipModalSubtitle').textContent = cfg.sub;
+        document.getElementById('clipModalTitle').textContent = cfg.title;
+        const execBtn = document.getElementById('clipExecuteBtn');
+        if (execBtn) {
+            execBtn.textContent = cfg.btn;
+            execBtn.style.background = cfg.color;
+        }
+
         const selA = document.getElementById('clipSourceLayer');
         const selB = document.getElementById('clipTargetLayer');
         selA.innerHTML = '<option value="">Cargando capas...</option>';
@@ -26606,13 +26852,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             `<option value="local_${l.id}">${l.name}</option>`
         ).join('');
 
-        // Preselect current layer if any
         const currentId = state.selectedLayerId;
         selA.innerHTML = '<option value="">Seleccionar capa...</option>' + opts;
         selB.innerHTML = '<option value="">Seleccionar capa...</option>' + opts;
         if (currentId && vectorLayers.find(l => l.id == currentId)) selA.value = `local_${currentId}`;
 
-        // Load cloud layers (from Turso layers table)
         _cloudLayersForClip = [];
         try {
             const pid = _currentProject?.id || '';
@@ -26637,8 +26881,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     async function executeClipModal() {
         const valA = document.getElementById('clipSourceLayer').value;
         const valB = document.getElementById('clipTargetLayer').value;
-        if (!valA) return toast('Selecciona la capa a procesar.', 'error');
-        if (!valB) return toast('Selecciona la capa de referencia.', 'error');
+        if (!valA) return toast('Selecciona la capa a procesar (A).', 'error');
+        if (!valB) return toast('Selecciona la capa de referencia (B).', 'error');
         if (valA === valB) return toast('Selecciona capas diferentes.', 'error');
         closeClipModal();
 
@@ -26668,90 +26912,353 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob();
                     }
                     const text = await blob.text();
-                    const geoJson = JSON.parse(text);
-                    layerA = { geoJson, name: cloudLayer.name };
+                    layerA = { geoJson: JSON.parse(text), name: cloudLayer.name };
                 } catch(e) {
                     return toast(`Error descargando capa A: ${e.message}`, 'error');
                 }
             }
         }
 
-        if (valB.startsWith('cloud_')) {
+        if (!layerB && valB.startsWith('cloud_')) {
             const idx = parseInt(valB.replace('cloud_', ''));
             const cloudLayer = _cloudLayersForClip[idx];
-            if (!cloudLayer) return toast('Capa cloud no encontrada.', 'error');
-            showProgress('Descargando capa desde la nube...', 20);
-            try {
-                const res = await fetch(cloudLayer.storage_url);
-                if (!res.ok) throw new Error('Error de descarga');
-                let blob = await res.blob();
-                if (cloudLayer.storage_url.endsWith('.gz')) {
-                    blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob();
+            if (cloudLayer) {
+                showProgress('Descargando capa B desde la nube...', 20);
+                try {
+                    const res = await fetch(cloudLayer.storage_url);
+                    if (!res.ok) throw new Error('Error de descarga');
+                    let blob = await res.blob();
+                    if (cloudLayer.storage_url.endsWith('.gz')) {
+                        blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob();
+                    }
+                    const text = await blob.text();
+                    layerB = { geoJson: JSON.parse(text), name: cloudLayer.name };
+                } catch(e) {
+                    return toast(`Error descargando capa B: ${e.message}`, 'error');
                 }
-                const text = await blob.text();
-                const geoJson = JSON.parse(text);
-                layerB = { geoJson: geoJson, name: cloudLayer.name };
-            } catch(e) {
-                return toast(`Error descargando capa cloud: ${e.message}`, 'error');
             }
         }
 
         if (!layerA?.geoJson || !layerB?.geoJson) return toast('Datos no disponibles.', 'error');
 
-        const mode = _clipMode;
-        showProgress(mode === 'clip' ? 'Aplicando Clip...' : 'Calculando intersección...', 40);
+        const mode = _clipMode || 'clip';
+        const modeLabels = {
+            clip: 'Recortando capa (Clip)...',
+            difference: 'Calculando diferencia espacial...',
+            intersect: 'Calculando intersección...',
+            union: 'Calculando unión espacial...'
+        };
+        showProgress(modeLabels[mode] || 'Procesando...', 40);
+
         try {
-            const featuresA = layerA.geoJson.features || [layerA.geoJson];
-            const featuresB = layerB.geoJson.features || [layerB.geoJson];
+            const featuresA = (layerA.geoJson.features || [layerA.geoJson]).filter(f => f && f.geometry);
+            const featuresB = (layerB.geoJson.features || [layerB.geoJson]).filter(f => f && f.geometry);
 
-            if (featuresB.length > 500) {
-                toast('Muchas features, usando optimización espacial...', 'info');
-            }
-
-            const results = [];
-            const total = featuresA.length * featuresB.length;
-            let processed = 0;
-
-            // Build spatial index for B: precompute bboxes
             const bboxesB = featuresB.map(fB => {
                 try { return turf.bbox(fB); } catch(e) { return null; }
             });
 
-            for (const fA of featuresA) {
-                let bboxA;
-                try { bboxA = turf.bbox(fA); } catch(e) { continue; }
-                const [minXA, minYA, maxXA, maxYA] = bboxA;
+            const results = [];
 
-                for (let j = 0; j < featuresB.length; j++) {
-                    const bb = bboxesB[j];
-                    if (!bb) continue;
-                    // Quick bbox overlap check
-                    if (bb[0] > maxXA || bb[2] < minXA || bb[1] > maxYA || bb[3] < minYA) continue;
+            if (mode === 'clip' || mode === 'intersect') {
+                for (const fA of featuresA) {
+                    let bboxA;
+                    try { bboxA = turf.bbox(fA); } catch(e) { continue; }
+                    const [minXA, minYA, maxXA, maxYA] = bboxA;
 
-                    processed++;
-                    if (processed % 1000 === 0) {
-                        showProgress(`Procesando... ${Math.round(processed/total*100)}%`, Math.round(processed/total*100));
-                        await new Promise(r => setTimeout(r, 0));
+                    for (let j = 0; j < featuresB.length; j++) {
+                        const bb = bboxesB[j];
+                        if (!bb) continue;
+                        if (bb[0] > maxXA || bb[2] < minXA || bb[1] > maxYA || bb[3] < minYA) continue;
+
+                        try {
+                            const r = turf.intersect(turf.featureCollection([fA, featuresB[j]]));
+                            if (r) {
+                                r.properties = mode === 'clip'
+                                    ? { ...fA.properties, _recortado_con: layerB.name }
+                                    : { ...fA.properties, ...featuresB[j].properties, _interseccion: true };
+                                results.push(r);
+                            }
+                        } catch(e) {}
                     }
+                }
+            } else if (mode === 'difference') {
+                // Restar featuresB de cada fA
+                for (const fA of featuresA) {
+                    let bboxA;
+                    try { bboxA = turf.bbox(fA); } catch(e) { continue; }
+                    const [minXA, minYA, maxXA, maxYA] = bboxA;
+                    let curr = JSON.parse(JSON.stringify(fA));
 
-                    try {
-                        const r = turf.intersect(turf.featureCollection([fA, featuresB[j]]));
-                        if (r) {
-                            r.properties = mode === 'clip' ? { ...fA.properties, _clip: true } : { ...fA.properties, ...featuresB[j].properties, _processed: 'intersect' };
-                            results.push(r);
-                        }
-                    } catch(e) {}
+                    for (let j = 0; j < featuresB.length; j++) {
+                        const bb = bboxesB[j];
+                        if (!bb) continue;
+                        if (bb[0] > maxXA || bb[2] < minXA || bb[1] > maxYA || bb[3] < minYA) continue;
+
+                        try {
+                            const diff = turf.difference(turf.featureCollection([curr, featuresB[j]]));
+                            if (diff) {
+                                diff.properties = curr.properties;
+                                curr = diff;
+                            }
+                        } catch(e) {}
+                    }
+                    if (curr && curr.geometry) {
+                        results.push(curr);
+                    }
+                }
+            } else if (mode === 'union') {
+                const combined = featuresA.concat(featuresB);
+                try {
+                    const u = turf.union(turf.featureCollection(combined));
+                    if (u) results.push(u);
+                } catch(e) {
+                    // Si union falla por tipos mixtos, agregar todos combinados
+                    combined.forEach(f => results.push(f));
                 }
             }
 
-            if (results.length === 0) throw new Error('Sin áreas de superposición');
-            const name = mode === 'clip' ? `Clip ${layerA.name}` : `Intersección ${layerA.name} x ${layerB.name}`;
-            const color = mode === 'clip' ? '#dc2626' : '#7c3aed';
-            addVectorLayer(turf.featureCollection(results), name, { color, fillOpacity: 0.4, strokeWidth: 2 });
-            toast(`${mode === 'clip' ? 'Clip' : 'Intersección'}: ${results.length} features.`);
-        } catch (err) { toast(`Error: ${err.message}`, 'error'); } finally { hideProgress(); }
+            if (results.length === 0) throw new Error('Sin geometrías resultantes tras la operación.');
+
+            const names = {
+                clip: `Recorte ${layerA.name}`,
+                difference: `Diferencia ${layerA.name} - ${layerB.name}`,
+                intersect: `Intersección ${layerA.name} x ${layerB.name}`,
+                union: `Unión ${layerA.name} + ${layerB.name}`
+            };
+            const colors = {
+                clip: '#dc2626',
+                difference: '#d97706',
+                intersect: '#7c3aed',
+                union: '#2563eb'
+            };
+
+            const outName = names[mode] || `Procesado ${layerA.name}`;
+            const outColor = colors[mode] || '#10b981';
+
+            await addVectorLayer(turf.featureCollection(results), outName, {
+                color: outColor,
+                fillOpacity: 0.35,
+                strokeWidth: 2
+            });
+
+            toast(`Operación completada: ${outName} (${results.length} elementos)`, 'success');
+        } catch (err) {
+            toast(`Error: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
     }
 
+    // Single vector tool management
+    let _currentSingleVectorTool = 'simplify';
+
+    function openSingleVectorModal(tool) {
+        _currentSingleVectorTool = tool || 'simplify';
+        const sel = document.getElementById('singleVectorLayerSelect');
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+
+        sel.innerHTML = '<option value="">Seleccionar capa...</option>' +
+            vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+
+        if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) {
+            sel.value = state.selectedLayerId;
+        }
+
+        const simpOpt = document.getElementById('singleVectorSimplifyOpt');
+        const expOpt = document.getElementById('singleVectorExplodeOpt');
+        if (simpOpt) simpOpt.classList.add('hidden');
+        if (expOpt) expOpt.classList.add('hidden');
+
+        const configs = {
+            simplify: {
+                title: 'Simplificar Geometría',
+                sub: 'Algoritmo Douglas-Peucker',
+                icon: 'architecture',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Reduce la cantidad de vértices de polígonos y líneas para aligerar la capa sin perder la forma general.',
+                opt: simpOpt
+            },
+            convexhull: {
+                title: 'Envolvente Convexa',
+                sub: 'Convex Hull',
+                icon: 'pentagon',
+                color: 'text-teal-600',
+                bg: 'bg-teal-50 border-teal-100',
+                desc: 'Genera el polígono envolvente convexo exterior más pequeño que contiene a todas las geometrías de la capa.',
+                opt: null
+            },
+            bbox: {
+                title: 'Caja Delimitadora',
+                sub: 'Bounding Box (BBox)',
+                icon: 'crop_square',
+                color: 'text-cyan-600',
+                bg: 'bg-cyan-50 border-cyan-100',
+                desc: 'Crea el rectángulo límite geográfico que abarca la extensión de la capa vectorial.',
+                opt: null
+            },
+            explode: {
+                title: 'Descomponer / Explotar',
+                sub: 'Explode Geometries',
+                icon: 'call_split',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Descompone geometrías complejas extrayendo cada vértice como un punto individual o convirtiendo polígonos a líneas.',
+                opt: expOpt
+            },
+            calc_geometry: {
+                title: 'Calcular Geometría',
+                sub: 'Área y Perímetro en Atributos',
+                icon: 'calculate',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Calcula automáticamente el Área (m², hectáreas, km²) y el Perímetro/Longitud métrico para cada elemento y los añade a la tabla de atributos.',
+                opt: null
+            }
+        };
+
+        const cfg = configs[_currentSingleVectorTool] || configs.simplify;
+        document.getElementById('singleVectorTitle').textContent = cfg.title;
+        document.getElementById('singleVectorSubtitle').textContent = cfg.sub;
+        document.getElementById('singleVectorIcon').textContent = cfg.icon;
+        document.getElementById('singleVectorDesc').textContent = cfg.desc;
+        if (cfg.opt) cfg.opt.classList.remove('hidden');
+
+        document.getElementById('singleVectorModal').style.display = 'flex';
+    }
+
+    function closeSingleVectorModal() {
+        document.getElementById('singleVectorModal').style.display = 'none';
+    }
+
+    async function executeSingleVectorModal() {
+        const layerId = parseInt(document.getElementById('singleVectorLayerSelect').value);
+        if (!layerId) return toast('Selecciona una capa vectorial.', 'warning');
+        const layer = state.layers.find(l => l.id === layerId);
+        if (!layer || !layer.geoJson) return toast('Capa no encontrada o sin geometrías.', 'error');
+
+        closeSingleVectorModal();
+        const tool = _currentSingleVectorTool;
+        showProgress('Ejecutando operación vectorial...', 30);
+
+        try {
+            if (tool === 'simplify') {
+                const tol = parseFloat(document.getElementById('singleVectorTolerance').value) || 0.0005;
+                const vBefore = turf.explode(layer.geoJson).features.length;
+                const simplified = turf.simplify(layer.geoJson, { tolerance: tol, highQuality: true, mutate: false });
+                const vAfter = turf.explode(simplified).features.length;
+                const pct = Math.round((1 - vAfter / Math.max(1, vBefore)) * 100);
+
+                await addVectorLayer(simplified, `Simplificada ${layer.name}`, {
+                    color: layer.style?.color || '#059669',
+                    strokeWidth: 2
+                });
+                toast(`Capa simplificada: ${vBefore} → ${vAfter} vértices (-${pct}%)`, 'success');
+
+            } else if (tool === 'convexhull') {
+                const hull = turf.convex(layer.geoJson);
+                if (!hull) throw new Error('No se pudo generar la envolvente convexa.');
+
+                await addVectorLayer(turf.featureCollection([hull]), `Envolvente ${layer.name}`, {
+                    color: '#0d9488',
+                    fillOpacity: 0.25,
+                    strokeWidth: 2
+                });
+                toast(`Envolvente convexa generada para ${layer.name}`, 'success');
+
+            } else if (tool === 'bbox') {
+                const bb = turf.bbox(layer.geoJson);
+                const poly = turf.bboxPolygon(bb);
+
+                await addVectorLayer(turf.featureCollection([poly]), `BBox ${layer.name}`, {
+                    color: '#0891b2',
+                    fillOpacity: 0.15,
+                    strokeWidth: 2,
+                    dashArray: [6, 4]
+                });
+                toast(`Caja delimitadora generada para ${layer.name}`, 'success');
+
+            } else if (tool === 'explode') {
+                const type = document.getElementById('singleVectorExplodeType').value;
+                if (type === 'lines') {
+                    const lines = [];
+                    for (const f of (layer.geoJson.features || [])) {
+                        try {
+                            const l = turf.polygonToLine(f);
+                            if (l) lines.push(l);
+                        } catch(e) {}
+                    }
+                    if (lines.length === 0) throw new Error('No se encontraron polígonos para convertir a líneas.');
+                    await addVectorLayer(turf.featureCollection(lines), `Líneas de ${layer.name}`, {
+                        color: '#e11d48',
+                        strokeWidth: 2
+                    });
+                    toast(`Líneas de contorno extraídas: ${lines.length}`, 'success');
+                } else {
+                    const pts = turf.explode(layer.geoJson);
+                    await addVectorLayer(pts, `Vértices de ${layer.name}`, {
+                        isPoints: true,
+                        color: '#e11d48',
+                        pointSize: 6
+                    });
+                    toast(`Vértices extraídos como puntos: ${pts.features.length}`, 'success');
+                }
+
+            } else if (tool === 'calc_geometry') {
+                let count = 0;
+                let totalAreaM2 = 0;
+                let totalLenM = 0;
+
+                for (const f of (layer.geoJson.features || [])) {
+                    if (!f.geometry) continue;
+                    f.properties = f.properties || {};
+                    const t = f.geometry.type;
+
+                    if (t === 'Polygon' || t === 'MultiPolygon') {
+                        const a = turf.area(f);
+                        const p = turf.length(f, { units: 'meters' });
+                        f.properties.area_m2 = parseFloat(a.toFixed(2));
+                        f.properties.area_ha = parseFloat((a / 10000).toFixed(4));
+                        f.properties.area_km2 = parseFloat((a / 1000000).toFixed(6));
+                        f.properties.perimetro_m = parseFloat(p.toFixed(2));
+                        totalAreaM2 += a;
+                        totalLenM += p;
+                        count++;
+                    } else if (t === 'LineString' || t === 'MultiLineString') {
+                        const l = turf.length(f, { units: 'meters' });
+                        f.properties.longitud_m = parseFloat(l.toFixed(2));
+                        f.properties.longitud_km = parseFloat((l / 1000).toFixed(4));
+                        totalLenM += l;
+                        count++;
+                    } else if (t === 'Point') {
+                        f.properties.coord_x = parseFloat(f.geometry.coordinates[0].toFixed(6));
+                        f.properties.coord_y = parseFloat(f.geometry.coordinates[1].toFixed(6));
+                        count++;
+                    }
+                }
+
+                // Update layer in DB if saved
+                try {
+                    const uid = (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : 'guest';
+                    const pid = (typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null;
+                    await saveLayerToDatabase(layer, pid, uid);
+                } catch(e) {}
+
+                if (state.attributeTableOpen) renderAttributeTable();
+
+                const summaryText = totalAreaM2 > 0
+                    ? `Total: ${(totalAreaM2/10000).toFixed(2)} ha (${(totalAreaM2).toLocaleString()} m²)`
+                    : `Total: ${(totalLenM/1000).toFixed(2)} km`;
+
+                toast(`Geometría calculada para ${count} elementos en ${layer.name}. ${summaryText}`, 'success');
+            }
+        } catch(err) {
+            toast(`Error: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
+    }
     async function applyIntersect() {
         applyIntersection();
     }
