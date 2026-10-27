@@ -2489,11 +2489,11 @@
       <div
         class="group relative bg-white/40 border border-zinc-200 rounded-lg p-4 text-center hover:bg-white transition-all cursor-pointer"
         id="dropZone">
-        <input type="file" id="fileInput" accept=".tif,.tiff,.ztif,.img,.shp,.gpkg,.geojson,.kml,.gpx,.zip,*" multiple
+        <input type="file" id="fileInput" accept=".tif,.tiff,.ztif,.img,.shp,.gpkg,.geojson,.kml,.gpx,.zip,.qgz,.qgs,*" multiple
           class="absolute inset-0 opacity-0 cursor-pointer z-10" />
         <span
           class="material-symbols-outlined text-2xl text-zinc-400 group-hover:text-primary transition-colors block">upload_file</span>
-        <p class="text-[10px] font-bold text-zinc-900 uppercase tracking-tight mt-1">Cargar TIFF / Shapefile (ZIP)</p>
+        <p class="text-[10px] font-bold text-zinc-900 uppercase tracking-tight mt-1">Cargar TIFF / Shapefile / QGIS (ZIP)</p>
       </div>
 
       <!-- STAC Import -->
@@ -5013,6 +5013,8 @@
                         </div>
                         <button onclick="toggleLayoutTemplatesDropdown()" class="text-[12px] text-zinc-400 hover:text-black">✕</button>
                     </div>
+                    <!-- Sección de Composiciones QGIS Importadas -->
+                    <div id="layoutTemplatesQgisList" class="flex flex-col gap-1.5 mb-2 pb-2 border-b border-zinc-100 hidden"></div>
                     <div class="flex flex-col gap-1.5">
                         <button onclick="applyTemplateInModal('standard')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-200 bg-white">
                             <div>
@@ -12473,6 +12475,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const layersMap = {};
             const tiffEntries = [];
             const gpkgEntries = [];
+            const qgisEntries = [];
+            const allZipEntries = [];
             let pos = 0;
             for (let i = 0; i < cdCount && pos + 46 <= cdSize; i++) {
                 if (cdView.getUint32(pos, true) !== 0x02014b50) break;
@@ -12486,6 +12490,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const fileName = path.split('/').pop();
                     
                     if (fileName && !fileName.startsWith('.') && fileName.indexOf('__MACOSX') === -1) {
+                        const lOffset = cdView.getUint32(pos + 42, true);
+                        const compMethod = cdView.getUint16(pos + 10, true);
+                        const compSize = cdView.getUint32(pos + 20, true);
+                        const uncompSize = cdView.getUint32(pos + 24, true);
+                        const entryObj = { path, fileName, lOffset, compMethod, compSize, uncompSize };
+                        allZipEntries.push(entryObj);
+
                         const extMatch = fileName.match(/\.(shp|dbf|shx|prj)$/i);
                         if (extMatch) {
                             const ext = extMatch[1].toLowerCase();
@@ -12499,21 +12510,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             if (!layersMap[base]) layersMap[base] = { name: displayName, path: base, filesPresent: {} };
                             layersMap[base].filesPresent[ext] = true;
                         } else if (fileName.match(/\.(tiff?|img|jp2|j2k)$/i)) {
-                            const lOffset = cdView.getUint32(pos + 42, true);
-                            const compMethod = cdView.getUint16(pos + 10, true);
-                            const compSize = cdView.getUint32(pos + 20, true);
-                            const uncompSize = cdView.getUint32(pos + 24, true);
-                            tiffEntries.push({ path, fileName, lOffset, compMethod, compSize, uncompSize });
+                            tiffEntries.push(entryObj);
                         } else if (fileName.match(/\.(gpkg|gpkg-wal|gpkg-shm)$/i)) {
-                            const lOffset = cdView.getUint32(pos + 42, true);
-                            const compMethod = cdView.getUint16(pos + 10, true);
-                            const compSize = cdView.getUint32(pos + 20, true);
-                            const uncompSize = cdView.getUint32(pos + 24, true);
-                            gpkgEntries.push({ path, fileName, lOffset, compMethod, compSize, uncompSize });
+                            gpkgEntries.push(entryObj);
+                        } else if (fileName.match(/\.(qgs|qgz)$/i)) {
+                            qgisEntries.push(entryObj);
                         }
                     }
                 }
                 pos += 46 + nLen + xLen + cLen;
+            }
+
+            // PRIORIDAD 0: Proyecto QGIS (.qgs / .qgz) dentro del ZIP
+            if (qgisEntries.length > 0) {
+                hideProgress();
+                await handleQgisProjectFromZip(file, qgisEntries, { layersMap, tiffEntries, gpkgEntries, allZipEntries, opts });
+                return;
             }
 
             const layerList = Object.values(layersMap).filter(l => l.filesPresent?.shp).map(l => ({
@@ -12624,6 +12636,813 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         const uncompressed = fflate.inflateSync(compressed);
         return new Blob([uncompressed]);
+    }
+
+    async function extractZipEntrySafe(file, entry) {
+        if (!entry) return null;
+        if (entry.isMemory && entry.data) {
+            return new Blob([entry.data]);
+        }
+        return await extractZipEntry(file, entry);
+    }
+
+    async function readZipCentralDirectory(file) {
+        const fileSize = file.size;
+        const readSize = Math.min(fileSize, 65557);
+        const blob = file.slice(fileSize - readSize, fileSize);
+        const footerBuffer = await blob.arrayBuffer();
+        const view = new DataView(footerBuffer);
+
+        let eocdPos = -1;
+        for (let i = footerBuffer.byteLength - 22; i >= 0; i--) {
+            if (view.getUint32(i, true) === 0x06054b50) {
+                eocdPos = i;
+                break;
+            }
+        }
+        if (eocdPos === -1) {
+            if (typeof fflate !== 'undefined' && file.size < 60 * 1024 * 1024) {
+                const buf = new Uint8Array(await file.arrayBuffer());
+                const unzipped = fflate.unzipSync(buf);
+                return Object.keys(unzipped).map(k => ({
+                    path: k,
+                    fileName: k.split('/').pop(),
+                    data: unzipped[k],
+                    isMemory: true
+                }));
+            }
+            throw new Error('Estructura ZIP/QGZ no encontrada o corrupta');
+        }
+
+        const cdSize = view.getUint32(eocdPos + 12, true);
+        const cdOffset = view.getUint32(eocdPos + 16, true);
+        const cdCount = view.getUint16(eocdPos + 10, true);
+
+        const cdBlob = file.slice(cdOffset, cdOffset + cdSize);
+        const cdBuffer = await cdBlob.arrayBuffer();
+        const cdView = new DataView(cdBuffer);
+
+        const entries = [];
+        let pos = 0;
+        for (let i = 0; i < cdCount && pos + 46 <= cdSize; i++) {
+            if (cdView.getUint32(pos, true) !== 0x02014b50) break;
+            const compMethod = cdView.getUint16(pos + 10, true);
+            const compSize = cdView.getUint32(pos + 20, true);
+            const uncompSize = cdView.getUint32(pos + 24, true);
+            const nLen = cdView.getUint16(pos + 28, true);
+            const xLen = cdView.getUint16(pos + 30, true);
+            const cLen = cdView.getUint16(pos + 32, true);
+            const lOffset = cdView.getUint32(pos + 42, true);
+
+            if (pos + 46 + nLen <= cdSize) {
+                const nameBytes = new Uint8Array(cdBuffer, pos + 46, nLen);
+                const path = new TextDecoder().decode(nameBytes);
+                const fileName = path.split('/').pop();
+                entries.push({ path, fileName, lOffset, compMethod, compSize, uncompSize });
+            }
+            pos += 46 + nLen + xLen + cLen;
+        }
+        return entries;
+    }
+
+    function qgisRgbaToCss(v) {
+        if (!v) return null;
+        const parts = v.split(',').map(n => parseFloat(n.trim()));
+        if (parts.length >= 3) {
+            const r = Math.max(0, Math.min(255, Math.round(parts[0])));
+            const g = Math.max(0, Math.min(255, Math.round(parts[1])));
+            const b = Math.max(0, Math.min(255, Math.round(parts[2])));
+            const a = parts.length >= 4 ? Math.max(0, Math.min(1, parts[3] / 255)) : 1;
+            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            return {
+                rgba: `rgba(${r}, ${g}, ${b}, ${a.toFixed(2)})`,
+                hex: hex,
+                opacity: a
+            };
+        }
+        return null;
+    }
+
+    function parseQgisProjectXml(xmlStr) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlStr, "application/xml");
+
+        if (doc.querySelector('parsererror')) {
+            console.error('Error parseando XML de QGIS:', doc.querySelector('parsererror').textContent);
+            throw new Error('El archivo del proyecto QGIS contiene XML inválido o corrupto.');
+        }
+
+        const titleEl = doc.querySelector('title') || doc.querySelector('qgis');
+        const projectTitle = titleEl ? (titleEl.textContent.trim() || titleEl.getAttribute('projectname') || '') : '';
+        const crsEl = doc.querySelector('projectCrs spatialrefsys authid');
+        const projectCrs = crsEl ? crsEl.textContent.trim() : 'EPSG:4326';
+
+        // 1. Extraer Capas
+        const layers = [];
+        const mapLayers = Array.from(doc.getElementsByTagName('maplayer'));
+        for (const ml of mapLayers) {
+            const id = ml.querySelector('id')?.textContent || '';
+            const name = ml.querySelector('layername')?.textContent || ml.querySelector('title')?.textContent || '';
+            const type = ml.getAttribute('type') || '';
+            const geom = ml.getAttribute('geometry') || '';
+            const ds = ml.querySelector('datasource')?.textContent || '';
+            const srs = ml.querySelector('srs spatialrefsys authid')?.textContent || projectCrs;
+
+            let visible = true;
+            const treeLayer = doc.querySelector(`layer-tree-layer[id="${id}"]`);
+            if (treeLayer && treeLayer.getAttribute('checked') === '0') {
+                visible = false;
+            }
+
+            let color = null;
+            let strokeColor = null;
+            let strokeWidth = 1.5;
+            let fillOpacity = 0.8;
+            let opacity = 1.0;
+
+            const layerOpacityEl = ml.querySelector('layerOpacity');
+            if (layerOpacityEl && !isNaN(parseFloat(layerOpacityEl.textContent))) {
+                opacity = parseFloat(layerOpacityEl.textContent);
+            }
+
+            const renderer = ml.querySelector('renderer-v2');
+            if (renderer) {
+                const props = Array.from(renderer.getElementsByTagName('prop'));
+                for (const p of props) {
+                    const k = p.getAttribute('k');
+                    const v = p.getAttribute('v');
+                    if (k === 'color' && v) {
+                        const parsed = qgisRgbaToCss(v);
+                        if (parsed) {
+                            color = parsed;
+                            fillOpacity = parsed.opacity;
+                        }
+                    } else if ((k === 'outline_color' || k === 'line_color') && v) {
+                        const parsed = qgisRgbaToCss(v);
+                        if (parsed) strokeColor = parsed;
+                    } else if ((k === 'outline_width' || k === 'line_width') && v) {
+                        strokeWidth = parseFloat(v) || 1.5;
+                    }
+                }
+            }
+
+            layers.push({
+                id,
+                name: name || id,
+                type,
+                geometry: geom,
+                datasource: ds,
+                crs: srs,
+                visible,
+                color,
+                strokeColor,
+                strokeWidth,
+                fillOpacity,
+                opacity
+            });
+        }
+
+        // 2. Extraer Salida Gráfica / Compositor de Impresión (Layouts / Composition)
+        const layouts = [];
+        const layoutNodes = Array.from(doc.querySelectorAll('Layouts Layout, Composition'));
+        for (const lay of layoutNodes) {
+            const name = lay.getAttribute('name') || 'Composición QGIS';
+            let pageW = 297, pageH = 210;
+
+            const pageItems = Array.from(lay.querySelectorAll('LayoutItem[type="65638"], PageCollection LayoutItem'));
+            if (pageItems.length > 0) {
+                const szParts = (pageItems[0].getAttribute('size') || '').split(',');
+                if (szParts.length >= 2 && parseFloat(szParts[0]) > 0) {
+                    pageW = parseFloat(szParts[0]);
+                    pageH = parseFloat(szParts[1]);
+                }
+            } else if (lay.getAttribute('paperWidth') && lay.getAttribute('paperHeight')) {
+                pageW = parseFloat(lay.getAttribute('paperWidth')) || 297;
+                pageH = parseFloat(lay.getAttribute('paperHeight')) || 210;
+            }
+
+            const orientation = pageW >= pageH ? 'landscape' : 'portrait';
+            let paper = 'A4';
+            let customDimensions = null;
+            if ((Math.abs(pageW - 297) < 6 && Math.abs(pageH - 210) < 6) || (Math.abs(pageW - 210) < 6 && Math.abs(pageH - 297) < 6)) {
+                paper = 'A4';
+            } else if ((Math.abs(pageW - 420) < 6 && Math.abs(pageH - 297) < 6) || (Math.abs(pageW - 297) < 6 && Math.abs(pageH - 420) < 6)) {
+                paper = 'A3';
+            } else if ((Math.abs(pageW - 279.4) < 6 && Math.abs(pageH - 215.9) < 6) || (Math.abs(pageW - 215.9) < 6 && Math.abs(pageH - 279.4) < 6)) {
+                paper = 'Letter';
+            } else {
+                paper = 'A4';
+                customDimensions = { width: `${pageW}mm`, height: `${pageH}mm` };
+            }
+
+            const mapItems = [];
+            const labelItems = [];
+            let scale = null, compass = null, legend = null;
+
+            // QGIS 3 LayoutItems
+            const items = Array.from(lay.querySelectorAll('LayoutItem'));
+            for (const it of items) {
+                const itype = it.getAttribute('type');
+                const pos = (it.getAttribute('position') || '').split(',').map(v => parseFloat(v));
+                const sz = (it.getAttribute('size') || '').split(',').map(v => parseFloat(v));
+                const x = !isNaN(pos[0]) ? pos[0] : 0;
+                const y = !isNaN(pos[1]) ? pos[1] : 0;
+                const w = !isNaN(sz[0]) ? sz[0] : 0;
+                const h = !isNaN(sz[1]) ? sz[1] : 0;
+
+                if (itype === '65639') { // Map
+                    const ext = it.querySelector('Extent');
+                    const extent = ext ? {
+                        xmin: parseFloat(ext.getAttribute('xmin')),
+                        ymin: parseFloat(ext.getAttribute('ymin')),
+                        xmax: parseFloat(ext.getAttribute('xmax')),
+                        ymax: parseFloat(ext.getAttribute('ymax')),
+                        crs: projectCrs
+                    } : null;
+                    mapItems.push({ x, y, w, h, area: w * h, extent });
+                } else if (itype === '65641') { // Label
+                    const txt = it.querySelector('LabelText')?.textContent || it.getAttribute('labelText') || '';
+                    labelItems.push({ x, y, w, h, text: txt.trim() });
+                } else if (itype === '65642') { // Scalebar
+                    scale = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                } else if (itype === '65646') { // Picture / North arrow
+                    compass = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                } else if (itype === '65643') { // Legend
+                    legend = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+                }
+            }
+
+            // QGIS 2 Composers
+            const compMaps = Array.from(lay.querySelectorAll('ComposerMap'));
+            for (const cm of compMaps) {
+                const x = parseFloat(cm.getAttribute('x')) || 0;
+                const y = parseFloat(cm.getAttribute('y')) || 0;
+                const w = parseFloat(cm.getAttribute('width')) || 0;
+                const h = parseFloat(cm.getAttribute('height')) || 0;
+                const ext = cm.querySelector('extent');
+                const extent = ext ? {
+                    xmin: parseFloat(ext.getAttribute('xmin')),
+                    ymin: parseFloat(ext.getAttribute('ymin')),
+                    xmax: parseFloat(ext.getAttribute('xmax')),
+                    ymax: parseFloat(ext.getAttribute('ymax')),
+                    crs: projectCrs
+                } : null;
+                mapItems.push({ x, y, w, h, area: w * h, extent });
+            }
+            const compLabels = Array.from(lay.querySelectorAll('ComposerLabel'));
+            for (const cl of compLabels) {
+                const x = parseFloat(cl.getAttribute('x')) || 0;
+                const y = parseFloat(cl.getAttribute('y')) || 0;
+                const w = parseFloat(cl.getAttribute('width')) || 0;
+                const h = parseFloat(cl.getAttribute('height')) || 0;
+                const txt = cl.querySelector('labelText')?.textContent || cl.getAttribute('labelText') || '';
+                labelItems.push({ x, y, w, h, text: txt.trim() });
+            }
+            const compPictures = Array.from(lay.querySelectorAll('ComposerPicture'));
+            for (const cp of compPictures) {
+                const x = parseFloat(cp.getAttribute('x')) || 0;
+                const y = parseFloat(cp.getAttribute('y')) || 0;
+                const w = parseFloat(cp.getAttribute('width')) || 0;
+                const h = parseFloat(cp.getAttribute('height')) || 0;
+                compass = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+            }
+            const compScaleBars = Array.from(lay.querySelectorAll('ComposerScaleBar'));
+            for (const cs of compScaleBars) {
+                const x = parseFloat(cs.getAttribute('x')) || 0;
+                const y = parseFloat(cs.getAttribute('y')) || 0;
+                const w = parseFloat(cs.getAttribute('width')) || 0;
+                const h = parseFloat(cs.getAttribute('height')) || 0;
+                scale = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+            }
+            const compLegends = Array.from(lay.querySelectorAll('ComposerLegend'));
+            for (const clg of compLegends) {
+                const x = parseFloat(clg.getAttribute('x')) || 0;
+                const y = parseFloat(clg.getAttribute('y')) || 0;
+                const w = parseFloat(clg.getAttribute('width')) || 0;
+                const h = parseFloat(clg.getAttribute('height')) || 0;
+                legend = { top: `${y}mm`, left: `${x}mm`, width: `${w}mm`, height: `${h}mm` };
+            }
+
+            let mapFrame = null;
+            let extent = null;
+            let secondaryMaps = [];
+            if (mapItems.length > 0) {
+                mapItems.sort((a, b) => b.area - a.area);
+                const main = mapItems[0];
+                mapFrame = { top: `${main.y}mm`, left: `${main.x}mm`, width: `${main.w}mm`, height: `${main.h}mm`, visible: true };
+                extent = main.extent;
+                secondaryMaps = mapItems.slice(1);
+            }
+
+            let titleText = '';
+            let titleProps = null;
+            let metadata = null;
+            let metadataText = '';
+            const customItems = [];
+
+            for (const l of labelItems) {
+                const t = l.text;
+                const upper = t.toUpperCase();
+                const isMeta = ['INFORMACIÓN TÉCNICA', 'INFORMACION TECNICA', 'AUTOR', 'PROYECTO', 'SISTEMA DE COORDENADAS', 'FUENTE', 'ESCALA', 'MEMBRETE'].some(k => upper.includes(k));
+                if (isMeta && !metadata) {
+                    metadata = { top: `${l.y}mm`, left: `${l.x}mm`, width: `${l.w}mm`, height: `${l.h}mm` };
+                    metadataText = t;
+                } else if (!titleText && l.y < pageH * 0.35 && l.w > 50) {
+                    titleText = t.replace(/\n+/g, ' — ');
+                    titleProps = { top: `${l.y}mm`, left: `${l.x}mm`, width: `${l.w}mm`, height: `${l.h}mm` };
+                } else {
+                    customItems.push(l);
+                }
+            }
+
+            layouts.push({
+                name,
+                paper,
+                orientation,
+                customDimensions,
+                pageWidth: pageW,
+                pageHeight: pageH,
+                mapFrame,
+                extent,
+                extentCrs: projectCrs,
+                titleText,
+                titleProps,
+                metadata,
+                metadataText,
+                scale,
+                compass,
+                legend,
+                secondaryMaps,
+                customItems
+            });
+        }
+
+        return {
+            title: projectTitle,
+            crs: projectCrs,
+            layers,
+            layouts
+        };
+    }
+
+    function applyQgisLayout(layout) {
+        if (!layout) return;
+        console.log('[QGIS Layout] Aplicando layout:', layout.name, layout);
+
+        layoutConfig.paper = layout.paper || 'A4';
+        layoutConfig.orientation = layout.orientation || 'landscape';
+        if (layout.customDimensions) {
+            layoutConfig.customDimensions = layout.customDimensions;
+        } else {
+            delete layoutConfig.customDimensions;
+        }
+
+        if (layout.titleText) {
+            layoutConfig.titleText = layout.titleText;
+            if (!layoutConfig.styles) layoutConfig.styles = {};
+            if (!layoutConfig.styles.title) layoutConfig.styles.title = { fontSize: 20, color: '#000000', fontFamily: 'Inter', bold: true };
+            if (layout.titleText.length > 70) {
+                layoutConfig.styles.title.fontSize = 11;
+            } else if (layout.titleText.length > 40) {
+                layoutConfig.styles.title.fontSize = 14;
+            } else {
+                layoutConfig.styles.title.fontSize = 18;
+            }
+        }
+        if (layout.titleProps) {
+            layoutConfig.titleProps = { ...layout.titleProps };
+        }
+        if (layout.mapFrame) {
+            layoutConfig.mapFrame = { ...layout.mapFrame };
+        }
+        if (layout.metadata) {
+            layoutConfig.metadata = { ...layout.metadata };
+        }
+        if (layout.metadataText) {
+            layoutConfig.metadataText = layout.metadataText;
+        }
+        if (layout.scale) {
+            layoutConfig.scale = { ...layout.scale };
+        }
+        if (layout.compass) {
+            layoutConfig.compass = { ...layout.compass };
+        }
+        if (layout.legend) {
+            layoutConfig.legend = { ...layout.legend };
+        }
+
+        layoutConfig.elements = {
+            mapFrame: !!layout.mapFrame,
+            title: !!layout.titleProps,
+            metadata: !!layout.metadata,
+            scale: !!layout.scale,
+            compass: !!layout.compass,
+            legend: !!layout.legend
+        };
+
+        layoutConfig.extent = layout.extent || null;
+        layoutConfig.extentCrs = layout.extentCrs || 'EPSG:4326';
+        layoutConfig.initialized = true;
+
+        // Formas secundarias (como minimapa de localización)
+        layoutConfig.shapes = [];
+        if (layout.secondaryMaps && layout.secondaryMaps.length > 0) {
+            layout.secondaryMaps.forEach((sm, idx) => {
+                layoutConfig.shapes.push({
+                    id: 'shape-qgis-map-' + idx,
+                    top: `${sm.y}mm`,
+                    left: `${sm.x}mm`,
+                    width: `${sm.w}mm`,
+                    height: `${sm.h}mm`,
+                    borderColor: '#333333',
+                    borderWidth: 1.5,
+                    backgroundColor: 'rgba(245, 245, 245, 0.85)'
+                });
+            });
+        }
+
+        if (typeof layoutSetPaper === 'function') layoutSetPaper(layoutConfig.paper);
+        if (typeof layoutSetOrientation === 'function') layoutSetOrientation(layoutConfig.orientation);
+        if (typeof layoutApplyPageSize === 'function') layoutApplyPageSize();
+
+        const titleInput = document.getElementById('layoutTitleInput');
+        const titleDisplay = document.getElementById('layoutTitleDisplay');
+        if (titleInput && layoutConfig.titleText) titleInput.value = layoutConfig.titleText;
+        if (titleDisplay && layoutConfig.titleText) {
+            titleDisplay.textContent = layoutConfig.titleText;
+            if (layoutConfig.styles?.title?.fontSize) {
+                titleDisplay.style.fontSize = layoutConfig.styles.title.fontSize + 'px';
+                titleDisplay.style.lineHeight = '1.25';
+            }
+        }
+
+        const mf = document.getElementById('layoutMapFrame');
+        if (mf && layoutConfig.mapFrame) {
+            mf.style.top = layoutConfig.mapFrame.top;
+            mf.style.left = layoutConfig.mapFrame.left;
+            mf.style.width = layoutConfig.mapFrame.width;
+            mf.style.height = layoutConfig.mapFrame.height;
+        }
+
+        const tc = document.getElementById('layoutTitleContainer');
+        if (tc && layoutConfig.titleProps) {
+            tc.style.top = layoutConfig.titleProps.top;
+            tc.style.left = layoutConfig.titleProps.left;
+            tc.style.width = layoutConfig.titleProps.width;
+            if (layoutConfig.titleProps.height) tc.style.height = layoutConfig.titleProps.height;
+        }
+
+        const mc = document.getElementById('layoutMetadataContainer');
+        if (mc && layoutConfig.metadata) {
+            mc.style.top = layoutConfig.metadata.top;
+            mc.style.left = layoutConfig.metadata.left;
+            mc.style.width = layoutConfig.metadata.width;
+            if (layoutConfig.metadata.height) mc.style.height = layoutConfig.metadata.height;
+        }
+
+        const cp = document.getElementById('layoutCompass');
+        if (cp && layoutConfig.compass) {
+            cp.style.top = layoutConfig.compass.top;
+            cp.style.left = layoutConfig.compass.left;
+            cp.style.width = layoutConfig.compass.width;
+            cp.style.height = layoutConfig.compass.height;
+        }
+
+        const sc = document.getElementById('layoutScaleContainer');
+        if (sc && layoutConfig.scale) {
+            sc.style.top = layoutConfig.scale.top;
+            sc.style.left = layoutConfig.scale.left;
+            sc.style.width = layoutConfig.scale.width;
+            sc.style.height = layoutConfig.scale.height;
+        }
+
+        const lc = document.getElementById('layoutLegendContainer');
+        if (lc && layoutConfig.legend) {
+            lc.style.top = layoutConfig.legend.top;
+            lc.style.left = layoutConfig.legend.left;
+            lc.style.width = layoutConfig.legend.width;
+            lc.style.height = layoutConfig.legend.height;
+        }
+
+        Object.keys(layoutConfig.elements).forEach(key => {
+            if (typeof layoutUpdateElementUI === 'function') layoutUpdateElementUI(key);
+        });
+
+        if (typeof layoutRefreshElementsList === 'function') layoutRefreshElementsList();
+    }
+
+    function updateQgisLayoutsDropdown(layouts) {
+        const qgisList = document.getElementById('layoutTemplatesQgisList');
+        if (!qgisList) return;
+        if (!layouts || layouts.length === 0) {
+            qgisList.classList.add('hidden');
+            qgisList.innerHTML = '';
+            return;
+        }
+
+        qgisList.innerHTML = `
+            <div class="flex items-center gap-1.5 px-1 pt-1 pb-0.5">
+                <span class="material-symbols-outlined text-[14px] text-emerald-600">view_quilt</span>
+                <span class="text-[9px] font-black uppercase tracking-wider text-emerald-700">Composiciones QGIS (${layouts.length})</span>
+            </div>
+            ${layouts.map((lay, idx) => `
+                <button onclick="applyQgisLayoutByIndex(${idx})" class="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-50/70 transition-colors text-left border border-emerald-200/60 bg-emerald-50/30 group">
+                    <div>
+                        <span class="text-xs font-bold text-zinc-900 group-hover:text-emerald-900 block truncate max-w-[190px]">${lay.name}</span>
+                        <span class="text-[9px] text-zinc-500">${lay.paper} ${lay.orientation === 'landscape' ? 'Horizontal' : 'Vertical'}</span>
+                    </div>
+                    <span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white uppercase tracking-tight">QGIS</span>
+                </button>
+            `).join('')}
+        `;
+        qgisList.classList.remove('hidden');
+    }
+
+    function applyQgisLayoutByIndex(idx) {
+        if (window._importedQgisLayouts && window._importedQgisLayouts[idx]) {
+            applyQgisLayout(window._importedQgisLayouts[idx]);
+            toast(`Salida gráfica aplicada: "${window._importedQgisLayouts[idx].name}"`, 'success');
+            if (typeof toggleLayoutTemplatesDropdown === 'function') toggleLayoutTemplatesDropdown();
+        }
+    }
+
+    function showQgisImportNotification(projectName, layoutCount, layerCount, onOpenLayout) {
+        const old = document.getElementById('qgisImportBanner');
+        if (old) old.remove();
+
+        const banner = document.createElement('div');
+        banner.id = 'qgisImportBanner';
+        banner.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 z-[2147483000] bg-zinc-900/95 text-white backdrop-blur-md px-5 py-3 rounded-2xl shadow-2xl border border-white/20 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300';
+        banner.style.maxWidth = '92vw';
+
+        let actionBtnHtml = '';
+        if (layoutCount > 0) {
+            actionBtnHtml = `
+                <button id="btnOpenQgisLayoutBanner" class="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-all transform active:scale-95 shrink-0 cursor-pointer">
+                    <span class="material-symbols-outlined text-[16px]">print</span>
+                    Ver Salida Gráfica
+                </button>
+            `;
+        }
+
+        banner.innerHTML = `
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                    <span class="material-symbols-outlined text-[20px]">layers</span>
+                </div>
+                <div>
+                    <div class="text-xs font-black tracking-tight flex items-center gap-1.5">
+                        <span>Proyecto QGIS:</span>
+                        <span class="text-emerald-400 truncate max-w-[240px]">${projectName || 'Sin título'}</span>
+                    </div>
+                    <div class="text-[10px] text-zinc-400">
+                        ${layerCount} capa(s) identificada(s) · ${layoutCount} salida(s) gráfica(s)
+                    </div>
+                </div>
+            </div>
+            ${actionBtnHtml}
+            <button onclick="document.getElementById('qgisImportBanner')?.remove()" class="text-zinc-400 hover:text-white p-1 rounded-lg">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        `;
+
+        document.body.appendChild(banner);
+
+        if (layoutCount > 0) {
+            const btn = document.getElementById('btnOpenQgisLayoutBanner');
+            if (btn) {
+                btn.onclick = () => {
+                    banner.remove();
+                    if (typeof onOpenLayout === 'function') onOpenLayout();
+                };
+            }
+        }
+
+        setTimeout(() => {
+            if (document.getElementById('qgisImportBanner')) {
+                document.getElementById('qgisImportBanner').remove();
+            }
+        }, 15000);
+    }
+
+    async function handleQgisProjectFromZip(zipFile, qgisEntries, ctx = {}) {
+        showProgress(`Analizando proyecto QGIS en: ${zipFile.name}...`, 20, 'Importador QGIS');
+        try {
+            const ws = document.getElementById('workspace');
+            if (ws && ws.classList.contains('hidden')) {
+                document.getElementById('landingPage')?.classList.add('hidden');
+                document.getElementById('projectDashboard')?.classList.add('hidden');
+                ws.classList.remove('hidden');
+                if (typeof window.__globeHide === 'function') window.__globeHide();
+                if (state.map) setTimeout(() => state.map.invalidateSize(), 150);
+            }
+
+            let mainQgisEntry = qgisEntries.find(e => e.fileName.toLowerCase().endsWith('.qgs')) || qgisEntries[0];
+            showProgress(`Extrayendo ${mainQgisEntry.fileName}...`, 35, 'Importador QGIS');
+            let qgsXml = '';
+            if (mainQgisEntry.fileName.toLowerCase().endsWith('.qgz')) {
+                const qgzBlob = await extractZipEntrySafe(zipFile, mainQgisEntry);
+                const qgzEntries = await readZipCentralDirectory(qgzBlob);
+                const nestedQgs = qgzEntries.find(e => e.fileName.toLowerCase().endsWith('.qgs'));
+                if (!nestedQgs) throw new Error('No se encontró archivo .qgs dentro del archivo .qgz');
+                const nestedBlob = await extractZipEntrySafe(qgzBlob, nestedQgs);
+                qgsXml = await nestedBlob.text();
+            } else {
+                const blob = await extractZipEntrySafe(zipFile, mainQgisEntry);
+                qgsXml = await blob.text();
+            }
+
+            showProgress('Interpretando capas y salida gráfica...', 50, 'Importador QGIS');
+            const project = parseQgisProjectXml(qgsXml);
+            console.log('[QGIS Import] Proyecto parseado:', project);
+
+            const allEntries = ctx.allZipEntries || [];
+            const loadedShpBases = new Set();
+            let loadedCount = 0;
+
+            for (const ql of project.layers) {
+                const cleanDs = (ql.datasource || '').split('|')[0].replace(/\\/g, '/');
+                const dsFileName = cleanDs.split('/').pop().toLowerCase();
+                const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
+
+                if (ql.type === 'vector' || ql.geometry) {
+                    const shpEntry = allEntries.find(e => {
+                        const fn = e.fileName.toLowerCase();
+                        return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
+                    });
+
+                    if (shpEntry) {
+                        const basePrefix = shpEntry.path.substring(0, shpEntry.path.length - 4);
+                        const dbfEntry = allEntries.find(e => e.path.toLowerCase() === (basePrefix + '.dbf').toLowerCase()) ||
+                                         allEntries.find(e => e.fileName.toLowerCase() === (shpEntry.fileName.replace(/\.shp$/i, '.dbf')).toLowerCase());
+                        const prjEntry = allEntries.find(e => e.path.toLowerCase() === (basePrefix + '.prj').toLowerCase()) ||
+                                         allEntries.find(e => e.fileName.toLowerCase() === (shpEntry.fileName.replace(/\.shp$/i, '.prj')).toLowerCase());
+
+                        showProgress(`Cargando capa vectorial: ${ql.name}...`, 65, 'Importador QGIS');
+                        const shpBlob = await extractZipEntrySafe(zipFile, shpEntry);
+                        const dbfBlob = dbfEntry ? await extractZipEntrySafe(zipFile, dbfEntry) : null;
+                        const prjBlob = prjEntry ? await extractZipEntrySafe(zipFile, prjEntry) : null;
+
+                        const shpFile = new File([shpBlob], shpEntry.fileName, { type: 'application/octet-stream' });
+                        const dbfFile = dbfBlob ? new File([dbfBlob], dbfEntry.fileName, { type: 'application/octet-stream' }) : null;
+                        const prjFile = prjBlob ? new File([prjBlob], prjEntry.fileName, { type: 'text/plain' }) : null;
+
+                        await loadShapefileDirect(shpFile, dbfFile, prjFile, {
+                            originalName: ql.name,
+                            color: ql.color?.hex,
+                            strokeColor: ql.strokeColor?.hex,
+                            strokeWidth: ql.strokeWidth,
+                            fillOpacity: ql.fillOpacity,
+                            opacity: ql.opacity,
+                            visible: ql.visible
+                        });
+                        loadedShpBases.add(shpEntry.fileName.replace(/\.shp$/i, '').toLowerCase());
+                        loadedCount++;
+                    }
+                } else if (ql.type === 'raster') {
+                    const tiffEntry = (ctx.tiffEntries || []).find(e => {
+                        const fn = e.fileName.toLowerCase();
+                        return fn === dsFileName || fn.replace(/\.[^/.]+$/, "") === dsBaseName;
+                    });
+                    if (tiffEntry) {
+                        showProgress(`Cargando ráster: ${ql.name}...`, 75, 'Importador QGIS');
+                        const tBlob = await extractZipEntrySafe(zipFile, tiffEntry);
+                        const tFile = new File([tBlob], tiffEntry.fileName, { type: 'image/tiff' });
+                        await loadTiff(tFile, { originalName: ql.name, visible: ql.visible });
+                        loadedCount++;
+                    }
+                }
+            }
+
+            // Cargar capas Shapefile adicionales dentro del ZIP que no estaban mapeadas en el proyecto
+            if (ctx.layersMap) {
+                for (const [baseKey, lObj] of Object.entries(ctx.layersMap)) {
+                    const baseName = lObj.name.toLowerCase();
+                    if (!loadedShpBases.has(baseName)) {
+                        const shpEntry = allEntries.find(e => e.path.toLowerCase() === (baseKey + '.shp').toLowerCase() || e.fileName.toLowerCase() === (baseName + '.shp'));
+                        if (shpEntry) {
+                            const dbfEntry = allEntries.find(e => e.path.toLowerCase() === (baseKey + '.dbf').toLowerCase());
+                            const prjEntry = allEntries.find(e => e.path.toLowerCase() === (baseKey + '.prj').toLowerCase());
+                            const shpBlob = await extractZipEntrySafe(zipFile, shpEntry);
+                            const dbfBlob = dbfEntry ? await extractZipEntrySafe(zipFile, dbfEntry) : null;
+                            const prjBlob = prjEntry ? await extractZipEntrySafe(zipFile, prjEntry) : null;
+                            const shpFile = new File([shpBlob], shpEntry.fileName, { type: 'application/octet-stream' });
+                            const dbfFile = dbfBlob ? new File([dbfBlob], dbfEntry.fileName, { type: 'application/octet-stream' }) : null;
+                            const prjFile = prjBlob ? new File([prjBlob], prjEntry.fileName, { type: 'text/plain' }) : null;
+                            await loadShapefileDirect(shpFile, dbfFile, prjFile, { originalName: lObj.name });
+                            loadedCount++;
+                        }
+                    }
+                }
+            }
+
+            // 4. Salida Gráfica (Print Layouts)
+            const layouts = project.layouts || [];
+            if (layouts.length > 0) {
+                window._importedQgisLayouts = layouts;
+                layoutConfig.qgisLayouts = layouts;
+                applyQgisLayout(layouts[0]);
+                updateQgisLayoutsDropdown(layouts);
+            }
+
+            hideProgress();
+            const projDisplay = project.title || zipFile.name.replace(/\.[^/.]+$/, "");
+            toast(`Proyecto QGIS "${projDisplay}" importado (${loadedCount} capa(s), ${layouts.length} salida(s) gráfica(s))`, 'success');
+
+            showQgisImportNotification(projDisplay, layouts.length, loadedCount, () => {
+                openLayoutModal();
+            });
+
+        } catch (err) {
+            console.error('[QGIS Import] Error importando proyecto QGIS:', err);
+            hideProgress();
+            toast(`Error importando proyecto QGIS: ${err.message}`, 'error');
+        }
+    }
+
+    async function handleQgisProjectFile(file, opts = {}, allFiles = []) {
+        showProgress(`Leyendo proyecto QGIS: ${file.name}...`, 20, 'Importador QGIS');
+        try {
+            const ws = document.getElementById('workspace');
+            if (ws && ws.classList.contains('hidden')) {
+                document.getElementById('landingPage')?.classList.add('hidden');
+                document.getElementById('projectDashboard')?.classList.add('hidden');
+                ws.classList.remove('hidden');
+                if (typeof window.__globeHide === 'function') window.__globeHide();
+                if (state.map) setTimeout(() => state.map.invalidateSize(), 150);
+            }
+
+            let qgsXml = '';
+            let bundledEntries = [];
+            if (file.name.toLowerCase().endsWith('.qgz')) {
+                const entries = await readZipCentralDirectory(file);
+                bundledEntries = entries;
+                const qgsEntry = entries.find(e => e.fileName.toLowerCase().endsWith('.qgs'));
+                if (!qgsEntry) throw new Error('No se encontró archivo .qgs dentro del contenedor .qgz');
+                const blob = await extractZipEntrySafe(file, qgsEntry);
+                qgsXml = await blob.text();
+            } else {
+                qgsXml = await file.text();
+            }
+
+            const project = parseQgisProjectXml(qgsXml);
+            console.log('[QGIS Standalone Import] Proyecto:', project);
+
+            let loadedCount = 0;
+            const availableFiles = Array.isArray(allFiles) ? allFiles : [];
+
+            for (const ql of project.layers) {
+                const cleanDs = (ql.datasource || '').split('|')[0].replace(/\\/g, '/');
+                const dsFileName = cleanDs.split('/').pop().toLowerCase();
+                const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
+
+                const shpFile = availableFiles.find(f => {
+                    const fn = f.name.toLowerCase();
+                    return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
+                });
+
+                if (shpFile) {
+                    const base = shpFile.name.replace(/\.shp$/i, '');
+                    const dbfFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
+                    const prjFile = availableFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
+                    await loadShapefileDirect(shpFile, dbfFile, prjFile, {
+                        originalName: ql.name,
+                        color: ql.color?.hex,
+                        strokeColor: ql.strokeColor?.hex,
+                        strokeWidth: ql.strokeWidth,
+                        fillOpacity: ql.fillOpacity,
+                        opacity: ql.opacity,
+                        visible: ql.visible
+                    });
+                    if (!window._loadedByQgisFiles) window._loadedByQgisFiles = new Set();
+                    window._loadedByQgisFiles.add(shpFile.name.toLowerCase());
+                    if (dbfFile) window._loadedByQgisFiles.add(dbfFile.name.toLowerCase());
+                    if (prjFile) window._loadedByQgisFiles.add(prjFile.name.toLowerCase());
+                    loadedCount++;
+                }
+            }
+
+            const layouts = project.layouts || [];
+            if (layouts.length > 0) {
+                window._importedQgisLayouts = layouts;
+                layoutConfig.qgisLayouts = layouts;
+                applyQgisLayout(layouts[0]);
+                updateQgisLayoutsDropdown(layouts);
+            }
+
+            hideProgress();
+            const projDisplay = project.title || file.name.replace(/\.[^/.]+$/, "");
+            toast(`Proyecto QGIS "${projDisplay}" importado (${layouts.length} salida(s) gráfica(s))`, 'success');
+
+            showQgisImportNotification(projDisplay, layouts.length, loadedCount, () => {
+                openLayoutModal();
+            });
+
+        } catch (err) {
+            console.error('[QGIS Standalone Import] Error:', err);
+            hideProgress();
+            toast(`Error leyendo proyecto QGIS: ${err.message}`, 'error');
+        }
     }
 
     function toggleAllImport(checked) {
@@ -17208,6 +18027,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!opts.isRestored) {
           const uploads = files
               .filter(f => !f.name.toLowerCase().endsWith('.zip')
+                        && !f.name.toLowerCase().endsWith('.qgz')
+                        && !f.name.toLowerCase().endsWith('.qgs')
                         && !f.name.toLowerCase().endsWith('.dbf')
                         && !f.name.toLowerCase().endsWith('.prj')
                         && !f.name.toLowerCase().endsWith('.shp')
@@ -17232,14 +18053,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // 2. VISUALIZATION PHASE: local rendering starts immediately
       showProgress('Iniciando procesamiento local...', 0, 'Analizador Zima');
       
-      for (const file of files) {
+      // Ordenar para procesar proyectos QGIS primero y vincular sus capas asociadas
+      const sortedFiles = [...files].sort((a, b) => {
+          const aIsQgis = /\.(qgz|qgs)$/i.test(a.name);
+          const bIsQgis = /\.(qgz|qgs)$/i.test(b.name);
+          if (aIsQgis && !bIsQgis) return -1;
+          if (!aIsQgis && bIsQgis) return 1;
+          return 0;
+      });
+
+      for (const file of sortedFiles) {
           const name = file.name.toLowerCase();
+          if (window._loadedByQgisFiles && window._loadedByQgisFiles.has(name)) {
+              continue;
+          }
           
           const currentOpts = { originalName: file.name, ...opts };
           
           if (name.endsWith('.zip')) {
               await handleZipImport(file, currentOpts);
           } 
+          else if (name.endsWith('.qgz') || name.endsWith('.qgs')) {
+              await handleQgisProjectFile(file, currentOpts, files);
+          }
           else if (name.endsWith('.gpkg')) {
               const base = file.name.replace(/\.gpkg$/i, '');
               const walFile = files.find(f => f.name.toLowerCase() === (base + '.gpkg-wal').toLowerCase());
@@ -17273,6 +18109,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               toast(`Archivo "${file.name}" cargado en la nube (formato no visualizable directamente)`, 'info');
           }
       }
+      if (window._loadedByQgisFiles) window._loadedByQgisFiles.clear();
     }
 
     function _yield() { return new Promise(r => setTimeout(r, 5)); }
@@ -18905,6 +19742,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     layoutDrawGrid();
                 }
             }
+            if (layoutConfig && layoutConfig.extent && window.layoutLeafletMap) {
+                const ext = layoutConfig.extent;
+                let b = null;
+                const crs = layoutConfig.extentCrs || 'EPSG:4326';
+                if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
+                    try {
+                        const p1 = proj4(crs, 'EPSG:4326', [ext.xmin, ext.ymin]);
+                        const p2 = proj4(crs, 'EPSG:4326', [ext.xmax, ext.ymax]);
+                        b = [[Math.min(p1[1], p2[1]), Math.min(p1[0], p2[0])], [Math.max(p1[1], p2[1]), Math.max(p1[0], p2[0])]];
+                    } catch(e) {}
+                } else if (Math.abs(ext.ymin) <= 90 && Math.abs(ext.ymax) <= 90) {
+                    b = [[ext.ymin, ext.xmin], [ext.ymax, ext.xmax]];
+                }
+                if (b) {
+                    window.layoutLeafletMap.fitBounds(b, { animate: false, padding: [10, 10] });
+                }
+            }
         }, 150);
         
         if (!layoutConfig.initialized) {
@@ -18929,7 +19783,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         // Restore UI State
         document.getElementById('layoutTitleInput').value = layoutConfig.titleText || '';
-        document.getElementById('layoutTitleDisplay').textContent = layoutConfig.titleText || '';
+        const titleDisplayEl = document.getElementById('layoutTitleDisplay');
+        if (titleDisplayEl) {
+            titleDisplayEl.textContent = layoutConfig.titleText || '';
+            if (layoutConfig.styles?.title?.fontSize) {
+                titleDisplayEl.style.fontSize = layoutConfig.styles.title.fontSize + 'px';
+                titleDisplayEl.style.lineHeight = '1.25';
+            }
+        }
         
         const mf = document.getElementById('layoutMapFrame');
         if (mf && layoutConfig.mapFrame) {
@@ -18952,6 +19813,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             tc.style.top = layoutConfig.titleProps.top;
             tc.style.left = layoutConfig.titleProps.left;
             tc.style.width = layoutConfig.titleProps.width;
+            if (layoutConfig.titleProps.height) tc.style.height = layoutConfig.titleProps.height;
         }
 
         const mc = document.getElementById('layoutMetadataContainer');
@@ -19004,6 +19866,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const dateEl = document.getElementById('layoutDateDisplay');
         if (dateEl) dateEl.textContent = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(new Date());
+
+        // Renderizar membrete/metadatos técnicos importados de QGIS si existen
+        if (layoutConfig.metadataText) {
+            const metaDisplay = document.getElementById('layoutMetadataDisplay');
+            if (metaDisplay) {
+                const rawLines = layoutConfig.metadataText.split('\n').map(l => l.trim()).filter(Boolean);
+                if (rawLines.length > 0) {
+                    metaDisplay.innerHTML = rawLines.map(line => {
+                        const parts = line.split(':');
+                        if (parts.length > 1) {
+                            const label = parts[0].replace(/^[•\-\*]\s*/, '').trim();
+                            const val = parts.slice(1).join(':').trim();
+                            return `<div class="flex items-center justify-between text-[8px] font-bold text-zinc-600 border-b border-zinc-100/60 pb-0.5" style="overflow:visible;">
+                                <span class="uppercase tracking-wider shrink-0 mr-2 text-[7.5px] text-zinc-500">${label}:</span>
+                                <span class="font-bold text-zinc-900 text-right truncate text-[7.5px]">${val}</span>
+                            </div>`;
+                        } else {
+                            return `<div class="text-[8px] font-bold text-zinc-800 pb-0.5 border-b border-zinc-100/60" style="overflow:visible;">${line}</div>`;
+                        }
+                    }).join('');
+                }
+            }
+        }
         
         // Sync coords (Always update to current view center)
         const center = (state.map && typeof state.map.getCenter === 'function') ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
@@ -19484,6 +20369,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function layoutApplyPageSize() {
         const paper = document.getElementById('layoutPaper');
         if (!paper) return;
+        if (layoutConfig.customDimensions && layoutConfig.customDimensions.width && layoutConfig.customDimensions.height) {
+            paper.style.width = layoutConfig.customDimensions.width;
+            paper.style.height = layoutConfig.customDimensions.height;
+            return;
+        }
         if (layoutConfig.paper === 'A4') {
             if (layoutConfig.orientation === 'portrait') { paper.style.width = '210mm'; paper.style.height = '297mm'; }
             else { paper.style.width = '297mm'; paper.style.height = '210mm'; }
