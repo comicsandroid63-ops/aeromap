@@ -3009,6 +3009,269 @@
     </div>
   </div>
 
+
+  <!-- Floating Vector Style & Shape Configuration Panel (Left of Active Layers) -->
+  <div id="floatingVectorStylePanel" style="display: none; top: 5.5rem; bottom: 2rem; max-height: calc(100vh - 7.5rem); width: 360px;"
+    class="fixed z-50 glass-panel rounded-3xl shadow-2xl border border-white/20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl flex flex-col font-sans text-zinc-900 overflow-hidden right-6 lg:right-[calc(20rem+2.5rem)] animate-fadeIn">
+    
+    <!-- Header -->
+    <div class="px-5 py-3.5 border-b border-zinc-200/80 flex items-center justify-between bg-zinc-50/80">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <span class="material-symbols-outlined text-[18px]">brush</span>
+        </div>
+        <div class="flex flex-col min-w-0">
+          <span class="text-[8.5px] font-black uppercase tracking-wider text-indigo-600">Estilo & Forma Vectorial</span>
+          <h3 id="floatingStyleLayerName" class="text-[12px] font-bold text-zinc-900 truncate" title="Capa">Capa Vectorial</h3>
+        </div>
+      </div>
+      <button onclick="closeFloatingVectorStylePanel()" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-200/70 text-zinc-400 hover:text-black transition-colors" title="Cerrar panel">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+
+    <!-- Live Preview Box -->
+    <div class="px-5 pt-3 pb-2 border-b border-zinc-100 bg-white/60">
+      <div class="p-2.5 bg-zinc-50/90 rounded-2xl border border-zinc-200/80 flex flex-col items-center justify-center relative overflow-hidden shadow-2xs">
+        <div class="w-full flex items-center justify-between mb-1.5 px-1">
+          <span class="text-[7.5px] font-black uppercase tracking-widest text-zinc-400">Vista Previa en Vivo</span>
+          <span class="text-[7.5px] font-mono font-bold text-indigo-600">Polígono & Trazo</span>
+        </div>
+        <canvas id="floatingStylePreviewCanvas" width="300" height="65" class="w-full h-[65px] rounded-lg border border-zinc-200/50 bg-white"></canvas>
+      </div>
+    </div>
+
+    <!-- Scrollable Controls -->
+    <div class="flex-1 overflow-y-auto px-5 py-3.5 space-y-4 custom-scrollbar text-[11px]">
+
+      <!-- SECCIÓN 1: TRAZO Y BORDE -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[9px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[14px] text-indigo-600">border_color</span>
+            Borde y Contorno
+          </span>
+          <span id="fvStrokeWidthVal" class="text-[9px] font-mono font-bold text-indigo-600">2.0 px</span>
+        </div>
+
+        <!-- Slider Grosor -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center justify-between text-[8px] text-zinc-400 font-bold uppercase">
+            <span>Grosor del Trazo</span>
+            <span>1px - 16px</span>
+          </div>
+          <input type="range" id="fvStrokeWidthSlider" min="0.5" max="16" step="0.5" value="2"
+            oninput="setFloatingStrokeWidth(this.value)"
+            class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+          <!-- Quick presets -->
+          <div class="flex items-center gap-1 pt-1">
+            <button onclick="setFloatingStrokeWidth(1)" class="flex-1 py-1 text-[8px] font-bold rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors">1px</button>
+            <button onclick="setFloatingStrokeWidth(2)" class="flex-1 py-1 text-[8px] font-bold rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors">2px</button>
+            <button onclick="setFloatingStrokeWidth(3.5)" class="flex-1 py-1 text-[8px] font-bold rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors">3.5px</button>
+            <button onclick="setFloatingStrokeWidth(5)" class="flex-1 py-1 text-[8px] font-bold rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors">5px</button>
+            <button onclick="setFloatingStrokeWidth(8)" class="flex-1 py-1 text-[8px] font-bold rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors">8px</button>
+          </div>
+        </div>
+
+        <!-- Estilo de Línea (Dash) -->
+        <div class="flex flex-col gap-1 pt-1">
+          <span class="text-[8px] text-zinc-400 font-bold uppercase">Estilo de Línea</span>
+          <div class="grid grid-cols-4 gap-1.5" id="fvDashContainer">
+            <button onclick="setFloatingDashArray('none', this)" data-dash="none" class="fv-dash-btn py-1.5 px-1 rounded-lg border border-zinc-200 text-[8px] font-bold hover:bg-zinc-50 flex flex-col items-center gap-1 transition-all">
+              <span class="w-8 h-0.5 bg-zinc-800 rounded-full"></span>
+              <span>Sólida</span>
+            </button>
+            <button onclick="setFloatingDashArray('8, 6', this)" data-dash="8, 6" class="fv-dash-btn py-1.5 px-1 rounded-lg border border-zinc-200 text-[8px] font-bold hover:bg-zinc-50 flex flex-col items-center gap-1 transition-all">
+              <span class="w-8 h-0.5 border-b-2 border-dashed border-zinc-800"></span>
+              <span>Trazos</span>
+            </button>
+            <button onclick="setFloatingDashArray('3, 5', this)" data-dash="3, 5" class="fv-dash-btn py-1.5 px-1 rounded-lg border border-zinc-200 text-[8px] font-bold hover:bg-zinc-50 flex flex-col items-center gap-1 transition-all">
+              <span class="w-8 h-0.5 border-b-2 border-dotted border-zinc-800"></span>
+              <span>Puntos</span>
+            </button>
+            <button onclick="setFloatingDashArray('12, 5, 3, 5', this)" data-dash="12, 5, 3, 5" class="fv-dash-btn py-1.5 px-1 rounded-lg border border-zinc-200 text-[8px] font-bold hover:bg-zinc-50 flex flex-col items-center gap-1 transition-all">
+              <span class="text-[8px] font-mono leading-none tracking-tighter text-zinc-800">— · —</span>
+              <span>Mixta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Color del Borde -->
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <span class="text-[8px] text-zinc-400 font-bold uppercase">Color de Borde</span>
+          <div class="flex items-center gap-1.5">
+            <input type="color" id="fvStrokeColorInput" value="#000000"
+              oninput="setFloatingStrokeColor(this.value)"
+              class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white">
+            <span id="fvStrokeColorHex" class="text-[9px] font-mono font-bold text-zinc-700">#000000</span>
+          </div>
+        </div>
+
+        <!-- Paleta Rápida Borde -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#000000" onclick="setFloatingStrokeColor('#000000')" title="Negro"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#ffffff" onclick="setFloatingStrokeColor('#ffffff')" title="Blanco"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#374151" onclick="setFloatingStrokeColor('#374151')" title="Grafito"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#2563eb" onclick="setFloatingStrokeColor('#2563eb')" title="Azul"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#10b981" onclick="setFloatingStrokeColor('#10b981')" title="Verde"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#f59e0b" onclick="setFloatingStrokeColor('#f59e0b')" title="Ámbar"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#ef4444" onclick="setFloatingStrokeColor('#ef4444')" title="Rojo"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#8b5cf6" onclick="setFloatingStrokeColor('#8b5cf6')" title="Morado"></span>
+        </div>
+
+        <!-- Opacidad Borde -->
+        <div class="flex flex-col gap-1 pt-1">
+          <div class="flex items-center justify-between text-[8px] text-zinc-400 font-bold uppercase">
+            <span>Opacidad del Borde</span>
+            <span id="fvStrokeOpacityVal" class="text-zinc-600 font-mono">100%</span>
+          </div>
+          <input type="range" id="fvStrokeOpacitySlider" min="0" max="100" value="100"
+            oninput="setFloatingStrokeOpacity(this.value)"
+            class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+        </div>
+      </div>
+
+      <div class="h-px bg-zinc-200/80"></div>
+
+      <!-- SECCIÓN 2: RELLENO Y FORMA / PATRÓN -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[9px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[14px] text-emerald-600">format_color_fill</span>
+            Forma y Patrón de Relleno
+          </span>
+          <span id="fvFillOpacityVal" class="text-[9px] font-mono font-bold text-emerald-600">35%</span>
+        </div>
+
+        <!-- Grid de Formas de Relleno -->
+        <div class="grid grid-cols-4 gap-1.5" id="fvPatternGrid">
+          <!-- 1. Sólido -->
+          <div onclick="setFloatingPattern('solid', this)" data-pattern="solid" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500 shadow-2xs flex items-center justify-center text-white">
+              <span class="material-symbols-outlined text-[14px]">rectangle</span>
+            </div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Sólido</span>
+          </div>
+
+          <!-- 2. Hueco / Transparente -->
+          <div onclick="setFloatingPattern('transparent', this)" data-pattern="transparent" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg border-2 border-dashed border-zinc-400 bg-white shadow-2xs flex items-center justify-center text-zinc-400">
+              <span class="material-symbols-outlined text-[14px]">check_box_outline_blank</span>
+            </div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Hueco</span>
+          </div>
+
+          <!-- 3. Rayas Diagonales -->
+          <div onclick="setFloatingPattern('diagonal', this)" data-pattern="diagonal" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: repeating-linear-gradient(45deg, #4f46e5 0, #4f46e5 2px, transparent 0, transparent 6px);"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Rayas</span>
+          </div>
+
+          <!-- 4. Cuadrícula / Malla -->
+          <div onclick="setFloatingPattern('grid', this)" data-pattern="grid" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: linear-gradient(to right, #4f46e5 1px, transparent 1px), linear-gradient(to bottom, #4f46e5 1px, transparent 1px); background-size: 6px 6px;"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Cuadrícula</span>
+          </div>
+
+          <!-- 5. Puntos -->
+          <div onclick="setFloatingPattern('dots', this)" data-pattern="dots" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: radial-gradient(#4f46e5 1.5px, transparent 1.5px); background-size: 6px 6px;"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Puntos</span>
+          </div>
+
+          <!-- 6. Rayado Denso (Hatch) -->
+          <div onclick="setFloatingPattern('hatch', this)" data-pattern="hatch" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: repeating-linear-gradient(135deg, #10b981 0, #10b981 1.5px, transparent 0, transparent 4px);"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Trama</span>
+          </div>
+
+          <!-- 7. Cruzado (Cross) -->
+          <div onclick="setFloatingPattern('cross', this)" data-pattern="cross" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: repeating-linear-gradient(45deg, #059669 0, #059669 1px, transparent 0, transparent 5px), repeating-linear-gradient(-45deg, #059669 0, #059669 1px, transparent 0, transparent 5px);"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Malla X</span>
+          </div>
+
+          <!-- 8. Ladrillo -->
+          <div onclick="setFloatingPattern('brick', this)" data-pattern="brick" class="fv-pattern-card p-2 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 flex flex-col items-center gap-1 text-center transition-all">
+            <div class="w-7 h-7 rounded-lg bg-zinc-100 shadow-2xs overflow-hidden flex items-center justify-center" style="background-image: linear-gradient(335deg, #0284c7 2px, transparent 2px); background-size: 6px 6px;"></div>
+            <span class="text-[7.5px] font-bold text-zinc-700">Ladrillo</span>
+          </div>
+        </div>
+
+        <!-- Color de Relleno -->
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <span class="text-[8px] text-zinc-400 font-bold uppercase">Color del Relleno</span>
+          <div class="flex items-center gap-1.5">
+            <input type="color" id="fvFillColorInput" value="#38bdf8"
+              oninput="setFloatingFillColor(this.value)"
+              class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white">
+            <span id="fvFillColorHex" class="text-[9px] font-mono font-bold text-zinc-700">#38bdf8</span>
+          </div>
+        </div>
+
+        <!-- Paleta Rápida Relleno -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#000000" onclick="setFloatingFillColor('#000000')" title="Negro"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#ffffff" onclick="setFloatingFillColor('#ffffff')" title="Blanco"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#38bdf8" onclick="setFloatingFillColor('#38bdf8')" title="Cyan"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#6366f1" onclick="setFloatingFillColor('#6366f1')" title="Índigo"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#10b981" onclick="setFloatingFillColor('#10b981')" title="Verde"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#eab308" onclick="setFloatingFillColor('#eab308')" title="Amarillo"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#ef4444" onclick="setFloatingFillColor('#ef4444')" title="Rojo"></span>
+          <span class="w-5 h-5 rounded-full border border-zinc-300 cursor-pointer hover:scale-110 transition-transform shadow-2xs" style="background:#ec4899" onclick="setFloatingFillColor('#ec4899')" title="Rosa"></span>
+        </div>
+
+        <!-- Opacidad de Relleno -->
+        <div class="flex flex-col gap-1 pt-1">
+          <div class="flex items-center justify-between text-[8px] text-zinc-400 font-bold uppercase">
+            <span>Opacidad del Relleno</span>
+            <span id="fvFillOpacitySubVal" class="text-zinc-600 font-mono">35%</span>
+          </div>
+          <input type="range" id="fvFillOpacitySlider" min="0" max="100" value="35"
+            oninput="setFloatingFillOpacity(this.value)"
+            class="w-full accent-emerald-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+        </div>
+
+        <!-- Escala / Densidad del Patrón (solo si patrón no es solid/none) -->
+        <div class="flex flex-col gap-1 pt-1" id="fvPatternSizeRow">
+          <div class="flex items-center justify-between text-[8px] text-zinc-400 font-bold uppercase">
+            <span>Espaciado de la Trama</span>
+            <span id="fvPatternSizeVal" class="text-zinc-600 font-mono">12 px</span>
+          </div>
+          <input type="range" id="fvPatternSizeSlider" min="4" max="32" step="2" value="12"
+            oninput="setFloatingPatternSize(this.value)"
+            class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+        </div>
+      </div>
+
+      <!-- SECCIÓN 3: PUNTOS / MARCADORES (Condicional) -->
+      <div id="fvPointRadiusRow" style="display: none" class="space-y-2 pt-2 border-t border-zinc-200/80">
+        <div class="flex items-center justify-between">
+          <span class="text-[9px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[14px] text-amber-600">radio_button_checked</span>
+            Tamaño de Puntos / Marcadores
+          </span>
+          <span id="fvPointRadiusVal" class="text-[9px] font-mono font-bold text-amber-600">6 px</span>
+        </div>
+        <input type="range" id="fvPointRadiusSlider" min="2" max="30" step="1" value="6"
+          oninput="setFloatingPointSize(this.value)"
+          class="w-full accent-amber-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
+      </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="p-3.5 border-t border-zinc-200/80 bg-zinc-50/90 flex items-center justify-between gap-2">
+      <button onclick="resetFloatingVectorStyle()" class="px-3 py-2 bg-white hover:bg-zinc-100 text-zinc-600 border border-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1">
+        <span class="material-symbols-outlined text-[13px]">restart_alt</span>
+        Restablecer
+      </button>
+      <button onclick="closeFloatingVectorStylePanel()" class="flex-1 py-2 bg-zinc-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1">
+        <span class="material-symbols-outlined text-[13px]">check</span>
+        Aplicar y Cerrar
+      </button>
+    </div>
+  </div>
+
   <!-- Route Design Panel (floating, left of Active Layers) -->
   <div id="routeDesignPanel" class="fixed z-[100] glass-panel rounded-2xl p-5 shadow-2xl border border-white/20 w-72 hidden"
     style="display:none; top:50%; transform:translateY(-50%); right:calc(20rem + 1.5rem + 1rem);">
@@ -16672,6 +16935,408 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
+
+    // ═══════════════════════════════════════════════════════════
+    //  PANEL FLOTANTE DE ESTILO Y FORMA VECTORIAL (IZQUIERDA)
+    // ═══════════════════════════════════════════════════════════
+    let _currentFloatingVectorLayerId = null;
+
+    function openFloatingVectorStylePanel(id) {
+      const layer = state.layers.find(l => l.id === id);
+      if (!layer || layer.type !== 'vector') return;
+
+      _currentFloatingVectorLayerId = id;
+      state.selectedLayerId = id;
+      if (typeof updateLayersSidebar === 'function') updateLayersSidebar();
+
+      const panel = document.getElementById('floatingVectorStylePanel');
+      if (!panel) return;
+
+      const nameEl = document.getElementById('floatingStyleLayerName');
+      if (nameEl) nameEl.textContent = layer.name;
+
+      // 1. Grosor de trazo
+      const sw = layer.strokeWidth || 2.0;
+      const swSlider = document.getElementById('fvStrokeWidthSlider');
+      if (swSlider) swSlider.value = sw;
+      const swVal = document.getElementById('fvStrokeWidthVal');
+      if (swVal) swVal.textContent = sw.toFixed(1) + ' px';
+
+      // 2. Dash style
+      const currentDash = layer.dashArray || 'none';
+      document.querySelectorAll('.fv-dash-btn').forEach(btn => {
+        const isMatch = (btn.dataset.dash === currentDash) || (currentDash === 'none' && btn.dataset.dash === 'none');
+        btn.classList.toggle('ring-2', isMatch);
+        btn.classList.toggle('ring-indigo-600', isMatch);
+        btn.classList.toggle('bg-indigo-50', isMatch);
+      });
+
+      // 3. Stroke Color
+      const sc = layer.strokeColor || '#000000';
+      const scInput = document.getElementById('fvStrokeColorInput');
+      if (scInput) scInput.value = sc;
+      const scHex = document.getElementById('fvStrokeColorHex');
+      if (scHex) scHex.textContent = sc;
+
+      // 4. Stroke Opacity
+      const so = Math.round((layer.strokeOpacity ?? 1.0) * 100);
+      const soSlider = document.getElementById('fvStrokeOpacitySlider');
+      if (soSlider) soSlider.value = so;
+      const soVal = document.getElementById('fvStrokeOpacityVal');
+      if (soVal) soVal.textContent = so + '%';
+
+      // 5. Fill Color
+      const fc = layer.color || '#38bdf8';
+      const fcInput = document.getElementById('fvFillColorInput');
+      if (fcInput) fcInput.value = fc;
+      const fcHex = document.getElementById('fvFillColorHex');
+      if (fcHex) fcHex.textContent = fc;
+
+      // 6. Fill Opacity
+      const fo = Math.round((layer.fillOpacity ?? 0.35) * 100);
+      const foSlider = document.getElementById('fvFillOpacitySlider');
+      if (foSlider) foSlider.value = fo;
+      const foVal = document.getElementById('fvFillOpacityVal');
+      if (foVal) foVal.textContent = fo + '%';
+      const foSubVal = document.getElementById('fvFillOpacitySubVal');
+      if (foSubVal) foSubVal.textContent = fo + '%';
+
+      // 7. Pattern Type
+      const currentPatType = layer.fillPattern?.type || (layer.fillOpacity === 0 ? 'transparent' : 'solid');
+      document.querySelectorAll('.fv-pattern-card').forEach(card => {
+        const isSelected = card.dataset.pattern === currentPatType;
+        card.classList.toggle('ring-2', isSelected);
+        card.classList.toggle('ring-indigo-600', isSelected);
+        card.classList.toggle('border-indigo-600', isSelected);
+        card.classList.toggle('bg-indigo-50/40', isSelected);
+      });
+
+      // 8. Pattern size
+      const patSize = layer.patternSize || layer.fillPattern?.size || 12;
+      const psSlider = document.getElementById('fvPatternSizeSlider');
+      if (psSlider) psSlider.value = patSize;
+      const psVal = document.getElementById('fvPatternSizeVal');
+      if (psVal) psVal.textContent = patSize + ' px';
+
+      const patSizeRow = document.getElementById('fvPatternSizeRow');
+      if (patSizeRow) {
+        patSizeRow.style.display = ['solid', 'transparent', 'none'].includes(currentPatType) ? 'none' : 'flex';
+      }
+
+      // 9. Point size (if points)
+      const isPointLayer = layer.isPoints || (layer.geoJson?.features && layer.geoJson.features.some(f => f.geometry?.type?.includes('Point')));
+      const pointRow = document.getElementById('fvPointRadiusRow');
+      if (pointRow) {
+        pointRow.style.display = isPointLayer ? 'flex' : 'none';
+        const ptSize = layer.pointSize || 6;
+        const ptSlider = document.getElementById('fvPointRadiusSlider');
+        if (ptSlider) ptSlider.value = ptSize;
+        const ptVal = document.getElementById('fvPointRadiusVal');
+        if (ptVal) ptVal.textContent = ptSize + ' px';
+      }
+
+      panel.style.display = 'flex';
+      renderFloatingStylePreview(layer);
+    }
+
+    function closeFloatingVectorStylePanel() {
+      const panel = document.getElementById('floatingVectorStylePanel');
+      if (panel) panel.style.display = 'none';
+      _currentFloatingVectorLayerId = null;
+    }
+
+    function getActiveFloatingLayer() {
+      if (!_currentFloatingVectorLayerId) return null;
+      return state.layers.find(l => l.id === _currentFloatingVectorLayerId);
+    }
+
+    function setFloatingStrokeWidth(val) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.strokeWidth = parseFloat(val);
+      const valEl = document.getElementById('fvStrokeWidthVal');
+      if (valEl) valEl.textContent = parseFloat(val).toFixed(1) + ' px';
+      const slider = document.getElementById('fvStrokeWidthSlider');
+      if (slider) slider.value = val;
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingDashArray(dash, btnEl) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.dashArray = (dash === 'none') ? null : dash;
+      document.querySelectorAll('.fv-dash-btn').forEach(b => {
+        b.classList.remove('ring-2', 'ring-indigo-600', 'bg-indigo-50');
+      });
+      if (btnEl) {
+        btnEl.classList.add('ring-2', 'ring-indigo-600', 'bg-indigo-50');
+      }
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingStrokeColor(color) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.strokeColor = color;
+      const input = document.getElementById('fvStrokeColorInput');
+      if (input) input.value = color;
+      const hex = document.getElementById('fvStrokeColorHex');
+      if (hex) hex.textContent = color;
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingStrokeOpacity(val) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.strokeOpacity = parseFloat(val) / 100;
+      const valEl = document.getElementById('fvStrokeOpacityVal');
+      if (valEl) valEl.textContent = Math.round(parseFloat(val)) + '%';
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingFillColor(color) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.color = color;
+      if (layer.fillPattern) {
+        layer.fillPattern.patternColor = color;
+      }
+      const input = document.getElementById('fvFillColorInput');
+      if (input) input.value = color;
+      const hex = document.getElementById('fvFillColorHex');
+      if (hex) hex.textContent = color;
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingFillOpacity(val) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      const num = parseFloat(val) / 100;
+      layer.fillOpacity = num;
+      const pct = Math.round(num * 100) + '%';
+      const valEl = document.getElementById('fvFillOpacityVal');
+      if (valEl) valEl.textContent = pct;
+      const subValEl = document.getElementById('fvFillOpacitySubVal');
+      if (subValEl) subValEl.textContent = pct;
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingPattern(patternType, cardEl) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+
+      document.querySelectorAll('.fv-pattern-card').forEach(c => {
+        c.classList.remove('ring-2', 'ring-indigo-600', 'border-indigo-600', 'bg-indigo-50/40');
+      });
+      if (cardEl) {
+        cardEl.classList.add('ring-2', 'ring-indigo-600', 'border-indigo-600', 'bg-indigo-50/40');
+      }
+
+      const patSizeRow = document.getElementById('fvPatternSizeRow');
+
+      if (patternType === 'solid') {
+        layer.fillPattern = null;
+        if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.05) {
+          layer.fillOpacity = 0.35;
+          setFloatingFillOpacity(35);
+        }
+        if (patSizeRow) patSizeRow.style.display = 'none';
+      } else if (patternType === 'transparent') {
+        layer.fillPattern = null;
+        layer.fillOpacity = 0;
+        setFloatingFillOpacity(0);
+        if (patSizeRow) patSizeRow.style.display = 'none';
+      } else {
+        const size = layer.patternSize || 12;
+        layer.fillPattern = {
+          type: patternType,
+          patternColor: layer.color || '#38bdf8',
+          size: size,
+          angle: 0
+        };
+        if (layer.fillOpacity === undefined || layer.fillOpacity <= 0.05) {
+          layer.fillOpacity = 0.45;
+          setFloatingFillOpacity(45);
+        }
+        if (patSizeRow) patSizeRow.style.display = 'flex';
+      }
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingPatternSize(size) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      const s = parseInt(size);
+      layer.patternSize = s;
+      if (layer.fillPattern) layer.fillPattern.size = s;
+      const valEl = document.getElementById('fvPatternSizeVal');
+      if (valEl) valEl.textContent = s + ' px';
+      applyVectorStyleLive(layer);
+    }
+
+    function setFloatingPointSize(size) {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      const s = parseInt(size);
+      layer.pointSize = s;
+      const valEl = document.getElementById('fvPointRadiusVal');
+      if (valEl) valEl.textContent = s + ' px';
+      applyVectorStyleLive(layer);
+    }
+
+    function resetFloatingVectorStyle() {
+      const layer = getActiveFloatingLayer();
+      if (!layer) return;
+      layer.strokeWidth = 2.0;
+      layer.strokeColor = '#000000';
+      layer.color = '#38bdf8';
+      layer.strokeOpacity = 1.0;
+      layer.fillOpacity = 0.35;
+      layer.dashArray = null;
+      layer.fillPattern = null;
+      openFloatingVectorStylePanel(layer.id);
+      applyVectorStyleLive(layer);
+      toast('Estilos restablecidos por defecto', 'info');
+    }
+
+    function applyVectorStyleLive(layer) {
+      if (!layer || !layer.mapLayer) return;
+
+      // 1. Update style on Leaflet layer
+      if (typeof layer.mapLayer.setStyle === 'function') {
+        layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
+      }
+      if (typeof layer.mapLayer.eachLayer === 'function') {
+        layer.mapLayer.eachLayer(l => {
+          if (l.setStyle) {
+            l.setStyle(getVectorFeatureStyle(layer, l.feature || {}));
+          }
+        });
+      }
+
+      // 2. Synchronize controls in Active Layers card
+      const sInput = document.getElementById(`vector-stroke-input-${layer.id}`);
+      if (sInput && layer.strokeColor) sInput.value = layer.strokeColor;
+      const sHex = document.getElementById(`vector-stroke-hex-${layer.id}`);
+      if (sHex && layer.strokeColor) sHex.textContent = layer.strokeColor;
+
+      const fInput = document.getElementById(`vector-fill-input-${layer.id}`);
+      if (fInput && layer.color) fInput.value = layer.color;
+      const fHex = document.getElementById(`vector-fill-hex-${layer.id}`);
+      if (fHex && layer.color) fHex.textContent = layer.color;
+
+      const foVal = document.getElementById(`sidebar-fill-opv-${layer.id}`);
+      if (foVal && layer.fillOpacity !== undefined) foVal.textContent = Math.round(layer.fillOpacity * 100) + '%';
+
+      const bullet = document.getElementById(`layer-bullet-${layer.id}`);
+      if (bullet) {
+        if (layer.color) bullet.style.backgroundColor = layer.color;
+        if (layer.strokeColor) bullet.style.borderColor = layer.strokeColor;
+      }
+
+      // 3. Render preview box in floating panel
+      renderFloatingStylePreview(layer);
+
+      // 4. Debounced save to DB
+      if (typeof debouncedSave === 'function') {
+        debouncedSave(layer);
+      } else if (typeof saveLayerToDatabase === 'function') {
+        saveLayerToDatabase(layer);
+      }
+    }
+
+    function renderFloatingStylePreview(layer) {
+      const canvas = document.getElementById('floatingStylePreviewCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw subtle grid or checkerboard background for transparency preview
+      const bgSize = 8;
+      for (let x = 0; x < w; x += bgSize) {
+        for (let y = 0; y < h; y += bgSize) {
+          ctx.fillStyle = ((x / bgSize + y / bgSize) % 2 === 0) ? '#f4f4f5' : '#ffffff';
+          ctx.fillRect(x, y, bgSize, bgSize);
+        }
+      }
+
+      // Sample polygon vertices
+      const polyPoints = [
+        [22, 14],
+        [145, 10],
+        [170, 34],
+        [125, 56],
+        [32, 52]
+      ];
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(polyPoints[0][0], polyPoints[0][1]);
+      for (let i = 1; i < polyPoints.length; i++) {
+        ctx.lineTo(polyPoints[i][0], polyPoints[i][1]);
+      }
+      ctx.closePath();
+
+      // Fill
+      const fillOp = layer.fillOpacity !== undefined ? layer.fillOpacity : 0.35;
+      if (fillOp > 0) {
+        ctx.globalAlpha = fillOp;
+        if (layer.fillPattern && layer.fillPattern.type && !['none', 'solid', 'transparent'].includes(layer.fillPattern.type)) {
+          if (typeof createPatternCanvas === 'function') {
+            const patCanvas = createPatternCanvas(layer.fillPattern.type, layer.fillPattern.patternColor || layer.color || '#38bdf8', layer.fillPattern.size || 12, 0);
+            const pattern = ctx.createPattern(patCanvas, 'repeat');
+            ctx.fillStyle = pattern;
+          } else {
+            ctx.fillStyle = layer.color || '#38bdf8';
+          }
+        } else {
+          ctx.fillStyle = layer.color || '#38bdf8';
+        }
+        ctx.fill();
+      }
+
+      // Stroke
+      const strokeW = Math.max(1, layer.strokeWidth || 2.0);
+      ctx.globalAlpha = layer.strokeOpacity !== undefined ? layer.strokeOpacity : 1.0;
+      ctx.lineWidth = strokeW;
+      ctx.strokeStyle = layer.strokeColor || '#000000';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (layer.dashArray && layer.dashArray !== 'none') {
+        const dashes = String(layer.dashArray).split(/[s,]+/).map(n => parseFloat(n)).filter(n => !isNaN(n));
+        ctx.setLineDash(dashes);
+      } else {
+        ctx.setLineDash([]);
+      }
+      ctx.stroke();
+
+      // Sample road / polyline on the right side of preview
+      ctx.beginPath();
+      ctx.moveTo(195, 48);
+      ctx.bezierCurveTo(220, 14, 255, 62, 285, 18);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    window.openFloatingVectorStylePanel = openFloatingVectorStylePanel;
+    window.closeFloatingVectorStylePanel = closeFloatingVectorStylePanel;
+    window.setFloatingStrokeWidth = setFloatingStrokeWidth;
+    window.setFloatingDashArray = setFloatingDashArray;
+    window.setFloatingStrokeColor = setFloatingStrokeColor;
+    window.setFloatingStrokeOpacity = setFloatingStrokeOpacity;
+    window.setFloatingFillColor = setFloatingFillColor;
+    window.setFloatingFillOpacity = setFloatingFillOpacity;
+    window.setFloatingPattern = setFloatingPattern;
+    window.setFloatingPatternSize = setFloatingPatternSize;
+    window.setFloatingPointSize = setFloatingPointSize;
+    window.resetFloatingVectorStyle = resetFloatingVectorStyle;
+    window.applyVectorStyleLive = applyVectorStyleLive;
+    window.renderFloatingStylePreview = renderFloatingStylePreview;
+
     function updateVectorStrokeColorInline(id, color) {
       const layer = state.layers.find(l => l.id === id);
       if (!layer || layer.type !== 'vector') return;
@@ -18246,6 +18911,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <span class="material-symbols-outlined text-xs">info</span>
           </button>
           ${isVector ? `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
+            onclick="event.stopPropagation(); openFloatingVectorStylePanel(${layer.id})" title="Abrir Estilo y Formas a la izquierda">
+            <span class="material-symbols-outlined text-xs">tune</span>
+          </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-zinc-400 hover:text-indigo-600 transition-colors"
             onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa">
             <span class="material-symbols-outlined text-xs">download</span>
@@ -18475,6 +19144,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               oninput="event.stopPropagation(); updateVectorFillOpacityInline(${layer.id}, this.value)"
               class="w-full accent-indigo-600 h-1.5 bg-zinc-200 rounded-full appearance-none cursor-pointer">
           </div>
+
+          <!-- Botón Capa Flotante a la Izquierda -->
+          <button onclick="event.stopPropagation(); openFloatingVectorStylePanel(${layer.id})"
+            class="mt-1 w-full py-2 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all active:scale-95 shadow-sm hover:shadow group cursor-pointer"
+            style="background: linear-gradient(135deg, #18181b 0%, #27272a 100%) !important; color: #ffffff !important;"
+            title="Abrir configuración flotante a la izquierda de Active Layers">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[14px] text-amber-400 group-hover:rotate-45 transition-transform">tune</span>
+              <span>Grosor & Forma de Relleno</span>
+            </div>
+            <div class="flex items-center gap-1 text-[8px] font-mono text-zinc-400">
+              <span>Personalizar</span>
+              <span class="material-symbols-outlined text-[13px] text-zinc-300">west</span>
+            </div>
+          </button>
         </div>
         `)}
 
@@ -32797,6 +33481,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ─── Pattern Fill System for Leaflet Canvas ─────────────────────────
     const _patternCache = new Map();
     const _svgPatternCache = new Map(); // nodeId -> { canvas, dataUrl, svgName }
+    window.createPatternCanvas = createPatternCanvas;
     function createPatternCanvas(type, patternColor, size, angle) {
       const key = `${type}_${patternColor}_${size}_${angle}`;
       if (_patternCache.has(key)) return _patternCache.get(key);
