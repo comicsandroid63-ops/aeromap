@@ -15745,7 +15745,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const color = !isColorDarkOrMissing ? rawColor : VECTOR_PALETTE[idCounter % VECTOR_PALETTE.length];
       const rawStroke = opts.strokeColor;
       const isStrokeDarkOrMissing = !rawStroke || ['rgba(0,0,0,0)', 'transparent', 'none', 'null', 'undefined'].includes(String(rawStroke).toLowerCase().trim());
-      const strokeColor = !isStrokeDarkOrMissing ? rawStroke : color;
+      const strokeColor = !isStrokeDarkOrMissing ? rawStroke : '#000000';
       const strokeWidth = Math.max(2.0, parseFloat(opts.strokeWidth) || 2.0);
       const fillOpacity = (opts.fillOpacity !== undefined && opts.fillOpacity > 0.05) ? opts.fillOpacity : 0.22;
 
@@ -16688,6 +16688,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           });
         }
       }
+      const strokeInput = document.getElementById(`vector-stroke-input-${layer.id}`);
+      if (strokeInput) strokeInput.value = color;
       const hexSpan = document.getElementById(`vector-stroke-hex-${layer.id}`);
       if (hexSpan) {
         hexSpan.textContent = color;
@@ -16726,6 +16728,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           });
         }
       }
+      const fillInput = document.getElementById(`vector-fill-input-${layer.id}`);
+      if (fillInput) fillInput.value = color;
       const hexSpan = document.getElementById(`vector-fill-hex-${layer.id}`);
       if (hexSpan) {
         hexSpan.textContent = color;
@@ -18211,7 +18215,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </button>
           <div class="flex flex-col truncate flex-1">
             <div class="flex items-center gap-1.5 truncate">
-              ${isVector ? `<span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 border border-black/20" style="background-color: ${layer.color || '#38bdf8'}" id="layer-bullet-${layer.id}"></span>` : ''}
+              ${isVector ? `<span class="w-3 h-3 rounded-full inline-block shrink-0 border-2 shadow-2xs" style="background-color: ${layer.color || '#38bdf8'}; border-color: ${layer.strokeColor || '#000000'};" id="layer-bullet-${layer.id}"></span>` : ''}
               <span class="text-[11px] font-black text-zinc-900 truncate uppercase tracking-tight hover:text-indigo-600 transition-colors" title="${layer.name}">
                 ${layer.name}
               </span>
@@ -18438,7 +18442,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               Color Borde / Trazo:
             </span>
             <div class="flex items-center gap-1.5">
-              <input type="color" value="${layer.strokeColor || '#000000'}" 
+              <input type="color" id="vector-stroke-input-${layer.id}" value="${layer.strokeColor || '#000000'}" 
                 oninput="event.stopPropagation(); updateVectorStrokeColorInline(${layer.id}, this.value)"
                 onchange="event.stopPropagation(); updateVectorStrokeColorInline(${layer.id}, this.value)"
                 class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white" title="Color del borde o contorno">
@@ -18453,7 +18457,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               Color de Relleno:
             </span>
             <div class="flex items-center gap-1.5">
-              <input type="color" value="${layer.color || '#38bdf8'}" 
+              <input type="color" id="vector-fill-input-${layer.id}" value="${layer.color || '#38bdf8'}" 
                 oninput="event.stopPropagation(); updateVectorFillColorInline(${layer.id}, this.value)"
                 onchange="event.stopPropagation(); updateVectorFillColorInline(${layer.id}, this.value)"
                 class="w-8 h-6 rounded border border-zinc-200 cursor-pointer bg-white" title="Color del relleno">
