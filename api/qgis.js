@@ -1,0 +1,175 @@
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'uploads')
+  : path.join(__dirname, '..', 'public', 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (_) {}
+}
+
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    let body = req.body;
+    if (!body && req.method === 'POST') {
+      try {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        const str = Buffer.concat(buffers).toString('utf-8');
+        body = JSON.parse(str);
+      } catch (_) {
+        body = {};
+      }
+    }
+    body = body || {};
+
+    const { datasource, filename, layerName } = body;
+    if (!datasource && !filename && !layerName) {
+      return res.status(200).json({ found: false, message: 'datasource, filename or layerName required' });
+    }
+
+    const cleanDs = (datasource || '').split('|')[0].replace(/\\/g, '/');
+    const targetFile = filename || cleanDs.split('/').pop() || (layerName ? `${layerName}.shp` : '');
+
+    const userHome = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\HOME';
+    const searchDirs = [
+      path.join(userHome, 'Downloads'),
+      path.join(userHome, 'Documents'),
+      path.join(userHome, 'Desktop'),
+      UPLOADS_DIR
+    ];
+
+    let foundPath = null;
+
+    // 1. Direct relative match from datasource in search dirs
+    for (const d of searchDirs) {
+      if (!fs.existsSync(d)) continue;
+      const relClean = cleanDs.replace(/^\.\//, '').replace(/\//g, path.sep);
+      const candidate = path.join(d, relClean);
+      if (fs.existsSync(candidate)) {
+        try {
+          if (fs.statSync(candidate).isFile()) {
+            foundPath = candidate;
+            break;
+          }
+        } catch (_) {}
+      }
+      if (targetFile) {
+        const candidateDirect = path.join(d, targetFile);
+        if (fs.existsSync(candidateDirect)) {
+          try {
+            if (fs.statSync(candidateDirect).isFile()) {
+              foundPath = candidateDirect;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 2. Shallow recursive search in Downloads and Documents (up to 4 levels)
+    if (!foundPath && targetFile) {
+      function findFile(dir, target, depth = 0) {
+        if (depth > 4 || !fs.existsSync(dir)) return null;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            const full = path.join(dir, f);
+            try {
+              const stat = fs.statSync(full);
+              if (stat.isFile() && f.toLowerCase() === target.toLowerCase()) {
+                return full;
+              } else if (stat.isDirectory() && !f.startsWith('.') && f !== 'node_modules' && f !== '$Recycle.Bin') {
+                const sub = findFile(full, target, depth + 1);
+                if (sub) return sub;
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+        return null;
+      }
+
+      foundPath = findFile(path.join(userHome, 'Downloads'), targetFile) ||
+                  findFile(path.join(userHome, 'Documents'), targetFile);
+    }
+
+    if (!foundPath) {
+      return res.status(200).json({ found: false, message: 'Archivo no encontrado en rutas locales' });
+    }
+
+    const ext = path.extname(foundPath).toLowerCase();
+    const foundBase = foundPath.substring(0, foundPath.length - ext.length);
+
+    if (ext === '.shp') {
+      const shpBuf = fs.readFileSync(foundPath);
+      let dbfBuf = null;
+      let prjText = null;
+
+      if (fs.existsSync(foundBase + '.dbf')) dbfBuf = fs.readFileSync(foundBase + '.dbf');
+      if (fs.existsSync(foundBase + '.prj')) prjText = fs.readFileSync(foundBase + '.prj', 'utf-8');
+
+      return res.status(200).json({
+        found: true,
+        type: 'shapefile',
+        fileName: path.basename(foundPath),
+        shpBase64: shpBuf.toString('base64'),
+        dbfBase64: dbfBuf ? dbfBuf.toString('base64') : null,
+        prjText: prjText
+      });
+    } else if (ext === '.gpkg') {
+      const destName = path.basename(foundPath);
+      const destPath = path.join(UPLOADS_DIR, destName);
+      if (!fs.existsSync(destPath)) {
+        try { fs.copyFileSync(foundPath, destPath); } catch (_) {}
+      }
+
+      const matchTable = (datasource || '').match(/layername=([^|]+)/i);
+      const targetTable = matchTable ? matchTable[1].trim() : (layerName || '');
+      let geojson = null;
+      try {
+        const { convertGpkgToGeoJson } = require('./gpkg-geojson');
+        if (typeof convertGpkgToGeoJson === 'function') {
+          geojson = await convertGpkgToGeoJson(foundPath, targetTable);
+        }
+      } catch (errGpkg) {
+        console.warn('[qgis resolve GPKG]', errGpkg.message);
+      }
+
+      return res.status(200).json({
+        found: true,
+        type: 'geopackage',
+        fileName: destName,
+        tableName: targetTable,
+        geojson: geojson,
+        url: `/uploads/${destName}`
+      });
+    } else if (/\.(tiff?|img)$/i.test(ext)) {
+      const destName = path.basename(foundPath);
+      const destPath = path.join(UPLOADS_DIR, destName);
+      if (!fs.existsSync(destPath)) {
+        try { fs.copyFileSync(foundPath, destPath); } catch (_) {}
+      }
+      return res.status(200).json({
+        found: true,
+        type: 'raster',
+        fileName: destName,
+        url: `/uploads/${destName}`
+      });
+    }
+
+    return res.status(200).json({ found: false, message: 'Tipo de archivo no soportado' });
+  } catch (err) {
+    console.error('[api/qgis error]', err);
+    return res.status(200).json({ found: false, error: err.message });
+  }
+};

@@ -58,6 +58,14 @@
       "dest": "/api/dzi-generator.js"
     },
     {
+      "src": "/api/qgis/(.*)",
+      "dest": "/api/qgis.js"
+    },
+    {
+      "src": "/api/qgis",
+      "dest": "/api/qgis.js"
+    },
+    {
       "src": "/api/([^/]+)(?:/(.*))?",
       "dest": "/api/$1.js"
     },
