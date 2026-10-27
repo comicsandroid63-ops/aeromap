@@ -48,19 +48,19 @@
   </script>
 
   <!-- GeoTIFF.js -->
-  <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/vendor/geotiff.js"></script>
+  <script src="/vendor/openseadragon.min.js"></script>
+  <link rel="stylesheet" href="/vendor/leaflet.css" />
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css" />
+  <script src="/vendor/leaflet.js"></script>
+  <script src="/vendor/maplibre-gl.js"></script>
   <script src="/3d-map.js"></script>
   <!-- Leaflet Side-By-Side (Swipe) -->
   <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side/leaflet-side-by-side.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Proj4 for coordinate transformations -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://unpkg.com/shpjs@3.6.3/dist/shp.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/vendor/proj4.js"></script>
+  <script src="/vendor/fflate.js"></script>
+  <script src="/vendor/shp.js"></script>
   <script src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- html2canvas for map snapshots -->
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -101,11 +101,11 @@
   <!-- SheetJS for Excel/CSV -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- togeojson for KML/GPX -->
-  <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/vendor/togeojson.js"></script>
   <!-- Turf.js for Geoprocessing -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/vendor/turf.min.js"></script>
   <!-- Geoblaze for Zonal Statistics -->
-  <script src="https://unpkg.com/geoblaze@2.8.0/dist/geoblaze.web.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="/vendor/geoblaze.web.min.js"></script>
 
 
   <link href="/output.css" rel="stylesheet">
@@ -2245,6 +2245,7 @@
           </button>
         </div>
 
+        <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json" multiple onchange="handleDashboardProjectFileSelect(event)" onclick="event.stopPropagation()">
         <div id="dashboardProjectDropZone"
              ondragover="handleDashboardDragOver(event)"
              ondragleave="handleDashboardDragLeave(event)"
@@ -2252,7 +2253,6 @@
              onclick="triggerDashboardProjectImport()"
              class="border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all duration-200 group hover:border-indigo-500 hover:bg-indigo-50/20"
              style="border-color:#d4d4d8;background:#ffffff;">
-          <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json" multiple onchange="handleDashboardProjectFileSelect(event)">
           <div class="flex flex-col items-center pointer-events-none">
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 bg-zinc-100 group-hover:bg-indigo-100 group-hover:scale-105 transition-all">
               <span class="material-symbols-outlined text-2xl text-zinc-600 group-hover:text-indigo-600 transition-colors">cloud_upload</span>
