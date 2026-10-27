@@ -232,8 +232,11 @@
       image-rendering: auto;
     }
     canvas.leaflet-tile,
-    .geotiff-crisp-tile {
+    .geotiff-crisp-tile,
+    .classified-crisp-overlay,
+    img.classified-crisp-overlay {
       image-rendering: pixelated !important;
+      image-rendering: -moz-crisp-edges !important;
       image-rendering: crisp-edges !important;
     }
     .leaflet-tile-container img {
@@ -7797,12 +7800,24 @@ self.onmessage = async function(e) {
                 const areaStr = areaHa >= 100 ? `${(areaHa / 100).toFixed(1)} km²` : `${areaHa.toFixed(1)} ha`;
                 const w = found.width || '?';
                 const h = found.height || '?';
-                const bands = found.bands || found.bandCount || '?';
-                const rendererLabel = { single_gray: 'Gris', pseudocolor: 'Pseudocolor', multiband: 'Multibanda' }[found.renderer] || found.renderer || 'Original';
+                const bands = found.bands || found.bandCount || (found.isClassified ? '1 (Temática)' : '?');
+                const rendererLabel = { single_gray: 'Gris', pseudocolor: 'Pseudocolor', multiband: 'Multibanda', classified: 'Clasificación Temática' }[found.renderer] || (found.isClassified ? 'Clasificación Temática' : (found.renderer || 'Original'));
                 // Class areas for classified rasters
                 let classAreasHtml = '';
-                const isClassified = found.renderer === 'pseudocolor';
-                if (isClassified) {
+                const isClassified = found.isClassified || found.renderer === 'pseudocolor' || found.renderer === 'classified';
+                if (found.isClassified && found.classes && found.classes.length > 0) {
+                  const totalClsArea = areaHa;
+                  classAreasHtml = '<div class="border-t border-white/10 pt-1.5 mt-1.5"><div class="text-[8px] text-zinc-400 uppercase font-black mb-1">Distribución por Clase</div>';
+                  found.classes.forEach((cls) => {
+                    const pct = cls.percentage || ((cls.count / (found._totalValidPixels || 1)) * 100).toFixed(1);
+                    const clsHa = ((parseFloat(pct) / 100) * totalClsArea);
+                    const clsAreaStr = clsHa >= 100 ? `${(clsHa / 100).toFixed(1)} km²` : `${clsHa.toFixed(1)} ha`;
+                    const color = cls.color || '#888';
+                    const vis = cls.visible === false ? ' <span class="text-zinc-500 text-[7.5px]">(oculta)</span>' : '';
+                    classAreasHtml += `<div class="flex items-center justify-between gap-1 mb-0.5"><div class="flex items-center gap-1.5 min-w-0"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0"></span><span class="text-white text-[9px] font-semibold truncate">${cls.name}${vis}</span></div><span class="text-amber-300 text-[8.5px] font-mono shrink-0">${clsAreaStr} <span class="text-zinc-400">(${pct}%)</span></span></div>`;
+                  });
+                  classAreasHtml += '</div>';
+                } else if (found.renderer === 'pseudocolor') {
                   const keyAreas = 'ca_' + (found._tileSavedAs || found.serverFilename || found.id);
                   if (!window._rasterAreaCache[keyAreas]) {
                     window._rasterAreaCache[keyAreas] = 'loading';
@@ -7848,7 +7863,7 @@ self.onmessage = async function(e) {
                 hoverInfo.innerHTML = `
                   <div class="text-[9px] font-black uppercase tracking-[0.1em] text-amber-400 mb-2 border-b border-white/10 pb-1">${found.name}</div>
                   <div class="flex flex-col gap-1">
-                    <div class="flex justify-between"><span class="text-[8px] text-zinc-500 uppercase font-black">Resolución</span><span class="text-white font-semibold text-[10px]">${w} × ${h} px</span></div>
+                    <div class="flex justify-between"><span class="text-[8px] text-zinc-500 uppercase font-black">Resolución</span><span class="text-white font-semibold text-[10px]">${w} × ${h} px${found.isClassified ? ' (Nativa 30m)' : ''}</span></div>
                     <div class="flex justify-between"><span class="text-[8px] text-zinc-500 uppercase font-black">Bandas</span><span class="text-white font-semibold text-[10px]">${bands}</span></div>
                     <div class="flex justify-between"><span class="text-[8px] text-zinc-500 uppercase font-black">Render</span><span class="text-white font-semibold text-[10px]">${rendererLabel}</span></div>
                     <div class="flex justify-between"><span class="text-[8px] text-zinc-500 uppercase font-black">Área total</span><span class="text-white font-semibold text-[10px]">${areaStr}</span></div>
@@ -9760,6 +9775,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         this.redraw();
       },
+
+      setClassification: function(classificationConfig, classificationCanvas) {
+        this.options.classification = classificationConfig;
+        if (classificationCanvas) {
+          this.options.classificationCanvas = classificationCanvas;
+        }
+        this._quickOverview = null;
+        this._quickOverviewPromise = null;
+        this._layerUid = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        this.redraw();
+      },
       
       initialize: function(geoData, options) {
         L.setOptions(this, options);
@@ -9954,6 +9980,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const fullW = this.pyramid.baseWidth;
             const fullH = this.pyramid.baseHeight;
 
+            // Overview para capas clasificadas temáticas
+            if (this.options.classification && this.options.classificationCanvas) {
+              const c = this.options.classificationCanvas;
+              this._quickOverview = {
+                canvas: c,
+                width: c.width,
+                height: c.height,
+                fullW: fullW,
+                fullH: fullH
+              };
+              return this._quickOverview;
+            }
+
             // 1. FAST CLOUD OVERVIEW (Cloudflare R2 / CDN):
             // Si la imagen ya tiene su overview en Cloudflare R2 y se usan bandas RGB estándar, cargarla (< 50ms)
             const isDefaultBands = !this.options.bands || (
@@ -10143,8 +10182,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const dstW = (validW / srcW) * tileSize;
               const dstH = (validH / srcH) * tileSize;
 
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
+              if (this.options.classification) {
+                ctx.imageSmoothingEnabled = false;
+                ctx.mozImageSmoothingEnabled = false;
+                ctx.webkitImageSmoothingEnabled = false;
+                ctx.msImageSmoothingEnabled = false;
+              } else {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+              }
               ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
               drewPreview = true;
             }
@@ -10247,6 +10293,127 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       async _readAndProcessWindow(level, wndL, wndT, windowW, windowH, noDataValue) {
         try {
+          // Motor de clasificación temática pixel-por-pixel en streaming de teselas
+          if (this.options.classification) {
+            const cls = this.options.classification;
+            const k = cls.k || 5;
+            const dims = cls.dims || (cls.centers ? cls.centers[0]?.length : 3);
+            const mins = cls.mins;
+            const maxs = cls.maxs;
+            const centers = cls.centers;
+            const classes = cls.classes || [];
+
+            const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || dims);
+            const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
+
+            let raw = null;
+            const pool = getGeoTIFFWorkerPool();
+            if (pool) {
+              try {
+                raw = await level.readRasters({
+                  window: [wndL, wndT, wndL + windowW, wndT + windowH],
+                  samples: sampleBands,
+                  interleave: false,
+                  pool
+                });
+              } catch (_) {
+                raw = null;
+              }
+            }
+            if (!raw) {
+              raw = await level.readRasters({
+                window: [wndL, wndT, wndL + windowW, wndT + windowH],
+                samples: sampleBands,
+                interleave: false
+              });
+            }
+
+            const actualW = (raw && raw.width) ? raw.width : windowW;
+            const actualH = (raw && raw.height) ? raw.height : windowH;
+            const pxCount = actualW * actualH;
+            const pixels = new Uint8ClampedArray(pxCount * 4);
+
+            // Precalcular colores RGB y visibilidad por clase
+            const classColors = new Uint8Array(k * 4);
+            for (let c = 0; c < k; c++) {
+              const cl = classes[c] || {};
+              if (cl.visible === false) {
+                classColors[c * 4 + 3] = 0;
+              } else {
+                const hex = (cl.color || '#22c55e').replace('#', '');
+                classColors[c * 4] = parseInt(hex.substring(0, 2), 16) || 0;
+                classColors[c * 4 + 1] = parseInt(hex.substring(2, 4), 16) || 0;
+                classColors[c * 4 + 2] = parseInt(hex.substring(4, 6), 16) || 0;
+                classColors[c * 4 + 3] = 240;
+              }
+            }
+
+            const invRanges = new Float32Array(dims);
+            for (let d = 0; d < dims; d++) {
+              invRanges[d] = 1.0 / (maxs[d] - mins[d] || 1);
+            }
+
+            const isArrayOfBands = Array.isArray(raw);
+            const normPixel = new Float32Array(dims);
+
+            for (let i = 0; i < pxCount; i++) {
+              let isZero = true;
+              if (isArrayOfBands) {
+                for (let b = 0; b < dims; b++) {
+                  const v = raw[b][i];
+                  if (v > 0 && (noDataValue == null || Math.abs(v - noDataValue) > 1e-4)) {
+                    isZero = false;
+                    break;
+                  }
+                }
+              } else {
+                const v = raw[i];
+                if (v > 0 && (noDataValue == null || Math.abs(v - noDataValue) > 1e-4)) {
+                  isZero = false;
+                }
+              }
+
+              const p = i * 4;
+              if (isZero) {
+                pixels[p] = pixels[p + 1] = pixels[p + 2] = pixels[p + 3] = 0;
+                continue;
+              }
+
+              for (let d = 0; d < dims; d++) {
+                const rawV = isArrayOfBands ? raw[d][i] : raw[i];
+                normPixel[d] = (rawV - mins[d]) * invRanges[d];
+              }
+
+              let minD = Infinity;
+              let bestC = 0;
+              for (let c = 0; c < k; c++) {
+                const center = centers[c];
+                let d = 0;
+                for (let dim = 0; dim < dims; dim++) {
+                  const diff = normPixel[dim] - center[dim];
+                  d += diff * diff;
+                }
+                if (d < minD) {
+                  minD = d;
+                  bestC = c;
+                }
+              }
+
+              const c4 = bestC * 4;
+              const a = classColors[c4 + 3];
+              if (a === 0) {
+                pixels[p] = pixels[p + 1] = pixels[p + 2] = pixels[p + 3] = 0;
+              } else {
+                pixels[p] = classColors[c4];
+                pixels[p + 1] = classColors[c4 + 1];
+                pixels[p + 2] = classColors[c4 + 2];
+                pixels[p + 3] = a;
+              }
+            }
+
+            return { pixels, actualW, actualH };
+          }
+
           const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
           let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
           if (!bandsToUse || bandsToUse.length === 0) {
@@ -13984,7 +14151,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     opacity: layer.opacity,
                     interactive: true,
                     alt: layer.name,
-                    zIndex: 500
+                    zIndex: 500,
+                    className: layer.isClassified ? 'classified-crisp-overlay geotiff-crisp-tile' : ''
                 });
             }
         } else if (layer.type === 'raster' && layer.imageUrl) {
@@ -14009,6 +14177,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             // If it's a raster and opacity changed, update it directly
             if (layer.type === 'raster' && layer.mapLayer.setOpacity) {
                 layer.mapLayer.setOpacity(layer.opacity);
+            }
+            if (layer.isClassified && layer.mapLayer && typeof layer.mapLayer.getElement === 'function') {
+                const el = layer.mapLayer.getElement();
+                if (el) {
+                    el.style.imageRendering = 'pixelated';
+                }
             }
         } else {
             if (layer.mapLayer && state.map.hasLayer(layer.mapLayer)) {
@@ -14643,27 +14817,99 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       let spectralData = null;
 
       // 1. Obtener capa de teselas GeoTIFF (layer._geotiffTileLayer o layer.mapLayer)
-      const tileLayer = layer._geotiffTileLayer || (layer.mapLayer && (layer.mapLayer.pyramid || layer.mapLayer._getOrBuildOverview) ? layer.mapLayer : null);
+      let tileLayer = layer._geotiffTileLayer || (layer.mapLayer && (layer.mapLayer.pyramid || layer.mapLayer._getOrBuildOverview) ? layer.mapLayer : null);
+
+      if (!tileLayer && (layer.storageUrl || layer.file || layer._geotiffFileUrl || layer.serverFilename)) {
+        const tiffUrl = layer.storageUrl || layer.file || layer._geotiffFileUrl || layer.serverFilename;
+        if (typeof loadGeotiffInBackground === 'function') {
+          try {
+            const geo = await loadGeotiffInBackground(tiffUrl);
+            if (geo && geo.image) {
+              tileLayer = L.geoTIFFTileLayer(geo, {
+                tileSize: 256,
+                maxNativeZoom: 24,
+                maxZoom: 28,
+                opacity: layer.opacity ?? 1,
+                bounds: geo.bounds,
+                bands: layer.rendererParams?.bands
+              });
+              layer._geotiffTileLayer = tileLayer;
+            }
+          } catch (e) {
+            console.warn('[Unsupervised] Error auto-inicializando GeoTIFF para análisis:', e);
+          }
+        }
+      }
 
       if (tileLayer && tileLayer.pyramid && tileLayer.pyramid.levels && tileLayer.pyramid.levels.length > 0) {
         try {
-          const ovImg = tileLayer.pyramid.levels[tileLayer.pyramid.levels.length - 1];
-          const w = ovImg.getWidth();
-          const h = ovImg.getHeight();
-          const nSamples = ovImg.getSamplesPerPixel ? ovImg.getSamplesPerPixel() : (layer.bands || 3);
+          const levels = tileLayer.pyramid.levels;
+          // Seleccionar nivel de alta definición (ancho ~750-1400 px, ~1 Megapixel) para análisis y vista general nítida sin retardos
+          let targetImg = null;
+          for (let i = 0; i < levels.length; i++) {
+            const w = levels[i].getWidth();
+            if (w >= 750 && w <= 1400) {
+              targetImg = levels[i];
+              break;
+            }
+          }
+          if (!targetImg) {
+            targetImg = levels.length >= 4 ? levels[3] : (levels.length >= 3 ? levels[2] : levels[0]);
+          }
+
+          const w = targetImg.getWidth();
+          const h = targetImg.getHeight();
+          const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
           const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
-          const raw = await ovImg.readRasters({ samples: sampleBands, interleave: false });
+          
+          let raw = null;
+          const pool = getGeoTIFFWorkerPool();
+          if (pool) {
+            try {
+              raw = await targetImg.readRasters({ samples: sampleBands, interleave: false, pool });
+            } catch (_) {
+              raw = null;
+            }
+          }
+          if (!raw) {
+            raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+          }
+
           if (raw && raw.length > 0) {
             spectralData = {
               type: 'multispectral',
               width: w,
               height: h,
               bands: raw,
-              bandsCount: raw.length
+              bandsCount: raw.length,
+              nativeWidth: tileLayer.pyramid.baseWidth || w,
+              nativeHeight: tileLayer.pyramid.baseHeight || h
             };
           }
         } catch (err) {
-          console.warn('[Unsupervised] Lectura pirámide GeoTIFF fallback:', err);
+          console.warn('[Unsupervised] Lectura pirámide GeoTIFF alta resolución fallback:', err);
+          try {
+            const levels = tileLayer.pyramid.levels;
+            const fallbackImg = levels[Math.min(3, levels.length - 1)];
+            const fw = fallbackImg.getWidth();
+            const fh = fallbackImg.getHeight();
+            const nSamples = fallbackImg.getSamplesPerPixel ? fallbackImg.getSamplesPerPixel() : (layer.bands || 3);
+            const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+            const raw = await fallbackImg.readRasters({ samples: sampleBands, interleave: false });
+            if (raw && raw.length > 0) {
+              spectralData = {
+                type: 'multispectral',
+                width: fw,
+                height: fh,
+                bands: raw,
+                bandsCount: raw.length,
+                nativeWidth: tileLayer.pyramid.baseWidth || fw,
+                nativeHeight: tileLayer.pyramid.baseHeight || fh
+              };
+            }
+          } catch (e2) {
+            console.warn('[Unsupervised] Fallback 2:', e2);
+          }
         }
       }
 
@@ -14731,10 +14977,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       state._unsupervisedSpectralData = spectralData;
 
-      // Extraer muestras no vacías
+      // Extraer muestras no vacías representativas
       const totalPixels = spectralData.width * spectralData.height;
       const rawSamples = [];
-      const stride = Math.max(1, Math.floor(totalPixels / 3500));
+      const stride = Math.max(1, Math.floor(totalPixels / 15000));
 
       if (spectralData.type === 'multispectral') {
         const bCount = spectralData.bandsCount;
@@ -15226,8 +15472,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
           ctx.putImageData(imgData, 0, 0);
 
+          const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer && (layer.mapLayer.geo || layer.mapLayer.pyramid) ? layer.mapLayer : null);
+          let classifiedTileLayer = null;
+
+          if (parentTileLayer && parentTileLayer.geo) {
+            classifiedTileLayer = L.geoTIFFTileLayer(parentTileLayer.geo, {
+              tileSize: 256,
+              maxNativeZoom: 24,
+              maxZoom: 28,
+              opacity: layer.opacity ?? 0.9,
+              bounds: parentTileLayer.geo.bounds || layer.bounds,
+              classification: {
+                k: k,
+                centers: centers,
+                mins: normData.mins,
+                maxs: normData.maxs,
+                dims: dims,
+                classes: finalClasses
+              },
+              classificationCanvas: canvas
+            });
+          }
+
           const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
           const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
+          const nativeW = spectralData.nativeWidth || (parentTileLayer?.geo?.image?.getWidth()) || w;
+          const nativeH = spectralData.nativeHeight || (parentTileLayer?.geo?.image?.getHeight()) || h;
+
           const newLayer = {
             id: nextLayerId,
             name: `Clasificación (${k} Clases) - ${cleanBase}`,
@@ -15236,8 +15507,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             opacity: 0.9,
             bounds: layer.bounds,
             imageUrl: canvas.toDataURL('image/png'),
-            width: w,
-            height: h,
+            width: nativeW,
+            height: nativeH,
+            _canvasWidth: w,
+            _canvasHeight: h,
             bands: 1,
             renderer: 'classified',
             isClassified: true,
@@ -15245,8 +15518,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             classes: finalClasses,
             _classifiedCanvas: canvas,
             _pixelClusterMap: pixelClusterMap,
-            _totalValidPixels: validCount
+            _totalValidPixels: validCount,
+            _classificationConfig: {
+              k: k,
+              centers: centers,
+              mins: normData.mins,
+              maxs: normData.maxs,
+              dims: dims,
+              classes: finalClasses
+            }
           };
+
+          if (classifiedTileLayer) {
+            newLayer._geotiffTileLayer = classifiedTileLayer;
+            newLayer.mapLayer = classifiedTileLayer;
+          }
 
           state.layers.unshift(newLayer);
           state.selectedLayerId = newLayer.id;
@@ -15311,7 +15597,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const newUrl = canvas.toDataURL('image/png');
       layer.imageUrl = newUrl;
-      if (layer.mapLayer && typeof layer.mapLayer.setUrl === 'function') {
+
+      if (layer._geotiffTileLayer) {
+        if (typeof layer._geotiffTileLayer.setClassification === 'function') {
+          layer._geotiffTileLayer.setClassification({
+            ...(layer._classificationConfig || {}),
+            classes: layer.classes
+          }, canvas);
+        } else {
+          layer._geotiffTileLayer.options.classification = {
+            ...(layer._classificationConfig || {}),
+            classes: layer.classes
+          };
+          layer._geotiffTileLayer.options.classificationCanvas = canvas;
+          layer._geotiffTileLayer.redraw();
+        }
+      } else if (layer.mapLayer && typeof layer.mapLayer.setUrl === 'function') {
         layer.mapLayer.setUrl(newUrl);
       }
     }
