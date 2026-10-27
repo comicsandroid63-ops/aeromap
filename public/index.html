@@ -2239,13 +2239,20 @@
             </div>
             <p class="text-xs sm:text-sm" style="color:#666;">Carga proyectos de QGIS (.qgz, .qgs), paquetes ZIP, Shapefiles o GeoTIFFs con sus salidas gráficas</p>
           </div>
-          <button onclick="triggerDashboardProjectImport()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90 cursor-pointer shadow-sm" style="background:#1a1c1f;color:#fff;">
-            <span class="material-symbols-outlined text-[17px]">file_upload</span>
-            Examinar Archivo
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="triggerDashboardFolderImport()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90 cursor-pointer shadow-sm bg-zinc-800 text-white">
+              <span class="material-symbols-outlined text-[17px]">folder_open</span>
+              Examinar Carpeta
+            </button>
+            <button onclick="triggerDashboardProjectImport()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90 cursor-pointer shadow-sm" style="background:#1a1c1f;color:#fff;">
+              <span class="material-symbols-outlined text-[17px]">file_upload</span>
+              Examinar Archivo
+            </button>
+          </div>
         </div>
 
         <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json" multiple onchange="handleDashboardProjectFileSelect(event)" onclick="event.stopPropagation()">
+        <input type="file" id="dashboardProjectFolderInput" class="hidden" webkitdirectory directory multiple onchange="handleDashboardFolderFileSelect(event)" onclick="event.stopPropagation()">
         <div id="dashboardProjectDropZone"
              ondragover="handleDashboardDragOver(event)"
              ondragleave="handleDashboardDragLeave(event)"
@@ -13820,12 +13827,247 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (typeof loadProjects === 'function') loadProjects();
             }
 
+            // 6. Si faltaron capas locales por vincular (en Vercel donde los archivos no están en el servidor)
+            const loadedLayerNames = new Set(newQgisLayers.map(l => (l.name || '').toLowerCase()));
+            const missingLayers = project.layers.filter(ql => !loadedLayerNames.has((ql.name || '').toLowerCase()));
+            if (missingLayers.length > 0) {
+                console.log(`[QGIS Import] ${missingLayers.length} capa(s) no encontradas en el servidor. Mostrando vinculador...`);
+                showQgisFolderLinkPrompt(project, missingLayers, async (folderFiles) => {
+                    await resolveMissingQgisLayers(project, missingLayers, folderFiles, initialLayerIds);
+                });
+            }
+
         } catch (err) {
             console.error('[QGIS Import] Error importando proyecto QGIS:', err);
             hideProgress();
             toast(`Error importando proyecto QGIS: ${err.message}`, 'error');
         }
     }
+
+    async function showQgisFolderLinkPrompt(project, missingLayers, onFilesSelected) {
+        const old = document.getElementById('qgisMissingLayersModal');
+        if (old) old.remove();
+
+        const projDisplay = project.title || 'Proyecto QGIS';
+        const modal = document.createElement('div');
+        modal.id = 'qgisMissingLayersModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[2147483000] flex items-center justify-center p-4 font-sans';
+        modal.innerHTML = `
+          <div class="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-lg w-full p-6 text-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                <span class="material-symbols-outlined text-2xl">folder_zip</span>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-zinc-100">Vincular Capas del Proyecto</h3>
+                <p class="text-[11px] text-zinc-400">${projDisplay}</p>
+              </div>
+            </div>
+            <p class="text-xs text-zinc-300 leading-relaxed mb-3">
+              El proyecto hace referencia a <b>${missingLayers.length} capa(s) local(es)</b> en tu equipo que no están empaquetadas dentro del archivo .qgz:
+            </p>
+            <div class="bg-black/40 border border-zinc-800 rounded-xl p-3 max-h-36 overflow-y-auto mb-4 space-y-1.5">
+              ${missingLayers.map(l => {
+                const cleanDs = (l.datasource || '').split('|')[0].replace(/\\/g, '/');
+                const fn = cleanDs.split('/').pop();
+                return `
+                  <div class="flex items-center justify-between gap-2 text-[11px] py-0.5">
+                    <div class="flex items-center gap-2 truncate">
+                      <span class="material-symbols-outlined text-amber-400 text-sm">description</span>
+                      <span class="font-medium text-zinc-200 truncate">${l.name}</span>
+                    </div>
+                    <span class="text-zinc-500 font-mono text-[10px] shrink-0">${fn}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div class="flex gap-2">
+              <button id="btnSelectQgisFolder" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/30 cursor-pointer">
+                <span class="material-symbols-outlined text-sm">folder_open</span>
+                Seleccionar Carpeta del Proyecto
+              </button>
+              <button id="btnCloseMissingQgisModal" class="py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-xs rounded-xl text-zinc-300 cursor-pointer">
+                Continuar así
+              </button>
+            </div>
+            <p class="text-[10px] text-zinc-500 text-center mt-3">
+              Selecciona la carpeta donde guardas el proyecto (ej: Downloads) o arrastra la carpeta directamente al mapa.
+            </p>
+          </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#btnCloseMissingQgisModal').onclick = () => modal.remove();
+
+        modal.querySelector('#btnSelectQgisFolder').onclick = async () => {
+            if (typeof window.showDirectoryPicker === 'function') {
+                try {
+                    const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+                    showProgress('Leyendo archivos de la carpeta...', 30, 'Importador QGIS');
+                    const folderFiles = await readFilesFromDirectoryHandle(dirHandle);
+                    modal.remove();
+                    if (folderFiles.length > 0 && typeof onFilesSelected === 'function') {
+                        await onFilesSelected(folderFiles);
+                    } else {
+                        hideProgress();
+                    }
+                } catch (e) {
+                    console.warn('[DirectoryPicker] Cancelado:', e);
+                }
+            } else {
+                let fInput = document.getElementById('qgisDynamicFolderInput');
+                if (!fInput) {
+                    fInput = document.createElement('input');
+                    fInput.id = 'qgisDynamicFolderInput';
+                    fInput.type = 'file';
+                    fInput.webkitdirectory = true;
+                    fInput.directory = true;
+                    fInput.multiple = true;
+                    fInput.className = 'hidden';
+                    document.body.appendChild(fInput);
+                }
+                fInput.onchange = async (e) => {
+                    const folderFiles = Array.from(e.target.files || []);
+                    modal.remove();
+                    if (folderFiles.length > 0 && typeof onFilesSelected === 'function') {
+                        await onFilesSelected(folderFiles);
+                    }
+                };
+                fInput.click();
+            }
+        };
+    }
+    window.showQgisFolderLinkPrompt = showQgisFolderLinkPrompt;
+
+    async function resolveMissingQgisLayers(project, missingLayers, folderFiles, initialLayerIds) {
+        showProgress(`Vinculando ${missingLayers.length} capa(s) desde la carpeta...`, 40, 'Importador QGIS');
+        let newlyLoaded = 0;
+        for (const ql of missingLayers) {
+            const cleanDs = (ql.datasource || '').split('|')[0].replace(/\\/g, '/');
+            const dsFileName = cleanDs.split('/').pop().toLowerCase();
+            const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
+            const dsRelClean = cleanDs.replace(/^\.\//, '').toLowerCase();
+
+            function matchF(f, ext) {
+                if (!f || !f.name) return false;
+                const fn = f.name.toLowerCase();
+                const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                if (!fn.endsWith(ext)) return false;
+                if (fn === dsFileName || fn === (dsBaseName + ext) || fn === (ql.name.toLowerCase() + ext)) return true;
+                if (rel && (rel.endsWith('/' + dsFileName) || rel.endsWith(dsRelClean))) return true;
+                if (fn.includes(dsBaseName)) return true;
+                return false;
+            }
+
+            // Raster
+            if (ql.type === 'raster') {
+                const tFile = folderFiles.find(f => matchF(f, '.tif') || matchF(f, '.tiff') || matchF(f, '.img'));
+                if (tFile) {
+                    await loadTiff(tFile, { originalName: ql.name, visible: ql.visible });
+                    newlyLoaded++;
+                    continue;
+                }
+            }
+
+            // Shapefile
+            const sFile = folderFiles.find(f => matchF(f, '.shp'));
+            if (sFile) {
+                const base = sFile.name.replace(/\.shp$/i, '');
+                const dFile = folderFiles.find(f => f.name.toLowerCase() === (base + '.dbf').toLowerCase());
+                const pFile = folderFiles.find(f => f.name.toLowerCase() === (base + '.prj').toLowerCase());
+                await loadShapefileDirect(sFile, dFile, pFile, {
+                    originalName: ql.name,
+                    color: ql.color?.hex,
+                    strokeColor: ql.strokeColor?.hex,
+                    strokeWidth: ql.strokeWidth,
+                    fillOpacity: ql.fillOpacity,
+                    opacity: ql.opacity,
+                    visible: ql.visible,
+                    skipAutoCloudUpload: true
+                });
+                newlyLoaded++;
+                continue;
+            }
+
+            // GeoPackage
+            const gFile = folderFiles.find(f => matchF(f, '.gpkg'));
+            if (gFile) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', gFile);
+                    const gRes = await fetch('/api/gpkg-geojson', { method: 'POST', body: formData });
+                    if (gRes.ok) {
+                        const gData = await gRes.json();
+                        if (gData.geojson && gData.geojson.features && gData.geojson.features.length > 0) {
+                            let rep = await reprojectGeoJSON(gData.geojson, ql.srs);
+                            await addVectorLayer(rep, ql.name, {
+                                originalName: ql.name,
+                                color: ql.color?.hex,
+                                strokeColor: ql.strokeColor?.hex,
+                                strokeWidth: ql.strokeWidth,
+                                fillOpacity: ql.fillOpacity,
+                                opacity: ql.opacity,
+                                visible: ql.visible,
+                                skipAutoCloudUpload: true
+                            });
+                            newlyLoaded++;
+                            continue;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            // GeoJSON
+            const gjFile = folderFiles.find(f => matchF(f, '.geojson') || matchF(f, '.json'));
+            if (gjFile) {
+                try {
+                    const text = await gjFile.text();
+                    let parsed = JSON.parse(text);
+                    if (parsed && parsed.features && parsed.features.length > 0) {
+                        let rep = await reprojectGeoJSON(parsed, ql.srs);
+                        await addVectorLayer(rep, ql.name, {
+                            originalName: ql.name,
+                            color: ql.color?.hex,
+                            strokeColor: ql.strokeColor?.hex,
+                            strokeWidth: ql.strokeWidth,
+                            fillOpacity: ql.fillOpacity,
+                            opacity: ql.opacity,
+                            visible: ql.visible,
+                            skipAutoCloudUpload: true
+                        });
+                        newlyLoaded++;
+                        continue;
+                    }
+                } catch (_) {}
+            }
+        }
+
+        if (newlyLoaded > 0) {
+            updateLayersSidebar();
+            if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
+            const updatedQgisLayers = state.layers.filter(l => !initialLayerIds.has(l.id));
+            const withBounds = updatedQgisLayers.filter(l => l.bounds && typeof l.bounds.isValid === 'function' && l.bounds.isValid());
+            if (withBounds.length > 0 && state.map) {
+                let comb = null;
+                for (const l of withBounds) {
+                    if (!comb) comb = L.latLngBounds(l.bounds.getSouthWest(), l.bounds.getNorthEast());
+                    else comb.extend(l.bounds);
+                }
+                if (comb && comb.isValid()) state.map.fitBounds(comb, { padding: [40, 40], maxZoom: 15, animate: true });
+            }
+            toast(`✓ ${newlyLoaded} capa(s) adicionales vinculadas desde la carpeta`, 'success');
+
+            // Subir a Cloudflare R2
+            for (const l of updatedQgisLayers) {
+                if (!l.storageUrl || !l.storageUrl.includes('.r2.dev')) {
+                    await uploadLayerToCloudflare(l).catch(() => {});
+                }
+            }
+        }
+        hideProgress();
+    }
+    window.resolveMissingQgisLayers = resolveMissingQgisLayers;
 
     async function handleQgisProjectFile(file, opts = {}, allFiles = []) {
         showProgress(`Leyendo proyecto QGIS: ${file.name}...`, 20, 'Importador QGIS');
@@ -13894,13 +14136,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const cleanDs = (ql.datasource || '').split('|')[0].replace(/\\/g, '/');
                 const dsFileName = cleanDs.split('/').pop().toLowerCase();
                 const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
+                const dsRelClean = cleanDs.replace(/^\.\//, '').toLowerCase();
+
+                function matchFile(f, ext) {
+                    if (!f || !f.name) return false;
+                    const fn = f.name.toLowerCase();
+                    const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                    if (!fn.endsWith(ext)) return false;
+                    if (fn === dsFileName) return true;
+                    if (fn === (dsBaseName + ext)) return true;
+                    if (fn === (ql.name.toLowerCase() + ext)) return true;
+                    if (rel && (rel.endsWith('/' + dsFileName) || rel.endsWith(dsRelClean))) return true;
+                    if (fn.includes(dsBaseName)) return true;
+                    return false;
+                }
 
                 // A0. Capa Ráster (GeoTIFF)
                 if (ql.type === 'raster') {
-                    let tiffFile = availableFiles.find(f => {
-                        const fn = f.name.toLowerCase();
-                        return (fn.endsWith('.tif') || fn.endsWith('.tiff')) && (fn === dsFileName || fn === (dsBaseName + '.tif') || fn === (ql.name.toLowerCase() + '.tif'));
-                    });
+                    let tiffFile = availableFiles.find(f => matchFile(f, '.tif') || matchFile(f, '.tiff') || matchFile(f, '.img'));
                     if (!tiffFile && bundledEntries.length > 0) {
                         const bTiff = bundledEntries.find(e => {
                             const fn = e.fileName.toLowerCase();
@@ -13945,18 +14198,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
 
                 // A. Buscar Shapefile en archivos disponibles
-                let shpFile = availableFiles.find(f => {
-                    const fn = f.name.toLowerCase();
-                    return fn.endsWith('.shp') && (fn === dsFileName || fn === (dsBaseName + '.shp') || fn === (ql.name.toLowerCase() + '.shp'));
-                });
+                let shpFile = availableFiles.find(f => matchFile(f, '.shp'));
                 let dbfFile = null;
                 let prjFile = null;
+                if (shpFile) {
+                    const base = shpFile.name.replace(/\.shp$/i, '').toLowerCase();
+                    dbfFile = availableFiles.find(f => {
+                        const fn = f.name.toLowerCase();
+                        const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                        return fn === (base + '.dbf') || (rel && rel.endsWith('/' + base + '.dbf'));
+                    });
+                    prjFile = availableFiles.find(f => {
+                        const fn = f.name.toLowerCase();
+                        const rel = (f.relativePath || '').toLowerCase().replace(/\\/g, '/');
+                        return fn === (base + '.prj') || (rel && rel.endsWith('/' + base + '.prj'));
+                    });
+                }
 
                 // B. Buscar GeoPackage en archivos disponibles o dentro de .qgz
-                let gpkgFile = !shpFile ? availableFiles.find(f => {
-                    const fn = f.name.toLowerCase();
-                    return fn.endsWith('.gpkg') && (fn === dsFileName || fn === (dsBaseName + '.gpkg') || fn.includes(dsBaseName));
-                }) : null;
+                let gpkgFile = !shpFile ? availableFiles.find(f => matchFile(f, '.gpkg')) : null;
 
                 if (!shpFile && !gpkgFile && bundledEntries.length > 0) {
                     const bGpkg = bundledEntries.find(e => {
@@ -14255,6 +14515,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 toast(`✓ ${r2Uploaded} capa(s) de QGIS procesadas y subidas a Cloudflare R2`, 'success');
                 if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
                 if (typeof loadProjects === 'function') loadProjects();
+            }
+
+            // 6. Si faltaron capas locales por vincular (en Vercel donde los archivos no están en el servidor)
+            const loadedLayerNames = new Set(newQgisLayers.map(l => (l.name || '').toLowerCase()));
+            const missingLayers = project.layers.filter(ql => !loadedLayerNames.has((ql.name || '').toLowerCase()));
+            if (missingLayers.length > 0) {
+                console.log(`[QGIS Import] ${missingLayers.length} capa(s) no encontradas en el servidor. Mostrando vinculador...`);
+                showQgisFolderLinkPrompt(project, missingLayers, async (folderFiles) => {
+                    await resolveMissingQgisLayers(project, missingLayers, folderFiles, initialLayerIds);
+                });
             }
 
         } catch (err) {
@@ -18765,6 +19035,98 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       $fileInput.value = '';
     });
 
+    // Helper para extraer todos los archivos recursivamente si se suelta una carpeta (soporta Vercel y Chromium)
+    async function getAllFilesFromDataTransfer(dataTransfer) {
+      if (!dataTransfer) return [];
+      const files = [];
+      const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
+      const hasGetAsEntry = items.length > 0 && typeof items[0].webkitGetAsEntry === 'function';
+
+      if (hasGetAsEntry) {
+        const queue = [];
+        for (const item of items) {
+          const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+          if (entry) queue.push(entry);
+        }
+
+        async function readEntry(entry, relPath = '') {
+          if (!entry) return;
+          if (entry.isFile) {
+            return new Promise((resolve) => {
+              entry.file((file) => {
+                try {
+                  Object.defineProperty(file, 'relativePath', {
+                    value: relPath + file.name,
+                    writable: true
+                  });
+                } catch (_) {
+                  file.relativePath = relPath + file.name;
+                }
+                files.push(file);
+                resolve();
+              }, (err) => {
+                console.warn('[DataTransfer] Error leyendo archivo:', entry.name, err);
+                resolve();
+              });
+            });
+          } else if (entry.isDirectory) {
+            return new Promise((resolve) => {
+              const reader = entry.createReader();
+              const readBatch = () => {
+                reader.readEntries(async (entries) => {
+                  if (!entries || entries.length === 0) {
+                    resolve();
+                  } else {
+                    for (const child of entries) {
+                      await readEntry(child, relPath + entry.name + '/');
+                    }
+                    readBatch();
+                  }
+                }, (err) => {
+                  console.warn('[DataTransfer] Error leyendo carpeta:', entry.name, err);
+                  resolve();
+                });
+              };
+              readBatch();
+            });
+          }
+        }
+
+        for (const q of queue) {
+          await readEntry(q, '');
+        }
+      }
+
+      if (files.length === 0 && dataTransfer.files && dataTransfer.files.length > 0) {
+        return Array.from(dataTransfer.files);
+      }
+      return files;
+    }
+    window.getAllFilesFromDataTransfer = getAllFilesFromDataTransfer;
+
+    async function readFilesFromDirectoryHandle(dirHandle, relPath = '') {
+      const files = [];
+      if (!dirHandle || typeof dirHandle.values !== 'function') return files;
+      try {
+        for await (const entry of dirHandle.values()) {
+          if (entry.kind === 'file') {
+            try {
+              const file = await entry.getFile();
+              file.relativePath = relPath + file.name;
+              files.push(file);
+            } catch (_) {}
+          } else if (entry.kind === 'directory') {
+            const subFiles = await readFilesFromDirectoryHandle(entry, relPath + entry.name + '/');
+            files.push(...subFiles);
+          }
+        }
+      } catch (e) {
+        console.warn('[DirectoryPicker] Error recorriendo carpeta:', e);
+      }
+      return files;
+    }
+    window.readFilesFromDirectoryHandle = readFilesFromDirectoryHandle;
+
     // Drag & drop
     $dropZone.addEventListener('dragover', e => { 
         e.preventDefault(); 
@@ -18776,8 +19138,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     $dropZone.addEventListener('drop', async e => {
       e.preventDefault();
       $dropZone.classList.remove('bg-white', 'border-black', 'scale-[1.02]');
-      const files = Array.from(e.dataTransfer.files);
-      await processIncomingFiles(files);
+      const files = await getAllFilesFromDataTransfer(e.dataTransfer);
+      if (files.length > 0) {
+        await processIncomingFiles(files);
+      }
     });
 
     // Global Window & Map Drag & Drop (Supports drops ANYWHERE on screen)
@@ -18810,7 +19174,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       _windowDragCounter = 0;
       const overlay = document.getElementById('globalDropOverlay');
       if (overlay) overlay.classList.add('hidden');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      if (e.dataTransfer && ((e.dataTransfer.files && e.dataTransfer.files.length > 0) || (e.dataTransfer.items && e.dataTransfer.items.length > 0))) {
         e.preventDefault();
         const ws = document.getElementById('workspace');
         if (ws) {
@@ -18824,9 +19188,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             setTimeout(() => state.map.invalidateSize(), 200);
           }
         }
-        const files = Array.from(e.dataTransfer.files);
-        console.log('[GlobalDrop] Dropped files:', files.map(f => f.name));
-        await processIncomingFiles(files);
+        const files = await getAllFilesFromDataTransfer(e.dataTransfer);
+        if (files.length > 0) {
+          console.log('[GlobalDrop] Dropped files:', files.map(f => f.name));
+          await processIncomingFiles(files);
+        }
       }
     });
 
@@ -18951,6 +19317,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
     window.triggerDashboardProjectImport = triggerDashboardProjectImport;
 
+    function triggerDashboardFolderImport() {
+      if (typeof window.showDirectoryPicker === 'function') {
+        window.showDirectoryPicker({ mode: 'read' }).then(async dirHandle => {
+          showProgress('Leyendo carpeta del proyecto...', 20, 'Importador QGIS');
+          const files = await readFilesFromDirectoryHandle(dirHandle);
+          if (files.length > 0) {
+            handleDashboardProjectImportFiles(files);
+          } else {
+            hideProgress();
+          }
+        }).catch(() => {
+          hideProgress();
+        });
+      } else {
+        const inp = document.getElementById('dashboardProjectFolderInput');
+        if (inp) inp.click();
+      }
+    }
+    window.triggerDashboardFolderImport = triggerDashboardFolderImport;
+
+    function handleDashboardFolderFileSelect(e) {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        handleDashboardProjectImportFiles(files);
+      }
+      e.target.value = '';
+    }
+    window.handleDashboardFolderFileSelect = handleDashboardFolderFileSelect;
+
     function handleDashboardDragOver(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -18973,7 +19368,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
     window.handleDashboardDragLeave = handleDashboardDragLeave;
 
-    function handleDashboardDrop(e) {
+    async function handleDashboardDrop(e) {
       e.preventDefault();
       e.stopPropagation();
       const zone = document.getElementById('dashboardProjectDropZone');
@@ -18981,7 +19376,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         zone.style.borderColor = '#d4d4d8';
         zone.style.backgroundColor = '#ffffff';
       }
-      const files = Array.from(e.dataTransfer?.files || []);
+      const files = await getAllFilesFromDataTransfer(e.dataTransfer);
       if (files.length > 0) {
         handleDashboardProjectImportFiles(files);
       }

@@ -148,8 +148,40 @@ module.exports = async (req, res) => {
                   findFile(path.join(userHome, 'Documents'), targetFile);
     }
 
+    if (!foundPath && targetFile) {
+      // 4. Búsqueda en Turso DB / Cloudflare R2 (permite resolver capas en despliegues como Vercel si ya fueron subidas)
+      try {
+        const { getDb } = require('../lib/db');
+        const db = getDb();
+        if (db) {
+          const searchTarget = targetFile.replace(/\.[^/.]+$/, '').toLowerCase();
+          const dbRes = await db.execute({
+            sql: `SELECT name, type, storage_url, bounds, config FROM layers WHERE lower(name) = ? OR lower(name) LIKE ? OR lower(r2_key) LIKE ? LIMIT 1`,
+            args: [searchTarget, `%${searchTarget}%`, `%${searchTarget}%`]
+          });
+          if (dbRes.rows && dbRes.rows.length > 0) {
+            const row = dbRes.rows[0];
+            let geojson = null;
+            if (row.type === 'vector' && row.storage_url) {
+              try {
+                const fRes = await fetch(row.storage_url);
+                if (fRes.ok) geojson = await fRes.json();
+              } catch (_) {}
+            }
+            return res.status(200).json({
+              found: true,
+              type: row.type === 'raster' ? 'raster' : 'geojson',
+              fileName: targetFile,
+              url: row.storage_url,
+              geojson: geojson
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!foundPath) {
-      return res.status(200).json({ found: false, message: 'Archivo no encontrado en rutas locales' });
+      return res.status(200).json({ found: false, message: 'Archivo no encontrado en rutas locales ni en la nube' });
     }
 
     const ext = path.extname(foundPath).toLowerCase();
