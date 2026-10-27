@@ -13650,7 +13650,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                         loadedCount++;
                                     }
                                 } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
-                                    let reprojected = await reprojectGeoJSON(resData.geojson);
+                                    let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
+                                    await addVectorLayer(reprojected, ql.name, {
+                                        originalName: ql.name,
+                                        color: ql.color?.hex,
+                                        strokeColor: ql.strokeColor?.hex,
+                                        strokeWidth: ql.strokeWidth,
+                                        fillOpacity: ql.fillOpacity,
+                                        opacity: ql.opacity,
+                                        visible: ql.visible,
+                                        skipAutoCloudUpload: true
+                                    });
+                                    loadedCount++;
+                                } else if (resData.found && resData.type === 'geojson' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
+                                    let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
                                     await addVectorLayer(reprojected, ql.name, {
                                         originalName: ql.name,
                                         color: ql.color?.hex,
@@ -13679,6 +13692,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         const tFile = new File([tBlob], tiffEntry.fileName, { type: 'image/tiff' });
                         await loadTiff(tFile, { originalName: ql.name, visible: ql.visible });
                         loadedCount++;
+                    } else {
+                        // Buscar ráster localmente si no está empacado en el zip
+                        try {
+                            const resp = await fetch('/api/qgis/resolve-layer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ datasource: ql.datasource, filename: dsFileName, layerName: ql.name })
+                            });
+                            if (resp.ok) {
+                                const rData = await resp.json();
+                                if (rData.found && rData.type === 'raster') {
+                                    let tiffFile = null;
+                                    if (rData.tiffBase64) {
+                                        tiffFile = new File([base64ToBlob(rData.tiffBase64)], rData.fileName, { type: 'image/tiff' });
+                                    } else if (rData.url) {
+                                        try {
+                                            const fRes = await fetch(rData.url);
+                                            const fBlob = await fRes.blob();
+                                            tiffFile = new File([fBlob], rData.fileName, { type: 'image/tiff' });
+                                        } catch (_) {}
+                                    }
+                                    if (tiffFile) {
+                                        await loadTiff(tiffFile, { originalName: ql.name, visible: ql.visible });
+                                        loadedCount++;
+                                    }
+                                }
+                            }
+                        } catch (_) {}
                     }
                 }
             }
@@ -13957,7 +13998,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         if (gpkgRes.ok) {
                             const gpkgData = await gpkgRes.json();
                             if (gpkgData.geojson && gpkgData.geojson.features && gpkgData.geojson.features.length > 0) {
-                                let reprojected = await reprojectGeoJSON(gpkgData.geojson);
+                                let reprojected = await reprojectGeoJSON(gpkgData.geojson, ql.srs);
                                 await addVectorLayer(reprojected, ql.name, {
                                     originalName: ql.name,
                                     color: ql.color?.hex,
@@ -13974,6 +14015,50 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                     } catch (gpkgErr) {
                         console.warn('[QGIS Standalone Import] Falló GPKG disponible:', ql.name, gpkgErr);
+                    }
+                }
+
+                // C1. Si es GeoJSON disponible localmente o dentro del .qgz
+                let geojsonFile = !shpFile && !gpkgFile ? availableFiles.find(f => {
+                    const fn = f.name.toLowerCase();
+                    return (fn.endsWith('.geojson') || fn.endsWith('.json')) && (fn === dsFileName || fn === (dsBaseName + '.geojson') || fn === (dsBaseName + '.json') || fn.includes(dsBaseName));
+                }) : null;
+
+                if (!shpFile && !gpkgFile && !geojsonFile && bundledEntries.length > 0) {
+                    const bGj = bundledEntries.find(e => {
+                        const fn = e.fileName.toLowerCase();
+                        return (fn.endsWith('.geojson') || fn.endsWith('.json')) && (fn === dsFileName || fn === (dsBaseName + '.geojson') || fn === (dsBaseName + '.json') || fn.includes(dsBaseName));
+                    });
+                    if (bGj) {
+                        try {
+                            const bBlob = await extractZipEntrySafe(file, bGj);
+                            geojsonFile = new File([bBlob], bGj.fileName, { type: 'application/geo+json' });
+                        } catch (_) {}
+                    }
+                }
+
+                if (geojsonFile) {
+                    showProgress(`Procesando GeoJSON: ${ql.name}...`, 50, 'Importador QGIS');
+                    try {
+                        const gjText = await geojsonFile.text();
+                        let parsed = JSON.parse(gjText);
+                        if (parsed && parsed.features && parsed.features.length > 0) {
+                            let reprojected = await reprojectGeoJSON(parsed, ql.srs);
+                            await addVectorLayer(reprojected, ql.name, {
+                                originalName: ql.name,
+                                color: ql.color?.hex,
+                                strokeColor: ql.strokeColor?.hex,
+                                strokeWidth: ql.strokeWidth,
+                                fillOpacity: ql.fillOpacity,
+                                opacity: ql.opacity,
+                                visible: ql.visible,
+                                skipAutoCloudUpload: true
+                            });
+                            loadedCount++;
+                            continue;
+                        }
+                    } catch (gjErr) {
+                        console.warn('[QGIS Standalone Import] Falló GeoJSON disponible:', ql.name, gjErr);
                     }
                 }
 
@@ -14017,7 +14102,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     }
                                 }
                             } else if (resData.found && resData.type === 'geopackage' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
-                                let reprojected = await reprojectGeoJSON(resData.geojson);
+                                let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
                                 await addVectorLayer(reprojected, ql.name, {
                                     originalName: ql.name,
                                     color: ql.color?.hex,
@@ -14032,6 +14117,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 updateLayersSidebar();
                                 if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
                                 continue;
+                            } else if (resData.found && resData.type === 'geojson' && resData.geojson && resData.geojson.features && resData.geojson.features.length > 0) {
+                                let reprojected = await reprojectGeoJSON(resData.geojson, ql.srs);
+                                await addVectorLayer(reprojected, ql.name, {
+                                    originalName: ql.name,
+                                    color: ql.color?.hex,
+                                    strokeColor: ql.strokeColor?.hex,
+                                    strokeWidth: ql.strokeWidth,
+                                    fillOpacity: ql.fillOpacity,
+                                    opacity: ql.opacity,
+                                    visible: ql.visible,
+                                    skipAutoCloudUpload: true
+                                });
+                                loadedCount++;
+                                updateLayersSidebar();
+                                if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
+                                continue;
+                            } else if (resData.found && resData.type === 'raster') {
+                                let tiffFile = null;
+                                if (resData.tiffBase64) {
+                                    tiffFile = new File([base64ToBlob(resData.tiffBase64)], resData.fileName, { type: 'image/tiff' });
+                                } else if (resData.url) {
+                                    try {
+                                        const fRes = await fetch(resData.url);
+                                        const fBlob = await fRes.blob();
+                                        tiffFile = new File([fBlob], resData.fileName, { type: 'image/tiff' });
+                                    } catch (_) {}
+                                }
+                                if (tiffFile) {
+                                    await loadTiff(tiffFile, { originalName: ql.name, visible: ql.visible });
+                                    loadedCount++;
+                                    updateLayersSidebar();
+                                    if (typeof $emptyState !== 'undefined' && $emptyState) $emptyState.style.display = 'none';
+                                    continue;
+                                }
                             }
                         }
                     } catch (resolveErr) {
@@ -18693,6 +18812,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (overlay) overlay.classList.add('hidden');
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         e.preventDefault();
+        const ws = document.getElementById('workspace');
+        if (ws) {
+          document.getElementById('landingPage')?.classList.add('hidden');
+          document.getElementById('loginDashboard')?.classList.add('hidden');
+          document.getElementById('projectDashboard')?.classList.add('hidden');
+          ws.classList.remove('hidden');
+          if (typeof window.__globeHide === 'function') window.__globeHide();
+          if (state.map) {
+            state.map.invalidateSize();
+            setTimeout(() => state.map.invalidateSize(), 200);
+          }
+        }
         const files = Array.from(e.dataTransfer.files);
         console.log('[GlobalDrop] Dropped files:', files.map(f => f.name));
         await processIncomingFiles(files);
@@ -18709,6 +18840,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function processIncomingFiles(files, opts = {}) {
       if (files.length === 0) return;
+
+      const ws = document.getElementById('workspace');
+      if (ws) {
+        document.getElementById('landingPage')?.classList.add('hidden');
+        document.getElementById('loginDashboard')?.classList.add('hidden');
+        document.getElementById('projectDashboard')?.classList.add('hidden');
+        ws.classList.remove('hidden');
+        if (typeof window.__globeHide === 'function') window.__globeHide();
+        if (state.map) {
+          state.map.invalidateSize();
+          setTimeout(() => state.map.invalidateSize(), 200);
+          setTimeout(() => state.map.invalidateSize(), 600);
+        }
+      }
 
       // 1. BACKGROUND CLOUD UPLOAD: fire in parallel, don't block visualization
       if (!opts.isRestored) {

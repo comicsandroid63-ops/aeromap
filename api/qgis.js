@@ -10,6 +10,42 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (_) {}
 }
 
+// In-memory cache for fast file discovery across multiple layer requests
+let _fileIndexCache = null;
+let _fileIndexTime = 0;
+
+function getFileIndex(searchDirs) {
+  const now = Date.now();
+  if (_fileIndexCache && (now - _fileIndexTime < 45000)) {
+    return _fileIndexCache;
+  }
+  const index = new Map();
+  function walk(dir, depth = 0) {
+    if (depth > 6 || !fs.existsSync(dir)) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const ent of entries) {
+        if (ent.name.startsWith('.') || ent.name === 'node_modules' || ent.name === '$Recycle.Bin') continue;
+        const full = path.join(dir, ent.name);
+        if (ent.isFile()) {
+          const lower = ent.name.toLowerCase();
+          if (!index.has(lower)) {
+            index.set(lower, full);
+          }
+        } else if (ent.isDirectory()) {
+          walk(full, depth + 1);
+        }
+      }
+    } catch (_) {}
+  }
+  for (const d of searchDirs) {
+    walk(d, 0);
+  }
+  _fileIndexCache = index;
+  _fileIndexTime = now;
+  return index;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -77,10 +113,19 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. Recursive search in Downloads and Documents (up to 7 levels)
+    // 2. Fast cached index search if not found directly
+    if (!foundPath && targetFile) {
+      const idx = getFileIndex(searchDirs);
+      const matched = idx.get(targetFile.toLowerCase());
+      if (matched && fs.existsSync(matched)) {
+        foundPath = matched;
+      }
+    }
+
+    // 3. Fallback shallow search if still not found
     if (!foundPath && targetFile) {
       function findFile(dir, target, depth = 0) {
-        if (depth > 7 || !fs.existsSync(dir)) return null;
+        if (depth > 6 || !fs.existsSync(dir)) return null;
         try {
           const files = fs.readdirSync(dir);
           for (const f of files) {
@@ -197,6 +242,44 @@ module.exports = async (req, res) => {
         tableName: targetTable,
         geojson: geojson,
         url: `/uploads/${destName}`
+      });
+    } else if (ext === '.geojson' || ext === '.json') {
+      const destName = baseFileName;
+      const destPath = path.join(UPLOADS_DIR, destName);
+      if (!fs.existsSync(destPath) || fs.statSync(destPath).size !== fs.statSync(foundPath).size) {
+        try { fs.copyFileSync(foundPath, destPath); } catch (_) {}
+      }
+      let geojson = null;
+      try {
+        const raw = fs.readFileSync(foundPath, 'utf8');
+        geojson = JSON.parse(raw);
+      } catch (errGj) {
+        console.warn('[qgis resolve GeoJSON parse error]', errGj.message);
+      }
+
+      // Aplicar filtro subset si existe en el datasource (|subset=...)
+      const subsetMatch = (datasource || '').match(/\|subset=([^|]+)/i);
+      if (subsetMatch && subsetMatch[1] && geojson && Array.isArray(geojson.features)) {
+        const subsetStr = subsetMatch[1].trim();
+        try {
+          let expr = subsetStr
+            .replace(/([a-zA-Z0-9_]+)\s*=\s*'([^']*)'/g, "p['$1'] === '$2'")
+            .replace(/([a-zA-Z0-9_]+)\s*<>\s*'([^']*)'/g, "p['$1'] !== '$2'")
+            .replace(/([a-zA-Z0-9_]+)\s*!=\s*'([^']*)'/g, "p['$1'] !== '$2'")
+            .replace(/\bOR\b/gi, '||')
+            .replace(/\bAND\b/gi, '&&');
+          const filterFn = new Function('p', `return Boolean(${expr});`);
+          const filtered = geojson.features.filter(f => filterFn(f.properties || {}));
+          geojson = { ...geojson, features: filtered };
+        } catch (_) {}
+      }
+
+      return res.status(200).json({
+        found: true,
+        type: 'geojson',
+        fileName: destName,
+        geojson: geojson,
+        url: `/uploads/${encodeURIComponent(destName)}`
       });
     } else if (/\.(tiff?|img)$/i.test(ext)) {
       const destName = path.basename(foundPath);
