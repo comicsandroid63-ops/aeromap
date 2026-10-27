@@ -114,8 +114,8 @@ module.exports = async (req, res) => {
         rows = result.rows || [];
       }
     } else if (user_id === 'guest') {
-      const query = "SELECT *, 'owner' as access_role FROM projects WHERE user_id = ? ORDER BY updated_at DESC";
-      const result = await db.execute({ sql: query, args: ['guest'] });
+      const query = "SELECT *, 'owner' as access_role FROM projects WHERE user_id = 'guest' OR user_id = '00000000-0000-0000-0000-000000000000' OR user_id IS NULL ORDER BY updated_at DESC";
+      const result = await db.execute({ sql: query, args: [] });
       rows = result.rows || [];
     } else {
       const query = "SELECT *, 'owner' as access_role FROM projects ORDER BY updated_at DESC";
@@ -153,8 +153,9 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    const { user_id, name, description, config } = body;
-    if (!user_id || !name) return res.status(400).json({ error: 'user_id and name required' });
+    let { user_id, name, description, config } = body;
+    user_id = user_id || 'guest';
+    if (!name) return res.status(400).json({ error: 'name required' });
     
     const id = crypto.randomUUID();
     const configStr = JSON.stringify(config || {});

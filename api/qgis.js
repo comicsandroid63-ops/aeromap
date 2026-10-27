@@ -159,11 +159,19 @@ module.exports = async (req, res) => {
       if (!fs.existsSync(destPath)) {
         try { fs.copyFileSync(foundPath, destPath); } catch (_) {}
       }
+      let tiffBase64 = null;
+      try {
+        const st = fs.statSync(foundPath);
+        if (st.size < 30 * 1024 * 1024) {
+          tiffBase64 = fs.readFileSync(foundPath).toString('base64');
+        }
+      } catch (_) {}
       return res.status(200).json({
         found: true,
         type: 'raster',
         fileName: destName,
-        url: `/uploads/${destName}`
+        url: `/uploads/${destName}`,
+        tiffBase64: tiffBase64
       });
     }
 

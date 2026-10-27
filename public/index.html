@@ -8741,6 +8741,30 @@ async function deleteFromCloud(fileName, url, storagePath) {
         }
       }
 
+      // Si es un GeoJSON / Vector en la nube, descargar y cargar directamente
+      const isCloudVector = (name && name.match(/\.(geojson|json)$/i)) || url.match(/\.(geojson|json)(\?|$)/i);
+      if (isCloudVector) {
+        showProgress(`Cargando vector ${name} desde Cloudflare R2...`, 30);
+        try {
+          const res = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+          if (!res.ok) throw new Error(`HTTP ${res.status} al descargar ${url}`);
+          const geoJson = await res.json();
+          const cleanName = (opts.originalName || name).replace(/\.(geojson|json)$/i, '');
+          const reprojected = await reprojectGeoJSON(geoJson);
+          await addVectorLayer(reprojected, cleanName, {
+            ...opts,
+            originalName: cleanName,
+            storageUrl: url,
+            isRestored: true,
+            skipAutoCloudUpload: true
+          });
+          hideProgress();
+          return;
+        } catch (vectorCloudErr) {
+          console.warn('[LoadFromCloud] Carga directa GeoJSON falló:', vectorCloudErr);
+        }
+      }
+
       if (_cloudFileCache.has(url)) {
           console.log(`[Cache] Usando archivo cacheado para ${url}`);
           const cachedFile = _cloudFileCache.get(url);
@@ -13438,6 +13462,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const project = parseQgisProjectXml(qgsXml);
             console.log('[QGIS Import] Proyecto parseado:', project);
 
+            // Registrar o crear proyecto en la base de datos
+            const projTitle = project.title || zipFile.name.replace(/\.[^/.]+$/, "");
+            const currentUid = _currentUser?.id || 'guest';
+            try {
+                const pRes = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: projTitle,
+                        description: `Proyecto QGIS importado (${project.layers.length} capas)`,
+                        user_id: currentUid,
+                        config: {
+                            importedFromQgis: true,
+                            crs: project.crs,
+                            qgisLayouts: project.layouts || []
+                        }
+                    })
+                });
+                if (pRes.ok) {
+                    _currentProject = await pRes.json();
+                    console.log('[QGIS Import] Proyecto guardado:', _currentProject);
+                }
+            } catch (pErr) {
+                console.warn('[QGIS Import] Error creando proyecto en BD:', pErr);
+            }
+
             // Limpiar capas anteriores para no mezclar con sesiones o mapas previos
             if (typeof clearProjectLayers === 'function') {
                 clearProjectLayers();
@@ -13687,6 +13737,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 $cloudUploadStatus.textContent = `✓ ${r2Uploaded} capa(s) subidas a Cloudflare R2`;
                 toast(`✓ ${r2Uploaded} capa(s) de QGIS procesadas y subidas a Cloudflare R2`, 'success');
                 if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+                if (typeof loadProjects === 'function') loadProjects();
             }
 
         } catch (err) {
@@ -13724,6 +13775,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const project = parseQgisProjectXml(qgsXml);
             console.log('[QGIS Standalone Import] Proyecto:', project);
 
+            // Registrar o crear proyecto en la base de datos
+            const projTitle = project.title || file.name.replace(/\.[^/.]+$/, "");
+            const currentUid = _currentUser?.id || 'guest';
+            try {
+                const pRes = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: projTitle,
+                        description: `Proyecto QGIS importado (${project.layers.length} capas)`,
+                        user_id: currentUid,
+                        config: {
+                            importedFromQgis: true,
+                            crs: project.crs,
+                            qgisLayouts: project.layouts || []
+                        }
+                    })
+                });
+                if (pRes.ok) {
+                    _currentProject = await pRes.json();
+                    console.log('[QGIS Standalone Import] Proyecto guardado:', _currentProject);
+                }
+            } catch (pErr) {
+                console.warn('[QGIS Standalone Import] Error creando proyecto en BD:', pErr);
+            }
+
             // Limpiar capas anteriores para no mezclar con sesiones o mapas previos
             if (typeof clearProjectLayers === 'function') {
                 clearProjectLayers();
@@ -13737,6 +13814,55 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const cleanDs = (ql.datasource || '').split('|')[0].replace(/\\/g, '/');
                 const dsFileName = cleanDs.split('/').pop().toLowerCase();
                 const dsBaseName = dsFileName.replace(/\.[^/.]+$/, "");
+
+                // A0. Capa Ráster (GeoTIFF)
+                if (ql.type === 'raster') {
+                    let tiffFile = availableFiles.find(f => {
+                        const fn = f.name.toLowerCase();
+                        return (fn.endsWith('.tif') || fn.endsWith('.tiff')) && (fn === dsFileName || fn === (dsBaseName + '.tif') || fn === (ql.name.toLowerCase() + '.tif'));
+                    });
+                    if (!tiffFile && bundledEntries.length > 0) {
+                        const bTiff = bundledEntries.find(e => {
+                            const fn = e.fileName.toLowerCase();
+                            return (fn.endsWith('.tif') || fn.endsWith('.tiff')) && (fn === dsFileName || fn === (dsBaseName + '.tif') || fn.includes(dsBaseName));
+                        });
+                        if (bTiff) {
+                            try {
+                                const bBlob = await extractZipEntrySafe(file, bTiff);
+                                tiffFile = new File([bBlob], bTiff.fileName, { type: 'image/tiff' });
+                            } catch (_) {}
+                        }
+                    }
+                    if (!tiffFile) {
+                        try {
+                            const resp = await fetch('/api/qgis/resolve-layer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ datasource: ql.datasource, filename: dsFileName, layerName: ql.name })
+                            });
+                            if (resp.ok) {
+                                const rData = await resp.json();
+                                if (rData.found && rData.type === 'raster') {
+                                    if (rData.tiffBase64) {
+                                        const tBlob = base64ToBlob(rData.tiffBase64);
+                                        tiffFile = new File([tBlob], rData.fileName, { type: 'image/tiff' });
+                                    } else if (rData.url) {
+                                        try {
+                                            const fRes = await fetch(rData.url);
+                                            const fBlob = await fRes.blob();
+                                            tiffFile = new File([fBlob], rData.fileName, { type: 'image/tiff' });
+                                        } catch (_) {}
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                    if (tiffFile) {
+                        await loadTiff(tiffFile, { originalName: ql.name, visible: ql.visible });
+                        loadedCount++;
+                    }
+                    continue;
+                }
 
                 // A. Buscar Shapefile en archivos disponibles
                 let shpFile = availableFiles.find(f => {
@@ -13953,6 +14079,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 $cloudUploadStatus.textContent = `✓ ${r2Uploaded} capa(s) subidas a Cloudflare R2`;
                 toast(`✓ ${r2Uploaded} capa(s) de QGIS procesadas y subidas a Cloudflare R2`, 'success');
                 if (typeof listSupabaseFiles === 'function') listSupabaseFiles();
+                if (typeof loadProjects === 'function') loadProjects();
             }
 
         } catch (err) {
@@ -15241,7 +15368,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           user_id: usrId,
           storage_url: layer.storageUrl || (layer.isWMS ? (layer.wmsUrl + '#' + layer.wmsLayerName) : layer.wmsUrl),
           config: {
-             geoJson: (layer.type === 'vector' && layer.geoJson) ? layer.geoJson : undefined,
+             geoJson: (layer.type === 'vector' && layer.geoJson && !layer.storageUrl && JSON.stringify(layer.geoJson).length < 200000) ? layer.geoJson : undefined,
              visible: layer.visible, // Persistence of visibility
              color: layer.color,
              strokeColor: layer.strokeColor,
@@ -28753,9 +28880,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function openProject(projectId) {
       try {
-        const res = await fetch(`/api/projects?user_id=${encodeURIComponent(_currentUser?.id || 'guest')}`);
-        const projects = await res.json();
-        const project = projects.find(p => p.id === projectId);
+        const uid = _currentUser?.id || 'guest';
+        let project = null;
+        try {
+          const directRes = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(uid)}`);
+          if (directRes.ok) {
+            const pData = await directRes.json();
+            if (pData && pData.id) project = pData;
+          }
+        } catch (_) {}
+
+        if (!project) {
+          const res = await fetch(`/api/projects?user_id=${encodeURIComponent(uid)}`);
+          const projects = await res.json();
+          project = Array.isArray(projects) ? projects.find(p => p.id === projectId) : null;
+        }
         if (!project) throw new Error('Proyecto no encontrado');
         _currentProject = project;
         document.getElementById('projectDashboard').classList.add('hidden');
@@ -28789,6 +28928,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (typeof layoutApplyTheme === 'function') layoutApplyTheme(tmpl.theme || 'standard');
           }, 450);
         } else {
+          // Restaurar Salidas Gráficas de QGIS si el proyecto las contiene
+          const projCfg = typeof project.config === 'string' ? JSON.parse(project.config || '{}') : (project.config || {});
+          if (projCfg.qgisLayouts && projCfg.qgisLayouts.length > 0) {
+            window._importedQgisLayouts = projCfg.qgisLayouts;
+            layoutConfig.qgisLayouts = projCfg.qgisLayouts;
+            if (typeof applyQgisLayout === 'function') applyQgisLayout(projCfg.qgisLayouts[0]);
+            if (typeof updateQgisLayoutsDropdown === 'function') updateQgisLayoutsDropdown(projCfg.qgisLayouts);
+          }
+
           // Resetear layoutConfig al diseño estándar para este proyecto: Título Arriba, Demás Cosas Abajo
           layoutConfig.theme = null;
           layoutConfig.initialized = false;
