@@ -8932,7 +8932,8 @@ self.onmessage = async function(e) {
 
       // 6. Extracción de datos espectrales y de cobertura de píxel
       function extractSpectralValues(found, coords) {
-        const parent = coords.parent;
+        if (!found) return { bandValues: null, bandCount: 1, classInfo: null, ndvi: null, ndwi: null };
+        const parent = coords ? coords.parent : null;
         const rawBands = found._rawSpectralBands || parent?._rawSpectralBands;
         const canvasW = found._canvasWidth || parent?._canvasWidth;
         const canvasH = found._canvasHeight || parent?._canvasHeight;
@@ -9015,7 +9016,11 @@ self.onmessage = async function(e) {
 
       // 7. Renderizado visual del Inspector Multiespectral
       function renderPixelInspectorCard(pixelCard, found, coords, e) {
-        if (!pixelCard) return;
+        if (!pixelCard || !found) return;
+        if (!coords) {
+          pixelCard.style.display = 'none';
+          return;
+        }
 
         const spectral = extractSpectralValues(found, coords);
         const bandValues = spectral.bandValues;
