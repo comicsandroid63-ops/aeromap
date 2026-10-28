@@ -8723,6 +8723,18 @@ self.onmessage = async function(e) {
         proj4.defs("EPSG:3118", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-68.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
         proj4.defs("EPSG:3114", "+proj=tmerc +lat_0=4.596200416666666 +lon_0=-80.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
 
+        // UTM WGS84
+        proj4.defs("EPSG:32615", "+proj=utm +zone=15 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32616", "+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32617", "+proj=utm +zone=17 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32618", "+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32619", "+proj=utm +zone=19 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32620", "+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32621", "+proj=utm +zone=21 +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32717", "+proj=utm +zone=17 +south +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32718", "+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs");
+        proj4.defs("EPSG:32719", "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs");
+
         // WGS84 alias
         proj4.defs("WGS84", proj4.defs("EPSG:4326"));
         proj4.defs("CRS84", proj4.defs("EPSG:4326"));
@@ -8766,17 +8778,27 @@ self.onmessage = async function(e) {
           const origin = layer.origin || parent?.origin || (tileLayer && tileLayer.origin);
           const res = layer.resolution || parent?.resolution || (tileLayer && tileLayer.resolution);
 
+          let ptSuccess = false;
           if (epsg && origin && res && origin[0] !== undefined && res[0]) {
             let x = latlng.lng, y = latlng.lat;
             if (epsg !== 4326 && typeof proj4 !== 'undefined') {
               try {
+                if (!proj4.defs('EPSG:' + epsg) && typeof commonDefs !== 'undefined' && commonDefs[epsg]) {
+                  proj4.defs('EPSG:' + epsg, commonDefs[epsg]);
+                }
                 const pt = proj4('EPSG:' + epsg).forward([latlng.lng, latlng.lat]);
                 x = pt[0]; y = pt[1];
+                ptSuccess = true;
               } catch (_) {}
+            } else {
+              ptSuccess = true;
             }
-            baseX = (x - origin[0]) / res[0];
-            baseY = (origin[1] - y) / Math.abs(res[1]);
-          } else {
+            if (ptSuccess) {
+              baseX = (x - origin[0]) / res[0];
+              baseY = (origin[1] - y) / Math.abs(res[1]);
+            }
+          }
+          if (baseX === null || baseY === null || !ptSuccess || isNaN(baseX) || isNaN(baseY)) {
             const west = latlngBounds.getWest(), east = latlngBounds.getEast();
             const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
             const fracX = (latlng.lng - west) / (east - west);
