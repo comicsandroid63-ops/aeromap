@@ -3034,6 +3034,15 @@
                    type="range" id="propContrast" min="-100" max="100" value="0" oninput="document.getElementById('contrastVal').textContent=this.value+'%'; applyRasterAdjustments()" />
               </div>
             </div>
+            <div class="flex items-center gap-1.5 pt-1">
+              <button type="button" onclick="applyPresetAntiGlare()" class="flex-1 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all border border-zinc-200 shadow-2xs" title="Reduce deslumbramiento y realza contraste natural">
+                <span class="material-symbols-outlined text-[13px] text-amber-600">flare</span>
+                Realce Anti-Brillo
+              </button>
+              <button type="button" onclick="resetRasterAdjustments()" class="py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-lg text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all border border-zinc-200" title="Restablecer">
+                <span class="material-symbols-outlined text-[13px]">restart_alt</span>
+              </button>
+            </div>
           </div>
 
           <!-- Acciones de Exportación Ráster -->
@@ -11199,16 +11208,34 @@ async function deleteFromCloud(fileName, url, storagePath) {
             }
             if (samples.length < 5) {
               return {
-                p2: isByte ? 0 : 0.02,
-                p98: isByte ? 255 : 0.22,
-                rng: isByte ? 255 : 0.20,
+                p2: isByte ? 0 : 0.01,
+                p98: isByte ? 255 : 0.38,
+                rng: isByte ? 255 : 0.37,
                 maxV: isByte ? 255 : 1,
                 shouldStretch: true
               };
             }
             samples.sort((a, b) => a - b);
-            const p2 = samples[Math.floor(samples.length * 0.02)];
-            const p98 = samples[Math.floor(samples.length * 0.98)];
+            let p2 = samples[Math.floor(samples.length * 0.015)];
+            let p98 = samples[Math.floor(samples.length * 0.985)];
+
+            if (!isByte) {
+              // Float32 surface reflectance (0.0 a 1.0 o ~2.0)
+              // Calibración anti-brillo: asegurar que el límite superior no colapse por debajo de 0.36
+              // para proteger suelos claros, edificaciones y laderas soleadas de quedar quemados/blancos
+              if (maxV <= 2.5 && maxV > 0) {
+                p98 = Math.max(p98, 0.36);
+                p2 = Math.min(p2, 0.025);
+              } else if (maxV > 2.5 && maxV <= 10000) {
+                p98 = Math.max(p98, 3600);
+                p2 = Math.min(p2, 250);
+              }
+            } else {
+              // 8-bit byte: si ya utiliza prácticamente todo el espectro, no estirar agresivamente
+              if (p2 < 20 && p98 > 230) {
+                return { p2: 0, p98: 255, rng: 255, maxV: 255, shouldStretch: false };
+              }
+            }
             const span = p98 - p2;
             const minRng = isByte ? 1 : 0.05;
             const rng = Math.max(minRng, span);
@@ -11329,12 +11356,24 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             } else {
               // Float32 / 16-bit
+              // Calibración Gamma: 1.05 mantiene sombras y tonos medios con saturación natural rica (elimina el deslumbramiento artificial de gamma 0.72)
+              const gamma = 1.05;
+              function tonemapFloat(val, p2, rng) {
+                let n = (val - p2) / rng;
+                if (n <= 0) return 0;
+                // Hombro suave (knee) para altas luces: comprime progresivamente el brillo extremo evitando saturación plana a blanco
+                if (n > 0.78) {
+                  const excess = n - 0.78;
+                  n = 0.78 + (0.22 * excess) / (excess + 0.32);
+                }
+                return Math.max(0, Math.min(1, n));
+              }
+
               if (isArrayOfBands) {
                 const rBand = raw[0], gBand = raw[1], bBand = raw[2];
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rBand, 0, 1, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(gBand, 0, 1, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(bBand, 0, 1, px);
-                const gamma = 0.72;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -11345,9 +11384,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
                     d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                    const nR = tonemapFloat(r, rP2, rR);
+                    const nG = tonemapFloat(g, gP2, gR);
+                    const nB = tonemapFloat(b, bP2, bR);
                     d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
                     d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
                     d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
@@ -11359,7 +11398,6 @@ async function deleteFromCloud(fileName, url, storagePath) {
                 const sR = (globalStats && globalStats.isRgb) ? globalStats.r : getBandPercentiles(rawF, 0, 3, px);
                 const sG = (globalStats && globalStats.isRgb) ? globalStats.g : getBandPercentiles(rawF, 1, 3, px);
                 const sB = (globalStats && globalStats.isRgb) ? globalStats.b : getBandPercentiles(rawF, 2, 3, px);
-                const gamma = 0.72;
                 const rR = sR.rng || (sR.p98 - sR.p2 || 1e-5);
                 const gR = sG.rng || (sG.p98 - sG.p2 || 1e-5);
                 const bR = sB.rng || (sB.p98 - sB.p2 || 1e-5);
@@ -11370,9 +11408,9 @@ async function deleteFromCloud(fileName, url, storagePath) {
                   if (isNaN(r) || isNaN(g) || isNaN(b) || !isFinite(r) || !isFinite(g) || !isFinite(b) || (noDataValue != null && Math.abs(r - noDataValue) < 1e-4) || (r <= 0.0001 && g <= 0.0001 && b <= 0.0001) || r <= -9990 || r >= 1e30) {
                     d[pi] = 0; d[pi + 1] = 0; d[pi + 2] = 0; d[pi + 3] = 0;
                   } else {
-                    const nR = Math.max(0, Math.min(1, (r - rP2) / rR));
-                    const nG = Math.max(0, Math.min(1, (g - gP2) / gR));
-                    const nB = Math.max(0, Math.min(1, (b - bP2) / bR));
+                    const nR = tonemapFloat(r, rP2, rR);
+                    const nG = tonemapFloat(g, gP2, gR);
+                    const nB = tonemapFloat(b, bP2, bR);
                     d[pi]     = Math.round(Math.pow(nR, gamma) * 255);
                     d[pi + 1] = Math.round(Math.pow(nG, gamma) * 255);
                     d[pi + 2] = Math.round(Math.pow(nB, gamma) * 255);
@@ -11397,8 +11435,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
               } else {
                 let scaled;
                 if (shouldStretch) {
-                  const norm = Math.max(0, Math.min(1, (v - p2) / rng));
-                  scaled = Math.round(norm * 255);
+                  let norm = (v - p2) / rng;
+                  if (norm <= 0) norm = 0;
+                  else if (norm > 0.8) {
+                    const excess = norm - 0.8;
+                    norm = 0.8 + (0.2 * excess) / (excess + 0.32);
+                  }
+                  scaled = Math.round(Math.max(0, Math.min(1, norm)) * 255);
                 } else {
                   scaled = v;
                 }
@@ -11482,6 +11525,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this.redraw();
       },
       
+      onAdd: function(map) {
+        L.GridLayer.prototype.onAdd.call(this, map);
+        this.updateFilter();
+      },
+
+      updateFilter: function() {
+        try {
+          const c = this.getContainer();
+          if (c) {
+            const params = this.options.rendererParams || {};
+            const br = 100 + (params.brightness || 0);
+            const ct = 100 + (params.contrast || 0);
+            c.style.filter = `brightness(${br}%) contrast(${ct}%)`;
+          }
+        } catch (_) {}
+      },
+
+      setAdjustments: function(params) {
+        this.options.rendererParams = { ...(this.options.rendererParams || {}), ...params };
+        this.updateFilter();
+      },
+
       initialize: function(geoData, options) {
         L.setOptions(this, options);
         this.geo = geoData;
@@ -11519,9 +11584,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const bits = baseImg.fileDirectory?.BitsPerSample?.[0] || 8;
             const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
 
-            // Fast-path instantáneo (0ms) calibrado para Mosaico Cesar (solo cuando se usan bandas estándar RGB)
+            // Fast-path instantáneo (0ms) calibrado para mosaicos Landsat y Cesar (evita sobreexposición)
             const fileUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl || '';
-            const isCesarMosaic = typeof fileUrl === 'string' && fileUrl.includes('Mosaico_Cesar');
+            const isCesarMosaic = typeof fileUrl === 'string' && (fileUrl.includes('Mosaico_Cesar') || fileUrl.includes('Landsat_Cesar') || fileUrl.includes('cesar'));
             const isDefaultBands = !this.options.bands || (
               this.options.bands.length === 3 &&
               this.options.bands[0] === 0 &&
@@ -11531,9 +11596,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (isCesarMosaic && (sampleFormat === 3 || bits === 32) && isDefaultBands) {
               this._globalStats = {
                 isRgb: isRgbRender,
-                r: { p2: 0.012, p98: 0.165, rng: 0.153, maxV: 1.0, shouldStretch: true },
-                g: { p2: 0.017, p98: 0.125, rng: 0.108, maxV: 1.0, shouldStretch: true },
-                b: { p2: 0.011, p98: 0.095, rng: 0.084, maxV: 1.0, shouldStretch: true }
+                r: { p2: 0.010, p98: 0.380, rng: 0.370, maxV: 1.0, shouldStretch: true },
+                g: { p2: 0.012, p98: 0.340, rng: 0.328, maxV: 1.0, shouldStretch: true },
+                b: { p2: 0.010, p98: 0.300, rng: 0.290, maxV: 1.0, shouldStretch: true }
               };
               return this._globalStats;
             }
@@ -11550,7 +11615,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             let rawSample = null;
             if (sampleW * sampleH > 400000) {
               const accumulatedBands = isRgbRender ? [[], [], []] : [[]];
-              const samplePoints = [[0.6, 0.25], [0.5, 0.35], [0.75, 0.2], [0.45, 0.38]];
+              // Muestreo distribuido uniforme en rejilla 3x3 para capturar tanto vegetación como suelos y claros
+              const samplePoints = [
+                [0.2, 0.2], [0.5, 0.2], [0.8, 0.2],
+                [0.2, 0.5], [0.5, 0.5], [0.8, 0.5],
+                [0.2, 0.8], [0.5, 0.8], [0.8, 0.8]
+              ];
               for (const [gx, gy] of samplePoints) {
                 const sx = Math.floor(sampleW * gx);
                 const sy = Math.floor(sampleH * gy);
@@ -11574,7 +11644,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                       }
                     }
-                    if (accumulatedBands[0].length >= 1000) break;
+                    if (accumulatedBands[0].length >= 3000) break;
                   }
                 } catch (_) {}
               }
@@ -11593,7 +11663,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             function calcPercentiles(arr, offset, stride, count) {
               const vals = [];
-              if (!arr || !count) return { p2: 0.02, p98: 0.22, rng: 0.20, shouldStretch: true, maxV: 1, minV: 0 };
+              if (!arr || !count) return { p2: 0.01, p98: 0.38, rng: 0.37, shouldStretch: true, maxV: 1, minV: 0 };
               const isByteType = (arr instanceof Uint8Array || arr instanceof Uint8ClampedArray);
               const step = Math.max(1, Math.floor(count / 2000));
               let maxV = -Infinity;
@@ -11609,17 +11679,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               }
               if (vals.length < 5) {
                 return {
-                  p2: isByteType ? 0 : 0.02,
-                  p98: isByteType ? 255 : 0.22,
-                  rng: isByteType ? 255 : 0.20,
+                  p2: isByteType ? 0 : 0.01,
+                  p98: isByteType ? 255 : 0.38,
+                  rng: isByteType ? 255 : 0.37,
                   shouldStretch: true,
                   maxV: isByteType ? 255 : 1,
                   minV: 0
                 };
               }
               vals.sort((a, b) => a - b);
-              const p2 = vals[Math.floor(vals.length * 0.02)];
-              const p98 = vals[Math.floor(vals.length * 0.98)];
+              let p2 = vals[Math.floor(vals.length * 0.015)];
+              let p98 = vals[Math.floor(vals.length * 0.985)];
+
+              if (!isByteType) {
+                // Calibración anti-deslumbramiento para datos reflectancia / satelitales
+                if (maxV <= 2.5 && maxV > 0) {
+                  p98 = Math.max(p98, 0.36);
+                  p2 = Math.min(p2, 0.025);
+                } else if (maxV > 2.5 && maxV <= 10000) {
+                  p98 = Math.max(p98, 3600);
+                  p2 = Math.min(p2, 250);
+                }
+              } else {
+                if (p2 < 20 && p98 > 230) {
+                  return { p2: 0, p98: 255, rng: 255, shouldStretch: false, maxV: 255, minV: 0 };
+                }
+              }
               const span = p98 - p2;
               const minRng = isByteType ? 1 : 0.05;
               const rng = Math.max(minRng, span);
@@ -20503,6 +20588,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               if ($rRen) $rRen.value = layer.renderer || 'single_gray';
               updateRasterBandUI(layer);
               updateZtifBadgeUI(layer);
+              const pBr = document.getElementById('propBrightness');
+              const brVal = document.getElementById('brightnessVal');
+              const pCt = document.getElementById('propContrast');
+              const ctVal = document.getElementById('contrastVal');
+              const curBr = layer.rendererParams?.brightness || 0;
+              const curCt = layer.rendererParams?.contrast || 0;
+              if (pBr) { pBr.value = curBr; if (brVal) brVal.textContent = curBr + '%'; }
+              if (pCt) { pCt.value = curCt; if (ctVal) ctVal.textContent = curCt + '%'; }
           }
       }
 
@@ -21868,14 +21961,68 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function applyRasterAdjustments() {
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return;
-      layer.rendererParams.brightness = parseInt(document.getElementById('propBrightness').value);
-      layer.rendererParams.contrast = parseInt(document.getElementById('propContrast').value);
+      layer.rendererParams = layer.rendererParams || {};
+      const br = parseInt(document.getElementById('propBrightness')?.value || 0);
+      const ct = parseInt(document.getElementById('propContrast')?.value || 0);
+      layer.rendererParams.brightness = br;
+      layer.rendererParams.contrast = ct;
+      
+      // Aplicación instantánea por GPU sobre la capa activa
+      const updateFilterOnLayer = (lyr) => {
+        if (!lyr) return;
+        const target = lyr._geotiffTileLayer || lyr.mapLayer;
+        if (target) {
+          if (typeof target.setAdjustments === 'function') {
+            target.setAdjustments({ brightness: br, contrast: ct });
+          }
+          const container = (typeof target.getContainer === 'function') ? target.getContainer() : null;
+          if (container) {
+            container.style.filter = `brightness(${100 + br}%) contrast(${100 + ct}%)`;
+          } else if (target.eachLayer) {
+            target.eachLayer(sub => {
+              if (typeof sub.setAdjustments === 'function') sub.setAdjustments({ brightness: br, contrast: ct });
+              const sc = (typeof sub.getContainer === 'function') ? sub.getContainer() : null;
+              if (sc) sc.style.filter = `brightness(${100 + br}%) contrast(${100 + ct}%)`;
+            });
+          }
+        }
+      };
+      updateFilterOnLayer(layer);
+
       clearTimeout(_adjTo);
       _adjTo = setTimeout(() => {
-          rebuildRasterLayer(layer);
-          saveLayerToDatabase(layer); // PERSISTIR
-      }, 150);
+          if (layer.rasters) {
+            rebuildRasterLayer(layer);
+          }
+          if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+      }, 200);
     }
+
+    window.applyPresetAntiGlare = function() {
+      const layer = state.layers.find(l => l.id === state.selectedLayerId);
+      if (!layer) return;
+      const pBr = document.getElementById('propBrightness');
+      const brVal = document.getElementById('brightnessVal');
+      const pCt = document.getElementById('propContrast');
+      const ctVal = document.getElementById('contrastVal');
+      if (pBr) { pBr.value = -12; if (brVal) brVal.textContent = '-12%'; }
+      if (pCt) { pCt.value = 14; if (ctVal) ctVal.textContent = '+14%'; }
+      applyRasterAdjustments();
+      if (typeof toast === 'function') toast('✓ Calibración Anti-Brillo activa (Brillo -12%, Contraste +14%)', 'success');
+    };
+
+    window.resetRasterAdjustments = function() {
+      const layer = state.layers.find(l => l.id === state.selectedLayerId);
+      if (!layer) return;
+      const pBr = document.getElementById('propBrightness');
+      const brVal = document.getElementById('brightnessVal');
+      const pCt = document.getElementById('propContrast');
+      const ctVal = document.getElementById('contrastVal');
+      if (pBr) { pBr.value = 0; if (brVal) brVal.textContent = '0%'; }
+      if (pCt) { pCt.value = 0; if (ctVal) ctVal.textContent = '0%'; }
+      applyRasterAdjustments();
+      if (typeof toast === 'function') toast('Ajustes de imagen restablecidos', 'info');
+    };
 
     async function rebuildRasterLayer(layer) {
       if (layer._tileSavedAs) {
@@ -21944,6 +22091,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let min = Infinity, max = -Infinity;
         const s = Math.max(1, Math.floor(n / 2000));
         for (let i = 0; i < n; i += s) { if (b[i] < min) min = b[i]; if (b[i] > max) max = b[i]; }
+        if (max <= 2.5 && max > 0) {
+          max = Math.max(max, 0.36);
+          min = Math.min(min, 0.02);
+        }
         return { min, max, r: max - min || 1 };
       };
       const bV = params.brightness || 0;
