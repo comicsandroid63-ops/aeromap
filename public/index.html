@@ -9164,6 +9164,14 @@ self.onmessage = async function(e) {
         pixelCard.style.display = 'block';
       }
 
+      window.getRasterPixelCoords = getRasterPixelCoords;
+      window.getPixelLatLngBounds = getPixelLatLngBounds;
+      window.getSpectralBandMeta = getSpectralBandMeta;
+      window.formatBandValue = formatBandValue;
+      window.ensureLayerSpectralBands = ensureLayerSpectralBands;
+      window.extractSpectralValues = extractSpectralValues;
+      window.renderPixelInspectorCard = renderPixelInspectorCard;
+
       // Seguimiento de coordenadas del mouse y raster hover
       window._rasterAreaCache = {};
       state.map.on('mousemove', (e) => {
