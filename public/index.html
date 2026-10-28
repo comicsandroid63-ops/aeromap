@@ -1214,25 +1214,29 @@
       border: 1px solid rgba(255,255,255,0.15);
       font-family: 'Inter', sans-serif;
     }
-    /* Pixel Inspector Card for Classified Layers */
+    /* Multispectral & Thematic Pixel Inspector Card */
     #pixelInspectorCard {
       position: fixed;
       pointer-events: none;
       z-index: 10005;
-      background: rgba(15, 23, 42, 0.96);
+      background: rgba(13, 17, 23, 0.96);
       color: #ffffff;
-      padding: 12px 15px;
+      padding: 13px 16px;
       border-radius: 14px;
       font-size: 11px;
       line-height: 1.4;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 24px rgba(139, 92, 246, 0.3);
+      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 30px rgba(139, 92, 246, 0.25);
       display: none;
-      min-width: 250px;
-      max-width: 320px;
+      min-width: 290px;
+      max-width: 345px;
       backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.18);
     }
+    #pixelInspectorCard .text-rose-400 { color: #fb7185 !important; }
+    #pixelInspectorCard .text-blue-400 { color: #60a5fa !important; }
+    #pixelInspectorCard .text-pink-400 { color: #f472b6 !important; }
+    #pixelInspectorCard .text-purple-400 { color: #c084fc !important; }
     .thematic-class-highlight-overlay {
       image-rendering: pixelated;
       pointer-events: none !important;
@@ -8727,186 +8731,527 @@ self.onmessage = async function(e) {
 
       state.map.on('zoomend', updateZoomDisplay);
       
-      // Seguimiento de coordenadas del mouse
+      // ══════════════════════════════════════════════════════════════════════════
+      //  INSPECTOR MULTIESPECTRAL DE ALTA PRECISIÓN (PIXEL INSPECTOR ENGINE)
+      // ══════════════════════════════════════════════════════════════════════════
+
+      // 1. Cálculo exacto de coordenadas de píxel mediante CRS proyectado
+      function getRasterPixelCoords(layer, latlng) {
+        if (!layer || !latlng) return null;
+        const b = layer.bounds;
+        if (!b) return null;
+        const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+        if (!latlngBounds.contains(latlng)) return null;
+
+        let tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
+        let parent = null;
+        if (layer.parentLayerId) {
+          parent = state.layers.find(l => l.id === layer.parentLayerId);
+          if (!tileLayer && parent) {
+            tileLayer = parent._geotiffTileLayer || (parent.mapLayer?.pyramid ? parent.mapLayer : null);
+          }
+        }
+
+        const natW = layer.width || tileLayer?.pyramid?.baseWidth || parent?.width || 1000;
+        const natH = layer.height || tileLayer?.pyramid?.baseHeight || parent?.height || 1000;
+
+        let baseX = null, baseY = null;
+
+        if (tileLayer && typeof tileLayer._geoToPixelBase === 'function') {
+          const pt = tileLayer._geoToPixelBase(latlng.lng, latlng.lat);
+          baseX = pt[0];
+          baseY = pt[1];
+        } else {
+          const epsg = layer.epsg || parent?.epsg || (tileLayer && tileLayer.epsg);
+          const origin = layer.origin || parent?.origin || (tileLayer && tileLayer.origin);
+          const res = layer.resolution || parent?.resolution || (tileLayer && tileLayer.resolution);
+
+          if (epsg && origin && res && origin[0] !== undefined && res[0]) {
+            let x = latlng.lng, y = latlng.lat;
+            if (epsg !== 4326 && typeof proj4 !== 'undefined') {
+              try {
+                const pt = proj4('EPSG:' + epsg).forward([latlng.lng, latlng.lat]);
+                x = pt[0]; y = pt[1];
+              } catch (_) {}
+            }
+            baseX = (x - origin[0]) / res[0];
+            baseY = (origin[1] - y) / Math.abs(res[1]);
+          } else {
+            const west = latlngBounds.getWest(), east = latlngBounds.getEast();
+            const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
+            const fracX = (latlng.lng - west) / (east - west);
+            const fracY = (north - latlng.lat) / (north - south);
+            baseX = fracX * natW;
+            baseY = fracY * natH;
+          }
+        }
+
+        if (baseX === null || baseY === null || isNaN(baseX) || isNaN(baseY)) return null;
+
+        const satPx = Math.floor(baseX);
+        const satPy = Math.floor(baseY);
+        if (satPx < 0 || satPx >= natW || satPy < 0 || satPy >= natH) return null;
+
+        return {
+          satPx,
+          satPy,
+          baseX,
+          baseY,
+          natW,
+          natH,
+          tileLayer,
+          parent
+        };
+      }
+
+      // 2. Cálculo de bounding box geográfico de 1 píxel para resalte en mapa
+      function getPixelLatLngBounds(coords, layer) {
+        try {
+          const tileLayer = coords.tileLayer;
+          const parent = coords.parent;
+          const origin = tileLayer?.origin || layer.origin || parent?.origin;
+          const res = tileLayer?.resolution || layer.resolution || parent?.resolution;
+          const epsg = tileLayer?.epsg || layer.epsg || parent?.epsg;
+
+          if (origin && res && epsg) {
+            const rx = res[0], ry = Math.abs(res[1]);
+            const x0 = origin[0] + coords.satPx * rx;
+            const y0 = origin[1] - coords.satPy * ry;
+            const x1 = x0 + rx;
+            const y1 = y0 - ry;
+
+            if (epsg !== 4326 && typeof proj4 !== 'undefined') {
+              const pNW = proj4('EPSG:' + epsg).inverse([x0, y0]);
+              const pSE = proj4('EPSG:' + epsg).inverse([x1, y1]);
+              return L.latLngBounds([pSE[1], pNW[0]], [pNW[1], pSE[0]]);
+            } else {
+              return L.latLngBounds([y1, x0], [y0, x1]);
+            }
+          }
+        } catch (_) {}
+        return null;
+      }
+
+      // 3. Metadatos espectrales de bandas (Landsat 8/9, Sentinel-2, etc.)
+      function getSpectralBandMeta(layer, bandIndex, totalBands) {
+        const layerName = ((layer?.name || '') + ' ' + (layer?.serverFilename || '')).toLowerCase();
+        const isLandsat = layerName.includes('landsat') || layerName.includes('lc08') || layerName.includes('lc09') || layerName.includes('le07') || layerName.includes('lt05') || totalBands === 7;
+        const isSentinel = layerName.includes('sentinel') || layerName.includes('s2') || (totalBands === 4 && !isLandsat);
+
+        if (isLandsat && totalBands >= 7) {
+          const landsatBands = [
+            { code: 'B1', name: 'Costero / Aerosol', range: '0.43 - 0.45 µm', color: '#60a5fa' },
+            { code: 'B2', name: 'Azul (Blue)', range: '0.45 - 0.51 µm', color: '#3b82f6' },
+            { code: 'B3', name: 'Verde (Green)', range: '0.53 - 0.59 µm', color: '#22c55e' },
+            { code: 'B4', name: 'Rojo (Red)', range: '0.64 - 0.67 µm', color: '#ef4444' },
+            { code: 'B5', name: 'NIR (Infrarrojo Cercano)', range: '0.85 - 0.88 µm', color: '#ec4899' },
+            { code: 'B6', name: 'SWIR 1 (Onda Corta 1)', range: '1.57 - 1.65 µm', color: '#f59e0b' },
+            { code: 'B7', name: 'SWIR 2 (Onda Corta 2)', range: '2.11 - 2.29 µm', color: '#8b5cf6' },
+            { code: 'B8', name: 'Pancromática (Pan)', range: '0.50 - 0.68 µm', color: '#a1a1aa' },
+            { code: 'B9', name: 'Cirros', range: '1.36 - 1.38 µm', color: '#38bdf8' },
+            { code: 'B10', name: 'TIRS 1 (Térmico)', range: '10.6 - 11.1 µm', color: '#f97316' },
+            { code: 'B11', name: 'TIRS 2 (Térmico)', range: '11.5 - 12.5 µm', color: '#ea580c' }
+          ];
+          if (bandIndex < landsatBands.length) return landsatBands[bandIndex];
+        }
+
+        if (isSentinel && totalBands === 4) {
+          const s2FourBands = [
+            { code: 'B2', name: 'Azul (Blue)', range: '490 nm', color: '#3b82f6' },
+            { code: 'B3', name: 'Verde (Green)', range: '560 nm', color: '#22c55e' },
+            { code: 'B4', name: 'Rojo (Red)', range: '665 nm', color: '#ef4444' },
+            { code: 'B8', name: 'NIR (Infrarrojo Cercano)', range: '842 nm', color: '#ec4899' }
+          ];
+          if (bandIndex < s2FourBands.length) return s2FourBands[bandIndex];
+        }
+
+        if (totalBands === 3) {
+          const rgbBands = [
+            { code: 'R', name: 'Banda 1 (Rojo)', range: 'Visible', color: '#ef4444' },
+            { code: 'G', name: 'Banda 2 (Verde)', range: 'Visible', color: '#22c55e' },
+            { code: 'B', name: 'Banda 3 (Azul)', range: 'Visible', color: '#3b82f6' }
+          ];
+          if (bandIndex < rgbBands.length) return rgbBands[bandIndex];
+        }
+
+        if (totalBands === 1) {
+          return { code: 'B1', name: 'Banda Única (Valor)', range: 'Escalar', color: '#38bdf8' };
+        }
+
+        const palette = ['#3b82f6', '#22c55e', '#ef4444', '#ec4899', '#f59e0b', '#8b5cf6', '#06b6d4', '#eab308'];
+        return {
+          code: `B${bandIndex + 1}`,
+          name: `Banda ${bandIndex + 1}`,
+          range: 'Canal ' + (bandIndex + 1),
+          color: palette[bandIndex % palette.length]
+        };
+      }
+
+      // 4. Formateo de valores numéricos de reflectancia y DN
+      function formatBandValue(val) {
+        if (val === undefined || val === null || isNaN(val)) return 'N/A';
+        if (val <= -9990 || val > 1e20) return '<span class="text-zinc-500 font-normal">NoData</span>';
+        if (val === 0) return '0';
+        if (Math.abs(val) <= 2.0 && val % 1 !== 0) return val.toFixed(4);
+        if (Math.abs(val) >= 100) {
+          const intVal = Math.round(val);
+          return `${intVal.toLocaleString('es-CO')} <span class="text-[8px] text-zinc-400 font-normal">DN</span>`;
+        }
+        return val.toFixed(2);
+      }
+
+      // 5. Precarga en segundo plano de bandas espectrales para rasters multiespectrales
+      async function ensureLayerSpectralBands(layer) {
+        if (!layer || layer._rawSpectralBands || layer._loadingSpectralBands) return;
+        const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
+        if (!tileLayer || !tileLayer.pyramid || !tileLayer.pyramid.levels) return;
+        layer._loadingSpectralBands = true;
+        try {
+          const levels = tileLayer.pyramid.levels;
+          let targetImg = levels[levels.length - 1];
+          for (let i = 0; i < levels.length; i++) {
+            const w = levels[i].getWidth();
+            if (w >= 600 && w <= 1400) { targetImg = levels[i]; break; }
+          }
+          const w = targetImg.getWidth();
+          const h = targetImg.getHeight();
+          const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
+          const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+          const raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+          if (raw && raw.length > 0) {
+            layer._rawSpectralBands = raw;
+            layer._canvasWidth = w;
+            layer._canvasHeight = h;
+          }
+        } catch (err) {
+          console.warn('[PixelInspector] Error precargando bandas espectrales:', err);
+        } finally {
+          layer._loadingSpectralBands = false;
+        }
+      }
+
+      // 6. Extracción de datos espectrales y de cobertura de píxel
+      function extractSpectralValues(found, coords) {
+        const parent = coords.parent;
+        const rawBands = found._rawSpectralBands || parent?._rawSpectralBands;
+        const canvasW = found._canvasWidth || parent?._canvasWidth;
+        const canvasH = found._canvasHeight || parent?._canvasHeight;
+
+        let bandValues = null;
+        let bandCount = 0;
+
+        if (rawBands && Array.isArray(rawBands) && rawBands.length > 0) {
+          bandCount = rawBands.length;
+          const bW = canvasW || Math.round(Math.sqrt(rawBands[0].length));
+          const bH = canvasH || Math.round(rawBands[0].length / bW);
+          const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+          const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+          const idx = py * bW + px;
+
+          bandValues = [];
+          for (let b = 0; b < bandCount; b++) {
+            const val = rawBands[b] ? rawBands[b][idx] : 0;
+            bandValues.push(val);
+          }
+        } else if (found.rasters && Array.isArray(found.rasters) && found.rasters.length > 0) {
+          bandCount = found.rasters.length;
+          const rW = found.width || coords.natW;
+          const rH = found.height || coords.natH;
+          const idx = Math.min(Math.max(coords.satPy * rW + coords.satPx, 0), found.rasters[0].length - 1);
+          bandValues = found.rasters.map(b => b[idx]);
+        } else if (found._rawCanvasData) {
+          // Fallback a canvas RGBA
+          const bW = found._canvasWidth || 1000;
+          const bH = found._canvasHeight || 1000;
+          const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+          const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+          const p = (py * bW + px) * 4;
+          const d = found._rawCanvasData;
+          bandValues = [d[p], d[p + 1], d[p + 2]];
+          bandCount = 3;
+        }
+
+        // Información de clase temática si es clasificada
+        let classInfo = null;
+        if (found.isClassified && found._pixelClusterMap) {
+          const bW = found._canvasWidth || (found._classifiedCanvas ? found._classifiedCanvas.width : coords.natW);
+          const bH = found._canvasHeight || (found._classifiedCanvas ? found._classifiedCanvas.height : coords.natH);
+          const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+          const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+          const pixelIdx = py * bW + px;
+          const classId = found._pixelClusterMap[pixelIdx];
+
+          if (classId >= 0 && found.classes && found.classes[classId]) {
+            const cls = found.classes[classId];
+            const pct = cls.percentage || ((cls.count / (found._totalValidPixels || 1)) * 100).toFixed(1);
+            classInfo = {
+              classId,
+              cls,
+              pct,
+              pixelIdx
+            };
+          }
+        }
+
+        // Índices derivados (NDVI, NDWI) calculados secundariamente
+        let ndvi = null, ndwi = null;
+        if (bandValues && bandValues.length >= 4) {
+          const bCount = bandValues.length;
+          const red = bandValues[bCount >= 7 ? 3 : 2] || 0;
+          const nir = bandValues[bCount >= 7 ? 4 : 3] || 0;
+          const green = bandValues[bCount >= 7 ? 2 : 1] || 0;
+          if ((nir + red) !== 0) ndvi = (nir - red) / (nir + red);
+          if ((green + nir) !== 0) ndwi = (green - nir) / (green + nir);
+        }
+
+        return {
+          bandValues,
+          bandCount: bandCount || (found.bands || 1),
+          classInfo,
+          ndvi,
+          ndwi
+        };
+      }
+
+      // 7. Renderizado visual del Inspector Multiespectral
+      function renderPixelInspectorCard(pixelCard, found, coords, e) {
+        if (!pixelCard) return;
+
+        const spectral = extractSpectralValues(found, coords);
+        const bandValues = spectral.bandValues;
+        const bandCount = spectral.bandCount;
+        const classInfo = spectral.classInfo;
+
+        let layerTitle = found.name;
+        if (layerTitle.length > 28) layerTitle = layerTitle.substring(0, 26) + '…';
+
+        // Banner temático si es capa clasificada
+        let classBannerHtml = '';
+        if (classInfo) {
+          const cls = classInfo.cls;
+          const isClassHighlighted = window._activeThematicHighlightClass === classInfo.classId && window._activeThematicHighlightLayerId === found.id;
+          const badgeText = isClassHighlighted ? 'Capa Aislada' : 'Cobertura';
+          classBannerHtml = `
+            <div class="flex items-center justify-between gap-1.5 py-1 px-2 rounded-lg bg-white/5 border border-white/10 my-1.5">
+              <div class="flex items-center gap-2 min-w-0">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:${cls.color}; box-shadow: 0 0 8px ${cls.color}; flex-shrink:0;"></span>
+                <span class="text-[10.5px] font-black text-white truncate">${cls.name}</span>
+              </div>
+              <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider ${isClassHighlighted ? 'bg-violet-600 text-white' : 'bg-white/10 text-zinc-300'} shrink-0">${badgeText} (${classInfo.pct}%)</span>
+            </div>
+          `;
+        }
+
+        // Filas de Valores de Bandas Espectrales
+        let bandRowsHtml = '';
+        let spectralBarsHtml = '';
+
+        if (bandValues && bandValues.length > 0) {
+          const validVals = bandValues.filter(v => v !== null && !isNaN(v) && v > -9000 && isFinite(v));
+          const maxVal = Math.max(...validVals, 1);
+          const refMax = (maxVal <= 1.0) ? 1.0 : (maxVal > 100 && maxVal <= 10000 ? 10000 : (maxVal > 10000 ? 30000 : maxVal));
+
+          bandRowsHtml = bandValues.map((val, idx) => {
+            const meta = getSpectralBandMeta(found, idx, bandCount);
+            const formattedVal = formatBandValue(val);
+            const pct = Math.min(100, Math.max(3, Math.round(((Math.max(0, val || 0)) / refMax) * 100)));
+
+            return `
+              <div class="flex items-center justify-between gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="px-1 py-0.2 rounded text-[7.5px] font-mono font-black uppercase shrink-0" style="background-color: ${meta.color}25; color: ${meta.color}; border: 1px solid ${meta.color}60;">${meta.code}</span>
+                  <span class="text-[9.5px] font-bold text-zinc-200 truncate">${meta.name}</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <div class="w-12 bg-white/10 h-1.5 rounded-full overflow-hidden shrink-0">
+                    <div class="h-full rounded-full transition-all duration-150" style="width: ${pct}%; background-color: ${meta.color};"></div>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold text-white min-w-[50px] text-right">${formattedVal}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Mini gráfica / firma espectral (curva de reflectancia)
+          spectralBarsHtml = `
+            <div class="pt-1.5 mt-1 border-t border-white/10">
+              <div class="flex items-center justify-between text-[7.5px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                <span class="flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[10px] text-amber-400">show_chart</span>
+                  Firma Espectral del Píxel
+                </span>
+                <span class="text-zinc-500 font-mono">B1 → B${bandValues.length}</span>
+              </div>
+              <div class="flex items-end gap-1 h-9 bg-black/40 rounded-lg p-1 border border-white/5">
+                ${bandValues.map((val, idx) => {
+                  const meta = getSpectralBandMeta(found, idx, bandCount);
+                  const pct = Math.min(100, Math.max(6, Math.round(((Math.max(0, val || 0)) / refMax) * 100)));
+                  return `
+                    <div class="flex-1 flex flex-col items-center justify-end h-full" title="${meta.name}: ${val}">
+                      <div class="w-full rounded-t transition-all duration-150" style="height: ${pct}%; background-color: ${meta.color}; opacity: 0.9;"></div>
+                      <span class="text-[6.5px] font-mono text-zinc-400 mt-0.5">${meta.code}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          bandRowsHtml = `
+            <div class="text-[9px] text-zinc-400 italic py-2 text-center bg-white/5 rounded border border-white/5">
+              Cargando valores de bandas espectrales...
+            </div>
+          `;
+        }
+
+        // Telemetría de índices secundarios (NDVI / NDWI) en pie de tarjeta
+        let indicesFooterHtml = '';
+        if (spectral.ndvi !== null) {
+          const ndviVal = spectral.ndvi;
+          const ndwiVal = spectral.ndwi;
+          indicesFooterHtml = `
+            <div class="flex items-center justify-between text-[7.5px] text-zinc-400 font-mono pt-1.5 mt-1 border-t border-white/10">
+              <span>NDVI: <strong class="${ndviVal >= 0.2 ? 'text-emerald-400' : 'text-amber-400'}">${ndviVal >= 0 ? '+' : ''}${ndviVal.toFixed(3)}</strong></span>
+              ${ndwiVal !== null ? `<span>NDWI: <strong class="${ndwiVal > 0 ? 'text-cyan-400' : 'text-zinc-300'}">${ndwiVal >= 0 ? '+' : ''}${ndwiVal.toFixed(3)}</strong></span>` : ''}
+              <span>Res: 30m</span>
+            </div>
+          `;
+        }
+
+        pixelCard.innerHTML = `
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-white/15">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="material-symbols-outlined text-[15px] text-violet-400 shrink-0">satellite_alt</span>
+              <span class="text-[11px] font-black text-white truncate tracking-tight">${layerTitle}</span>
+            </div>
+            <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/80 text-violet-100 border border-violet-400/30 shrink-0">
+              ${bandCount} ${bandCount === 1 ? 'Banda' : 'Bandas'}
+            </span>
+          </div>
+
+          ${classBannerHtml}
+
+          <div class="flex items-center justify-between text-[8px] text-zinc-400 font-mono py-1 border-b border-white/10">
+            <span>Col (X): <strong class="text-white">${coords.satPx.toLocaleString('es-CO')}</strong> · Fila (Y): <strong class="text-white">${coords.satPy.toLocaleString('es-CO')}</strong></span>
+            <span>Lat: <strong class="text-zinc-200">${e.latlng.lat.toFixed(5)}°</strong> Lng: <strong class="text-zinc-200">${e.latlng.lng.toFixed(5)}°</strong></span>
+          </div>
+
+          <div class="my-1.5">
+            <div class="text-[8px] font-black uppercase tracking-wider text-amber-400/95 mb-1 flex items-center justify-between">
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-[10px] text-amber-400">tune</span>
+                Valores de Bandas Multiespectrales
+              </span>
+              <span class="text-[7px] text-zinc-400 font-normal">Nativo Satelital</span>
+            </div>
+            <div class="flex flex-col gap-1 max-h-[175px] overflow-y-auto pr-0.5 custom-scroll">
+              ${bandRowsHtml}
+            </div>
+          </div>
+
+          ${spectralBarsHtml}
+          ${indicesFooterHtml}
+        `;
+
+        const cardW = 310;
+        const cardH = 340;
+        let left = e.originalEvent.clientX + 20;
+        let top = e.originalEvent.clientY + 12;
+        if (left + cardW > window.innerWidth - 10) left = e.originalEvent.clientX - cardW - 15;
+        if (top + cardH > window.innerHeight - 10) top = e.originalEvent.clientY - cardH - 10;
+        pixelCard.style.left = `${Math.max(10, left)}px`;
+        pixelCard.style.top = `${Math.max(10, top)}px`;
+        pixelCard.style.display = 'block';
+      }
+
+      // Seguimiento de coordenadas del mouse y raster hover
       window._rasterAreaCache = {};
       state.map.on('mousemove', (e) => {
           const display = document.getElementById('mouseCoords');
           if (display) {
               display.textContent = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
           }
-          // Raster hover: detectar si el cursor está sobre algún raster visible
           const hoverInfo = document.getElementById('hoverInfo');
+          const pixelCard = document.getElementById('pixelInspectorCard');
+
           let found = null;
-          // Priorizar capas clasificadas temáticas si están visibles bajo el cursor
-          for (const l of state.layers) {
-            if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
-            if (!l.isClassified) continue;
-            const b = l.bounds;
-            const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-            if (latlngBounds.contains(e.latlng)) { found = l; break; }
+          // 1. Priorizar la capa seleccionada por el usuario si está visible bajo el cursor
+          if (state.selectedLayerId) {
+            const sel = state.layers.find(l => l.id === state.selectedLayerId);
+            if (sel && sel.type === 'raster' && sel.visible && sel.bounds) {
+              const b = sel.bounds;
+              const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+              if (latlngBounds.contains(e.latlng)) {
+                found = sel;
+              }
+            }
           }
-          // Si no hay clasificada, evaluar rasters convencionales
+
+          // 2. Si no, tomar la capa raster visible superior en el mapa
           if (!found) {
             for (const l of state.layers) {
               if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
               const b = l.bounds;
               const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-              if (latlngBounds.contains(e.latlng)) { found = l; break; }
+              if (latlngBounds.contains(e.latlng)) {
+                found = l;
+                break;
+              }
             }
           }
+
           if (found) {
             const b = found.bounds;
             const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
 
-            // Resalte e inspección temática de píxel individual si la capa es clasificada
-            if (found.isClassified && found._pixelClusterMap) {
-              const west = latlngBounds.getWest(), east = latlngBounds.getEast();
-              const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
-              const fracX = (e.latlng.lng - west) / (east - west);
-              const fracY = (north - e.latlng.lat) / (north - south);
-
-              if (fracX >= 0 && fracX <= 1 && fracY >= 0 && fracY <= 1) {
-                const mapW = found._canvasWidth || (found._classifiedCanvas ? found._classifiedCanvas.width : found.width);
-                const mapH = found._canvasHeight || (found._classifiedCanvas ? found._classifiedCanvas.height : found.height);
-                const px = Math.min(Math.max(Math.floor(fracX * mapW), 0), mapW - 1);
-                const py = Math.min(Math.max(Math.floor(fracY * mapH), 0), mapH - 1);
-                const pixelIdx = py * mapW + px;
-                const classId = found._pixelClusterMap[pixelIdx];
-
-                if (classId >= 0 && found.classes && found.classes[classId]) {
-                  const cls = found.classes[classId];
-
-                  // Quitar recuadro general para vista despejada
-                  if (window._rasterHoverRect) {
-                    try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
-                    window._rasterHoverRect = null;
-                  }
-                  window._lastRasterHoverId = null;
-
-                  // Cálculo de área
-                  const key = found.id;
-                  if (!window._rasterAreaCache[key]) {
-                    try {
-                      const poly = [[west, south], [east, south], [east, north], [west, north], [west, south]];
-                      window._rasterAreaCache[key] = turf.area(turf.polygon([poly]));
-                    } catch(err) { window._rasterAreaCache[key] = 0; }
-                  }
-                  const areaHa = (window._rasterAreaCache[key] || 0) / 10000;
-                  const totalClsArea = areaHa;
-                  const pct = cls.percentage || ((cls.count / (found._totalValidPixels || 1)) * 100).toFixed(1);
-                  const clsHa = ((parseFloat(pct) / 100) * totalClsArea);
-                  const clsAreaStr = clsHa >= 100 ? `${(clsHa / 100).toFixed(1)} km²` : `${clsHa.toFixed(1)} ha`;
-
-                  // Píxel en coordenadas nativas satelitales (30m)
-                  const natW = found.width || mapW;
-                  const natH = found.height || mapH;
-                  const satPx = Math.min(Math.max(Math.floor(fracX * natW), 0), natW - 1);
-                  const satPy = Math.min(Math.max(Math.floor(fracY * natH), 0), natH - 1);
-
-                  // Extracción de firma/valores espectrales de ese píxel
-                  let pixelValuesHtml = '';
-                  if (found._rawSpectralBands && found._rawSpectralBands.length >= 4) {
-                    const bCount = found._rawSpectralBands.length;
-                    const red = found._rawSpectralBands[bCount >= 7 ? 3 : 0][pixelIdx] || 0;
-                    const nir = found._rawSpectralBands[bCount >= 7 ? 4 : (bCount >= 4 ? 3 : 1)][pixelIdx] || 0;
-                    const green = found._rawSpectralBands[bCount >= 7 ? 2 : 1][pixelIdx] || 0;
-                    const swir = bCount >= 6 ? (found._rawSpectralBands[5][pixelIdx] || 0) : null;
-
-                    const pixelNdvi = (nir + red) !== 0 ? ((nir - red) / (nir + red)) : 0;
-                    const pixelNdwi = (green + nir) !== 0 ? ((green - nir) / (green + nir)) : 0;
-
-                    pixelValuesHtml = `
-                      <div class="grid grid-cols-2 gap-1.5 py-1.5 border-y border-white/10 my-1.5">
-                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
-                          <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">Índice NDVI (Píxel)</span>
-                          <span class="text-[12px] font-mono font-black ${pixelNdvi >= 0.2 ? 'text-emerald-300' : (pixelNdvi < 0 ? 'text-cyan-300' : 'text-amber-300')}">${pixelNdvi >= 0 ? '+' : ''}${pixelNdvi.toFixed(3)}</span>
-                        </div>
-                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
-                          <span class="text-[8px] text-cyan-400 font-bold uppercase tracking-wider">Índice NDWI (Agua)</span>
-                          <span class="text-[12px] font-mono font-black ${pixelNdwi > 0 ? 'text-cyan-300' : 'text-zinc-400'}">${pixelNdwi >= 0 ? '+' : ''}${pixelNdwi.toFixed(3)}</span>
-                        </div>
-                      </div>
-                      <div class="flex items-center justify-between text-[8px] text-zinc-300 font-mono py-0.5">
-                        <span>RED: <strong class="text-white">${Math.round(red)}</strong></span>
-                        <span>NIR: <strong class="text-white">${Math.round(nir)}</strong></span>
-                        ${swir !== null ? `<span>SWIR: <strong class="text-white">${Math.round(swir)}</strong></span>` : `<span>GREEN: <strong class="text-white">${Math.round(green)}</strong></span>`}
-                      </div>
-                    `;
-                  } else {
-                    pixelValuesHtml = `
-                      <div class="grid grid-cols-2 gap-1.5 py-1.5 border-y border-white/10 my-1.5">
-                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
-                          <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">Firma NDVI Promedio</span>
-                          <span class="text-[12px] font-mono font-black text-emerald-300">${cls.ndvi !== undefined ? (cls.ndvi >= 0 ? '+' : '') + cls.ndvi.toFixed(3) : 'N/A'}</span>
-                        </div>
-                        <div class="flex flex-col bg-white/5 p-1.5 rounded-lg border border-white/5">
-                          <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider">Clase Temática</span>
-                          <span class="text-[11px] font-bold text-white truncate">Clase ${classId + 1} de ${found.classes.length}</span>
-                        </div>
-                      </div>
-                    `;
-                  }
-
-                  const isClassHighlighted = window._activeThematicHighlightClass === classId && window._activeThematicHighlightLayerId === found.id;
-                  const badgeHtml = isClassHighlighted
-                    ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/90 text-white border border-violet-400/40 shrink-0 shadow-2xs">Capa Individual Activa</span>`
-                    : `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-medium tracking-tight bg-white/10 text-zinc-300 border border-white/10 shrink-0">Clic para aislar cobertura</span>`;
-
-                  const pixelCard = document.getElementById('pixelInspectorCard');
-                  if (pixelCard) {
-                    pixelCard.innerHTML = `
-                      <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-white/15">
-                        <div class="flex items-center gap-2 min-w-0">
-                          <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${cls.color}; box-shadow: 0 0 8px ${cls.color}; flex-shrink:0;"></span>
-                          <span class="text-[11.5px] font-black text-white truncate tracking-tight">${cls.name}</span>
-                        </div>
-                        ${badgeHtml}
-                      </div>
-
-                      <div class="flex items-center justify-between gap-2 mt-1.5 text-[8.5px]">
-                        <span class="text-zinc-400 font-medium">Cobertura de la clase:</span>
-                        <span class="text-amber-300 font-mono font-bold">${clsAreaStr} <span class="text-zinc-400 font-normal">(${pct}%)</span></span>
-                      </div>
-
-                      ${pixelValuesHtml}
-
-                      ${cls.signatureLabel ? `
-                        <div class="text-[8.5px] text-zinc-300 italic mb-1 flex items-center gap-1">
-                          <span class="material-symbols-outlined text-[11px] text-violet-400">insights</span>
-                          ${cls.signatureLabel}
-                        </div>
-                      ` : ''}
-
-                      <div class="pt-1 mt-1 border-t border-white/10 flex items-center justify-between text-[8px] text-zinc-400 font-mono">
-                        <span>Píxel satelital: <strong class="text-white">[X:${satPx}, Y:${satPy}]</strong></span>
-                        <span>Res: 30m</span>
-                      </div>
-                      <div class="text-[7.5px] text-zinc-500 font-mono text-right mt-0.5">
-                        Lat: ${e.latlng.lat.toFixed(5)}°, Lng: ${e.latlng.lng.toFixed(5)}°
-                      </div>
-                    `;
-
-                    const cardW = 270;
-                    const cardH = 220;
-                    let left = e.originalEvent.clientX + 20;
-                    let top = e.originalEvent.clientY + 12;
-                    if (left + cardW > window.innerWidth - 10) left = e.originalEvent.clientX - cardW - 15;
-                    if (top + cardH > window.innerHeight - 10) top = e.originalEvent.clientY - cardH - 10;
-                    pixelCard.style.left = `${Math.max(10, left)}px`;
-                    pixelCard.style.top = `${Math.max(10, top)}px`;
-                    pixelCard.style.display = 'block';
-                  }
-
-                  if (hoverInfo) hoverInfo.style.display = 'none';
-                  return; // Fin de gestión para píxel clasificado
-                }
-              }
+            // Precarga en background de bandas si es multiespectral
+            if ((found.bands > 1 || found.bandsCount > 1 || found._spectralBandCount > 1) && !found._rawSpectralBands) {
+              ensureLayerSpectralBands(found);
             }
 
-            const pixelCard = document.getElementById('pixelInspectorCard');
+            // Cálculo geodésico exacto de celda satelital
+            const coords = getRasterPixelCoords(found, e.latlng);
+
+            if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
+              // Resaltar en el mapa el píxel individual exacto de 30m
+              const pBounds = getPixelLatLngBounds(coords, found);
+              if (pBounds) {
+                if (!window._pixelHoverBox) {
+                  window._pixelHoverBox = L.rectangle(pBounds, {
+                    color: '#ec4899',
+                    weight: 2,
+                    fill: true,
+                    fillColor: '#f472b6',
+                    fillOpacity: 0.35,
+                    interactive: false,
+                    zIndexOffset: 10000
+                  }).addTo(state.map);
+                } else {
+                  window._pixelHoverBox.setBounds(pBounds);
+                }
+              }
+
+              // Quitar recuadro general de la escena para no obstruir el píxel
+              if (window._rasterHoverRect) {
+                try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
+                window._rasterHoverRect = null;
+              }
+              window._lastRasterHoverId = null;
+
+              // Renderizar la tarjeta del Inspector Multiespectral
+              renderPixelInspectorCard(pixelCard, found, coords, e);
+              if (hoverInfo) hoverInfo.style.display = 'none';
+              return;
+            }
+
+            // Si está dentro del bounding box pero fuera de la grilla de datos del raster:
+            if (window._pixelHoverBox) {
+              try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+              window._pixelHoverBox = null;
+            }
             if (pixelCard) pixelCard.style.display = 'none';
 
-            // Actualiza rectángulo de resalte siempre que haya raster bajo el cursor
+            // Actualiza rectángulo de resalte general
             if (window._lastRasterHoverId !== found.id) {
               window._lastRasterHoverId = found.id;
               if (!window._rasterHoverRect) {
@@ -8954,7 +9299,6 @@ self.onmessage = async function(e) {
                     if (fn) {
                       fetch(`/api/raster/class-areas/${encodeURIComponent(fn)}`).then(r => r.json()).then(d => {
                         window._rasterAreaCache[keyAreas] = d;
-                        // Force re-render on next mousemove
                         window._lastRasterHoverInfoId = null;
                       }).catch(() => { window._rasterAreaCache[keyAreas] = null; });
                     }
@@ -9005,6 +9349,10 @@ self.onmessage = async function(e) {
           } else {
             const pixelCard = document.getElementById('pixelInspectorCard');
             if (pixelCard) pixelCard.style.display = 'none';
+            if (window._pixelHoverBox) {
+              try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+              window._pixelHoverBox = null;
+            }
 
             if (window._lastRasterHoverId !== null) {
               window._lastRasterHoverId = null;
@@ -9018,6 +9366,10 @@ self.onmessage = async function(e) {
       state.map.on('mouseout', () => {
         const pixelCard = document.getElementById('pixelInspectorCard');
         if (pixelCard) pixelCard.style.display = 'none';
+        if (window._pixelHoverBox) {
+          try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+          window._pixelHoverBox = null;
+        }
         const hoverInfo = document.getElementById('hoverInfo');
         if (hoverInfo && !window._vectorHoverActive) hoverInfo.style.display = 'none';
       });
@@ -9025,6 +9377,10 @@ self.onmessage = async function(e) {
       state.map.on('dragstart', () => {
         const pixelCard = document.getElementById('pixelInspectorCard');
         if (pixelCard) pixelCard.style.display = 'none';
+        if (window._pixelHoverBox) {
+          try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+          window._pixelHoverBox = null;
+        }
         const hoverInfo = document.getElementById('hoverInfo');
         if (hoverInfo && !window._vectorHoverActive) hoverInfo.style.display = 'none';
       });
@@ -9034,27 +9390,31 @@ self.onmessage = async function(e) {
         if (window._isMeasuringActive || (typeof _net !== 'undefined' && _net?.picking) || (state.drawMode && state.drawMode !== 'select')) return;
 
         let foundClassified = null;
-        for (const l of state.layers) {
-          if (l.type !== 'raster' || !l.visible || !l.bounds || !l.isClassified || !l._pixelClusterMap) continue;
-          const b = l.bounds;
-          const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-          if (latlngBounds.contains(e.latlng)) { foundClassified = l; break; }
+        if (state.selectedLayerId) {
+          const sel = state.layers.find(l => l.id === state.selectedLayerId);
+          if (sel && sel.type === 'raster' && sel.visible && sel.bounds && sel.isClassified && sel._pixelClusterMap) {
+            const b = sel.bounds;
+            const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+            if (latlngBounds.contains(e.latlng)) foundClassified = sel;
+          }
+        }
+        if (!foundClassified) {
+          for (const l of state.layers) {
+            if (l.type !== 'raster' || !l.visible || !l.bounds || !l.isClassified || !l._pixelClusterMap) continue;
+            const b = l.bounds;
+            const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+            if (latlngBounds.contains(e.latlng)) { foundClassified = l; break; }
+          }
         }
 
         if (foundClassified) {
-          const b = foundClassified.bounds;
-          const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-          const west = latlngBounds.getWest(), east = latlngBounds.getEast();
-          const north = latlngBounds.getNorth(), south = latlngBounds.getSouth();
-          const fracX = (e.latlng.lng - west) / (east - west);
-          const fracY = (north - e.latlng.lat) / (north - south);
-
-          if (fracX >= 0 && fracX <= 1 && fracY >= 0 && fracY <= 1) {
-            const mapW = foundClassified._canvasWidth || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.width : foundClassified.width);
-            const mapH = foundClassified._canvasHeight || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.height : foundClassified.height);
-            const px = Math.min(Math.max(Math.floor(fracX * mapW), 0), mapW - 1);
-            const py = Math.min(Math.max(Math.floor(fracY * mapH), 0), mapH - 1);
-            const pixelIdx = py * mapW + px;
+          const coords = getRasterPixelCoords(foundClassified, e.latlng);
+          if (coords) {
+            const bW = foundClassified._canvasWidth || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.width : coords.natW);
+            const bH = foundClassified._canvasHeight || (foundClassified._classifiedCanvas ? foundClassified._classifiedCanvas.height : coords.natH);
+            const samplePx = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+            const samplePy = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+            const pixelIdx = samplePy * bW + samplePx;
             const classId = foundClassified._pixelClusterMap[pixelIdx];
 
             if (classId >= 0 && foundClassified.classes && foundClassified.classes[classId]) {
@@ -17462,6 +17822,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (layer && layer.mapLayer && typeof layer.mapLayer.bringToFront === 'function') {
           layer.mapLayer.bringToFront();
         }
+        if (layer && layer.type === 'raster' && (layer.bands > 1 || layer._rawSpectralBands) && typeof ensureLayerSpectralBands === 'function') {
+          ensureLayerSpectralBands(layer);
+        }
       }
       updateLayersSidebar();
       if ($propsPanel && $propsPanel.style.display !== 'none') {
@@ -19254,6 +19617,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             visible: true,
             opacity: 0.9,
             bounds: layer.bounds,
+            origin: layer.origin || (parentTileLayer && parentTileLayer.origin) || null,
+            resolution: layer.resolution || (parentTileLayer && parentTileLayer.resolution) || null,
+            epsg: layer.epsg || (parentTileLayer && parentTileLayer.epsg) || null,
             imageUrl: canvas.toDataURL('image/png'),
             width: nativeW,
             height: nativeH,
@@ -19285,6 +19651,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (classifiedTileLayer) {
             newLayer._geotiffTileLayer = classifiedTileLayer;
             newLayer.mapLayer = classifiedTileLayer;
+          }
+
+          // Precarga y vinculación instantánea en la capa multiespectral padre
+          if (!layer._rawSpectralBands && spectralData.bands) {
+            layer._rawSpectralBands = spectralData.bands;
+            layer._canvasWidth = w;
+            layer._canvasHeight = h;
           }
 
           state.layers.unshift(newLayer);
