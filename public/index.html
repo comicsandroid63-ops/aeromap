@@ -5859,8 +5859,15 @@
           <!-- Previsualización y Personalización de Clases -->
           <div class="flex flex-col gap-2">
             <div class="flex items-center justify-between">
-              <span class="text-[10px] font-black uppercase tracking-wider text-zinc-700">Paleta Temática y Etiquetas de Clases</span>
-              <span class="text-[8px] text-zinc-400 font-bold uppercase">Haz clic en el color para personalizarlo</span>
+              <div class="flex items-center justify-between w-full">
+                <span class="text-[10px] font-black uppercase tracking-wider text-zinc-700">Paleta Temática y Grupos</span>
+                <button type="button" onclick="randomizeUnsupervisedColors()"
+                  class="px-2.5 py-1 rounded-lg text-[8.5px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="Generar nuevos colores diferenciales aleatorios">
+                  <span class="material-symbols-outlined text-[13px]">casino</span>
+                  <span>Aleatorizar Colores</span>
+                </button>
+              </div>
             </div>
 
             <div id="unsupervisedClassesTable" class="flex flex-col gap-1.5 max-h-52 overflow-y-auto custom-scrollbar p-1 border border-zinc-200 rounded-2xl bg-zinc-50/50">
@@ -6088,14 +6095,20 @@
 
     <!-- Selector Rápido de Clase Activa -->
     <div class="flex items-center gap-1.5 border-r border-white/15 pr-3">
-      <label class="text-[8px] font-black uppercase text-zinc-400 tracking-wider">Clase:</label>
+      <label class="text-[8px] font-black uppercase text-zinc-400 tracking-wider">Grupo:</label>
       <select id="supDockClassSelect" onchange="setActiveSupervisedClass(parseInt(this.value, 10))"
-        class="bg-zinc-800 text-white text-[10px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer">
+        class="bg-zinc-800 text-white text-[10px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer max-w-[130px] truncate">
         <!-- Opciones pobladas dinámicamente -->
       </select>
       <span id="supDockSampleCountBadge" class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
         0 px
       </span>
+      <button type="button" onclick="promptAddSupervisedClassFromDock()"
+        class="px-2 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer transition-all"
+        title="Crear un nuevo grupo / cobertura y nombrarlo">
+        <span class="material-symbols-outlined text-[13px]">add</span>
+        <span>Clase</span>
+      </button>
     </div>
 
     <!-- Herramientas de Muestreo: Punto, Pincel, Polígono -->
@@ -6133,9 +6146,9 @@
       </button>
 
       <button type="button" onclick="executeSupervisedClassification()" 
-        class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Ejecutar clasificación supervisada">
-        <span class="material-symbols-outlined text-[14px]">play_circle</span>
-        <span>Clasificar</span>
+        class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Guardar clasificación supervisada como capa permanente">
+        <span class="material-symbols-outlined text-[14px]">save</span>
+        <span>Guardar Capa</span>
       </button>
 
       <button type="button" onclick="closeSupervisedClassificationModal()" 
@@ -11624,17 +11637,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             } else {
               // Float32 / 16-bit
-              // Calibración fotométrica natural fiel al mapa base (Google Satellite):
-              // gamma 0.86 equilibra vegetación esmeralda viva con suelos y relieve nítidos
-              const gamma = 0.86;
+              // Calibración fotométrica natural idéntica al mapa base Google Satellite (bosques esmeralda, suelos cálidos, manzanas urbanas nítidas sin sobreexposición)
+              const gamma = 0.90;
               function tonemapFloat(val, p2, rng) {
                 let n = (val - p2) / rng;
                 if (n <= 0) return 0;
-                // Hombro suave (knee) a partir de 0.72: comprime asintóticamente las altas luces
+                // Hombro suave (knee) a partir de 0.77: comprime asintóticamente las altas luces
                 // preservando las manzanas urbanas, carreteras y suelos claros sin cegar ni sobreiluminar
-                if (n > 0.72) {
-                  const excess = n - 0.72;
-                  n = 0.72 + (0.28 * excess) / (excess + 0.35);
+                if (n > 0.77) {
+                  const excess = n - 0.77;
+                  n = 0.77 + (0.23 * excess) / (excess + 0.35);
                 }
                 return Math.max(0, Math.min(1, n));
               }
@@ -11872,21 +11884,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (isCesarMosaic && (sampleFormat === 3 || bits === 32)) {
               if (isNaturalRgbBands) {
                 // Color natural [2, 1, 0] = [B3 (Rojo), B2 (Verde), B1 (Azul)]
-                // Calibración exacta idéntica al mapa base Google Satellite (bosques esmeralda, suelos cálidos, ciudad texturada)
+                // Calibración exacta idéntica al mapa base Google Satellite (bosques esmeralda, suelos cálidos, ciudad nítida sin sobreexposición)
                 this._globalStats = {
                   isRgb: isRgbRender,
-                  r: { p2: 0.005, p98: 0.185, rng: 0.180, maxV: 1.0, shouldStretch: true },
-                  g: { p2: 0.016, p98: 0.190, rng: 0.174, maxV: 1.0, shouldStretch: true },
-                  b: { p2: 0.016, p98: 0.205, rng: 0.189, maxV: 1.0, shouldStretch: true }
+                  r: { p2: 0.007, p98: 0.260, rng: 0.253, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.013, p98: 0.235, rng: 0.222, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.016, p98: 0.240, rng: 0.224, maxV: 1.0, shouldStretch: true }
                 };
                 return this._globalStats;
               } else if (isDefaultBands) {
                 // Bandas directas [0, 1, 2] = [B1, B2, B3]
                 this._globalStats = {
                   isRgb: isRgbRender,
-                  r: { p2: 0.016, p98: 0.205, rng: 0.189, maxV: 1.0, shouldStretch: true },
-                  g: { p2: 0.016, p98: 0.190, rng: 0.174, maxV: 1.0, shouldStretch: true },
-                  b: { p2: 0.005, p98: 0.185, rng: 0.180, maxV: 1.0, shouldStretch: true }
+                  r: { p2: 0.016, p98: 0.240, rng: 0.224, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.013, p98: 0.235, rng: 0.222, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.007, p98: 0.260, rng: 0.253, maxV: 1.0, shouldStretch: true }
                 };
                 return this._globalStats;
               }
@@ -12855,6 +12867,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             
             if (geo && geo.image) {
+              const w = geo.image.getWidth();
+              const h = geo.image.getHeight();
+              const samples = geo.image.getSamplesPerPixel();
+              layer.width = w; layer.height = h; layer.bands = samples;
+              layer.bounds = geo.bounds;
+
+              if (!layer.rendererParams) layer.rendererParams = {};
+              if (!layer.rendererParams.bands || layer.rendererParams.bands.length === 0) {
+                if (samples >= 7) {
+                  layer.rendererParams.bands = [3, 2, 1]; // Landsat 8 con aerosol costero
+                } else if (samples >= 4) {
+                  layer.rendererParams.bands = [2, 1, 0]; // Landsat 4/5/7 y compuestos de 6 bandas (Color Real Natural)
+                } else {
+                  layer.rendererParams.bands = [0, 1, 2];
+                }
+              }
+
               const overviewUrl = layer.overviewUrl || ((typeof tiffUrl === 'string' && (tiffUrl.startsWith('http://') || tiffUrl.startsWith('https://')))
                 ? tiffUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png')
                 : null);
@@ -12864,19 +12893,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 maxZoom: 28,
                 opacity: layer.opacity ?? 1,
                 bounds: geo.bounds,
-                bands: layer.rendererParams?.bands,
+                bands: layer.rendererParams.bands,
                 overviewUrl: overviewUrl
               });
               
               tileLayer.addTo(state.map);
               layer._geotiffTileLayer = tileLayer;
               layer.mapLayer = tileLayer;
-              
-              const w = geo.image.getWidth();
-              const h = geo.image.getHeight();
-              const samples = geo.image.getSamplesPerPixel();
-              layer.width = w; layer.height = h; layer.bands = samples;
-              layer.bounds = geo.bounds;
               
               if (geo.bounds && geo.bounds.isValid && geo.bounds.isValid() && !opts.skipFit) {
                 const center = geo.bounds.getCenter();
@@ -18302,16 +18325,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function getBandNameHint(layer, bIdx) {
       const n = (layer.name || '').toUpperCase();
-      const isLandsat8 = n.includes('LC08') || n.includes('LC09') || n.includes('L8') || n.includes('2025') || n.includes('2026');
-      const isLandsat7 = n.includes('LE07') || n.includes('L7') || n.includes('2011');
-      const isLandsat5 = n.includes('LT05') || n.includes('L5') || n.includes('1996');
+      const totalBands = Math.max(1, layer.bands || 3);
+      const isLandsat8Full = (n.includes('LC08') || n.includes('LC09') || n.includes('L8') || n.includes('2025') || n.includes('2026')) && (totalBands >= 8);
+      const isLandsat = n.includes('LANDSAT') || n.includes('CESAR') || n.includes('LE07') || n.includes('LT05') || n.includes('L7') || n.includes('L5') || n.includes('1996') || n.includes('2004') || n.includes('2018') || (totalBands >= 4 && totalBands <= 7);
 
-      if (isLandsat8) {
+      if (isLandsat8Full) {
         const names = ['(Costero)', '(Azul)', '(Verde)', '(Rojo)', '(NIR)', '(SWIR1)', '(SWIR2)', '(Pan)', '(Cirros)', '(TIRS1)', '(TIRS2)'];
         return names[bIdx] || '';
       }
-      if (isLandsat7 || isLandsat5) {
-        const names = ['(Azul)', '(Verde)', '(Rojo)', '(NIR)', '(SWIR1)', '(TIRS)', '(SWIR2)'];
+      if (isLandsat || totalBands >= 4) {
+        // En mosaicos y compuestos Landsat estándar de 6 bandas: B1=Azul, B2=Verde, B3=Rojo, B4=NIR, B5=SWIR1, B6=SWIR2
+        const names = ['(Azul)', '(Verde)', '(Rojo)', '(NIR)', '(SWIR1)', '(SWIR2)', '(TIRS)'];
         return names[bIdx] || '';
       }
       const defaultNames = ['(Rojo)', '(Verde)', '(Azul)'];
@@ -18327,6 +18351,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (preset === 'nir') return b[0] === 4 && b[1] === 3 && b[2] === 2;
         if (preset === 'agriculture') return b[0] === 5 && b[1] === 4 && b[2] === 1;
         if (preset === 'swir') return b[0] === 6 && b[1] === 5 && b[2] === 3;
+      } else if (totalBands >= 4) {
+        if (preset === 'truecolor') return b[0] === 2 && b[1] === 1 && b[2] === 0;
+        if (preset === 'nir') return b[0] === 3 && b[1] === 2 && b[2] === 1;
+        if (preset === 'agriculture') return b[0] === Math.min(4, totalBands-1) && b[1] === 3 && (b[2] === 2 || b[2] === 0);
+        if (preset === 'swir') return b[0] === Math.min(5, totalBands-1) && b[1] === Math.min(4, totalBands-1) && b[2] === 2;
       } else {
         if (preset === 'truecolor') return b[0] === 0 && b[1] === 1 && b[2] === 2;
         if (preset === 'nir') return b[0] === 0 && b[1] === 2 && b[2] === 1;
@@ -18360,16 +18389,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       } else if (totalBands >= 4) {
         if (preset === 'truecolor') {
           bands = [2, 1, 0];
-          label = 'Color Real (3-2-1)';
+          label = 'Color Real Natural (B3-B2-B1)';
         } else if (preset === 'nir') {
           bands = [3, 2, 1];
-          label = 'Infrarrojo NIR (4-3-2)';
+          label = 'Infrarrojo Vegetación NIR (B4-B3-B2)';
         } else if (preset === 'agriculture') {
-          bands = [Math.min(4, totalBands-1), 3, 0];
-          label = 'Agricultura';
+          bands = [Math.min(4, totalBands-1), 3, 2];
+          label = 'Agricultura y Cultivos (B5-B4-B3)';
         } else if (preset === 'swir') {
           bands = [Math.min(5, totalBands-1), Math.min(4, totalBands-1), 2];
-          label = 'SWIR';
+          label = 'SWIR Geología y Urbano (B6-B5-B3)';
         }
       } else {
         if (preset === 'truecolor') {
@@ -19715,16 +19744,73 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderUnsupervisedClassesTable(k);
     }
 
+    // Generador de colores aleatorios diferenciales (alto contraste, visualmente distintos)
+    function generateDifferentialRandomColors(count) {
+      const distinctSwatches = [
+        '#ef4444', '#2563eb', '#10b981', '#f59e0b', '#8b5cf6',
+        '#06b6d4', '#ec4899', '#84cc16', '#ea580c', '#6366f1',
+        '#14b8a6', '#d946ef', '#f97316', '#0284c7', '#a855f7',
+        '#e11d48', '#22c55e', '#ca8a04', '#64748b', '#0d9488'
+      ];
+
+      const shuffled = [...distinctSwatches].sort(() => 0.5 - Math.random());
+      if (count <= shuffled.length) {
+        return shuffled.slice(0, count);
+      }
+
+      // Si count > 20, generar mediante espaciado áureo en HSL
+      const colors = [];
+      const goldenRatio = 0.618033988749895;
+      let h = Math.random();
+      for (let i = 0; i < count; i++) {
+        h = (h + goldenRatio) % 1;
+        const hue = Math.floor(h * 360);
+        const s = 0.85, l = 0.52;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+        const m = l - c / 2;
+        let r = 0, g = 0, b = 0;
+        if (hue < 60) { r = c; g = x; }
+        else if (hue < 120) { r = x; g = c; }
+        else if (hue < 180) { g = c; b = x; }
+        else if (hue < 240) { g = x; b = c; }
+        else if (hue < 300) { r = x; b = c; }
+        else { r = c; b = x; }
+        const toHex = v => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+        colors.push('#' + toHex(r) + toHex(g) + toHex(b));
+      }
+      return colors;
+    }
+
+    function randomizeUnsupervisedColors() {
+      const k = state._unsupervisedK || 5;
+      const randomColors = generateDifferentialRandomColors(k);
+      if (state._unsupervisedCurrentClasses) {
+        state._unsupervisedCurrentClasses.forEach((cls, idx) => {
+          cls.color = randomColors[idx % randomColors.length];
+        });
+        const $table = document.getElementById('unsupervisedClassesTable');
+        if ($table) {
+          $table.querySelectorAll('input[type="color"]').forEach((input, idx) => {
+            if (randomColors[idx]) input.value = randomColors[idx];
+          });
+        }
+      }
+      toast('🎲 Nuevos colores diferenciales asignados aleatoriamente', 'info');
+    }
+    window.randomizeUnsupervisedColors = randomizeUnsupervisedColors;
+
     function renderUnsupervisedClassesTable(k) {
       const spectralData = state._unsupervisedSpectralData;
       const normData = state._unsupervisedNormData;
       let classes = [];
 
+      const differentialColors = generateDifferentialRandomColors(k);
+
       if (normData && normData.normSamples && normData.normSamples.length > 0) {
         const dims = normData.dims;
         const r = fastKMeans(normData.normSamples, k, 6, dims);
         const globalMaxVal = Math.max(...normData.maxs) || (spectralData?.type === 'multispectral' ? 10000 : 255);
-        const bCount = spectralData ? spectralData.bandsCount : dims;
 
         const clustersInfo = r.centers.map((cNorm, idx) => {
           const meanVals = new Float32Array(dims);
@@ -19736,20 +19822,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return { id: idx, meanVals, count: cnt, percentage: pct };
         });
 
-        const characterized = characterizeClusters(clustersInfo, bCount, globalMaxVal);
-        classes = characterized.map(ch => ({
-          id: ch.id,
-          name: ch.assignedName,
-          color: ch.assignedColor,
-          signatureLabel: ch.signatureLabel,
-          percentage: ch.percentage,
-          domain: ch.domain,
-          ndvi: ch.ndvi,
-          meanVals: Array.from(ch.meanVals),
+        classes = clustersInfo.map((ci, idx) => {
+          const meanB = Math.round(ci.meanVals.reduce((a, b) => a + b, 0) / ci.meanVals.length);
+          return {
+            id: idx,
+            name: `Grupo ${idx + 1}`,
+            color: differentialColors[idx % differentialColors.length],
+            signatureLabel: `Refl. Media: ${meanB}`,
+            percentage: ci.percentage,
+            meanVals: Array.from(ci.meanVals),
+            visible: true
+          };
+        });
+      } else {
+        classes = Array.from({ length: k }, (_, idx) => ({
+          id: idx,
+          name: `Grupo ${idx + 1}`,
+          color: differentialColors[idx % differentialColors.length],
+          percentage: (100 / k).toFixed(1),
           visible: true
         }));
-      } else {
-        classes = getDefaultClassesForK(k);
       }
 
       state._unsupervisedCurrentClasses = classes;
@@ -19762,15 +19854,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           <div class="flex items-center gap-2 flex-1 min-w-0">
             <input type="color" value="${cls.color}" 
               onchange="onModalClassColorChange(${idx}, this.value)"
+              title="Color diferencial aleatorio (haz clic para cambiarlo)"
               class="w-7 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
             <div class="flex flex-col flex-1 min-w-0">
               <input type="text" value="${cls.name}"
                 oninput="onModalClassNameChange(${idx}, this.value)"
-                class="w-full text-[10.5px] font-bold text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-1.5 py-0.5 border border-transparent focus:border-indigo-400 outline-none transition-colors">
+                class="w-full text-[10.5px] font-black text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-1.5 py-0.5 border border-transparent focus:border-indigo-400 outline-none transition-colors">
               ${cls.signatureLabel ? `<span class="text-[8px] font-mono text-zinc-500 font-bold px-1">${cls.signatureLabel} • ${cls.percentage}% estimado</span>` : ''}
             </div>
           </div>
-          <span class="text-[8.5px] font-mono font-bold text-zinc-400 uppercase tracking-wider shrink-0">Clase ${idx + 1}</span>
+          <span class="text-[8.5px] font-mono font-bold text-zinc-400 uppercase tracking-wider shrink-0">Grupo ${idx + 1}</span>
         </div>
       `).join('');
     }
@@ -20372,28 +20465,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.toggleThematicClassClick = toggleThematicClassClick;
 
     // ══════════════════════════════════════════════════════════════
-    //  CLASIFICACIÓN ESPECTRAL SUPERVISADA (MUESTREO ROI EN MAPA)
+    //  CLASIFICACIÓN ESPECTRAL SUPERVISADA (MUESTREO ROI DINÁMICO EN VIVO)
     // ══════════════════════════════════════════════════════════════
 
     window._supervisedState = {
       active: false,
       layerId: null,
       samplingTool: 'drag', // 'point' | 'drag' | 'polygon'
-      activeClassId: 0,
+      activeClassId: null,
       algorithm: 'min_distance', // 'min_distance' | 'max_likelihood' | 'spectral_angle'
       isMouseDown: false,
       lastSampleLatLng: null,
-      classes: [
-        { id: 0, name: 'Cuerpos de Agua', color: '#1d4ed8', samples: [], pixelSet: new Set() },
-        { id: 1, name: 'Bosque / Veg. Densa', color: '#15803d', samples: [], pixelSet: new Set() },
-        { id: 2, name: 'Cultivos / Pastizales', color: '#84cc16', samples: [], pixelSet: new Set() },
-        { id: 3, name: 'Suelo Expuesto / Áridos', color: '#d97706', samples: [], pixelSet: new Set() },
-        { id: 4, name: 'Áreas Urbanas / Asfalto', color: '#64748b', samples: [], pixelSet: new Set() }
-      ],
+      classes: [], // El usuario define sus propios grupos, nombres y colores desde cero
       sampleMarkersLayer: null,
       polygonDrawingPoints: [],
-      tempPolyPreview: null
+      tempPolyPreview: null,
+      _liveCanvas: null
     };
+
+    let _liveClassificationPending = false;
+    let _lastLiveClassificationTime = 0;
 
     // Algoritmo de punto en polígono (Ray Casting)
     function isPointInPolygon(pt, poly) {
@@ -20415,10 +20506,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === layerId);
       if (!layer) return;
 
-      // Cerrar otros modales
       if (typeof closeUnsupervisedClassificationModal === 'function') closeUnsupervisedClassificationModal();
 
-      // Pre-cargar bandas espectrales si es necesario
       if (typeof ensureLayerSpectralBands === 'function') {
         ensureLayerSpectralBands(layer);
       }
@@ -20426,7 +20515,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         analyzeSpectralData(layer).catch(() => {});
       }
 
-      // Inicializar capa de marcadores en Leaflet si no existe
       if (!state_sup.sampleMarkersLayer) {
         state_sup.sampleMarkersLayer = L.layerGroup().addTo(state.map);
       } else {
@@ -20435,7 +20523,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      // Actualizar nombre de capa en UI
       const $layerName = document.getElementById('supervisedModalLayerName');
       if ($layerName) $layerName.textContent = layer.name;
       const $dockLayerName = document.getElementById('supDockLayerName');
@@ -20464,6 +20551,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (dock) dock.style.display = 'none';
 
       clearSupervisedTempPolygon();
+
+      // Si hay capa en vivo no guardada, removerla al salir
+      if (state._supervisedLiveLayer) {
+        try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+        state._supervisedLiveLayer = null;
+      }
+
       state.map.dragging.enable();
       if (state.map._container) state.map._container.style.cursor = '';
     }
@@ -20481,8 +20575,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateSupervisedDockClassSelect();
       setSupervisedSamplingTool(state_sup.samplingTool || 'drag');
 
-      const toolNames = { point: 'Punto Individual', drag: 'Pincel / Arrastre continuo', polygon: 'Polígono ROI' };
-      toast('Modo Muestreo: ' + (toolNames[state_sup.samplingTool] || 'Activo') + '. Selecciona sobre el mapa.', 'info');
+      if (state_sup.classes.length === 0) {
+        toast('Crea tu primer grupo con el botón "+ Clase" para comenzar a clasificar en vivo.', 'info');
+      } else {
+        const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+        const name = activeCls ? activeCls.name : 'Grupo';
+        toast('Muestreando en vivo: ' + name + '. La imagen se actualizará en tiempo real.', 'info');
+      }
     }
 
     function restoreSupervisedModal() {
@@ -20507,7 +20606,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         clearSupervisedTempPolygon();
       }
 
-      // Actualizar botones en el Modal
       const tools = ['point', 'drag', 'polygon'];
       tools.forEach(t => {
         const modalBtn = document.getElementById('supToolBtn-' + t);
@@ -20527,7 +20625,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         }
 
-        // Actualizar botones en el Dock flotante
         const dockBtn = document.getElementById('supDockTool-' + t);
         if (dockBtn) {
           if (t === tool) {
@@ -20538,7 +20635,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       });
 
-      // Configurar comportamiento del mapa según herramienta
       if (state_sup.active && document.getElementById('supervisedMapDock')?.style.display !== 'none') {
         if (tool === 'drag') {
           state.map.dragging.disable();
@@ -20562,33 +20658,54 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateDockSampleBadge();
     }
 
-    function addSupervisedClass() {
+    function addSupervisedClass(customName = null) {
       const state_sup = window._supervisedState;
-      const palette = ['#06b6d4', '#e11d48', '#8b5cf6', '#f97316', '#14b8a6', '#f59e0b', '#ec4899', '#6366f1'];
+      const differentialColors = generateDifferentialRandomColors(16);
       const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
-      const color = palette[nextId % palette.length];
+      const color = differentialColors[nextId % differentialColors.length];
+      const name = customName || ('Grupo ' + (nextId + 1));
 
-      state_sup.classes.push({
+      const newCls = {
         id: nextId,
-        name: 'Cobertura ' + (nextId + 1),
+        name: name,
         color: color,
         samples: [],
         pixelSet: new Set()
-      });
+      };
 
+      state_sup.classes.push(newCls);
       state_sup.activeClassId = nextId;
+
       renderSupervisedClassesList();
       updateSupervisedDockClassSelect();
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
+
+      // Auto-enfocar el campo de nombre en el modal si está visible
+      setTimeout(() => {
+        const input = document.getElementById('supClassNameInput-' + nextId);
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }, 50);
+
+      toast('✓ "' + name + '" añadido. Puedes cambiarle el nombre y color.', 'info');
+      return newCls;
+    }
+
+    function promptAddSupervisedClassFromDock() {
+      const state_sup = window._supervisedState;
+      const defaultName = 'Grupo ' + (state_sup.classes.length + 1);
+      const chosenName = prompt('Nombre del nuevo grupo / cobertura:', defaultName);
+      if (chosenName !== null) {
+        const finalName = chosenName.trim() || defaultName;
+        addSupervisedClass(finalName);
+      }
     }
 
     function removeSupervisedClass(classId) {
       const state_sup = window._supervisedState;
-      if (state_sup.classes.length <= 2) {
-        toast('Se requieren al menos 2 clases para la clasificación.', 'warning');
-        return;
-      }
 
       if (state_sup.sampleMarkersLayer) {
         state_sup.sampleMarkersLayer.eachLayer(layer => {
@@ -20600,17 +20717,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       state_sup.classes = state_sup.classes.filter(c => c.id !== classId);
       if (state_sup.activeClassId === classId) {
-        state_sup.activeClassId = state_sup.classes[0].id;
+        state_sup.activeClassId = state_sup.classes.length > 0 ? state_sup.classes[0].id : null;
       }
 
       renderSupervisedClassesList();
       updateSupervisedDockClassSelect();
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
     }
 
     function clearActiveSupervisedSamples() {
       const state_sup = window._supervisedState;
+      if (state_sup.activeClassId === null) return;
       const cls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
       if (!cls) return;
 
@@ -20628,6 +20747,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderSupervisedClassesList();
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
       toast('Muestras de "' + cls.name + '" eliminadas', 'info');
     }
 
@@ -20645,7 +20765,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderSupervisedClassesList();
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
-      toast('Todas las muestras recolectadas han sido eliminadas', 'info');
+      updateSupervisedLiveClassification(true);
+      toast('Todas las muestras han sido eliminadas', 'info');
     }
 
     function updateSupervisedClassColor(classId, newColor) {
@@ -20664,9 +20785,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         });
       }
 
-      renderSupervisedClassesList();
-      updateSupervisedDockClassSelect();
+      updateDockSampleBadge();
       drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
     }
 
     function updateSupervisedClassName(classId, newName) {
@@ -20695,6 +20816,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         }
       });
+
+      updateSupervisedLiveClassification(true);
     }
 
     function renderSupervisedClassesList() {
@@ -20702,52 +20825,70 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const container = document.getElementById('supervisedClassesList');
       if (!container) return;
 
+      if (state_sup.classes.length === 0) {
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-7 px-4 text-center gap-2.5 bg-white rounded-2xl border border-dashed border-zinc-300">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+              <span class="material-symbols-outlined text-2xl">category</span>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-xs font-black text-zinc-800">No hay grupos de cobertura creados</span>
+              <span class="text-[10px] text-zinc-500 max-w-sm">Crea tus grupos y asígnales tu propio nombre y color. A medida que tomes muestras, la imagen se clasificará en tiempo real.</span>
+            </div>
+            <button type="button" onclick="addSupervisedClass()"
+              class="mt-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95">
+              <span class="material-symbols-outlined text-[15px]">add</span> Crear Primer Grupo
+            </button>
+          </div>
+        `;
+        return;
+      }
+
       container.innerHTML = state_sup.classes.map(cls => {
         const isActive = cls.id === state_sup.activeClassId;
         const count = cls.samples ? cls.samples.length : 0;
+        const liveInfo = cls.livePct ? ` · ${cls.livePct}% (${cls.liveAreaLabel || ''})` : '';
 
         return `
           <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${isActive ? 'bg-emerald-50/70 border-emerald-400 shadow-xs ring-1 ring-emerald-400' : 'bg-white border-zinc-200/90 shadow-2xs'}">
             
-            <!-- Radio de selección activa y color -->
             <div class="flex items-center gap-2 flex-1 min-w-0">
               <input type="radio" name="activeSupervisedClassRadio" ${isActive ? 'checked' : ''}
                 onchange="setActiveSupervisedClass(${cls.id})"
-                title="Seleccionar esta clase para recolectar muestras"
+                title="Seleccionar este grupo para recolectar muestras"
                 class="accent-emerald-600 w-4 h-4 cursor-pointer shrink-0">
 
               <input type="color" value="${cls.color}"
+                oninput="updateSupervisedClassColor(${cls.id}, this.value)"
                 onchange="updateSupervisedClassColor(${cls.id}, this.value)"
-                title="Personalizar color de la cobertura"
+                title="Personalizar color del grupo"
                 class="w-7 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
 
               <div class="flex flex-col flex-1 min-w-0">
-                <input type="text" value="${cls.name}"
+                <input type="text" id="supClassNameInput-${cls.id}" value="${cls.name}"
                   oninput="updateSupervisedClassName(${cls.id}, this.value)"
+                  placeholder="Nombre de la cobertura..."
                   class="w-full text-[11px] font-black text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-2 py-0.5 border border-transparent focus:border-emerald-400 outline-none transition-colors">
                 <span class="text-[8px] font-mono font-bold text-zinc-400 px-1">
-                  ${count} píxeles muestreados ${cls.meanNdvi !== undefined ? `· NDVI medio: ${cls.meanNdvi}` : ''}
+                  ${count} px${liveInfo}
                 </span>
               </div>
             </div>
 
-            <!-- Badge de conteo y acciones -->
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold ${count > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-zinc-100 text-zinc-500 border border-zinc-200'}">
                 ${count} px
               </span>
 
               <button type="button" onclick="clearSupervisedClassSamples(${cls.id})"
-                class="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar muestras de esta clase">
+                class="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar muestras de este grupo">
                 <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
               </button>
 
-              ${state_sup.classes.length > 2 ? `
               <button type="button" onclick="removeSupervisedClass(${cls.id})"
-                class="p-1 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar clase">
+                class="p-1 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar grupo">
                 <span class="material-symbols-outlined text-[15px]">close</span>
               </button>
-              ` : ''}
             </div>
 
           </div>
@@ -20770,15 +20911,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       cls.samples = [];
       cls.pixelSet = new Set();
+      cls.livePct = undefined;
+      cls.liveAreaLabel = undefined;
+
       renderSupervisedClassesList();
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
+      toast('Muestras de "' + cls.name + '" eliminadas', 'info');
     }
 
     function updateSupervisedDockClassSelect() {
       const state_sup = window._supervisedState;
       const select = document.getElementById('supDockClassSelect');
       if (!select) return;
+
+      if (state_sup.classes.length === 0) {
+        select.innerHTML = '<option value="">(Sin grupos - Pulsa + Clase)</option>';
+        updateDockSampleBadge();
+        return;
+      }
 
       select.innerHTML = state_sup.classes.map(c => 
         '<option value="' + c.id + '" ' + (c.id === state_sup.activeClassId ? 'selected' : '') + '>' +
@@ -20793,6 +20945,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const state_sup = window._supervisedState;
       const badge = document.getElementById('supDockSampleCountBadge');
       if (!badge) return;
+      if (state_sup.activeClassId === null || state_sup.classes.length === 0) {
+        badge.textContent = '0 px';
+        badge.style.backgroundColor = '';
+        badge.style.borderColor = '';
+        badge.style.color = '';
+        return;
+      }
       const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
       const count = activeCls && activeCls.samples ? activeCls.samples.length : 0;
       badge.textContent = count + ' px';
@@ -20807,6 +20966,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function samplePixelAtLatLng(latlng) {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active || !state_sup.layerId) return null;
+
+      // Si no hay clases creadas, auto-crear la primera
+      if (state_sup.classes.length === 0) {
+        addSupervisedClass('Grupo 1');
+      }
+
       const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
       if (!targetLayer) return null;
 
@@ -20826,8 +20991,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
       const pixelKey = px + '_' + py;
 
-      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
-      if (!activeCls) return null;
+      let activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      if (!activeCls) {
+        activeCls = state_sup.classes[0];
+        state_sup.activeClassId = activeCls.id;
+      }
 
       if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
       if (activeCls.pixelSet.has(pixelKey)) return null;
@@ -20835,7 +21003,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const spectral = extractSpectralValues(targetLayer, coords);
       if (!spectral || !spectral.bandValues || spectral.bandValues.length === 0) return null;
 
-      // Verificar que el píxel contenga información válida
       const vals = spectral.bandValues;
       let isValid = false;
       for (let i = 0; i < vals.length; i++) {
@@ -20856,7 +21023,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
       activeCls.samples.push(sample);
 
-      // Dibujar marcador en Leaflet
       if (state_sup.sampleMarkersLayer) {
         const marker = L.circleMarker(latlng, {
           radius: 3.5,
@@ -20873,6 +21039,261 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       return sample;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  MOTOR DE CLASIFICACIÓN EN TIEMPO REAL ("A MEDIDA QUE CLASIFICA")
+    // ══════════════════════════════════════════════════════════════
+    async function updateSupervisedLiveClassification(forceImmediate = false) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.active || !state_sup.layerId) return;
+
+      const layer = state.layers.find(l => l.id === state_sup.layerId);
+      if (!layer) return;
+
+      const sampledClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+
+      // Si no hay muestras, retirar capa en vivo
+      if (sampledClasses.length === 0) {
+        if (state._supervisedLiveLayer) {
+          try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+          state._supervisedLiveLayer = null;
+        }
+        return;
+      }
+
+      // Throttle durante el arrastre continuo
+      const now = Date.now();
+      if (!forceImmediate && now - _lastLiveClassificationTime < 70) {
+        if (!_liveClassificationPending) {
+          _liveClassificationPending = true;
+          setTimeout(() => {
+            _liveClassificationPending = false;
+            updateSupervisedLiveClassification(true);
+          }, 75);
+        }
+        return;
+      }
+      _lastLiveClassificationTime = now;
+
+      // Obtener datos multiespectrales de la capa ráster
+      let spectralData = layer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+      if (!spectralData) {
+        if (layer._rawSpectralBands && layer._rawSpectralBands.length > 0) {
+          spectralData = {
+            type: 'multispectral',
+            width: layer._canvasWidth || 800,
+            height: layer._canvasHeight || 800,
+            bands: layer._rawSpectralBands,
+            bandsCount: layer._rawSpectralBands.length,
+            nativeWidth: layer.width,
+            nativeHeight: layer.height
+          };
+          layer._unsupervisedSpectralData = spectralData;
+        }
+      }
+
+      if (!spectralData) {
+        if (typeof analyzeSpectralData === 'function') {
+          analyzeSpectralData(layer).then(() => {
+            updateSupervisedLiveClassification(true);
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      const w = spectralData.width;
+      const h = spectralData.height;
+      const totalPixels = w * h;
+      const bCount = spectralData.bandsCount;
+      const dims = bCount;
+
+      // Calcular centroides de cada grupo muestreado
+      const classStats = sampledClasses.map((cls, idx) => {
+        const N = cls.samples.length;
+        const mean = new Float32Array(dims);
+        const variance = new Float32Array(dims);
+
+        for (let i = 0; i < N; i++) {
+          const s = cls.samples[i];
+          for (let d = 0; d < dims; d++) {
+            mean[d] += (s.values[d] || 0);
+          }
+        }
+        for (let d = 0; d < dims; d++) {
+          mean[d] /= N;
+        }
+
+        for (let i = 0; i < N; i++) {
+          const s = cls.samples[i];
+          for (let d = 0; d < dims; d++) {
+            const diff = (s.values[d] || 0) - mean[d];
+            variance[d] += diff * diff;
+          }
+        }
+        for (let d = 0; d < dims; d++) {
+          variance[d] = Math.max(1e-5, variance[d] / N);
+        }
+
+        let normSq = 0;
+        for (let d = 0; d < dims; d++) normSq += mean[d] * mean[d];
+        const norm = Math.sqrt(normSq) || 1e-4;
+
+        let logDetVar = 0;
+        for (let d = 0; d < dims; d++) logDetVar += Math.log(2 * Math.PI * variance[d]);
+
+        const hex = (cls.color || '#000000').replace('#', '');
+        const rgb = [
+          parseInt(hex.substring(0, 2), 16) || 0,
+          parseInt(hex.substring(2, 4), 16) || 0,
+          parseInt(hex.substring(4, 6), 16) || 0
+        ];
+
+        return {
+          id: idx,
+          cls: cls,
+          name: cls.name,
+          color: cls.color,
+          rgb: rgb,
+          mean: mean,
+          variance: variance,
+          norm: norm,
+          logDetVar: logDetVar,
+          count: 0
+        };
+      });
+
+      if (!state_sup._liveCanvas || state_sup._liveCanvas.width !== w || state_sup._liveCanvas.height !== h) {
+        state_sup._liveCanvas = document.createElement('canvas');
+        state_sup._liveCanvas.width = w;
+        state_sup._liveCanvas.height = h;
+      }
+      const canvas = state_sup._liveCanvas;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(w, h);
+      const data = imgData.data;
+
+      const alg = state_sup.algorithm || 'min_distance';
+      const numClasses = classStats.length;
+      let validCount = 0;
+      const pVec = new Float32Array(dims);
+
+      for (let i = 0; i < totalPixels; i++) {
+        let isZero = true;
+        if (spectralData.type === 'multispectral') {
+          for (let b = 0; b < bCount; b++) {
+            const v = spectralData.bands[b][i];
+            pVec[b] = v;
+            if (v > 0) isZero = false;
+          }
+          if (isZero) continue;
+        } else {
+          const p = i * 4;
+          const a = spectralData.data[p + 3];
+          if (a < 20) continue;
+          pVec[0] = spectralData.data[p] / 255;
+          pVec[1] = spectralData.data[p + 1] / 255;
+          pVec[2] = spectralData.data[p + 2] / 255;
+          if (pVec[0] === 0 && pVec[1] === 0 && pVec[2] === 0) continue;
+        }
+
+        let bestC = 0;
+
+        if (numClasses > 1) {
+          if (alg === 'min_distance') {
+            let minD = Infinity;
+            for (let c = 0; c < numClasses; c++) {
+              const cm = classStats[c].mean;
+              let d = 0;
+              for (let b = 0; b < dims; b++) {
+                const diff = pVec[b] - cm[b];
+                d += diff * diff;
+              }
+              if (d < minD) {
+                minD = d;
+                bestC = c;
+              }
+            }
+          } else if (alg === 'max_likelihood') {
+            let maxLL = -Infinity;
+            for (let c = 0; c < numClasses; c++) {
+              const cs = classStats[c];
+              let ll = -0.5 * cs.logDetVar;
+              for (let b = 0; b < dims; b++) {
+                const diff = pVec[b] - cs.mean[b];
+                ll -= 0.5 * (diff * diff) / cs.variance[b];
+              }
+              if (ll > maxLL) {
+                maxLL = ll;
+                bestC = c;
+              }
+            }
+          } else if (alg === 'spectral_angle') {
+            let maxCos = -1;
+            let pNormSq = 0;
+            for (let b = 0; b < dims; b++) pNormSq += pVec[b] * pVec[b];
+            const pNorm = Math.sqrt(pNormSq) || 1e-4;
+
+            for (let c = 0; c < numClasses; c++) {
+              const cs = classStats[c];
+              let dot = 0;
+              for (let b = 0; b < dims; b++) dot += pVec[b] * cs.mean[b];
+              const cosA = dot / (pNorm * cs.norm);
+              if (cosA > maxCos) {
+                maxCos = cosA;
+                bestC = c;
+              }
+            }
+          }
+        }
+
+        classStats[bestC].count++;
+        validCount++;
+
+        const p = i * 4;
+        const rgb = classStats[bestC].rgb;
+        data[p] = rgb[0];
+        data[p + 1] = rgb[1];
+        data[p + 2] = rgb[2];
+        data[p + 3] = 230;
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Montar o actualizar capa en vivo en Leaflet
+      const dataUrl = canvas.toDataURL('image/png');
+      const b = layer.bounds;
+      const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+
+      if (!state._supervisedLiveLayer) {
+        state._supervisedLiveLayer = L.imageOverlay(dataUrl, latlngBounds, {
+          opacity: 0.85,
+          interactive: false,
+          zIndex: 600
+        }).addTo(state.map);
+      } else {
+        state._supervisedLiveLayer.setUrl(dataUrl);
+        state._supervisedLiveLayer.setBounds(latlngBounds);
+        if (!state.map.hasLayer(state._supervisedLiveLayer)) {
+          state._supervisedLiveLayer.addTo(state.map);
+        }
+      }
+
+      // Calcular áreas y porcentajes en vivo
+      const res = layer.resolution || [30, -30];
+      const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
+      const pixelAreaHa = pixelAreaM2 / 10000;
+
+      classStats.forEach(cs => {
+        const pct = validCount > 0 ? ((cs.count / validCount) * 100).toFixed(1) : '0.0';
+        const totalHa = Math.round(cs.count * pixelAreaHa);
+        cs.cls.livePct = pct;
+        cs.cls.liveHa = totalHa;
+        cs.cls.liveAreaLabel = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + 'k ha' : totalHa + ' ha';
+      });
+
+      state_sup._liveValidCount = validCount;
+      state_sup._liveClassStats = classStats;
+    }
+
     // 1. Manejador de Clic en Mapa
     function handleSupervisedMapClick(e) {
       const state_sup = window._supervisedState;
@@ -20884,6 +21305,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           updateDockSampleBadge();
           renderSupervisedClassesList();
           drawSupervisedSpectralChart();
+          updateSupervisedLiveClassification(true);
         }
       } else if (state_sup.samplingTool === 'polygon') {
         const pts = state_sup.polygonDrawingPoints;
@@ -20909,8 +21331,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!state_sup || !state_sup.active || state_sup.samplingTool !== 'drag') return;
       state_sup.isMouseDown = true;
       state_sup.lastSampleLatLng = e.latlng;
-      samplePixelAtLatLng(e.latlng);
-      updateDockSampleBadge();
+      const s = samplePixelAtLatLng(e.latlng);
+      if (s) {
+        updateDockSampleBadge();
+        updateSupervisedLiveClassification(false);
+      }
     }
 
     function handleSupervisedMapDrag(e) {
@@ -20921,6 +21346,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (s) {
         state_sup.lastSampleLatLng = e.latlng;
         updateDockSampleBadge();
+        // Clasificación en tiempo real durante el arrastre continuo
+        updateSupervisedLiveClassification(false);
       }
     }
 
@@ -20931,6 +21358,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateDockSampleBadge();
       renderSupervisedClassesList();
       drawSupervisedSpectralChart();
+      // Forzar actualización inmediata final del trazo
+      updateSupervisedLiveClassification(true);
     }
 
     window.addEventListener('mouseup', () => {
@@ -21034,7 +21463,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      // Dibujar polígono permanente en la capa de muestras
       if (state_sup.sampleMarkersLayer) {
         const polyLayer = L.polygon(pts, {
           color: activeCls.color,
@@ -21051,6 +21479,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateDockSampleBadge();
       renderSupervisedClassesList();
       drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
 
       toast('✓ Polígono ROI: ' + sampledCount + ' píxeles capturados para "' + activeCls.name + '"', 'success');
     }
@@ -21081,7 +21510,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const bandRangeLabel = document.getElementById('supervisedChartBandRange');
       if (bandRangeLabel) bandRangeLabel.textContent = 'B1 → B' + nBands + ' (' + nBands + ' Bandas Satelitales)';
 
-      // Calcular medias de cada banda por clase
       const classMeans = sampledClasses.map(cls => {
         const mean = new Float32Array(nBands);
         let sumNdvi = 0;
@@ -21182,7 +21610,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
     }
 
-    // 5. Motor de Ejecución de Clasificación Supervisada
+    // 5. Guardar Clasificación Supervisada Permanente
     async function executeSupervisedClassification() {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.layerId) {
@@ -21193,239 +21621,53 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!layer) return;
 
       const activeClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
-      if (activeClasses.length < 2) {
-        toast('Debes recolectar muestras para al menos 2 coberturas antes de clasificar.', 'warning');
+      if (activeClasses.length < 1) {
+        toast('Debes recolectar muestras para al menos 1 grupo antes de guardar la capa.', 'warning');
         return;
       }
 
       const btn = document.getElementById('btnRunSupervised');
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-outlined text-[17px] animate-spin" style="color: #ffffff !important;">sync</span> <span>Clasificando (' + activeClasses.length + ' Clases)...</span>';
+        btn.innerHTML = '<span class="material-symbols-outlined text-[17px] animate-spin" style="color: #ffffff !important;">sync</span> <span>Guardando Capa...</span>';
       }
 
-      showProgress('Ejecutando Clasificación Supervisada (' + activeClasses.length + ' coberturas)...', 25);
+      showProgress('Guardando capa clasificada permanente...', 30);
 
       setTimeout(async () => {
         try {
-          let spectralData = layer._unsupervisedSpectralData || state._unsupervisedSpectralData;
-          if (!spectralData || spectralData.bandsCount === 0) {
-            showProgress('Cargando bandas espectrales completas...', 40);
-            await analyzeSpectralData(layer);
-            spectralData = state._unsupervisedSpectralData;
+          // Asegurar que la clasificación en vivo esté calculada
+          await updateSupervisedLiveClassification(true);
+
+          const canvas = state_sup._liveCanvas;
+          if (!canvas) {
+            throw new Error('No se pudo generar el lienzo clasificado.');
           }
-
-          if (!spectralData) {
-            throw new Error('No se encontraron píxeles multiespectrales accesibles.');
-          }
-
-          const w = spectralData.width;
-          const h = spectralData.height;
-          const totalPixels = w * h;
-          const bCount = spectralData.bandsCount;
-          const dims = bCount;
-
-          showProgress('Entrenando firmas espectrales de referencia...', 55);
-
-          const classStats = activeClasses.map((cls, idx) => {
-            const N = cls.samples.length;
-            const mean = new Float32Array(dims);
-            const variance = new Float32Array(dims);
-
-            for (let i = 0; i < N; i++) {
-              const s = cls.samples[i];
-              for (let d = 0; d < dims; d++) {
-                mean[d] += (s.values[d] || 0);
-              }
-            }
-            for (let d = 0; d < dims; d++) {
-              mean[d] /= N;
-            }
-
-            for (let i = 0; i < N; i++) {
-              const s = cls.samples[i];
-              for (let d = 0; d < dims; d++) {
-                const diff = (s.values[d] || 0) - mean[d];
-                variance[d] += diff * diff;
-              }
-            }
-            for (let d = 0; d < dims; d++) {
-              variance[d] = Math.max(1e-5, variance[d] / N);
-            }
-
-            let normSq = 0;
-            for (let d = 0; d < dims; d++) {
-              normSq += mean[d] * mean[d];
-            }
-            const norm = Math.sqrt(normSq) || 1e-4;
-
-            let logDetVar = 0;
-            for (let d = 0; d < dims; d++) {
-              logDetVar += Math.log(2 * Math.PI * variance[d]);
-            }
-
-            return {
-              id: idx,
-              name: cls.name,
-              color: cls.color,
-              samplesCount: N,
-              mean,
-              variance,
-              norm,
-              logDetVar,
-              originalClass: cls
-            };
-          });
-
-          const alg = state_sup.algorithm || 'min_distance';
-          const algNameMap = {
-            min_distance: 'Dist. Mínima',
-            max_likelihood: 'Máx. Verosimilitud',
-            spectral_angle: 'Ángulo Espectral SAM'
-          };
-          const algLabel = algNameMap[alg] || 'Supervisada';
-
-          showProgress('Clasificando escena completa (' + algLabel + ')...', 75);
-
-          const pixelClusterMap = new Int16Array(totalPixels);
-          pixelClusterMap.fill(-1);
-          const classCounts = new Int32Array(classStats.length);
-          let validCount = 0;
-
-          const pVec = new Float32Array(dims);
-
-          for (let i = 0; i < totalPixels; i++) {
-            let isZero = true;
-            if (spectralData.type === 'multispectral') {
-              for (let b = 0; b < bCount; b++) {
-                const v = spectralData.bands[b][i];
-                pVec[b] = v;
-                if (v > 0) isZero = false;
-              }
-              if (isZero) continue;
-            } else {
-              const p = i * 4;
-              const a = spectralData.data[p + 3];
-              if (a < 20) continue;
-              pVec[0] = spectralData.data[p] / 255;
-              pVec[1] = spectralData.data[p + 1] / 255;
-              pVec[2] = spectralData.data[p + 2] / 255;
-              if (pVec[0] === 0 && pVec[1] === 0 && pVec[2] === 0) continue;
-            }
-
-            let bestClassIdx = -1;
-
-            if (alg === 'min_distance') {
-              let minD = Infinity;
-              for (let c = 0; c < classStats.length; c++) {
-                const cm = classStats[c].mean;
-                let d = 0;
-                for (let b = 0; b < dims; b++) {
-                  const diff = pVec[b] - cm[b];
-                  d += diff * diff;
-                }
-                if (d < minD) {
-                  minD = d;
-                  bestClassIdx = c;
-                }
-              }
-            } else if (alg === 'max_likelihood') {
-              let maxLL = -Infinity;
-              for (let c = 0; c < classStats.length; c++) {
-                const cs = classStats[c];
-                let ll = -0.5 * cs.logDetVar;
-                for (let b = 0; b < dims; b++) {
-                  const diff = pVec[b] - cs.mean[b];
-                  ll -= 0.5 * (diff * diff) / cs.variance[b];
-                }
-                if (ll > maxLL) {
-                  maxLL = ll;
-                  bestClassIdx = c;
-                }
-              }
-            } else if (alg === 'spectral_angle') {
-              let maxCos = -1;
-              let pNormSq = 0;
-              for (let b = 0; b < dims; b++) pNormSq += pVec[b] * pVec[b];
-              const pNorm = Math.sqrt(pNormSq) || 1e-4;
-
-              for (let c = 0; c < classStats.length; c++) {
-                const cs = classStats[c];
-                let dot = 0;
-                for (let b = 0; b < dims; b++) {
-                  dot += pVec[b] * cs.mean[b];
-                }
-                const cosAngle = dot / (pNorm * cs.norm);
-                if (cosAngle > maxCos) {
-                  maxCos = cosAngle;
-                  bestClassIdx = c;
-                }
-              }
-            }
-
-            if (bestClassIdx >= 0) {
-              pixelClusterMap[i] = bestClassIdx;
-              classCounts[bestClassIdx]++;
-              validCount++;
-            }
-          }
-
-          showProgress('Generando lienzo temático y leyenda...', 90);
 
           const res = layer.resolution || [30, -30];
           const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
           const pixelAreaHa = pixelAreaM2 / 10000;
+          const validCount = state_sup._liveValidCount || 1;
 
-          const finalThematicClasses = classStats.map((cs, idx) => {
-            const count = classCounts[idx];
+          const finalThematicClasses = activeClasses.map((cls, idx) => {
+            const count = (state_sup._liveClassStats && state_sup._liveClassStats[idx]) ? state_sup._liveClassStats[idx].count : cls.samples.length;
             const pct = validCount > 0 ? ((count / validCount) * 100).toFixed(1) : '0.0';
             const totalHa = Math.round(count * pixelAreaHa);
             const areaFormatted = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + 'k ha' : totalHa + ' ha';
 
             return {
               id: idx,
-              name: cs.name,
-              color: cs.color,
+              name: cls.name,
+              color: cls.color,
               count: count,
               percentage: pct,
               areaHa: totalHa,
               areaLabel: areaFormatted,
-              samplesCount: cs.samplesCount,
-              signatureLabel: cs.samplesCount + ' muestras · ' + areaFormatted,
+              samplesCount: cls.samples.length,
+              signatureLabel: cls.samples.length + ' muestras · ' + areaFormatted,
               visible: true
             };
           });
-
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.createImageData(w, h);
-          const data = imgData.data;
-
-          const rgbClasses = finalThematicClasses.map(cls => {
-            const hex = (cls.color || '#000000').replace('#', '');
-            return [
-              parseInt(hex.substring(0, 2), 16) || 0,
-              parseInt(hex.substring(2, 4), 16) || 0,
-              parseInt(hex.substring(4, 6), 16) || 0
-            ];
-          });
-
-          for (let i = 0; i < totalPixels; i++) {
-            const c = pixelClusterMap[i];
-            const p = i * 4;
-            if (c < 0 || c >= finalThematicClasses.length || finalThematicClasses[c].visible === false) {
-              data[p] = data[p + 1] = data[p + 2] = data[p + 3] = 0;
-            } else {
-              const rgb = rgbClasses[c];
-              data[p] = rgb[0];
-              data[p + 1] = rgb[1];
-              data[p + 2] = rgb[2];
-              data[p + 3] = 238;
-            }
-          }
-          ctx.putImageData(imgData, 0, 0);
 
           const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null);
           let classifiedTileLayer = null;
@@ -21437,7 +21679,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               opacity: 0.9,
               bounds: parentTileLayer.geo.bounds || layer.bounds,
               classification: {
-                algorithm: alg,
+                algorithm: state_sup.algorithm,
                 classes: finalThematicClasses
               },
               classificationCanvas: canvas
@@ -21449,7 +21691,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           const newLayer = {
             id: nextLayerId,
-            name: 'Clasificación Supervisada (' + algLabel + ') - ' + cleanBase,
+            name: 'Clasificación Supervisada (' + activeClasses.length + ' Grupos) - ' + cleanBase,
             type: 'raster',
             visible: true,
             opacity: 0.9,
@@ -21458,10 +21700,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             resolution: layer.resolution || (parentTileLayer && parentTileLayer.resolution) || null,
             epsg: layer.epsg || (parentTileLayer && parentTileLayer.epsg) || null,
             imageUrl: canvas.toDataURL('image/png'),
-            width: spectralData.nativeWidth || w,
-            height: spectralData.nativeHeight || h,
-            _canvasWidth: w,
-            _canvasHeight: h,
+            width: canvas.width,
+            height: canvas.height,
+            _canvasWidth: canvas.width,
+            _canvasHeight: canvas.height,
             bands: 1,
             renderer: 'classified',
             isClassified: true,
@@ -21469,15 +21711,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             parentLayerId: layer.id,
             classes: finalThematicClasses,
             _classifiedCanvas: canvas,
-            _pixelClusterMap: pixelClusterMap,
             _totalValidPixels: validCount,
-            _rawSpectralBands: spectralData.bands || null,
-            _rawCanvasData: spectralData.data || null,
-            _spectralDataType: spectralData.type || null,
-            _spectralBandCount: spectralData.bandsCount || 0,
             _highlightMasks: {},
             _classificationConfig: {
-              algorithm: alg,
+              algorithm: state_sup.algorithm,
               classes: finalThematicClasses
             }
           };
@@ -21485,6 +21722,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (classifiedTileLayer) {
             newLayer._geotiffTileLayer = classifiedTileLayer;
             newLayer.mapLayer = classifiedTileLayer;
+          }
+
+          // Retirar capa temporal en vivo
+          if (state._supervisedLiveLayer) {
+            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+            state._supervisedLiveLayer = null;
           }
 
           state.layers.unshift(newLayer);
@@ -21496,23 +21739,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           closeSupervisedClassificationModal();
           hideProgress();
-          toast('✓ Clasificación Supervisada (' + algLabel + ') completada (' + activeClasses.length + ' clases, ' + validCount.toLocaleString() + ' px)', 'success');
+          toast('✓ Capa clasificada guardada con éxito (' + activeClasses.length + ' grupos)', 'success');
           zoomToLayer(newLayer.id);
 
         } catch (err) {
-          console.error('[SupervisedClassification] Error:', err);
-          toast('Error en clasificación: ' + err.message, 'error');
+          console.error('[SupervisedClassification] Error guardando:', err);
+          toast('Error guardando clasificación: ' + err.message, 'error');
           hideProgress();
         } finally {
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">play_circle</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">CLASIFICAR SUPERVISADA</span>';
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">save</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">GUARDAR CAPA CLASIFICADA</span>';
           }
         }
       }, 40);
     }
 
-    // Atajos de teclado para pan suave con barra espaciadora
     window.addEventListener('keydown', e => {
       if (e.code === 'Space' && window._supervisedState?.active) {
         if (!window._supervisedSpaceHeld) {
@@ -21544,7 +21786,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     });
 
-    // Exponer funciones en window
     window.openSupervisedClassificationModal = openSupervisedClassificationModal;
     window.closeSupervisedClassificationModal = closeSupervisedClassificationModal;
     window.minimizeSupervisedToMap = minimizeSupervisedToMap;
@@ -21552,6 +21793,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.setSupervisedSamplingTool = setSupervisedSamplingTool;
     window.setActiveSupervisedClass = setActiveSupervisedClass;
     window.addSupervisedClass = addSupervisedClass;
+    window.promptAddSupervisedClassFromDock = promptAddSupervisedClassFromDock;
     window.removeSupervisedClass = removeSupervisedClass;
     window.clearActiveSupervisedSamples = clearActiveSupervisedSamples;
     window.clearAllSupervisedSamples = clearAllSupervisedSamples;
@@ -21559,6 +21801,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.updateSupervisedClassColor = updateSupervisedClassColor;
     window.updateSupervisedClassName = updateSupervisedClassName;
     window.setSupervisedAlgorithm = setSupervisedAlgorithm;
+    window.updateSupervisedLiveClassification = updateSupervisedLiveClassification;
     window.executeSupervisedClassification = executeSupervisedClassification;
     window.handleSupervisedMapClick = handleSupervisedMapClick;
     window.handleSupervisedMapDragStart = handleSupervisedMapDragStart;
