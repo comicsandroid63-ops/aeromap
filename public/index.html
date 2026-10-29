@@ -5890,6 +5890,262 @@
     </div>
   </div>
 
+  <!-- Modal de Clasificación Espectral Supervisada (Muestreo ROI en Mapa) -->
+  <div id="supervisedClassificationModal" style="display: none;" class="fixed inset-0 z-[9500] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden border border-zinc-100 flex flex-col max-h-[92vh] animate-fadeIn">
+      
+      <!-- Encabezado del Modal -->
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-gradient-to-r from-emerald-50/70 via-zinc-50 to-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center shadow-md"
+            style="background-color: #059669 !important; background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important; color: #ffffff !important;">
+            <span class="material-symbols-outlined text-xl" style="color: #ffffff !important;">psychology</span>
+          </div>
+          <div class="flex flex-col">
+            <h3 class="font-black text-lg text-zinc-900 leading-tight">Clasificación Espectral Supervisada</h3>
+            <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest" id="supervisedModalLayerName">Muestreo Interactivo de Coberturas</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="minimizeSupervisedToMap()" class="px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:opacity-95"
+            style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;" title="Minimizar panel a la barra flotante del mapa para muestrear libremente">
+            <span class="material-symbols-outlined text-[15px]">open_in_full</span>
+            <span>Muestrear en Mapa</span>
+          </button>
+          <button type="button" onclick="closeSupervisedClassificationModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del Modal (Scrollable) -->
+      <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 text-zinc-800">
+        
+        <!-- Herramientas de Muestreo (Punto, Pincel/Arrastre continuo, Polígono) -->
+        <div class="p-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 shadow-2xs flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600">gesture</span>
+              Método de Muestreo sobre la Imagen Satelital
+            </label>
+            <span class="text-[9px] font-bold text-zinc-400 uppercase">Selecciona cómo tomar muestras (ROI)</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2" id="supervisedToolButtons">
+            <!-- 1. Punto -->
+            <button type="button" onclick="setSupervisedSamplingTool('point')" id="supToolBtn-point"
+              class="flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-white border-zinc-200 hover:border-emerald-500 shadow-2xs">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-700">
+                <span class="material-symbols-outlined text-[20px]">ads_click</span>
+              </div>
+              <span class="text-[11px] font-black text-zinc-800">Punto Individual</span>
+              <span class="text-[8px] text-zinc-400 font-medium leading-tight">Clic sobre píxeles específicos</span>
+            </button>
+
+            <!-- 2. Pincel / Arrastre continuo -->
+            <button type="button" onclick="setSupervisedSamplingTool('drag')" id="supToolBtn-drag"
+              class="flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-emerald-50/60 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 text-white">
+                <span class="material-symbols-outlined text-[20px]">draw</span>
+              </div>
+              <span class="text-[11px] font-black text-emerald-950">Pincel / Arrastre</span>
+              <span class="text-[8px] text-emerald-700 font-medium leading-tight">Mantén clic y arrastra libremente</span>
+            </button>
+
+            <!-- 3. Polígono ROI -->
+            <button type="button" onclick="setSupervisedSamplingTool('polygon')" id="supToolBtn-polygon"
+              class="flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-white border-zinc-200 hover:border-emerald-500 shadow-2xs">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-700">
+                <span class="material-symbols-outlined text-[20px]">polyline</span>
+              </div>
+              <span class="text-[11px] font-black text-zinc-800">Polígono (Área ROI)</span>
+              <span class="text-[8px] text-zinc-400 font-medium leading-tight">Delimita un área con vértices</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clases de Entrenamiento y Muestras Recolectadas -->
+        <div class="flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[15px] text-indigo-600">category</span>
+              Clases de Entrenamiento y Muestras Recolectadas
+            </span>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="addSupervisedClass()" 
+                class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shadow-2xs"
+                style="background-color: #f8fafc; color: #047857; border-color: #a7f3d0;">
+                <span class="material-symbols-outlined text-[13px]">add</span> Añadir Clase
+              </button>
+              <button type="button" onclick="clearAllSupervisedSamples()" 
+                class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shadow-2xs"
+                style="background-color: #fff; color: #dc2626; border-color: #fecaca;">
+                <span class="material-symbols-outlined text-[13px]">delete_sweep</span> Limpiar Todas
+              </button>
+            </div>
+          </div>
+
+          <div id="supervisedClassesList" class="flex flex-col gap-2 max-h-56 overflow-y-auto custom-scrollbar p-1 border border-zinc-200 rounded-2xl bg-zinc-50/50">
+            <!-- Renderizado dinámico -->
+          </div>
+        </div>
+
+        <!-- Gráfica de Firma Espectral en Vivo -->
+        <div class="p-4 rounded-2xl border border-zinc-200 bg-white shadow-2xs flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[15px] text-amber-500">show_chart</span>
+              Firmas Espectrales Medias de las Coberturas Muestreadas
+            </span>
+            <span class="text-[8px] font-mono font-bold text-zinc-400 uppercase" id="supervisedChartBandRange">B1 ... Bn</span>
+          </div>
+
+          <div class="w-full h-32 bg-zinc-950 rounded-xl relative p-2 flex flex-col justify-between overflow-hidden border border-zinc-800">
+            <canvas id="supervisedSpectralCanvas" width="600" height="110" class="w-full h-full block"></canvas>
+            <div id="supervisedChartEmptyMsg" class="absolute inset-0 flex items-center justify-center text-[10px] text-zinc-500 font-mono italic">
+              Toma muestras en el mapa para visualizar la curva espectral de cada cobertura...
+            </div>
+          </div>
+        </div>
+
+        <!-- Selector de Algoritmo de Clasificación -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Algoritmo Clasificador</label>
+          <div class="grid grid-cols-3 gap-2">
+            <!-- 1. Distancia Mínima -->
+            <label class="flex flex-col gap-1 p-3 rounded-2xl border border-emerald-500 bg-emerald-50/40 cursor-pointer shadow-2xs relative" id="supAlgLabel-min_distance">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-emerald-950 uppercase tracking-tight">Distancia Mínima</span>
+                <input type="radio" name="supervisedAlgorithm" value="min_distance" checked onchange="setSupervisedAlgorithm(this.value)" class="accent-emerald-600">
+              </div>
+              <span class="text-[8px] text-emerald-800 leading-snug">Euclidiana. Rápida y robusta. Asigna píxeles al centroide espectral más cercano.</span>
+            </label>
+
+            <!-- 2. Máxima Verosimilitud -->
+            <label class="flex flex-col gap-1 p-3 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer shadow-2xs relative" id="supAlgLabel-max_likelihood">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-zinc-800 uppercase tracking-tight">Máx. Verosimilitud</span>
+                <input type="radio" name="supervisedAlgorithm" value="max_likelihood" onchange="setSupervisedAlgorithm(this.value)" class="accent-emerald-600">
+              </div>
+              <span class="text-[8px] text-zinc-500 leading-snug">Gaussiana / Bayesiana. Pondera por la varianza de cada banda espectral.</span>
+            </label>
+
+            <!-- 3. Ángulo Espectral SAM -->
+            <label class="flex flex-col gap-1 p-3 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer shadow-2xs relative" id="supAlgLabel-spectral_angle">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black text-zinc-800 uppercase tracking-tight">Ángulo Espectral SAM</span>
+                <input type="radio" name="supervisedAlgorithm" value="spectral_angle" onchange="setSupervisedAlgorithm(this.value)" class="accent-emerald-600">
+              </div>
+              <span class="text-[8px] text-zinc-500 leading-snug">Invariante a sombras y brillo solar. Compara la forma del vector espectral.</span>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie de Acción del Modal -->
+      <div class="p-4 bg-zinc-50 border-t border-zinc-200 flex justify-between items-center" style="background-color: #f8fafc !important; border-top: 1px solid #e2e8f0 !important;">
+        <button type="button" onclick="closeSupervisedClassificationModal()" 
+          class="px-5 py-2.5 rounded-xl text-xs font-bold transition-colors"
+          style="background-color: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1 !important; cursor: pointer !important;">
+          Cancelar
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="minimizeSupervisedToMap()" 
+            class="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:opacity-95"
+            style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;">
+            <span class="material-symbols-outlined text-[16px]">touch_app</span>
+            <span>Muestrear en Mapa</span>
+          </button>
+
+          <button type="button" id="btnRunSupervised" onclick="executeSupervisedClassification()" 
+            class="px-6 py-3 text-xs font-black uppercase tracking-wider rounded-xl shadow-lg flex items-center gap-2 transition-all hover:opacity-95 active:scale-95"
+            style="background-color: #059669 !important; background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important; color: #ffffff !important; cursor: pointer !important; box-shadow: 0 4px 16px rgba(5, 150, 105, 0.45) !important;">
+            <span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">play_circle</span>
+            <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">CLASIFICAR SUPERVISADA</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Barra Flotante de Muestreo en Mapa (Map HUD Dock) -->
+  <div id="supervisedMapDock" style="display: none;"
+    class="fixed top-20 left-1/2 -translate-x-1/2 z-[8500] bg-zinc-900/95 text-white backdrop-blur-md rounded-2xl shadow-2xl border border-white/15 px-3.5 py-2 flex items-center gap-3 animate-fadeIn">
+    
+    <!-- Indicador de Modo Supervisado -->
+    <div class="flex items-center gap-2 border-r border-white/15 pr-3">
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-600 text-white shadow-xs">
+        <span class="material-symbols-outlined text-[16px]">psychology</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[8px] font-black uppercase tracking-wider text-emerald-400">Muestreo ROI</span>
+        <span class="text-[9.5px] font-bold text-zinc-300 max-w-[120px] truncate" id="supDockLayerName">Landsat</span>
+      </div>
+    </div>
+
+    <!-- Selector Rápido de Clase Activa -->
+    <div class="flex items-center gap-1.5 border-r border-white/15 pr-3">
+      <label class="text-[8px] font-black uppercase text-zinc-400 tracking-wider">Clase:</label>
+      <select id="supDockClassSelect" onchange="setActiveSupervisedClass(parseInt(this.value, 10))"
+        class="bg-zinc-800 text-white text-[10px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer">
+        <!-- Opciones pobladas dinámicamente -->
+      </select>
+      <span id="supDockSampleCountBadge" class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+        0 px
+      </span>
+    </div>
+
+    <!-- Herramientas de Muestreo: Punto, Pincel, Polígono -->
+    <div class="flex items-center gap-1 border-r border-white/15 pr-3">
+      <button type="button" onclick="setSupervisedSamplingTool('point')" id="supDockTool-point"
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700" title="Punto Individual (Clic en píxel)">
+        <span class="material-symbols-outlined text-[14px]">ads_click</span>
+        <span>Punto</span>
+      </button>
+
+      <button type="button" onclick="setSupervisedSamplingTool('drag')" id="supDockTool-drag"
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs" title="Pincel continuo (Mantén clic y arrastra)">
+        <span class="material-symbols-outlined text-[14px]">draw</span>
+        <span>Pincel</span>
+      </button>
+
+      <button type="button" onclick="setSupervisedSamplingTool('polygon')" id="supDockTool-polygon"
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700" title="Polígono ROI (Vértices sobre mapa)">
+        <span class="material-symbols-outlined text-[14px]">polyline</span>
+        <span>Polígono</span>
+      </button>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="flex items-center gap-1.5">
+      <button type="button" onclick="clearActiveSupervisedSamples()" 
+        class="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-colors" title="Limpiar muestras de la clase activa">
+        <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+      </button>
+
+      <button type="button" onclick="restoreSupervisedModal()" 
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors cursor-pointer" title="Abrir panel completo de clases y firmas espectrales">
+        <span class="material-symbols-outlined text-[14px]">settings</span>
+        <span>Panel</span>
+      </button>
+
+      <button type="button" onclick="executeSupervisedClassification()" 
+        class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Ejecutar clasificación supervisada">
+        <span class="material-symbols-outlined text-[14px]">play_circle</span>
+        <span>Clasificar</span>
+      </button>
+
+      <button type="button" onclick="closeSupervisedClassificationModal()" 
+        class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer" title="Salir del modo clasificación supervisada">
+        <span class="material-symbols-outlined text-[16px]">close</span>
+      </button>
+    </div>
+
+  </div>
+
   <!-- Debug 3D overlay (always on top) -->
   <div id="dbgGlobal" style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:10px 16px;background:rgba(255,0,0,.9);color:#fff;font-size:15px;font-family:monospace;font-weight:bold;display:none;white-space:pre-wrap;box-shadow:0 4px 12px rgba(0,0,0,.5);">⚠ Debug 3D</div>
   <!-- Progress Bar (Background) -->
@@ -9218,6 +9474,18 @@ self.onmessage = async function(e) {
           const hoverInfo = document.getElementById('hoverInfo');
           const pixelCard = document.getElementById('pixelInspectorCard');
 
+          // Hook para Clasificación Supervisada (Muestreo interactivo: Pincel/Arrastre o Polígono)
+          if (window._supervisedState && window._supervisedState.active) {
+            if (pixelCard) pixelCard.style.display = 'none';
+            if (hoverInfo) hoverInfo.style.display = 'none';
+            if (window._supervisedState.isMouseDown && window._supervisedState.samplingTool === 'drag') {
+              if (typeof handleSupervisedMapDrag === 'function') handleSupervisedMapDrag(e);
+            } else if (window._supervisedState.samplingTool === 'polygon' && window._supervisedState.polygonDrawingPoints?.length > 0) {
+              if (typeof updateSupervisedPolygonPreview === 'function') updateSupervisedPolygonPreview(e.latlng);
+            }
+            return;
+          }
+
           let found = null;
           // 1. Priorizar la capa seleccionada por el usuario si está visible bajo el cursor
           if (state.selectedLayerId) {
@@ -9431,7 +9699,7 @@ self.onmessage = async function(e) {
 
       // Selección de capa temática individual mediante CLIC en el mapa
       state.map.on('click', (e) => {
-        if (window._isMeasuringActive || (typeof _net !== 'undefined' && _net?.picking) || (state.drawMode && state.drawMode !== 'select')) return;
+        if (window._isMeasuringActive || (typeof _net !== 'undefined' && _net?.picking) || (state.drawMode && state.drawMode !== 'select') || (window._supervisedState && window._supervisedState.active)) return;
 
         let foundClassified = null;
         if (state.selectedLayerId) {
@@ -20103,6 +20371,1204 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.clearThematicClassHighlight = clearThematicClassHighlight;
     window.toggleThematicClassClick = toggleThematicClassClick;
 
+    // ══════════════════════════════════════════════════════════════
+    //  CLASIFICACIÓN ESPECTRAL SUPERVISADA (MUESTREO ROI EN MAPA)
+    // ══════════════════════════════════════════════════════════════
+
+    window._supervisedState = {
+      active: false,
+      layerId: null,
+      samplingTool: 'drag', // 'point' | 'drag' | 'polygon'
+      activeClassId: 0,
+      algorithm: 'min_distance', // 'min_distance' | 'max_likelihood' | 'spectral_angle'
+      isMouseDown: false,
+      lastSampleLatLng: null,
+      classes: [
+        { id: 0, name: 'Cuerpos de Agua', color: '#1d4ed8', samples: [], pixelSet: new Set() },
+        { id: 1, name: 'Bosque / Veg. Densa', color: '#15803d', samples: [], pixelSet: new Set() },
+        { id: 2, name: 'Cultivos / Pastizales', color: '#84cc16', samples: [], pixelSet: new Set() },
+        { id: 3, name: 'Suelo Expuesto / Áridos', color: '#d97706', samples: [], pixelSet: new Set() },
+        { id: 4, name: 'Áreas Urbanas / Asfalto', color: '#64748b', samples: [], pixelSet: new Set() }
+      ],
+      sampleMarkersLayer: null,
+      polygonDrawingPoints: [],
+      tempPolyPreview: null
+    };
+
+    // Algoritmo de punto en polígono (Ray Casting)
+    function isPointInPolygon(pt, poly) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        const intersect = ((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    async function openSupervisedClassificationModal(layerId) {
+      const state_sup = window._supervisedState;
+      state_sup.layerId = layerId;
+      state_sup.active = true;
+
+      const layer = state.layers.find(l => l.id === layerId);
+      if (!layer) return;
+
+      // Cerrar otros modales
+      if (typeof closeUnsupervisedClassificationModal === 'function') closeUnsupervisedClassificationModal();
+
+      // Pre-cargar bandas espectrales si es necesario
+      if (typeof ensureLayerSpectralBands === 'function') {
+        ensureLayerSpectralBands(layer);
+      }
+      if (typeof analyzeSpectralData === 'function' && !layer._rawSpectralBands) {
+        analyzeSpectralData(layer).catch(() => {});
+      }
+
+      // Inicializar capa de marcadores en Leaflet si no existe
+      if (!state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer = L.layerGroup().addTo(state.map);
+      } else {
+        if (!state.map.hasLayer(state_sup.sampleMarkersLayer)) {
+          state_sup.sampleMarkersLayer.addTo(state.map);
+        }
+      }
+
+      // Actualizar nombre de capa en UI
+      const $layerName = document.getElementById('supervisedModalLayerName');
+      if ($layerName) $layerName.textContent = layer.name;
+      const $dockLayerName = document.getElementById('supDockLayerName');
+      if ($dockLayerName) $dockLayerName.textContent = layer.name;
+
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      setSupervisedSamplingTool(state_sup.samplingTool || 'drag');
+      setSupervisedAlgorithm(state_sup.algorithm || 'min_distance');
+      drawSupervisedSpectralChart();
+
+      const modal = document.getElementById('supervisedClassificationModal');
+      if (modal) modal.style.display = 'flex';
+      const dock = document.getElementById('supervisedMapDock');
+      if (dock) dock.style.display = 'none';
+    }
+
+    function closeSupervisedClassificationModal() {
+      const state_sup = window._supervisedState;
+      state_sup.active = false;
+      state_sup.isMouseDown = false;
+
+      const modal = document.getElementById('supervisedClassificationModal');
+      if (modal) modal.style.display = 'none';
+      const dock = document.getElementById('supervisedMapDock');
+      if (dock) dock.style.display = 'none';
+
+      clearSupervisedTempPolygon();
+      state.map.dragging.enable();
+      if (state.map._container) state.map._container.style.cursor = '';
+    }
+
+    function minimizeSupervisedToMap() {
+      const state_sup = window._supervisedState;
+      state_sup.active = true;
+
+      const modal = document.getElementById('supervisedClassificationModal');
+      if (modal) modal.style.display = 'none';
+
+      const dock = document.getElementById('supervisedMapDock');
+      if (dock) dock.style.display = 'flex';
+
+      updateSupervisedDockClassSelect();
+      setSupervisedSamplingTool(state_sup.samplingTool || 'drag');
+
+      const toolNames = { point: 'Punto Individual', drag: 'Pincel / Arrastre continuo', polygon: 'Polígono ROI' };
+      toast('Modo Muestreo: ' + (toolNames[state_sup.samplingTool] || 'Activo') + '. Selecciona sobre el mapa.', 'info');
+    }
+
+    function restoreSupervisedModal() {
+      const state_sup = window._supervisedState;
+      const modal = document.getElementById('supervisedClassificationModal');
+      if (modal) modal.style.display = 'flex';
+      const dock = document.getElementById('supervisedMapDock');
+      if (dock) dock.style.display = 'none';
+
+      state.map.dragging.enable();
+      if (state.map._container) state.map._container.style.cursor = '';
+
+      renderSupervisedClassesList();
+      drawSupervisedSpectralChart();
+    }
+
+    function setSupervisedSamplingTool(tool) {
+      const state_sup = window._supervisedState;
+      state_sup.samplingTool = tool;
+
+      if (tool !== 'polygon') {
+        clearSupervisedTempPolygon();
+      }
+
+      // Actualizar botones en el Modal
+      const tools = ['point', 'drag', 'polygon'];
+      tools.forEach(t => {
+        const modalBtn = document.getElementById('supToolBtn-' + t);
+        if (modalBtn) {
+          if (t === tool) {
+            modalBtn.className = 'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-emerald-50/70 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20';
+            const iconWrap = modalBtn.querySelector('div');
+            if (iconWrap) iconWrap.className = 'w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 text-white shadow-xs';
+            const label = modalBtn.querySelector('span');
+            if (label) label.className = 'text-[11px] font-black text-emerald-950';
+          } else {
+            modalBtn.className = 'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-white border-zinc-200 hover:border-emerald-500 shadow-2xs';
+            const iconWrap = modalBtn.querySelector('div');
+            if (iconWrap) iconWrap.className = 'w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-700';
+            const label = modalBtn.querySelector('span');
+            if (label) label.className = 'text-[11px] font-black text-zinc-800';
+          }
+        }
+
+        // Actualizar botones en el Dock flotante
+        const dockBtn = document.getElementById('supDockTool-' + t);
+        if (dockBtn) {
+          if (t === tool) {
+            dockBtn.className = 'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs';
+          } else {
+            dockBtn.className = 'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700';
+          }
+        }
+      });
+
+      // Configurar comportamiento del mapa según herramienta
+      if (state_sup.active && document.getElementById('supervisedMapDock')?.style.display !== 'none') {
+        if (tool === 'drag') {
+          state.map.dragging.disable();
+          if (state.map._container) state.map._container.style.cursor = 'crosshair';
+        } else if (tool === 'polygon') {
+          state.map.dragging.disable();
+          if (state.map._container) state.map._container.style.cursor = 'crosshair';
+        } else {
+          state.map.dragging.enable();
+          if (state.map._container) state.map._container.style.cursor = 'crosshair';
+        }
+      }
+    }
+
+    function setActiveSupervisedClass(classId) {
+      const state_sup = window._supervisedState;
+      state_sup.activeClassId = classId;
+
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      updateDockSampleBadge();
+    }
+
+    function addSupervisedClass() {
+      const state_sup = window._supervisedState;
+      const palette = ['#06b6d4', '#e11d48', '#8b5cf6', '#f97316', '#14b8a6', '#f59e0b', '#ec4899', '#6366f1'];
+      const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
+      const color = palette[nextId % palette.length];
+
+      state_sup.classes.push({
+        id: nextId,
+        name: 'Cobertura ' + (nextId + 1),
+        color: color,
+        samples: [],
+        pixelSet: new Set()
+      });
+
+      state_sup.activeClassId = nextId;
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+    }
+
+    function removeSupervisedClass(classId) {
+      const state_sup = window._supervisedState;
+      if (state_sup.classes.length <= 2) {
+        toast('Se requieren al menos 2 clases para la clasificación.', 'warning');
+        return;
+      }
+
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.eachLayer(layer => {
+          if (layer._classId === classId) {
+            state_sup.sampleMarkersLayer.removeLayer(layer);
+          }
+        });
+      }
+
+      state_sup.classes = state_sup.classes.filter(c => c.id !== classId);
+      if (state_sup.activeClassId === classId) {
+        state_sup.activeClassId = state_sup.classes[0].id;
+      }
+
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+    }
+
+    function clearActiveSupervisedSamples() {
+      const state_sup = window._supervisedState;
+      const cls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      if (!cls) return;
+
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.eachLayer(layer => {
+          if (layer._classId === cls.id) {
+            state_sup.sampleMarkersLayer.removeLayer(layer);
+          }
+        });
+      }
+
+      cls.samples = [];
+      cls.pixelSet = new Set();
+
+      renderSupervisedClassesList();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+      toast('Muestras de "' + cls.name + '" eliminadas', 'info');
+    }
+
+    function clearAllSupervisedSamples() {
+      const state_sup = window._supervisedState;
+      state_sup.classes.forEach(c => {
+        c.samples = [];
+        c.pixelSet = new Set();
+      });
+
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.clearLayers();
+      }
+
+      renderSupervisedClassesList();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+      toast('Todas las muestras recolectadas han sido eliminadas', 'info');
+    }
+
+    function updateSupervisedClassColor(classId, newColor) {
+      const state_sup = window._supervisedState;
+      const cls = state_sup.classes.find(c => c.id === classId);
+      if (!cls) return;
+      cls.color = newColor;
+
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.eachLayer(layer => {
+          if (layer._classId === classId) {
+            if (typeof layer.setStyle === 'function') {
+              layer.setStyle({ fillColor: newColor, color: layer instanceof L.CircleMarker ? '#ffffff' : newColor });
+            }
+          }
+        });
+      }
+
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      drawSupervisedSpectralChart();
+    }
+
+    function updateSupervisedClassName(classId, newName) {
+      const state_sup = window._supervisedState;
+      const cls = state_sup.classes.find(c => c.id === classId);
+      if (!cls) return;
+      cls.name = newName;
+      updateSupervisedDockClassSelect();
+    }
+
+    function setSupervisedAlgorithm(alg) {
+      const state_sup = window._supervisedState;
+      state_sup.algorithm = alg;
+
+      const algs = ['min_distance', 'max_likelihood', 'spectral_angle'];
+      algs.forEach(a => {
+        const lbl = document.getElementById('supAlgLabel-' + a);
+        const radio = lbl ? lbl.querySelector('input') : null;
+        if (lbl) {
+          if (a === alg) {
+            lbl.className = 'flex flex-col gap-1 p-3 rounded-2xl border border-emerald-500 bg-emerald-50/50 cursor-pointer shadow-xs relative ring-1 ring-emerald-400';
+            if (radio) radio.checked = true;
+          } else {
+            lbl.className = 'flex flex-col gap-1 p-3 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer shadow-2xs relative';
+            if (radio) radio.checked = false;
+          }
+        }
+      });
+    }
+
+    function renderSupervisedClassesList() {
+      const state_sup = window._supervisedState;
+      const container = document.getElementById('supervisedClassesList');
+      if (!container) return;
+
+      container.innerHTML = state_sup.classes.map(cls => {
+        const isActive = cls.id === state_sup.activeClassId;
+        const count = cls.samples ? cls.samples.length : 0;
+
+        return `
+          <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${isActive ? 'bg-emerald-50/70 border-emerald-400 shadow-xs ring-1 ring-emerald-400' : 'bg-white border-zinc-200/90 shadow-2xs'}">
+            
+            <!-- Radio de selección activa y color -->
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <input type="radio" name="activeSupervisedClassRadio" ${isActive ? 'checked' : ''}
+                onchange="setActiveSupervisedClass(${cls.id})"
+                title="Seleccionar esta clase para recolectar muestras"
+                class="accent-emerald-600 w-4 h-4 cursor-pointer shrink-0">
+
+              <input type="color" value="${cls.color}"
+                onchange="updateSupervisedClassColor(${cls.id}, this.value)"
+                title="Personalizar color de la cobertura"
+                class="w-7 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0">
+
+              <div class="flex flex-col flex-1 min-w-0">
+                <input type="text" value="${cls.name}"
+                  oninput="updateSupervisedClassName(${cls.id}, this.value)"
+                  class="w-full text-[11px] font-black text-zinc-800 bg-zinc-50 hover:bg-zinc-100 focus:bg-white rounded px-2 py-0.5 border border-transparent focus:border-emerald-400 outline-none transition-colors">
+                <span class="text-[8px] font-mono font-bold text-zinc-400 px-1">
+                  ${count} píxeles muestreados ${cls.meanNdvi !== undefined ? `· NDVI medio: ${cls.meanNdvi}` : ''}
+                </span>
+              </div>
+            </div>
+
+            <!-- Badge de conteo y acciones -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold ${count > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-zinc-100 text-zinc-500 border border-zinc-200'}">
+                ${count} px
+              </span>
+
+              <button type="button" onclick="clearSupervisedClassSamples(${cls.id})"
+                class="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar muestras de esta clase">
+                <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
+              </button>
+
+              ${state_sup.classes.length > 2 ? `
+              <button type="button" onclick="removeSupervisedClass(${cls.id})"
+                class="p-1 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar clase">
+                <span class="material-symbols-outlined text-[15px]">close</span>
+              </button>
+              ` : ''}
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearSupervisedClassSamples(classId) {
+      const state_sup = window._supervisedState;
+      const cls = state_sup.classes.find(c => c.id === classId);
+      if (!cls) return;
+
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.eachLayer(layer => {
+          if (layer._classId === classId) {
+            state_sup.sampleMarkersLayer.removeLayer(layer);
+          }
+        });
+      }
+
+      cls.samples = [];
+      cls.pixelSet = new Set();
+      renderSupervisedClassesList();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+    }
+
+    function updateSupervisedDockClassSelect() {
+      const state_sup = window._supervisedState;
+      const select = document.getElementById('supDockClassSelect');
+      if (!select) return;
+
+      select.innerHTML = state_sup.classes.map(c => 
+        '<option value="' + c.id + '" ' + (c.id === state_sup.activeClassId ? 'selected' : '') + '>' +
+          c.name +
+        '</option>'
+      ).join('');
+
+      updateDockSampleBadge();
+    }
+
+    function updateDockSampleBadge() {
+      const state_sup = window._supervisedState;
+      const badge = document.getElementById('supDockSampleCountBadge');
+      if (!badge) return;
+      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      const count = activeCls && activeCls.samples ? activeCls.samples.length : 0;
+      badge.textContent = count + ' px';
+      if (activeCls) {
+        badge.style.backgroundColor = activeCls.color + '25';
+        badge.style.borderColor = activeCls.color + '60';
+        badge.style.color = activeCls.color;
+      }
+    }
+
+    // Muestreo individual de píxel en coordenadas geográficas
+    function samplePixelAtLatLng(latlng) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.active || !state_sup.layerId) return null;
+      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      if (!targetLayer) return null;
+
+      if (targetLayer.bounds) {
+        const b = targetLayer.bounds;
+        const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+        if (!latlngBounds.contains(latlng)) return null;
+      }
+
+      if (typeof getRasterPixelCoords !== 'function' || typeof extractSpectralValues !== 'function') return null;
+      const coords = getRasterPixelCoords(targetLayer, latlng);
+      if (!coords) return null;
+
+      const bW = targetLayer._canvasWidth || coords.natW;
+      const bH = targetLayer._canvasHeight || coords.natH;
+      const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+      const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+      const pixelKey = px + '_' + py;
+
+      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      if (!activeCls) return null;
+
+      if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
+      if (activeCls.pixelSet.has(pixelKey)) return null;
+
+      const spectral = extractSpectralValues(targetLayer, coords);
+      if (!spectral || !spectral.bandValues || spectral.bandValues.length === 0) return null;
+
+      // Verificar que el píxel contenga información válida
+      const vals = spectral.bandValues;
+      let isValid = false;
+      for (let i = 0; i < vals.length; i++) {
+        if (vals[i] !== null && !isNaN(vals[i]) && vals[i] > 0 && vals[i] < 1e12) {
+          isValid = true;
+          break;
+        }
+      }
+      if (!isValid) return null;
+
+      activeCls.pixelSet.add(pixelKey);
+      const sample = {
+        px, py,
+        latlng: [latlng.lat, latlng.lng],
+        values: Array.from(vals),
+        ndvi: spectral.ndvi,
+        ndwi: spectral.ndwi
+      };
+      activeCls.samples.push(sample);
+
+      // Dibujar marcador en Leaflet
+      if (state_sup.sampleMarkersLayer) {
+        const marker = L.circleMarker(latlng, {
+          radius: 3.5,
+          fillColor: activeCls.color,
+          fillOpacity: 0.95,
+          color: '#ffffff',
+          weight: 1.5,
+          interactive: false
+        });
+        marker._classId = activeCls.id;
+        state_sup.sampleMarkersLayer.addLayer(marker);
+      }
+
+      return sample;
+    }
+
+    // 1. Manejador de Clic en Mapa
+    function handleSupervisedMapClick(e) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.active) return;
+
+      if (state_sup.samplingTool === 'point') {
+        const s = samplePixelAtLatLng(e.latlng);
+        if (s) {
+          updateDockSampleBadge();
+          renderSupervisedClassesList();
+          drawSupervisedSpectralChart();
+        }
+      } else if (state_sup.samplingTool === 'polygon') {
+        const pts = state_sup.polygonDrawingPoints;
+        const currentPt = [e.latlng.lat, e.latlng.lng];
+
+        if (pts.length >= 3) {
+          const firstPt = L.latLng(pts[0][0], pts[0][1]);
+          const pxDist = state.map.latLngToLayerPoint(e.latlng).distanceTo(state.map.latLngToLayerPoint(firstPt));
+          if (pxDist < 20) {
+            finishSupervisedPolygon();
+            return;
+          }
+        }
+
+        pts.push(currentPt);
+        updateSupervisedPolygonPreview(e.latlng);
+      }
+    }
+
+    // 2. Manejador de Arrastre Continuo (Pincel con Clic Presionado)
+    function handleSupervisedMapDragStart(e) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.active || state_sup.samplingTool !== 'drag') return;
+      state_sup.isMouseDown = true;
+      state_sup.lastSampleLatLng = e.latlng;
+      samplePixelAtLatLng(e.latlng);
+      updateDockSampleBadge();
+    }
+
+    function handleSupervisedMapDrag(e) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.active || !state_sup.isMouseDown || state_sup.samplingTool !== 'drag') return;
+
+      const s = samplePixelAtLatLng(e.latlng);
+      if (s) {
+        state_sup.lastSampleLatLng = e.latlng;
+        updateDockSampleBadge();
+      }
+    }
+
+    function handleSupervisedMapDragEnd() {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.isMouseDown) return;
+      state_sup.isMouseDown = false;
+      updateDockSampleBadge();
+      renderSupervisedClassesList();
+      drawSupervisedSpectralChart();
+    }
+
+    window.addEventListener('mouseup', () => {
+      if (window._supervisedState && window._supervisedState.isMouseDown) {
+        handleSupervisedMapDragEnd();
+      }
+    });
+
+    // 3. Manejador de Polígono ROI
+    function updateSupervisedPolygonPreview(cursorLatLng) {
+      const state_sup = window._supervisedState;
+      if (!state_sup.active || state_sup.samplingTool !== 'polygon') return;
+      const pts = state_sup.polygonDrawingPoints;
+      if (pts.length === 0) return;
+
+      const previewPts = pts.map(p => [p[0], p[1]]);
+      if (cursorLatLng) previewPts.push([cursorLatLng.lat, cursorLatLng.lng]);
+
+      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      const color = activeCls ? activeCls.color : '#059669';
+
+      if (!state_sup.tempPolyPreview) {
+        state_sup.tempPolyPreview = L.polygon(previewPts, {
+          color: color,
+          weight: 2,
+          dashArray: '5, 5',
+          fillColor: color,
+          fillOpacity: 0.25
+        }).addTo(state.map);
+      } else {
+        state_sup.tempPolyPreview.setLatLngs(previewPts);
+        state_sup.tempPolyPreview.setStyle({ color: color, fillColor: color });
+      }
+    }
+
+    function clearSupervisedTempPolygon() {
+      const state_sup = window._supervisedState;
+      state_sup.polygonDrawingPoints = [];
+      if (state_sup.tempPolyPreview) {
+        try { state.map.removeLayer(state_sup.tempPolyPreview); } catch (_) {}
+        state_sup.tempPolyPreview = null;
+      }
+    }
+
+    function finishSupervisedPolygon() {
+      const state_sup = window._supervisedState;
+      const pts = state_sup.polygonDrawingPoints;
+      if (!pts || pts.length < 3) {
+        clearSupervisedTempPolygon();
+        return;
+      }
+
+      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      if (!targetLayer || !activeCls) {
+        clearSupervisedTempPolygon();
+        return;
+      }
+
+      const pixelPoly = [];
+      for (let i = 0; i < pts.length; i++) {
+        const c = getRasterPixelCoords(targetLayer, L.latLng(pts[i][0], pts[i][1]));
+        if (c) {
+          const bW = targetLayer._canvasWidth || c.natW;
+          const bH = targetLayer._canvasHeight || c.natH;
+          const px = Math.min(Math.max(Math.floor((c.baseX / c.natW) * bW), 0), bW - 1);
+          const py = Math.min(Math.max(Math.floor((c.baseY / c.natH) * bH), 0), bH - 1);
+          pixelPoly.push([px, py]);
+        }
+      }
+
+      let sampledCount = 0;
+      if (pixelPoly.length >= 3) {
+        const bW = targetLayer._canvasWidth || 1000;
+        const bH = targetLayer._canvasHeight || 1000;
+        const minX = Math.max(0, Math.min(...pixelPoly.map(p => p[0])));
+        const maxX = Math.min(bW - 1, Math.max(...pixelPoly.map(p => p[0])));
+        const minY = Math.max(0, Math.min(...pixelPoly.map(p => p[1])));
+        const maxY = Math.min(bH - 1, Math.max(...pixelPoly.map(p => p[1])));
+
+        const estArea = (maxX - minX + 1) * (maxY - minY + 1);
+        const stride = Math.max(1, Math.floor(Math.sqrt(estArea) / 35));
+
+        for (let y = minY; y <= maxY; y += stride) {
+          for (let x = minX; x <= maxX; x += stride) {
+            if (isPointInPolygon([x, y], pixelPoly)) {
+              const fracX = (x + 0.5) / bW;
+              const fracY = (y + 0.5) / bH;
+              const b = targetLayer.bounds;
+              const n = b.north ?? b.getNorth?.() ?? 0;
+              const s = b.south ?? b.getSouth?.() ?? 0;
+              const w = b.west ?? b.getWest?.() ?? 0;
+              const e = b.east ?? b.getEast?.() ?? 0;
+              const lat = n - fracY * (n - s);
+              const lng = w + fracX * (e - w);
+
+              const sRes = samplePixelAtLatLng(L.latLng(lat, lng));
+              if (sRes) sampledCount++;
+            }
+          }
+        }
+      }
+
+      // Dibujar polígono permanente en la capa de muestras
+      if (state_sup.sampleMarkersLayer) {
+        const polyLayer = L.polygon(pts, {
+          color: activeCls.color,
+          weight: 2,
+          fillColor: activeCls.color,
+          fillOpacity: 0.35,
+          interactive: false
+        });
+        polyLayer._classId = activeCls.id;
+        state_sup.sampleMarkersLayer.addLayer(polyLayer);
+      }
+
+      clearSupervisedTempPolygon();
+      updateDockSampleBadge();
+      renderSupervisedClassesList();
+      drawSupervisedSpectralChart();
+
+      toast('✓ Polígono ROI: ' + sampledCount + ' píxeles capturados para "' + activeCls.name + '"', 'success');
+    }
+
+    // 4. Dibujo de Firma Espectral Comparativa en Canvas
+    function drawSupervisedSpectralChart() {
+      const canvas = document.getElementById('supervisedSpectralCanvas');
+      const emptyMsg = document.getElementById('supervisedChartEmptyMsg');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const state_sup = window._supervisedState;
+      if (!state_sup) return;
+
+      const sampledClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+      if (sampledClasses.length === 0) {
+        if (emptyMsg) emptyMsg.style.display = 'flex';
+        return;
+      }
+      if (emptyMsg) emptyMsg.style.display = 'none';
+
+      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      const nBands = targetLayer ? (targetLayer._rawSpectralBands?.length || targetLayer.bands || 3) : 3;
+
+      const bandRangeLabel = document.getElementById('supervisedChartBandRange');
+      if (bandRangeLabel) bandRangeLabel.textContent = 'B1 → B' + nBands + ' (' + nBands + ' Bandas Satelitales)';
+
+      // Calcular medias de cada banda por clase
+      const classMeans = sampledClasses.map(cls => {
+        const mean = new Float32Array(nBands);
+        let sumNdvi = 0;
+        let ndviCount = 0;
+
+        for (let i = 0; i < cls.samples.length; i++) {
+          const s = cls.samples[i];
+          for (let b = 0; b < nBands; b++) {
+            mean[b] += (s.values[b] || 0);
+          }
+          if (s.ndvi !== null && !isNaN(s.ndvi)) {
+            sumNdvi += s.ndvi;
+            ndviCount++;
+          }
+        }
+        for (let b = 0; b < nBands; b++) {
+          mean[b] /= cls.samples.length;
+        }
+        cls.meanNdvi = ndviCount > 0 ? (sumNdvi / ndviCount).toFixed(2) : undefined;
+        return { cls, mean };
+      });
+
+      let minVal = Infinity, maxVal = -Infinity;
+      classMeans.forEach(cm => {
+        for (let b = 0; b < nBands; b++) {
+          if (cm.mean[b] < minVal) minVal = cm.mean[b];
+          if (cm.mean[b] > maxVal) maxVal = cm.mean[b];
+        }
+      });
+      if (minVal === Infinity) { minVal = 0; maxVal = 1; }
+      if (maxVal <= minVal) maxVal = minVal + 0.05;
+
+      const padX = 40;
+      const padY = 16;
+      const chartW = w - padX * 2;
+      const chartH = h - padY * 2;
+      const padBottom = minVal > 0 ? 0 : minVal;
+      const padTop = maxVal * 1.05;
+
+      ctx.strokeStyle = '#27272a';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      for (let gridI = 0; gridI <= 3; gridI++) {
+        const y = padY + (gridI / 3) * chartH;
+        ctx.beginPath();
+        ctx.moveTo(padX, y);
+        ctx.lineTo(w - padX, y);
+        ctx.stroke();
+
+        const valLabel = (padTop - (gridI / 3) * (padTop - padBottom));
+        ctx.fillStyle = '#71717a';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(typeof formatBandValue === 'function' ? formatBandValue(valLabel).replace(/<[^>]*>/g, '') : valLabel.toFixed(3), padX - 4, y + 3);
+      }
+      ctx.setLineDash([]);
+
+      for (let b = 0; b < nBands; b++) {
+        const x = padX + (b / Math.max(1, nBands - 1)) * chartW;
+        ctx.strokeStyle = '#3f3f46';
+        ctx.beginPath();
+        ctx.moveTo(x, padY);
+        ctx.lineTo(x, h - padY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = 'bold 8.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('B' + (b + 1), x, h - 3);
+      }
+
+      classMeans.forEach(cm => {
+        ctx.strokeStyle = cm.cls.color;
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let b = 0; b < nBands; b++) {
+          const x = padX + (b / Math.max(1, nBands - 1)) * chartW;
+          const normY = (cm.mean[b] - padBottom) / (padTop - padBottom);
+          const y = h - padY - Math.max(0, Math.min(chartH, normY * chartH));
+          if (b === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = cm.cls.color;
+        for (let b = 0; b < nBands; b++) {
+          const x = padX + (b / Math.max(1, nBands - 1)) * chartW;
+          const normY = (cm.mean[b] - padBottom) / (padTop - padBottom);
+          const y = h - padY - Math.max(0, Math.min(chartH, normY * chartH));
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    }
+
+    // 5. Motor de Ejecución de Clasificación Supervisada
+    async function executeSupervisedClassification() {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.layerId) {
+        toast('Selecciona una capa ráster para clasificar.', 'error');
+        return;
+      }
+      const layer = state.layers.find(l => l.id === state_sup.layerId);
+      if (!layer) return;
+
+      const activeClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+      if (activeClasses.length < 2) {
+        toast('Debes recolectar muestras para al menos 2 coberturas antes de clasificar.', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btnRunSupervised');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[17px] animate-spin" style="color: #ffffff !important;">sync</span> <span>Clasificando (' + activeClasses.length + ' Clases)...</span>';
+      }
+
+      showProgress('Ejecutando Clasificación Supervisada (' + activeClasses.length + ' coberturas)...', 25);
+
+      setTimeout(async () => {
+        try {
+          let spectralData = layer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+          if (!spectralData || spectralData.bandsCount === 0) {
+            showProgress('Cargando bandas espectrales completas...', 40);
+            await analyzeSpectralData(layer);
+            spectralData = state._unsupervisedSpectralData;
+          }
+
+          if (!spectralData) {
+            throw new Error('No se encontraron píxeles multiespectrales accesibles.');
+          }
+
+          const w = spectralData.width;
+          const h = spectralData.height;
+          const totalPixels = w * h;
+          const bCount = spectralData.bandsCount;
+          const dims = bCount;
+
+          showProgress('Entrenando firmas espectrales de referencia...', 55);
+
+          const classStats = activeClasses.map((cls, idx) => {
+            const N = cls.samples.length;
+            const mean = new Float32Array(dims);
+            const variance = new Float32Array(dims);
+
+            for (let i = 0; i < N; i++) {
+              const s = cls.samples[i];
+              for (let d = 0; d < dims; d++) {
+                mean[d] += (s.values[d] || 0);
+              }
+            }
+            for (let d = 0; d < dims; d++) {
+              mean[d] /= N;
+            }
+
+            for (let i = 0; i < N; i++) {
+              const s = cls.samples[i];
+              for (let d = 0; d < dims; d++) {
+                const diff = (s.values[d] || 0) - mean[d];
+                variance[d] += diff * diff;
+              }
+            }
+            for (let d = 0; d < dims; d++) {
+              variance[d] = Math.max(1e-5, variance[d] / N);
+            }
+
+            let normSq = 0;
+            for (let d = 0; d < dims; d++) {
+              normSq += mean[d] * mean[d];
+            }
+            const norm = Math.sqrt(normSq) || 1e-4;
+
+            let logDetVar = 0;
+            for (let d = 0; d < dims; d++) {
+              logDetVar += Math.log(2 * Math.PI * variance[d]);
+            }
+
+            return {
+              id: idx,
+              name: cls.name,
+              color: cls.color,
+              samplesCount: N,
+              mean,
+              variance,
+              norm,
+              logDetVar,
+              originalClass: cls
+            };
+          });
+
+          const alg = state_sup.algorithm || 'min_distance';
+          const algNameMap = {
+            min_distance: 'Dist. Mínima',
+            max_likelihood: 'Máx. Verosimilitud',
+            spectral_angle: 'Ángulo Espectral SAM'
+          };
+          const algLabel = algNameMap[alg] || 'Supervisada';
+
+          showProgress('Clasificando escena completa (' + algLabel + ')...', 75);
+
+          const pixelClusterMap = new Int16Array(totalPixels);
+          pixelClusterMap.fill(-1);
+          const classCounts = new Int32Array(classStats.length);
+          let validCount = 0;
+
+          const pVec = new Float32Array(dims);
+
+          for (let i = 0; i < totalPixels; i++) {
+            let isZero = true;
+            if (spectralData.type === 'multispectral') {
+              for (let b = 0; b < bCount; b++) {
+                const v = spectralData.bands[b][i];
+                pVec[b] = v;
+                if (v > 0) isZero = false;
+              }
+              if (isZero) continue;
+            } else {
+              const p = i * 4;
+              const a = spectralData.data[p + 3];
+              if (a < 20) continue;
+              pVec[0] = spectralData.data[p] / 255;
+              pVec[1] = spectralData.data[p + 1] / 255;
+              pVec[2] = spectralData.data[p + 2] / 255;
+              if (pVec[0] === 0 && pVec[1] === 0 && pVec[2] === 0) continue;
+            }
+
+            let bestClassIdx = -1;
+
+            if (alg === 'min_distance') {
+              let minD = Infinity;
+              for (let c = 0; c < classStats.length; c++) {
+                const cm = classStats[c].mean;
+                let d = 0;
+                for (let b = 0; b < dims; b++) {
+                  const diff = pVec[b] - cm[b];
+                  d += diff * diff;
+                }
+                if (d < minD) {
+                  minD = d;
+                  bestClassIdx = c;
+                }
+              }
+            } else if (alg === 'max_likelihood') {
+              let maxLL = -Infinity;
+              for (let c = 0; c < classStats.length; c++) {
+                const cs = classStats[c];
+                let ll = -0.5 * cs.logDetVar;
+                for (let b = 0; b < dims; b++) {
+                  const diff = pVec[b] - cs.mean[b];
+                  ll -= 0.5 * (diff * diff) / cs.variance[b];
+                }
+                if (ll > maxLL) {
+                  maxLL = ll;
+                  bestClassIdx = c;
+                }
+              }
+            } else if (alg === 'spectral_angle') {
+              let maxCos = -1;
+              let pNormSq = 0;
+              for (let b = 0; b < dims; b++) pNormSq += pVec[b] * pVec[b];
+              const pNorm = Math.sqrt(pNormSq) || 1e-4;
+
+              for (let c = 0; c < classStats.length; c++) {
+                const cs = classStats[c];
+                let dot = 0;
+                for (let b = 0; b < dims; b++) {
+                  dot += pVec[b] * cs.mean[b];
+                }
+                const cosAngle = dot / (pNorm * cs.norm);
+                if (cosAngle > maxCos) {
+                  maxCos = cosAngle;
+                  bestClassIdx = c;
+                }
+              }
+            }
+
+            if (bestClassIdx >= 0) {
+              pixelClusterMap[i] = bestClassIdx;
+              classCounts[bestClassIdx]++;
+              validCount++;
+            }
+          }
+
+          showProgress('Generando lienzo temático y leyenda...', 90);
+
+          const res = layer.resolution || [30, -30];
+          const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
+          const pixelAreaHa = pixelAreaM2 / 10000;
+
+          const finalThematicClasses = classStats.map((cs, idx) => {
+            const count = classCounts[idx];
+            const pct = validCount > 0 ? ((count / validCount) * 100).toFixed(1) : '0.0';
+            const totalHa = Math.round(count * pixelAreaHa);
+            const areaFormatted = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + 'k ha' : totalHa + ' ha';
+
+            return {
+              id: idx,
+              name: cs.name,
+              color: cs.color,
+              count: count,
+              percentage: pct,
+              areaHa: totalHa,
+              areaLabel: areaFormatted,
+              samplesCount: cs.samplesCount,
+              signatureLabel: cs.samplesCount + ' muestras · ' + areaFormatted,
+              visible: true
+            };
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.createImageData(w, h);
+          const data = imgData.data;
+
+          const rgbClasses = finalThematicClasses.map(cls => {
+            const hex = (cls.color || '#000000').replace('#', '');
+            return [
+              parseInt(hex.substring(0, 2), 16) || 0,
+              parseInt(hex.substring(2, 4), 16) || 0,
+              parseInt(hex.substring(4, 6), 16) || 0
+            ];
+          });
+
+          for (let i = 0; i < totalPixels; i++) {
+            const c = pixelClusterMap[i];
+            const p = i * 4;
+            if (c < 0 || c >= finalThematicClasses.length || finalThematicClasses[c].visible === false) {
+              data[p] = data[p + 1] = data[p + 2] = data[p + 3] = 0;
+            } else {
+              const rgb = rgbClasses[c];
+              data[p] = rgb[0];
+              data[p + 1] = rgb[1];
+              data[p + 2] = rgb[2];
+              data[p + 3] = 238;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+
+          const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null);
+          let classifiedTileLayer = null;
+          if (parentTileLayer && parentTileLayer.geo) {
+            classifiedTileLayer = L.geoTIFFTileLayer(parentTileLayer.geo, {
+              tileSize: 256,
+              maxNativeZoom: 24,
+              maxZoom: 28,
+              opacity: 0.9,
+              bounds: parentTileLayer.geo.bounds || layer.bounds,
+              classification: {
+                algorithm: alg,
+                classes: finalThematicClasses
+              },
+              classificationCanvas: canvas
+            });
+          }
+
+          const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
+          const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
+
+          const newLayer = {
+            id: nextLayerId,
+            name: 'Clasificación Supervisada (' + algLabel + ') - ' + cleanBase,
+            type: 'raster',
+            visible: true,
+            opacity: 0.9,
+            bounds: layer.bounds,
+            origin: layer.origin || (parentTileLayer && parentTileLayer.origin) || null,
+            resolution: layer.resolution || (parentTileLayer && parentTileLayer.resolution) || null,
+            epsg: layer.epsg || (parentTileLayer && parentTileLayer.epsg) || null,
+            imageUrl: canvas.toDataURL('image/png'),
+            width: spectralData.nativeWidth || w,
+            height: spectralData.nativeHeight || h,
+            _canvasWidth: w,
+            _canvasHeight: h,
+            bands: 1,
+            renderer: 'classified',
+            isClassified: true,
+            supervised: true,
+            parentLayerId: layer.id,
+            classes: finalThematicClasses,
+            _classifiedCanvas: canvas,
+            _pixelClusterMap: pixelClusterMap,
+            _totalValidPixels: validCount,
+            _rawSpectralBands: spectralData.bands || null,
+            _rawCanvasData: spectralData.data || null,
+            _spectralDataType: spectralData.type || null,
+            _spectralBandCount: spectralData.bandsCount || 0,
+            _highlightMasks: {},
+            _classificationConfig: {
+              algorithm: alg,
+              classes: finalThematicClasses
+            }
+          };
+
+          if (classifiedTileLayer) {
+            newLayer._geotiffTileLayer = classifiedTileLayer;
+            newLayer.mapLayer = classifiedTileLayer;
+          }
+
+          state.layers.unshift(newLayer);
+          state.selectedLayerId = newLayer.id;
+
+          renderLayersOnMap();
+          syncLayerOrder();
+          updateLayersSidebar();
+
+          closeSupervisedClassificationModal();
+          hideProgress();
+          toast('✓ Clasificación Supervisada (' + algLabel + ') completada (' + activeClasses.length + ' clases, ' + validCount.toLocaleString() + ' px)', 'success');
+          zoomToLayer(newLayer.id);
+
+        } catch (err) {
+          console.error('[SupervisedClassification] Error:', err);
+          toast('Error en clasificación: ' + err.message, 'error');
+          hideProgress();
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">play_circle</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">CLASIFICAR SUPERVISADA</span>';
+          }
+        }
+      }, 40);
+    }
+
+    // Atajos de teclado para pan suave con barra espaciadora
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space' && window._supervisedState?.active) {
+        if (!window._supervisedSpaceHeld) {
+          window._supervisedSpaceHeld = true;
+          state.map.dragging.enable();
+          if (state.map._container) state.map._container.style.cursor = 'grab';
+        }
+      }
+      if (e.key === 'Escape' && window._supervisedState?.active) {
+        if (window._supervisedState.polygonDrawingPoints?.length > 0) {
+          clearSupervisedTempPolygon();
+          toast('Polígono cancelado', 'info');
+        }
+      }
+      if (e.key === 'Enter' && window._supervisedState?.active) {
+        if (window._supervisedState.samplingTool === 'polygon') {
+          finishSupervisedPolygon();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.code === 'Space' && window._supervisedState?.active) {
+        window._supervisedSpaceHeld = false;
+        if (window._supervisedState.samplingTool === 'drag' || window._supervisedState.samplingTool === 'polygon') {
+          state.map.dragging.disable();
+        }
+        if (state.map._container) state.map._container.style.cursor = 'crosshair';
+      }
+    });
+
+    // Exponer funciones en window
+    window.openSupervisedClassificationModal = openSupervisedClassificationModal;
+    window.closeSupervisedClassificationModal = closeSupervisedClassificationModal;
+    window.minimizeSupervisedToMap = minimizeSupervisedToMap;
+    window.restoreSupervisedModal = restoreSupervisedModal;
+    window.setSupervisedSamplingTool = setSupervisedSamplingTool;
+    window.setActiveSupervisedClass = setActiveSupervisedClass;
+    window.addSupervisedClass = addSupervisedClass;
+    window.removeSupervisedClass = removeSupervisedClass;
+    window.clearActiveSupervisedSamples = clearActiveSupervisedSamples;
+    window.clearAllSupervisedSamples = clearAllSupervisedSamples;
+    window.clearSupervisedClassSamples = clearSupervisedClassSamples;
+    window.updateSupervisedClassColor = updateSupervisedClassColor;
+    window.updateSupervisedClassName = updateSupervisedClassName;
+    window.setSupervisedAlgorithm = setSupervisedAlgorithm;
+    window.executeSupervisedClassification = executeSupervisedClassification;
+    window.handleSupervisedMapClick = handleSupervisedMapClick;
+    window.handleSupervisedMapDragStart = handleSupervisedMapDragStart;
+    window.handleSupervisedMapDrag = handleSupervisedMapDrag;
+    window.handleSupervisedMapDragEnd = handleSupervisedMapDragEnd;
+    window.updateSupervisedPolygonPreview = updateSupervisedPolygonPreview;
+    window.clearSupervisedTempPolygon = clearSupervisedTempPolygon;
+    window.finishSupervisedPolygon = finishSupervisedPolygon;
+
+
     window.selectAndToggleLayer = selectAndToggleLayer;
     window.bringLayerToFront = bringLayerToFront;
     window.toggleSoloLayer = toggleSoloLayer;
@@ -20271,12 +21737,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </div>
 
           <!-- Botón para Re-analizar / Cambiar número de clases -->
-          <div class="flex justify-end pt-1">
+          <div class="flex justify-end pt-1 gap-1.5">
+            ${layer.supervised ? `
+            <button onclick="event.stopPropagation(); openSupervisedClassificationModal(${layer.parentLayerId || layer.id})"
+              class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+              style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;">
+              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">gesture</span> Re-entrenar / Ajustar
+            </button>
+            ` : `
             <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal(${layer.parentLayerId || layer.id})"
               class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
               style="background-color: #f5f3ff !important; color: #6d28d9 !important; border: 1px solid #ddd6fe !important;">
               <span class="material-symbols-outlined text-[11px]" style="color: #6d28d9 !important;">tune</span> Re-clasificar / Ajustar
             </button>
+            `}
           </div>
         </div>
         ` : (!isVector ? `
@@ -20354,22 +21828,43 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </div>
           </div>
 
-          <!-- Botón de Clasificación Espectral No Supervisada -->
-          <div class="flex items-center justify-between pt-2 border-t border-zinc-200/80">
-            <div class="flex flex-col">
-              <span class="text-[9px] font-black uppercase tracking-wider text-violet-700 flex items-center gap-1">
-                <span class="material-symbols-outlined text-[13px]">auto_awesome</span>
-                Clasificación No Supervisada
-              </span>
-              <span class="text-[7.5px] text-zinc-400">Recomendación IA y partición K-Means</span>
+          <!-- Botones de Clasificación Espectral (Supervisada y No Supervisada) -->
+          <div class="flex flex-col gap-1.5 pt-2 border-t border-zinc-200/80">
+            <!-- 1. Supervisada (Muestreo en Mapa: Punto, Pincel, Polígono) -->
+            <div class="flex items-center justify-between p-1.5 rounded-xl bg-emerald-50/60 border border-emerald-100/80">
+              <div class="flex flex-col">
+                <span class="text-[9px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[13px] text-emerald-600">psychology</span>
+                  Clasificación Supervisada
+                </span>
+                <span class="text-[7.5px] text-emerald-600/90 font-medium">Muestreo en mapa: Punto, Pincel y Polígono</span>
+              </div>
+              <button onclick="event.stopPropagation(); openSupervisedClassificationModal(${layer.id})"
+                class="px-2.5 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                style="background-color: #059669 !important; background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important; color: #ffffff !important; border: none !important;"
+                title="Entrenar clases mediante muestras interactivas sobre el mapa">
+                <span class="material-symbols-outlined text-[13px]" style="color: #ffffff !important;">gesture</span>
+                <span style="color: #ffffff !important; font-weight: 900;">Entrenar</span>
+              </button>
             </div>
-            <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal(${layer.id})"
-              class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
-              style="background-color: #4f46e5 !important; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important; color: #ffffff !important; border: none !important;"
-              title="Clasificar espectralmente las coberturas terrestres">
-              <span class="material-symbols-outlined text-[13px]" style="color: #ffffff !important;">scatter_plot</span>
-              <span style="color: #ffffff !important; font-weight: 900;">Clasificar</span>
-            </button>
+
+            <!-- 2. No Supervisada (K-Means automático) -->
+            <div class="flex items-center justify-between p-1.5 rounded-xl bg-violet-50/50 border border-violet-100/70">
+              <div class="flex flex-col">
+                <span class="text-[9px] font-black uppercase tracking-wider text-violet-800 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[13px] text-violet-600">auto_awesome</span>
+                  Clasificación No Supervisada
+                </span>
+                <span class="text-[7.5px] text-violet-600/90 font-medium">Agrupación K-Means automática por IA</span>
+              </div>
+              <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal(${layer.id})"
+                class="px-2.5 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+                style="background-color: #4f46e5 !important; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important; color: #ffffff !important; border: none !important;"
+                title="Clasificar espectralmente las coberturas terrestres">
+                <span class="material-symbols-outlined text-[13px]" style="color: #ffffff !important;">scatter_plot</span>
+                <span style="color: #ffffff !important; font-weight: 900;">Auto</span>
+              </button>
+            </div>
           </div>
         </div>
         ` : `
@@ -23080,7 +24575,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function initDrawEvents() {
+      state.map.on('mousedown', e => {
+        if (window._supervisedState && window._supervisedState.active && window._supervisedState.samplingTool === 'drag') {
+          if (typeof handleSupervisedMapDragStart === 'function') handleSupervisedMapDragStart(e);
+        }
+      });
+
       state.map.on('click', async e => {
+        if (window._supervisedState && window._supervisedState.active) {
+          if (typeof handleSupervisedMapClick === 'function') handleSupervisedMapClick(e);
+          return;
+        }
         if (_net.picking) {
             handleNetworkMapClick(e.latlng);
             return;
@@ -23126,12 +24631,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
 
       state.map.on('dblclick', e => {
+        if (window._supervisedState && window._supervisedState.active) {
+          if (window._supervisedState.samplingTool === 'polygon') {
+            if (typeof finishSupervisedPolygon === 'function') finishSupervisedPolygon();
+          }
+          return;
+        }
         if (state.drawMode === 'select') return;
         L.DomEvent.stopPropagation(e);
         finishDrawing();
       });
 
       state.map.on('contextmenu', async e => {
+        if (window._supervisedState && window._supervisedState.active) {
+          if (window._supervisedState.samplingTool === 'polygon' && window._supervisedState.polygonDrawingPoints?.length > 0) {
+            if (typeof clearSupervisedTempPolygon === 'function') clearSupervisedTempPolygon();
+            toast('Trazo de polígono cancelado', 'info');
+            return;
+          }
+        }
         if (_net.picking === 'facility') {
             _net.picking = null;
             toast('Seleccion de facilities finalizada. Usa "Encontrar Facility Más Cercana".', 'success');
