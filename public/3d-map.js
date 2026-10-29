@@ -446,27 +446,30 @@ function remove3DLayer(layerId) {
 
 // ════════════════════════════════════════════════════════════════════════════════
 //  3D FLOOD SIMULATION ENGINE (REAL-RIVER HYDROLOGY & MAPLIBRE 3D INTEGRATION)
-//  Basado en ríos reales mundiales · Trazado directo en pantalla · Sin ríos inventados
+//  Basado en ríos reales mundiales · Trazado directo · Caudal Q interactivo (m³/s)
 // ════════════════════════════════════════════════════════════════════════════════
 
 const floodState = {
   active: true,
-  precipitation: 120,
+  discharge: 450,          // Caudal Q en m³/s (default 450)
+  targetDischarge: 450,
+  precipitation: 120,      // Precipitación acumulada en mm
   targetPrecipitation: 120,
   isSimulating: false,
   simAnimId: null,
   flowAnimId: null,
   layersReady: false,
   flowPhase: 0,
-  riverPath: null,        // Coordenadas continuas [[lng, lat], ...] del cauce real
+  riverPath: null,         // Coordenadas continuas [[lng, lat], ...] del cauce principal
   riverName: 'Río Real',
-  userPolygon: null,      // Perímetro poligonal opcional [[lng, lat], ...]
+  secondaryRivers: [],     // Afluentes / ramales en la cuenca visible
+  userPolygon: null,       // Perímetro poligonal opcional [[lng, lat], ...]
   polygonAreaHa: 0
 };
 
 const floodDrawingState = {
   isDrawing: false,
-  mode: 'river',          // 'river' (trazar cauce) o 'polygon' (delimitar área)
+  mode: 'river',           // 'river' (trazar cauce) o 'polygon' (delimitar área)
   points: [],
   tempPoint: null
 };
@@ -503,7 +506,7 @@ function isPointInPolygon(point, vs) {
   return inside;
 }
 
-// Suavizado Catmull-Rom para curvas fluviales continuas sin artefactos ni zig-zag
+// Suavizado Catmull-Rom para curvas fluviales continuas naturales
 function smoothRiverPath(points, subdivs = 3) {
   if (!points || points.length < 2) return points || [];
   const result = [];
@@ -525,8 +528,8 @@ function smoothRiverPath(points, subdivs = 3) {
   return result;
 }
 
-// Construye un polígono de lámina de agua que se expande a ambos lados del cauce real
-function buildFloodplainPolygon(coords, halfWidthDeg, meanderNoise = 0.15) {
+// Construye un polígono de lámina de agua que se expande orgánicamente desde el cauce
+function buildFloodplainPolygon(coords, halfWidthDeg, meanderNoise = 0.12) {
   if (!coords || coords.length < 2) return [];
   const left = [];
   const right = [];
@@ -550,10 +553,95 @@ function buildFloodplainPolygon(coords, halfWidthDeg, meanderNoise = 0.15) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-//  IDENTIFICACIÓN DE RÍOS REALES EN LA VISTA O EN EL POLÍGONO DEL USUARIO
+//  EXTRACCIÓN Y ENLACE DE RÍOS REALES EN LA VISTA (OPENMAPTILES / OPENFREEMAP)
 // ════════════════════════════════════════════════════════════════════════════════
 
-// Consulta las líneas reales de ríos presentes en la red hidrográfica renderizada en MapLibre
+function extractRiverPathsFromFeatures(features, polygonFilter = null) {
+  if (!features || features.length === 0) return [];
+
+  const rawLines = [];
+  for (const feat of features) {
+    if (!feat.geometry) continue;
+    const geom = feat.geometry;
+    const name = feat.properties?.name || feat.properties?.name_en || '';
+    if (geom.type === 'LineString' && geom.coordinates?.length >= 2) {
+      rawLines.push({ name, coords: geom.coordinates });
+    } else if (geom.type === 'MultiLineString' && geom.coordinates) {
+      for (const line of geom.coordinates) {
+        if (line.length >= 2) rawLines.push({ name, coords: line });
+      }
+    }
+  }
+
+  if (rawLines.length === 0) return [];
+
+  let filtered = rawLines;
+  if (polygonFilter && polygonFilter.length >= 3) {
+    const inside = rawLines.filter(item =>
+      item.coords.some(pt => isPointInPolygon(pt, polygonFilter))
+    );
+    if (inside.length > 0) filtered = inside;
+  }
+
+  // Concatenar segmentos contiguos para formar cauces continuos a través del mapa
+  const connected = [];
+  const used = new Set();
+  const dist = (p1, p2) => Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
+
+  for (let i = 0; i < filtered.length; i++) {
+    if (used.has(i)) continue;
+    used.add(i);
+    let chain = filtered[i].coords.slice();
+    let name = filtered[i].name;
+
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      const head = chain[0];
+      const tail = chain[chain.length - 1];
+
+      for (let j = 0; j < filtered.length; j++) {
+        if (used.has(j)) continue;
+        const other = filtered[j].coords;
+        const oHead = other[0];
+        const oTail = other[other.length - 1];
+        const thresh = 0.0035; // ~300m tolerancia de empalme entre tramos OSM
+
+        if (dist(tail, oHead) < thresh) {
+          chain = chain.concat(other.slice(1));
+          used.add(j);
+          if (!name && filtered[j].name) name = filtered[j].name;
+          expanded = true;
+          break;
+        } else if (dist(tail, oTail) < thresh) {
+          chain = chain.concat(other.slice().reverse().slice(1));
+          used.add(j);
+          if (!name && filtered[j].name) name = filtered[j].name;
+          expanded = true;
+          break;
+        } else if (dist(head, oTail) < thresh) {
+          chain = other.slice().concat(chain.slice(1));
+          used.add(j);
+          if (!name && filtered[j].name) name = filtered[j].name;
+          expanded = true;
+          break;
+        } else if (dist(head, oHead) < thresh) {
+          chain = other.slice().reverse().concat(chain.slice(1));
+          used.add(j);
+          if (!name && filtered[j].name) name = filtered[j].name;
+          expanded = true;
+          break;
+        }
+      }
+    }
+    connected.push({ name: name || 'Río Principal', coords: chain });
+  }
+
+  // Ordenar por longitud de tramo descendente
+  connected.sort((a, b) => b.coords.length - a.coords.length);
+  return connected;
+}
+
 function queryRealWaterwaysInView(polygonFilter = null) {
   if (!maplibreMap) return null;
 
@@ -566,44 +654,20 @@ function queryRealWaterwaysInView(polygonFilter = null) {
 
   if (!features || features.length === 0) return null;
 
-  // Filtrar y ordenar ríos por longitud para tomar el cauce principal
-  const candidateLines = [];
-  for (const feat of features) {
-    if (!feat.geometry) continue;
-    const geom = feat.geometry;
-    const name = feat.properties?.name || 'Río Principal';
+  const connected = extractRiverPathsFromFeatures(features, polygonFilter);
+  if (connected.length === 0) return null;
 
-    if (geom.type === 'LineString' && geom.coordinates?.length >= 2) {
-      const coords = geom.coordinates;
-      // Si hay filtro de polígono, verificar que al menos un punto esté dentro
-      if (polygonFilter) {
-        const inside = coords.some(pt => isPointInPolygon(pt, polygonFilter));
-        if (inside) candidateLines.push({ name, coords, len: coords.length });
-      } else {
-        candidateLines.push({ name, coords, len: coords.length });
-      }
-    } else if (geom.type === 'MultiLineString' && geom.coordinates) {
-      for (const line of geom.coordinates) {
-        if (line.length >= 2) {
-          if (polygonFilter) {
-            const inside = line.some(pt => isPointInPolygon(pt, polygonFilter));
-            if (inside) candidateLines.push({ name, coords: line, len: line.length });
-          } else {
-            candidateLines.push({ name, coords: line, len: line.length });
-          }
-        }
-      }
-    }
-  }
+  const mainRiver = connected[0];
+  const secondaries = connected.slice(1, 4).map(c => c.coords);
 
-  if (candidateLines.length === 0) return null;
-
-  // Elegir el río más largo / principal
-  candidateLines.sort((a, b) => b.len - a.len);
-  return candidateLines[0];
+  return {
+    name: mainRiver.name,
+    coords: mainRiver.coords,
+    secondaries
+  };
 }
 
-// Traza un cauce continuo y suave a través del centro de un polígono (sin saltos ni zig-zag)
+// Genera un eje central continuo y sinuoso para la cuenca o vista
 function generateSmoothMidlineAcrossPolygon(polygonRing) {
   if (!polygonRing || polygonRing.length < 3) return null;
 
@@ -618,19 +682,15 @@ function generateSmoothMidlineAcrossPolygon(polygonRing) {
   const dLng = maxLng - minLng;
   const dLat = maxLat - minLat;
 
-  // Generar 7 puntos a lo largo del eje principal que cruzan el polígono de un lado al otro
   const pts = [];
-  const numSteps = 7;
+  const numSteps = 8;
   for (let i = 0; i <= numSteps; i++) {
     const t = i / numSteps;
     let x, y;
     if (dLng >= dLat) {
-      // Flujo Este-Oeste suave
       x = minLng + t * dLng;
-      // Curvatura suave natural (sin zig-zag)
       y = minLat + (0.35 + 0.3 * Math.sin(t * Math.PI)) * dLat;
     } else {
-      // Flujo Norte-Sur suave
       y = minLat + t * dLat;
       x = minLng + (0.35 + 0.3 * Math.sin(t * Math.PI)) * dLng;
     }
@@ -641,74 +701,106 @@ function generateSmoothMidlineAcrossPolygon(polygonRing) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-//  MODELO HIDROLÓGICO: CÁLCULO DE CRECIDA DESDE EL CAUCE REAL
+//  MODELO HIDROLÓGICO: CÁLCULO DE CRECIDA DESDE EL CAUDAL Q (m³/s)
 // ════════════════════════════════════════════════════════════════════════════════
-function computeHydrologicalFlood(riverCoords, precipitationMm) {
-  const p = Math.max(0, precipitationMm);
-  const smoothed = smoothRiverPath(riverCoords, 4);
 
-  // Cota de subida del río (Delta H en metros por encima del lecho base)
-  const deltaH = Math.min(8.5, Math.pow(p / 30, 1.15) * 0.65);
-  // Caudal punta estimado (Q en m3/s)
-  const discharge = Math.round(15 + Math.pow(p / 14, 1.42) * 28);
+function computeHydrologicalFlood(riverPathOrList, dischargeM3s, precipitationMm = null) {
+  const discharge = Math.max(10, dischargeM3s || floodState.discharge || 450);
 
-  const mToDeg = 0.0000095;
-  // Ancho del lecho en estiaje / caudal base
-  const baseW = (24 + Math.min(50, deltaH * 7.5)) * mToDeg;
+  // Derivar lluvia si no se pasa directamente
+  const p = precipitationMm !== null
+    ? Math.max(0, precipitationMm)
+    : Math.round(14 * Math.pow(Math.max(0, discharge - 15) / 28, 1 / 1.42));
 
-  // Umbral de desbordamiento de orilla (1.0m)
-  const overflowH = Math.max(0, deltaH - 1.0);
-  const maxSpreadDeg = baseW + Math.pow(overflowH, 1.34) * 160 * mToDeg;
+  // Cota de ascenso hidráulico (Delta H en metros sobre nivel de estiaje)
+  const deltaH = Number((0.50 * Math.pow(discharge / 60, 0.42)).toFixed(2));
+
+  // Factor de escala metros a grados (~111.132 km/grado a latitud tropical)
+  const mToDeg = 0.0000092;
+
+  // 1. Ancho medio del cauce principal (Deep Tier en metros)
+  // At 60 m³/s -> ~112m; At 450 m³/s -> ~200m; At 1800 m³/s -> ~320m; At 4800 m³/s -> ~453m
+  const baseW = (45 + 15 * Math.pow(discharge, 0.40)) * mToDeg;
+
+  // 2. Llanura de inundación al desbordar orilla (Medium Tier)
+  const medW = baseW * (1 + 0.90 * Math.pow(discharge / 350, 0.52));
+
+  // 3. Anegamiento somero / cuenca marginal (Shallow Tier)
+  const shallowW = baseW * (1 + 1.85 * Math.pow(discharge / 300, 0.62));
 
   // Cálculo de superficie anegada en Hectáreas
   let floodedAreaHa = 0;
   if (floodState.polygonAreaHa > 0) {
-    const fillRatio = p <= 15 ? 0.08 : (p >= 350 ? 0.95 : (0.08 + Math.pow((p - 15) / 335, 1.1) * 0.87));
-    floodedAreaHa = Math.round(floodState.polygonAreaHa * fillRatio);
+    const ratio = Math.min(1.0, 0.08 + 0.88 * Math.pow(discharge / 4500, 0.68));
+    floodedAreaHa = Math.round(floodState.polygonAreaHa * ratio);
   } else {
-    floodedAreaHa = Math.round(18 + Math.pow(p / 16, 1.38) * 32);
+    floodedAreaHa = Math.round(35 + 2.4 * Math.pow(discharge, 0.68));
+  }
+
+  // Normalizar lista de cauces
+  let paths = [];
+  if (Array.isArray(riverPathOrList) && Array.isArray(riverPathOrList[0]) && Array.isArray(riverPathOrList[0][0])) {
+    paths = riverPathOrList;
+  } else if (Array.isArray(riverPathOrList) && riverPathOrList.length >= 2) {
+    paths = [riverPathOrList];
   }
 
   const polygonFeatures = [];
+  const streamFeatures = [];
 
-  // Nivel 1: Cauce Principal / Zonas Profundas (> 2.0m)
-  polygonFeatures.push({
-    type: 'Feature',
-    properties: { tier: 'deep', depthM: (deltaH + 1.2).toFixed(1) },
-    geometry: { type: 'Polygon', coordinates: [buildFloodplainPolygon(smoothed, baseW * 1.15, 0.12)] }
+  paths.forEach((rawCoords, idx) => {
+    if (!rawCoords || rawCoords.length < 2) return;
+    const coords = smoothRiverPath(rawCoords, 3);
+    const scale = idx === 0 ? 1.0 : 0.65; // Afluentes secundarios
+
+    // Nivel 1: Cauce Principal / Zonas Profundas (>2m)
+    const deepRing = buildFloodplainPolygon(coords, baseW * scale, 0.08);
+    if (deepRing.length >= 4) {
+      polygonFeatures.push({
+        type: 'Feature',
+        properties: { tier: 'deep', depthM: (deltaH + 1.2).toFixed(1) },
+        geometry: { type: 'Polygon', coordinates: [deepRing] }
+      });
+    }
+
+    // Nivel 2: Llanura de Inundación / Nivel Medio (0.8m - 2m)
+    if (discharge > 120) {
+      const medRing = buildFloodplainPolygon(coords, medW * scale, 0.16);
+      if (medRing.length >= 4) {
+        polygonFeatures.push({
+          type: 'Feature',
+          properties: { tier: 'medium', depthM: (deltaH * 0.70).toFixed(1) },
+          geometry: { type: 'Polygon', coordinates: [medRing] }
+        });
+      }
+    }
+
+    // Nivel 3: Anegamiento Somero Marginal (<0.8m)
+    if (discharge > 400) {
+      const shallowRing = buildFloodplainPolygon(coords, shallowW * scale, 0.24);
+      if (shallowRing.length >= 4) {
+        polygonFeatures.push({
+          type: 'Feature',
+          properties: { tier: 'shallow', depthM: (deltaH * 0.35).toFixed(1) },
+          geometry: { type: 'Polygon', coordinates: [shallowRing] }
+        });
+      }
+    }
+
+    // Thalweg / línea de flujo animada
+    streamFeatures.push({
+      type: 'Feature',
+      properties: { discharge },
+      geometry: { type: 'LineString', coordinates: coords }
+    });
   });
-
-  // Nivel 2: Llanura de Inundación / Nivel Medio (0.8m - 2.0m)
-  if (p > 35) {
-    const medWidth = baseW + (maxSpreadDeg - baseW) * 0.62;
-    polygonFeatures.push({
-      type: 'Feature',
-      properties: { tier: 'medium', depthM: (deltaH * 0.65).toFixed(1) },
-      geometry: { type: 'Polygon', coordinates: [buildFloodplainPolygon(smoothed, medWidth, 0.22)] }
-    });
-  }
-
-  // Nivel 3: Zonas Anegadas Marginales / Bajo Nivel (< 0.8m)
-  if (p > 85) {
-    polygonFeatures.push({
-      type: 'Feature',
-      properties: { tier: 'shallow', depthM: (deltaH * 0.30).toFixed(1) },
-      geometry: { type: 'Polygon', coordinates: [buildFloodplainPolygon(smoothed, maxSpreadDeg, 0.30)] }
-    });
-  }
-
-  // Línea de Corriente Activa (Thalweg con animación de flujo)
-  const streamFeature = {
-    type: 'Feature',
-    properties: { discharge },
-    geometry: { type: 'LineString', coordinates: smoothed }
-  };
 
   return {
     polygonsGeoJSON: { type: 'FeatureCollection', features: polygonFeatures },
-    streamGeoJSON: { type: 'FeatureCollection', features: [streamFeature] },
-    deltaH: Number(deltaH.toFixed(2)),
-    discharge,
+    streamGeoJSON: { type: 'FeatureCollection', features: streamFeatures },
+    deltaH,
+    discharge: Math.round(discharge),
+    precipitation: Math.round(p),
     floodedAreaHa
   };
 }
@@ -752,7 +844,6 @@ function startRainAnimationLoop() {
 
     const p = floodState.precipitation || 0;
 
-    // Solo animar si la capa 3D está activa y la lluvia acumulada > 4 mm
     if (floodState.active && p > 4) {
       const maxDrops = Math.min(950, Math.round(50 + Math.pow(p / 14, 1.25) * 45));
 
@@ -970,7 +1061,7 @@ function startDrawingFloodRiver() {
   if (icon) icon.textContent = 'route';
 
   if (typeof toast === 'function') {
-    toast('✏️ Haz clic a lo largo del río visible en la imagen para marcar su cauce real.', 'info');
+    toast('✏️ Haz clic a lo largo del río visible en la imagen satelital para trazar su cauce.', 'info');
   }
 }
 
@@ -1018,6 +1109,7 @@ function finishCurrentFloodDrawing() {
     }
 
     floodState.riverPath = smoothRiverPath(pts, 4);
+    floodState.secondaryRivers = [];
     floodState.riverName = 'Cauce trazado en pantalla';
 
     floodDrawingState.isDrawing = false;
@@ -1035,7 +1127,6 @@ function finishCurrentFloodDrawing() {
       badge.className = 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30';
     }
 
-    // Mostrar el cauce trazado
     const src = maplibreMap.getSource('flood-drawing-source');
     if (src) {
       src.setData({
@@ -1050,7 +1141,7 @@ function finishCurrentFloodDrawing() {
 
     updateFloodSimulation();
     if (typeof toast === 'function') {
-      toast(`✓ Cauce real trazado con éxito (${pts.length} puntos). Simulación activa.`, 'success');
+      toast(`✓ Cauce trazado (${pts.length} puntos). Simulación activa.`, 'success');
     }
   } else {
     // Modo Polígono
@@ -1073,16 +1164,16 @@ function finishCurrentFloodDrawing() {
     const hud = document.getElementById('floodDrawingHUD');
     if (hud) hud.style.display = 'none';
 
-    // Si aún no hay río trazado, buscar río real en la hidrografía o generar eje continuo
-    if (!floodState.riverPath) {
-      const realRiver = queryRealWaterwaysInView(closedRing);
-      if (realRiver) {
-        floodState.riverPath = smoothRiverPath(realRiver.coords, 3);
-        floodState.riverName = realRiver.name;
-      } else {
-        floodState.riverPath = generateSmoothMidlineAcrossPolygon(closedRing);
-        floodState.riverName = 'Eje fluvial de la cuenca';
-      }
+    // Buscar río real dentro del área delimitada
+    const realRiver = queryRealWaterwaysInView(closedRing);
+    if (realRiver) {
+      floodState.riverPath = smoothRiverPath(realRiver.coords, 3);
+      floodState.secondaryRivers = realRiver.secondaries || [];
+      floodState.riverName = realRiver.name;
+    } else if (!floodState.riverPath) {
+      floodState.riverPath = generateSmoothMidlineAcrossPolygon(closedRing);
+      floodState.secondaryRivers = [];
+      floodState.riverName = 'Eje fluvial de la cuenca';
     }
 
     const label = document.getElementById('floodZoneLabel');
@@ -1130,12 +1221,13 @@ function cancelCurrentFloodDrawing() {
 }
 
 // 3. Auto-detección de ríos reales en la vista
-function autoDetectRealRiver() {
+function autoDetectRealRiver(verbose = true) {
   if (!maplibreMap) return;
 
   const realRiver = queryRealWaterwaysInView(floodState.userPolygon);
   if (realRiver) {
     floodState.riverPath = smoothRiverPath(realRiver.coords, 3);
+    floodState.secondaryRivers = realRiver.secondaries || [];
     floodState.riverName = realRiver.name;
     const label = document.getElementById('floodZoneLabel');
     if (label) label.textContent = `Río: ${realRiver.name} (Real detectado ✓)`;
@@ -1147,19 +1239,20 @@ function autoDetectRealRiver() {
     }
 
     updateFloodSimulation();
-    if (typeof toast === 'function') toast(`✓ Río real detectado: ${realRiver.name}`, 'success');
+    if (verbose && typeof toast === 'function') toast(`✓ Río real detectado: ${realRiver.name}`, 'success');
   } else {
-    // Si no está en el mapa base, invitar a trazar el río directamente
-    startDrawingFloodRiver();
-    if (typeof toast === 'function') {
-      toast('💡 Haz clic sobre el río visible en la imagen satelital para trazarlo exactamente.', 'info');
+    if (verbose) {
+      startDrawingFloodRiver();
+      if (typeof toast === 'function') {
+        toast('💡 Haz clic sobre el río visible en la imagen satelital para trazarlo exactamente.', 'info');
+      }
     }
   }
 }
 
 function useViewportAsFloodArea() {
   if (!maplibreMap) return;
-  initFloodDrawingLayers();
+  ensureFloodLayersReady();
 
   const bounds = maplibreMap.getBounds();
   const w = Number(bounds.getWest().toFixed(6));
@@ -1171,13 +1264,15 @@ function useViewportAsFloodArea() {
   floodState.userPolygon = viewportRing;
   floodState.polygonAreaHa = computePolygonAreaHa(viewportRing);
 
-  // Buscar río real en la vista
+  // Buscar ríos reales en la vista
   const realRiver = queryRealWaterwaysInView(viewportRing);
   if (realRiver) {
     floodState.riverPath = smoothRiverPath(realRiver.coords, 3);
+    floodState.secondaryRivers = realRiver.secondaries || [];
     floodState.riverName = realRiver.name;
   } else if (!floodState.riverPath) {
     floodState.riverPath = generateSmoothMidlineAcrossPolygon(viewportRing);
+    floodState.secondaryRivers = [];
     floodState.riverName = 'Eje de cuenca visible';
   }
 
@@ -1204,19 +1299,20 @@ function useViewportAsFloodArea() {
   }
 
   updateFloodSimulation();
-  if (typeof toast === 'function') {
-    toast(`✓ Toda la vista fijada (${floodState.polygonAreaHa.toFixed(0)} Ha).`, 'info');
-  }
 }
 
 function clearFloodAll() {
   floodState.userPolygon = null;
   floodState.riverPath = null;
+  floodState.secondaryRivers = [];
   floodState.polygonAreaHa = 0;
-  const src = maplibreMap?.getSource('flood-drawing-source');
-  if (src) src.setData({ type: 'FeatureCollection', features: [] });
+  floodState.riverName = 'Río Real';
+
+  const srcDraw = maplibreMap?.getSource('flood-drawing-source');
+  if (srcDraw) srcDraw.setData({ type: 'FeatureCollection', features: [] });
 
   useViewportAsFloodArea();
+  if (typeof toast === 'function') toast('Área restablecida a la vista completa', 'info');
 }
 
 function setupMaplibreDrawingListeners() {
@@ -1262,39 +1358,33 @@ function setupMaplibreDrawingListeners() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-//  INICIALIZACIÓN Y ACTUALIZACIÓN DE CAPAS DE INUNDACIÓN EN MAPLIBRE 3D
+//  INICIALIZACIÓN Y GESTIÓN DE FUENTES Y CAPAS EN MAPLIBRE 3D
 // ════════════════════════════════════════════════════════════════════════════════
 
-function initFloodSimulation() {
-  if (!maplibreMap) return;
-  console.log('[3D-Flood] Inicializando simulación de inundación 3D con ríos reales...');
-
-  initFloodDrawingLayers();
-  setupMaplibreDrawingListeners();
-
-  if (!floodState.userPolygon || !floodState.riverPath) {
-    useViewportAsFloodArea();
-    return;
+function ensureFloodLayersReady() {
+  if (!maplibreMap) return false;
+  if (!maplibreMap.isStyleLoaded()) {
+    maplibreMap.once('styledata', () => {
+      ensureFloodLayersReady();
+      updateFloodSimulation();
+    });
+    return false;
   }
 
-  const hydro = computeHydrologicalFlood(floodState.riverPath, floodState.precipitation);
+  initFloodDrawingLayers();
 
   if (!maplibreMap.getSource('flood-water-source')) {
     maplibreMap.addSource('flood-water-source', {
       type: 'geojson',
-      data: hydro.polygonsGeoJSON
+      data: { type: 'FeatureCollection', features: [] }
     });
-  } else {
-    maplibreMap.getSource('flood-water-source').setData(hydro.polygonsGeoJSON);
   }
 
   if (!maplibreMap.getSource('flood-stream-source')) {
     maplibreMap.addSource('flood-stream-source', {
       type: 'geojson',
-      data: hydro.streamGeoJSON
+      data: { type: 'FeatureCollection', features: [] }
     });
-  } else {
-    maplibreMap.getSource('flood-stream-source').setData(hydro.streamGeoJSON);
   }
 
   if (!maplibreMap.getLayer('flood-shallow-layer')) {
@@ -1304,7 +1394,7 @@ function initFloodSimulation() {
       source: 'flood-water-source',
       filter: ['==', ['get', 'tier'], 'shallow'],
       paint: {
-        'fill-color': '#7dd3fc',
+        'fill-color': '#38bdf8',
         'fill-opacity': 0.45
       }
     });
@@ -1317,8 +1407,8 @@ function initFloodSimulation() {
       source: 'flood-water-source',
       filter: ['==', ['get', 'tier'], 'medium'],
       paint: {
-        'fill-color': '#0ea5e9',
-        'fill-opacity': 0.65
+        'fill-color': '#0284c7',
+        'fill-opacity': 0.70
       }
     });
   }
@@ -1330,8 +1420,8 @@ function initFloodSimulation() {
       source: 'flood-water-source',
       filter: ['==', ['get', 'tier'], 'deep'],
       paint: {
-        'fill-color': '#0284c7',
-        'fill-opacity': 0.86
+        'fill-color': '#075985',
+        'fill-opacity': 0.90
       }
     });
   }
@@ -1342,9 +1432,9 @@ function initFloodSimulation() {
       type: 'line',
       source: 'flood-water-source',
       paint: {
-        'line-color': '#0369a1',
-        'line-width': 1.6,
-        'line-opacity': 0.60
+        'line-color': '#bae6fd',
+        'line-width': 2.0,
+        'line-opacity': 0.85
       }
     });
   }
@@ -1355,39 +1445,77 @@ function initFloodSimulation() {
       type: 'line',
       source: 'flood-stream-source',
       paint: {
-        'line-color': '#f0f9ff',
-        'line-width': 3.2,
+        'line-color': '#ffffff',
+        'line-width': 3.5,
         'line-dasharray': [2, 3],
-        'line-opacity': 0.90
+        'line-opacity': 0.95
       }
     });
   }
 
   floodState.layersReady = true;
+  return true;
+}
+
+function initFloodSimulation() {
+  if (!maplibreMap) return;
+  console.log('[3D-Flood] Inicializando simulación de inundación 3D...');
+
+  ensureFloodLayersReady();
+  setupMaplibreDrawingListeners();
+  initDraggableFloodMenu();
+
+  if (!floodState.riverPath) {
+    useViewportAsFloodArea();
+  } else {
+    updateFloodSimulation();
+  }
 
   startRiverCurrentAnimation();
   initRainEffect();
-  updateFloodUIDashboard(hydro);
-  initDraggableFloodMenu();
+
+  // Si los azulejos vectoriales terminan de renderizar después, auto-detectar río si usaba provisional
+  maplibreMap.once('idle', () => {
+    if (floodState.riverName === 'Eje de cuenca visible' || !floodState.riverPath) {
+      const detected = queryRealWaterwaysInView(floodState.userPolygon);
+      if (detected) {
+        floodState.riverPath = smoothRiverPath(detected.coords, 3);
+        floodState.secondaryRivers = detected.secondaries || [];
+        floodState.riverName = detected.name;
+        const label = document.getElementById('floodZoneLabel');
+        if (label) label.textContent = `Río: ${detected.name} (Real detectado ✓)`;
+        updateFloodSimulation();
+      }
+    }
+  });
 }
 
 function updateFloodSimulation() {
-  if (!maplibreMap || !floodState.layersReady) return;
+  if (!maplibreMap) return;
+  if (!ensureFloodLayersReady()) return;
 
   if (!floodState.riverPath) {
     const realRiver = queryRealWaterwaysInView(floodState.userPolygon);
     if (realRiver) {
       floodState.riverPath = smoothRiverPath(realRiver.coords, 3);
+      floodState.secondaryRivers = realRiver.secondaries || [];
       floodState.riverName = realRiver.name;
     } else if (floodState.userPolygon) {
       floodState.riverPath = generateSmoothMidlineAcrossPolygon(floodState.userPolygon);
+      floodState.secondaryRivers = [];
+      floodState.riverName = 'Eje de cuenca visible';
     } else {
       useViewportAsFloodArea();
       return;
     }
   }
 
-  const hydro = computeHydrologicalFlood(floodState.riverPath, floodState.precipitation);
+  const riverList = [floodState.riverPath];
+  if (floodState.secondaryRivers && floodState.secondaryRivers.length > 0) {
+    riverList.push(...floodState.secondaryRivers);
+  }
+
+  const hydro = computeHydrologicalFlood(riverList, floodState.discharge, floodState.precipitation);
 
   try {
     const srcWater = maplibreMap.getSource('flood-water-source');
@@ -1431,30 +1559,48 @@ function startRiverCurrentAnimation() {
 // ════════════════════════════════════════════════════════════════════════════════
 
 function updateFloodUIDashboard(hydro) {
-  const p = floodState.precipitation;
+  const q = hydro.discharge || floodState.discharge;
+  const p = hydro.precipitation !== undefined ? hydro.precipitation : floodState.precipitation;
 
+  // Actualizar input numérico de caudal si el usuario no está escribiendo en él
+  const inputQ = document.getElementById('inputRiverDischarge');
+  if (inputQ && document.activeElement !== inputQ) {
+    inputQ.value = Math.round(q);
+  }
+
+  // Actualizar slider de caudal
+  const sliderQ = document.getElementById('sliderFloodDischarge');
+  if (sliderQ && Math.abs(parseFloat(sliderQ.value) - q) > 1) {
+    sliderQ.value = Math.min(8000, Math.round(q));
+  }
+
+  // Actualizar slider y badge de lluvia
   const badgeP = document.getElementById('badgePrecipitation');
   if (badgeP) badgeP.textContent = Math.round(p) + ' mm';
 
-  const slider = document.getElementById('sliderPrecipitation');
-  if (slider && Math.abs(parseFloat(slider.value) - p) > 1) {
-    slider.value = p;
+  const sliderP = document.getElementById('sliderPrecipitation');
+  if (sliderP && Math.abs(parseFloat(sliderP.value) - p) > 1) {
+    sliderP.value = Math.min(450, Math.round(p));
   }
 
+  // Badge de riesgo hidrológico
   const badgeR = document.getElementById('badgeFloodRisk');
   if (badgeR) {
-    if (p < 40) {
-      badgeR.textContent = 'Normal';
-      badgeR.className = 'text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-    } else if (p < 100) {
+    if (q < 180) {
+      badgeR.textContent = 'Estiaje Normal';
+      badgeR.className = 'text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+    } else if (q < 800) {
+      badgeR.textContent = 'Caudal Medio';
+      badgeR.className = 'text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30';
+    } else if (q < 2400) {
       badgeR.textContent = 'Alerta Amarilla';
-      badgeR.className = 'text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
-    } else if (p < 220) {
+      badgeR.className = 'text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+    } else if (q < 6000) {
       badgeR.textContent = 'Alerta Naranja';
-      badgeR.className = 'text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30';
+      badgeR.className = 'text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30';
     } else {
       badgeR.textContent = 'Alerta Roja';
-      badgeR.className = 'text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse';
+      badgeR.className = 'text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse';
     }
   }
 
@@ -1462,16 +1608,35 @@ function updateFloodUIDashboard(hydro) {
   if (metricL) metricL.textContent = '+' + hydro.deltaH.toFixed(1) + ' m';
 
   const metricQ = document.getElementById('metricFloodDischarge');
-  if (metricQ) metricQ.textContent = hydro.discharge + ' m³/s';
+  if (metricQ) metricQ.textContent = Math.round(q) + ' m³/s';
 
   const metricA = document.getElementById('metricFloodArea');
   if (metricA) metricA.textContent = hydro.floodedAreaHa + ' Ha';
+}
+
+function setFloodDischarge(val) {
+  const q = Math.max(10, Math.min(30000, parseFloat(val) || 0));
+  floodState.discharge = q;
+  floodState.targetDischarge = q;
+
+  // Lluvia equivalente asociada
+  const p = Math.round(14 * Math.pow(Math.max(0, q - 15) / 28, 1 / 1.42));
+  floodState.precipitation = Math.max(0, Math.min(500, p));
+  floodState.targetPrecipitation = floodState.precipitation;
+
+  updateFloodSimulation();
 }
 
 function setFloodPrecipitation(val) {
   const p = Math.max(0, Math.min(500, parseFloat(val) || 0));
   floodState.precipitation = p;
   floodState.targetPrecipitation = p;
+
+  // Caudal equivalente asociado
+  const q = Math.round(15 + 28 * Math.pow(p / 14, 1.42));
+  floodState.discharge = q;
+  floodState.targetDischarge = q;
+
   updateFloodSimulation();
 }
 
@@ -1484,9 +1649,9 @@ function togglePlayFloodSimulation() {
     floodState.isSimulating = true;
     updatePlayButtonUI(true);
 
-    const targetP = Math.max(120, floodState.targetPrecipitation || 260);
-    const startP = 15;
-    const duration = 7500;
+    const startQ = 80;
+    const targetQ = Math.max(800, floodState.targetDischarge || 3500);
+    const duration = 8000;
     const startTime = performance.now();
 
     function animateStep(now) {
@@ -1495,9 +1660,12 @@ function togglePlayFloodSimulation() {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
       const ease = progress * progress * (3 - 2 * progress);
-      const currentP = startP + (targetP - startP) * ease;
+      const currentQ = startQ + (targetQ - startQ) * ease;
 
-      floodState.precipitation = currentP;
+      floodState.discharge = currentQ;
+      const p = Math.round(14 * Math.pow(Math.max(0, currentQ - 15) / 28, 1 / 1.42));
+      floodState.precipitation = Math.max(0, Math.min(500, p));
+
       updateFloodSimulation();
 
       if (progress < 1) {
@@ -1506,7 +1674,7 @@ function togglePlayFloodSimulation() {
         floodState.isSimulating = false;
         updatePlayButtonUI(false);
         if (typeof toast === 'function') {
-          toast(`✓ Crecida máxima alcanzada: Río desbordado a ${Math.round(targetP)} mm`, 'warning');
+          toast(`✓ Simulación completada: Crecida máxima de ${Math.round(targetQ)} m³/s alcanzada`, 'warning');
         }
       }
     }
@@ -1536,8 +1704,8 @@ function resetFloodSimulation() {
   if (floodState.simAnimId) cancelAnimationFrame(floodState.simAnimId);
   floodState.isSimulating = false;
   updatePlayButtonUI(false);
-  setFloodPrecipitation(25);
-  if (typeof toast === 'function') toast('Simulación de inundación restablecida a caudal base', 'info');
+  setFloodDischarge(80);
+  if (typeof toast === 'function') toast('Simulación de inundación restablecida a caudal base (80 m³/s)', 'info');
 }
 
 function toggleFloodSimulation() {
@@ -1643,7 +1811,11 @@ function disposeFloodSimulation() {
   toggleFloodMenu(false);
 }
 
-// Exportación global para UI
+// ════════════════════════════════════════════════════════════════════════════════
+//  EXPORTACIONES GLOBALES
+// ════════════════════════════════════════════════════════════════════════════════
+window.setFloodDischarge = setFloodDischarge;
+window.setFloodPrecipitation = setFloodPrecipitation;
 window.startDrawingFloodRiver = startDrawingFloodRiver;
 window.startDrawingFloodPolygon = startDrawingFloodPolygon;
 window.finishCurrentFloodDrawing = finishCurrentFloodDrawing;
@@ -1651,10 +1823,10 @@ window.cancelCurrentFloodDrawing = cancelCurrentFloodDrawing;
 window.autoDetectRealRiver = autoDetectRealRiver;
 window.useViewportAsFloodArea = useViewportAsFloodArea;
 window.clearFloodAll = clearFloodAll;
-window.setFloodPrecipitation = setFloodPrecipitation;
 window.togglePlayFloodSimulation = togglePlayFloodSimulation;
 window.resetFloodSimulation = resetFloodSimulation;
 window.toggleFloodSimulation = toggleFloodSimulation;
 window.toggleFloodMenu = toggleFloodMenu;
 window.initFloodSimulation = initFloodSimulation;
 window.disposeFloodSimulation = disposeFloodSimulation;
+window.ensureFloodLayersReady = ensureFloodLayersReady;
