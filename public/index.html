@@ -9496,10 +9496,11 @@ self.onmessage = async function(e) {
       if (typeof candidate === 'string') {
         if (candidate.startsWith('http://') || candidate.startsWith('https://')) return candidate;
         const fname = candidate.split('/').pop();
-        if (fname.includes('1996')) return `${r2Base}/Mosaico_Cesar_1996_L5TM.tif`;
-        if (fname.includes('2011')) return `${r2Base}/Mosaico_Cesar_2011_L7ETM.tif`;
-        if (fname.includes('2026')) return `${r2Base}/Mosaico_Cesar_2026_L89OLI.tif`;
-        if (fname.includes('LC08') || fname.includes('2025')) return `${r2Base}/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif`;
+        // Coincidencia EXACTA para mosaicos del catálogo oficial (NUNCA por subcadena como '1996' para no secuestrar archivos del usuario)
+        if (fname === 'Mosaico_Cesar_1996_L5TM.tif' || fname === 'Mosaico_Cesar_1996_L5TM.ztif') return `${r2Base}/Mosaico_Cesar_1996_L5TM.tif`;
+        if (fname === 'Mosaico_Cesar_2011_L7ETM.tif' || fname === 'Mosaico_Cesar_2011_L7ETM.ztif') return `${r2Base}/Mosaico_Cesar_2011_L7ETM.tif`;
+        if (fname === 'Mosaico_Cesar_2026_L89OLI.tif' || fname === 'Mosaico_Cesar_2026_L89OLI.ztif') return `${r2Base}/Mosaico_Cesar_2026_L89OLI.tif`;
+        if (fname === 'LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif') return `${r2Base}/LC08_L2SP_008053_20250216_02_T1_Multiespectral.tif`;
         if (isServerless) return `${r2Base}/${encodeURIComponent(fname)}`;
         return `/uploads/${encodeURIComponent(fname)}`;
       }
@@ -11791,10 +11792,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const cleanBase = rawName.replace(/^[a-z0-9]{8}_/i, '');
                 const deDuped = cleanBase.replace(/__\d+_?$/i, '').replace(/_\d+$/i, '');
                 
-                // Prioridad 1: Vistas generales base estándar ultra-brillantes y verificadas
-                if (rawName.includes('1996')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_1996_L5TM_overview.png');
-                if (rawName.includes('2011')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2011_L7ETM_overview.png');
-                if (rawName.includes('2026')) candidateUrls.push(cdnBase + 'Mosaico_Cesar_2026_L89OLI_overview.png');
+                // Solo asociar vista general del mosaico si el nombre es exactamente el del mosaico
+                if (rawName === 'Mosaico_Cesar_1996_L5TM') candidateUrls.push(cdnBase + 'Mosaico_Cesar_1996_L5TM_overview.png');
+                if (rawName === 'Mosaico_Cesar_2011_L7ETM') candidateUrls.push(cdnBase + 'Mosaico_Cesar_2011_L7ETM_overview.png');
+                if (rawName === 'Mosaico_Cesar_2026_L89OLI') candidateUrls.push(cdnBase + 'Mosaico_Cesar_2026_L89OLI_overview.png');
 
                 candidateUrls.push(cdnBase + encodeURIComponent(deDuped) + '_overview.png');
                 candidateUrls.push(cdnBase + encodeURIComponent(cleanBase) + '_overview.png');
@@ -13493,9 +13494,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 cleanBase.replace(/_\d+$/i, ''),
                 cleanBase.replace(/^[a-z0-9]{8}_/i, ''),
                 rawName.replace(/\s*\(\d+\)\s*$/i, ''),
-                rawName.includes('1996') ? 'Mosaico_Cesar_1996_L5TM' : null,
-                rawName.includes('2011') ? 'Mosaico_Cesar_2011_L7ETM' : null,
-                rawName.includes('2026') ? 'Mosaico_Cesar_2026_L89OLI' : null
+                rawName === 'Mosaico_Cesar_1996_L5TM' ? 'Mosaico_Cesar_1996_L5TM' : null,
+                rawName === 'Mosaico_Cesar_2011_L7ETM' ? 'Mosaico_Cesar_2011_L7ETM' : null,
+                rawName === 'Mosaico_Cesar_2026_L89OLI' ? 'Mosaico_Cesar_2026_L89OLI' : null
               ].filter(Boolean);
               
               const uniqueBases = [...new Set(candidateBases)];
@@ -13596,21 +13597,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
 
-        // Limpiar cualquier capa previa temporal si existiera
-        if (layer._geotiffTileLayer) {
-          try { state.map.removeLayer(layer._geotiffTileLayer); } catch (_) {}
-          layer._geotiffTileLayer = null;
-        }
-        if (layer.mapLayer) {
-          try { state.map.removeLayer(layer.mapLayer); } catch (_) {}
-          layer.mapLayer = null;
-        }
-
-        // Inicializar la capa definitiva desde Cloudflare R2 con su overview transparente y teselado dinámico
-        if (typeof showPreviewOverlay === 'function') {
+        // Guardar URL remota para persistencia del proyecto
+        layer.storageUrl = publicUrl;
+        layer.serverFilename = key;
+        layer._tileSavedAs = key;
+        
+        // Si no hay capa visual activa, inicializarla desde R2
+        if (!layer._geotiffTileLayer && !layer.mapLayer && typeof showPreviewOverlay === 'function') {
           console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2...');
           await showPreviewOverlay(layer, key, { maxSize: 0, skipFit: true });
         }
+        
         if (layer.bounds && state.map) {
           state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 14, duration: 1 });
         }
@@ -13783,18 +13780,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 18, animate: true });
       }
 
-      // Si la capa ya proviene de almacenamiento en la nube (restauración/proyecto), inicializar directamente
-      if (layer.storageUrl && typeof showPreviewOverlay === 'function') {
+      // 1. MONTAR INMEDIATAMENTE EL ARCHIVO IMPORTADO POR EL USUARIO (Fidelidad 100% garantizada)
+      if (clientGeo && clientGeo.image && typeof L.geoTIFFTileLayer === 'function') {
+        try {
+          const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
+            tileSize: 256,
+            maxNativeZoom: 24,
+            maxZoom: 28,
+            opacity: layer.opacity ?? 1,
+            bounds: clientBounds || clientGeo.bounds,
+            bands: initialParams.bands,
+            rendererParams: initialParams
+          });
+          clientTileLayer.addTo(state.map);
+          layer._geotiffTileLayer = clientTileLayer;
+          layer.mapLayer = clientTileLayer;
+          layer.clientGeo = clientGeo;
+          console.log('[loadTiff] ✓ Capa raster montada instantáneamente con el archivo del usuario:', file.name);
+        } catch (mountErr) {
+          console.warn('[loadTiff] Error montando capa local inmediata:', mountErr);
+        }
+      } else if (layer.storageUrl && typeof showPreviewOverlay === 'function') {
         await showPreviewOverlay(layer, opts.serverFilename || file.name, { maxSize: 0, skipFit: opts.skipFit });
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`✓ ${file.name} visualizado en alta resolución en el visor`, 'success');
-      } else {
-        // Para archivos locales nuevos: NO montar capa previa con teselas incompletas o tablero de ajedrez.
-        // Se sube la versión completa del archivo a Cloudflare R2 y luego se conecta directamente.
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`Subiendo ${file.name} a Cloudflare R2...`, 'info');
+      }
+
+      hideProgress();
+      updateZtifBadgeUI(layer);
+      toast(`✓ ${file.name} visualizado en alta resolución`, 'success');
+
+      // 2. Subida en segundo plano a Cloudflare R2 para respaldo/persistencia sin interferir en la visualización
+      if (!layer.storageUrl && !opts.isRestored) {
         optimizeAndUploadRasterToCloud(layer, file, clientGeo);
       }
     }
