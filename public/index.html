@@ -2603,60 +2603,48 @@
         </div>
 
         <div id="floodDockBody" class="flex flex-col gap-3">
-          <!-- 1. CAUCE DEL RÍO REAL & ÁREA DE INUNDACIÓN -->
+          <!-- 1. DELIMITACIÓN DEL ÁREA DE INUNDACIÓN -->
           <div class="flex flex-col gap-2 p-2.5 rounded-xl bg-zinc-900/70 border border-cyan-500/30">
             <div class="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-zinc-200">
               <span class="flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-cyan-400 text-[14px]">water</span>
-                <span>Cauce del Río Real</span>
+                <span class="material-symbols-outlined text-cyan-400 text-[14px]">polyline</span>
+                <span>Área de Inundación</span>
               </span>
-              <span id="floodAreaStatusBadge" class="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                Río Real
+              <span id="floodAreaStatusBadge" class="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5">
+                Sin Área
               </span>
             </div>
 
-            <!-- Botones principales: Trazar Río sobre el mapa satelital o Delimitar Área -->
+            <!-- Botón principal destacado: Delimitar Área -->
+            <button type="button" onclick="startDrawingFloodPolygon()" 
+              class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:via-sky-500 hover:to-blue-500 text-white text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-950/40 active:scale-95 transition-all cursor-pointer border border-cyan-400/40"
+              title="Dibujar polígono en el mapa sobre el río para simular la inundación únicamente en esa zona">
+              <span class="material-symbols-outlined text-[16px]">polyline</span>
+              <span>Delimitar Área de Inundación</span>
+            </button>
+
+            <!-- Botones secundarios: Trazar río manual o Borrar área -->
             <div class="grid grid-cols-2 gap-1.5">
               <button type="button" id="btnTraceRiver" onclick="startDrawingFloodRiver()" 
-                class="py-2 px-2 rounded-lg bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-white text-[8.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
-                title="Hacer clics directamente sobre el río visible en la imagen satelital para trazar su cauce real">
-                <span class="material-symbols-outlined text-[14px]">route</span>
-                <span>Trazar Río</span>
+                class="py-1.5 px-2 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 border border-white/10 text-zinc-300 text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                title="Hacer clics sobre el río visible en la imagen satelital para trazar su cauce">
+                <span class="material-symbols-outlined text-[13px] text-cyan-400">route</span>
+                <span>Trazar Río Manual</span>
               </button>
-              <button type="button" onclick="startDrawingFloodPolygon()" 
-                class="py-2 px-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                title="Dibujar polígono para delimitar el área de inundación">
-                <span class="material-symbols-outlined text-[14px] text-cyan-400">polyline</span>
-                <span>Delimitar Área</span>
-              </button>
-            </div>
-
-            <!-- Botones secundarios: Auto-detectar río de red hidrográfica o usar vista completa -->
-            <div class="grid grid-cols-2 gap-1.5">
-              <button type="button" onclick="autoDetectRealRiver()" 
-                class="py-1.5 px-2 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
-                title="Detectar automáticamente ríos de la red hidrográfica global en la vista">
-                <span class="material-symbols-outlined text-[13px]">travel_explore</span>
-                <span>Detectar Río</span>
-              </button>
-              <button type="button" onclick="useViewportAsFloodArea()" 
-                class="py-1.5 px-2 rounded-lg bg-zinc-950/50 hover:bg-zinc-900/60 border border-white/5 text-zinc-300 text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
-                title="Simular en toda la pantalla visible">
-                <span class="material-symbols-outlined text-[13px]">crop_free</span>
-                <span>Toda la Vista</span>
+              <button type="button" onclick="clearFloodAll()" id="btnClearFloodArea"
+                class="py-1.5 px-2 rounded-lg bg-zinc-800/80 hover:bg-rose-950/60 border border-white/10 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                title="Borrar el área y simulación actuales">
+                <span class="material-symbols-outlined text-[13px]">delete</span>
+                <span>Borrar Área</span>
               </button>
             </div>
 
-            <!-- Badge Informativo del Estado del Río -->
+            <!-- Badge Informativo del Estado del Área / Río -->
             <div class="flex items-center justify-between px-2 py-1.5 rounded-lg bg-zinc-950/70 border border-white/5 text-[8.5px]">
               <div class="flex items-center gap-1.5 text-zinc-300 overflow-hidden text-ellipsis whitespace-nowrap">
                 <span class="material-symbols-outlined text-[13px] text-cyan-400 shrink-0">location_on</span>
-                <span id="floodZoneLabel" class="truncate font-medium">Río: Detectado en la vista ✓</span>
+                <span id="floodZoneLabel" class="truncate font-medium">Dibuja un área sobre el río para simular</span>
               </div>
-              <button type="button" onclick="clearFloodAll()" id="btnClearFloodArea" title="Restablecer río y área"
-                class="text-zinc-500 hover:text-rose-400 transition-colors p-0.5 shrink-0 ml-1">
-                <span class="material-symbols-outlined text-[14px]">refresh</span>
-              </button>
             </div>
           </div>
 
@@ -2709,17 +2697,25 @@
               </button>
             </div>
 
-            <!-- Control Sincronizado de Lluvia / Precipitación en Cuenca -->
+            <!-- Control Sincronizado de Lluvia en Cuenca y Toggle de Lluvia Visual -->
             <div class="flex items-center justify-between text-[8px] text-zinc-400 pt-1.5 border-t border-white/5">
               <span class="flex items-center gap-1 font-medium">
                 <span class="material-symbols-outlined text-cyan-400 text-[12px]">rainy</span>
                 <span>Lluvia en cuenca:</span>
               </span>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1">
                 <input type="range" id="sliderPrecipitation" min="0" max="450" step="5" value="120"
                   oninput="setFloodPrecipitation(parseFloat(this.value))"
-                  class="w-20 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
-                <span id="badgePrecipitation" class="font-mono font-bold text-[8.5px] text-cyan-300 w-11 text-right">120 mm</span>
+                  class="w-14 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                <span id="badgePrecipitation" class="font-mono font-bold text-[8.5px] text-cyan-300 w-9 text-right">120 mm</span>
+                
+                <!-- Toggle opcional de lluvia visual (apagado por defecto para máximo rendimiento) -->
+                <button type="button" id="btnToggleRainVisual" onclick="toggleRainVisual()" 
+                  class="ml-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[7px] font-bold text-zinc-400 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                  title="Activar/Desactivar efecto visual de gotas de lluvia (apagado por defecto para rendimiento)">
+                  <span id="dotRainVisual" class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                  <span id="labelRainVisual">Lluvia: OFF</span>
+                </button>
               </div>
             </div>
           </div>
