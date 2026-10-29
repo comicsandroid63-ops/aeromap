@@ -577,16 +577,16 @@ function buildFloodplainPolygon(coords, widthDeg, asymmetry = 0.25) {
 }
 
 // Generador de cauce fluvial adaptativo para la vista visible en pantalla o clic personalizado
-function generateAdaptiveRiverPath(centerLngLat, spanDeg = 0.12) {
+function generateAdaptiveRiverPath(centerLngLat, spanDeg = 0.14) {
   const [cLng, cLat] = centerLngLat;
-  const count = 10;
+  const count = 12;
   const path = [];
   
-  // Flujo general hacia el Sur-Suroeste (pendiente natural regional)
+  // Flujo serpenteante natural atravesando el encuadre
   for (let i = 0; i < count; i++) {
     const t = (i / (count - 1)) - 0.5;
-    const lng = cLng + t * spanDeg * 1.1 + Math.sin(i * 0.9) * (spanDeg * 0.18);
-    const lat = cLat - t * spanDeg * 0.9 + Math.cos(i * 0.8) * (spanDeg * 0.12);
+    const lng = cLng + t * spanDeg * 1.15 + Math.sin(i * 1.05) * (spanDeg * 0.20);
+    const lat = cLat - t * spanDeg * 0.95 + Math.cos(i * 0.85) * (spanDeg * 0.15);
     path.push([Number(lng.toFixed(6)), Number(lat.toFixed(6))]);
   }
   return path;
@@ -661,14 +661,28 @@ function initFloodSimulation() {
   if (!maplibreMap) return;
   console.log('[3D-Flood] Inicializando motor de inundación fluvial...');
 
-  // Obtener trazado del río de la zona activa
-  let riverPath = riverBasins[floodState.zone]?.path;
-  if (!riverPath && floodState.zone === 'custom' && floodState.customRiverPath) {
-    riverPath = floodState.customRiverPath;
-  }
-  if (!riverPath) {
-    const center = maplibreMap.getCenter();
-    riverPath = generateAdaptiveRiverPath([center.lng, center.lat]);
+  const center = maplibreMap.getCenter();
+  const isNearCesar = Math.abs(center.lng - (-73.35)) < 1.0 && Math.abs(center.lat - 10.1) < 1.5;
+
+  let riverPath = null;
+  if (isNearCesar) {
+    if (!floodState.zone || floodState.zone === 'viewport') floodState.zone = 'guatapuri';
+    riverPath = riverBasins[floodState.zone]?.path || riverBasins.guatapuri.path;
+    const sel = document.getElementById('selectFloodZone');
+    if (sel) sel.value = floodState.zone;
+    const lbl = document.getElementById('floodZoneLabel');
+    if (lbl) lbl.textContent = riverBasins[floodState.zone]?.name || 'Río Guatapurí';
+  } else {
+    // Si la cámara no está en Cesar (por ejemplo, el usuario exploró otro río en el mapa)
+    floodState.zone = 'viewport';
+    const bounds = maplibreMap.getBounds();
+    const span = bounds ? Math.max(0.06, Math.abs(bounds.getEast() - bounds.getWest()) * 0.8) : 0.15;
+    riverPath = generateAdaptiveRiverPath([center.lng, center.lat], span);
+    floodState.customRiverPath = riverPath;
+    const sel = document.getElementById('selectFloodZone');
+    if (sel) sel.value = 'viewport';
+    const lbl = document.getElementById('floodZoneLabel');
+    if (lbl) lbl.textContent = 'Río Visible en Pantalla';
   }
 
   const hydro = computeHydrologicalFlood(riverPath, floodState.precipitation);
@@ -774,6 +788,9 @@ function initFloodSimulation() {
 
   // Manejador de clics interactivos si está en modo selección de punto
   setupMaplibreFloodClickHandler();
+
+  // Activar arrastre del menú
+  initDraggableFloodMenu();
 }
 
 // Actualiza la geometría y métricas según la precipitación y cuenca activa
@@ -1018,25 +1035,97 @@ function toggleFloodSimulation() {
   }
 }
 
-// Minimizar o expandir el Dock flotante en 3D
-function toggleMinimizeFloodDock() {
-  const body = document.getElementById('floodDockBody');
-  const icon = document.getElementById('iconMinimizeFlood');
+// Abrir / Cerrar el menú flotante de opciones de simulación de inundación
+function toggleFloodMenu(forceState) {
   const dock = document.getElementById('flood3DDock');
-  if (!body || !icon || !dock) return;
+  const btn = document.getElementById('btnFloodSimTrigger');
+  const icon = document.getElementById('iconFloodMenuChevron');
+  if (!dock) return;
 
-  floodState.isMinimized = !floodState.isMinimized;
-  if (floodState.isMinimized) {
-    body.style.display = 'none';
-    icon.textContent = 'expand_more';
-    dock.classList.add('w-auto');
-    dock.classList.remove('w-80');
+  const isHidden = dock.style.display === 'none' || !dock.style.display;
+  const shouldOpen = typeof forceState === 'boolean' ? forceState : isHidden;
+
+  if (shouldOpen) {
+    dock.style.display = 'flex';
+    if (btn) {
+      btn.classList.add('border-cyan-400', 'bg-zinc-900', 'ring-2', 'ring-cyan-500/40');
+    }
+    if (icon) icon.textContent = 'expand_less';
   } else {
-    body.style.display = 'flex';
-    icon.textContent = 'expand_less';
-    dock.classList.remove('w-auto');
-    dock.classList.add('w-80');
+    dock.style.display = 'none';
+    if (btn) {
+      btn.classList.remove('border-cyan-400', 'bg-zinc-900', 'ring-2', 'ring-cyan-500/40');
+    }
+    if (icon) icon.textContent = 'tune';
   }
+}
+window.toggleFloodMenu = toggleFloodMenu;
+
+// Inundar inmediatamente el río o cuenca visible en la cámara 3D actual
+function floodVisibleRiver() {
+  if (!maplibreMap) return;
+  const center = maplibreMap.getCenter();
+  const bounds = maplibreMap.getBounds();
+  const span = bounds ? Math.max(0.06, Math.abs(bounds.getEast() - bounds.getWest()) * 0.8) : 0.15;
+  floodState.zone = 'viewport';
+  floodState.customRiverPath = generateAdaptiveRiverPath([center.lng, center.lat], span);
+  const sel = document.getElementById('selectFloodZone');
+  if (sel) sel.value = 'viewport';
+  const lbl = document.getElementById('floodZoneLabel');
+  if (lbl) lbl.textContent = 'Río Visible en Pantalla';
+  updateFloodSimulation();
+  if (typeof toast === 'function') toast('🌊 Simulación fluvial generada a lo largo del río visible', 'success');
+}
+window.floodVisibleRiver = floodVisibleRiver;
+
+// Activar modo de selección interactiva para marcar punto en cualquier río
+function startPickRiverPoint() {
+  floodState.pickMode = true;
+  if (maplibreMap) maplibreMap.getCanvas().style.cursor = 'crosshair';
+  const lbl = document.getElementById('floodZoneLabel');
+  if (lbl) lbl.textContent = 'Haz clic en el río...';
+  if (typeof toast === 'function') toast('Haz clic sobre el cauce de cualquier río para simular su desbordamiento', 'info');
+}
+window.startPickRiverPoint = startPickRiverPoint;
+
+// Inicializa el arrastre (drag) libre del menú de opciones
+function initDraggableFloodMenu() {
+  const dock = document.getElementById('flood3DDock');
+  const header = document.getElementById('floodDockHeader');
+  if (!dock || !header || dock._dragInitialized) return;
+  dock._dragInitialized = true;
+
+  let isDragging = false;
+  let startX, startY, origLeft, origTop;
+
+  header.style.cursor = 'grab';
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+    isDragging = true;
+    header.style.cursor = 'grabbing';
+    const rect = dock.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeft = rect.left;
+    origTop = rect.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    dock.style.left = Math.max(10, Math.min(window.innerWidth - dock.offsetWidth - 10, origLeft + dx)) + 'px';
+    dock.style.top = Math.max(70, Math.min(window.innerHeight - dock.offsetHeight - 10, origTop + dy)) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      header.style.cursor = 'grab';
+    }
+  });
 }
 
 // Clic interactivo en mapa 3D para ubicar punto de inundación
@@ -1050,7 +1139,7 @@ function setupMaplibreFloodClickHandler() {
     const coords = [Number(e.lngLat.lng.toFixed(6)), Number(e.lngLat.lat.toFixed(6))];
     console.log('[3D-Flood] Punto seleccionado para inundación:', coords);
 
-    floodState.customRiverPath = generateAdaptiveRiverPath(coords, 0.10);
+    floodState.customRiverPath = generateAdaptiveRiverPath(coords, 0.12);
     floodState.pickMode = false;
     maplibreMap.getCanvas().style.cursor = '';
 
@@ -1069,6 +1158,7 @@ function disposeFloodSimulation() {
   floodState.isSimulating = false;
   floodState.layersReady = false;
   floodState.pickMode = false;
+  toggleFloodMenu(false);
 }
 
 // Exportación para interacción global desde la UI
@@ -1077,6 +1167,5 @@ window.setFloodPrecipitation = setFloodPrecipitation;
 window.onFloodZoneChange = onFloodZoneChange;
 window.togglePlayFloodSimulation = togglePlayFloodSimulation;
 window.resetFloodSimulation = resetFloodSimulation;
-window.toggleMinimizeFloodDock = toggleMinimizeFloodDock;
 window.initFloodSimulation = initFloodSimulation;
 window.disposeFloodSimulation = disposeFloodSimulation;

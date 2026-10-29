@@ -2487,7 +2487,7 @@
     <div id="map3DContainer" style="display:none;position:absolute;inset:0;background:#000;overflow:hidden;">
       <div id="dbg3d" style="display:none;"></div>
       <!-- HUD flotante para control del Terreno 3D -->
-      <div class="absolute bottom-6 left-6 z-20 flex flex-col gap-2.5 p-3.5 bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto">
+      <div class="absolute bottom-6 left-72 z-20 flex flex-col gap-2.5 p-3.5 bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto">
         <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-2">
           <div class="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] text-zinc-200">
             <span class="material-symbols-outlined text-emerald-400 text-[16px]">landscape</span>
@@ -2523,18 +2523,37 @@
         </div>
       </div>
 
-      <!-- DOCK FLOTANTE DE SIMULACIÓN DE INUNDACIÓN 3D -->
-      <div id="flood3DDock" class="absolute top-6 right-6 z-20 w-84 max-w-[calc(100vw-3rem)] flex flex-col gap-3 p-4 bg-zinc-950/90 backdrop-blur-md border border-cyan-500/40 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto transition-all duration-300">
+      <!-- BOTÓN FLOTANTE PARA ABRIR MENÚ DE SIMULACIÓN DE INUNDACIÓN (Solo visible en Modo 3D) -->
+      <button id="btnFloodSimTrigger" onclick="toggleFloodMenu()" style="display:none;"
+        class="absolute top-20 left-72 z-30 px-3.5 py-2.5 rounded-2xl bg-zinc-950/90 hover:bg-zinc-900 border border-cyan-500/50 hover:border-cyan-400 backdrop-blur-md shadow-[0_8px_30px_rgba(6,182,212,0.25)] text-white font-sans flex items-center gap-2.5 transition-all active:scale-95 group cursor-pointer"
+        title="Abrir menú de opciones de simulación de inundación 3D">
+        <div class="w-7 h-7 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shadow-inner group-hover:bg-cyan-500/30 group-hover:scale-105 transition-all">
+          <span class="material-symbols-outlined text-[18px] animate-pulse">water</span>
+        </div>
+        <div class="flex flex-col text-left">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-black uppercase tracking-wide text-zinc-100 group-hover:text-cyan-300 transition-colors">Simulación de Inundación</span>
+            <span class="text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">3D</span>
+          </div>
+          <span class="text-[8px] font-bold text-zinc-400">Modelo Fluvial & Desbordamiento</span>
+        </div>
+        <div class="ml-1 w-5 h-5 rounded-lg bg-white/5 flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors">
+          <span id="iconFloodMenuChevron" class="material-symbols-outlined text-[16px] transition-transform duration-200">tune</span>
+        </div>
+      </button>
+
+      <!-- MENÚ DE OPCIONES DE SIMULACIÓN DE INUNDACIÓN 3D (Se despliega con el botón) -->
+      <div id="flood3DDock" style="display:none;" class="absolute top-[138px] left-72 z-40 w-84 max-w-[calc(100vw-22rem)] flex flex-col gap-3 p-4 bg-zinc-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto transition-all duration-200 animate-fadeIn">
         
         <!-- Header con título, badge y botones de control -->
-        <div class="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+        <div id="floodDockHeader" class="flex items-center justify-between border-b border-cyan-500/20 pb-2.5 select-none cursor-grab active:cursor-grabbing">
           <div class="flex items-center gap-2">
             <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shadow-inner">
               <span class="material-symbols-outlined text-[18px]">water</span>
             </div>
             <div class="flex flex-col">
               <div class="flex items-center gap-1.5">
-                <span class="text-[11px] font-black tracking-wide text-zinc-100 uppercase">Simulación de Inundación</span>
+                <span class="text-[11px] font-black tracking-wide text-zinc-100 uppercase">Opciones de Simulación</span>
                 <span class="text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">3D</span>
               </div>
               <span class="text-[8px] font-bold text-zinc-400">Modelo Fluvial & Desbordamiento</span>
@@ -2544,13 +2563,13 @@
           <div class="flex items-center gap-1">
             <!-- Toggle Activar/Desactivar -->
             <button id="btnToggleFlood" onclick="toggleFloodSimulation()" 
-              class="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
-              title="Activar o pausar capa de agua">
+              class="px-2 py-1 rounded-lg text-[8.5px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
+              title="Activar o pausar visualización del agua">
               <span class="w-2 h-2 rounded-full bg-cyan-200 animate-pulse"></span>
               <span>Activa</span>
             </button>
-            <button onclick="toggleMinimizeFloodDock()" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors">
-              <span id="iconMinimizeFlood" class="material-symbols-outlined text-[16px]">expand_less</span>
+            <button onclick="toggleFloodMenu(false)" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors" title="Cerrar opciones">
+              <span class="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
         </div>
@@ -2563,16 +2582,32 @@
                 <span class="material-symbols-outlined text-cyan-400 text-[13px]">location_on</span>
                 <span>Zona / Cuenca Fluvial</span>
               </span>
-              <span id="floodZoneLabel" class="text-[8px] font-mono text-cyan-400 font-bold">Río Guatapurí</span>
+              <span id="floodZoneLabel" class="text-[8px] font-mono text-cyan-400 font-bold">Río Visible en Pantalla</span>
             </div>
             <select id="selectFloodZone" onchange="onFloodZoneChange(this.value)"
               class="w-full bg-zinc-900 border border-zinc-700/80 rounded-xl p-2 text-[10px] font-bold text-zinc-200 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer">
+              <option value="viewport">🌊 Cuenca / Río Visible en Pantalla (Detectar)</option>
               <option value="guatapuri">🏞️ Valledupar – Río Guatapurí & Balneario Hurtado</option>
               <option value="cesar">🌊 Valle del Cesar – Meandros y Humedales Río Cesar</option>
               <option value="sur">🌾 Sur del Cesar – Depresión Momposina / Ciénagas</option>
-              <option value="viewport">📍 Zona Visible en Pantalla (Cuenca actual)</option>
-              <option value="custom">🎯 Elegir Punto en Mapa 3D (Clic interactivo)</option>
+              <option value="custom">🎯 Marcar Punto en el Río (Clic interactivo)</option>
             </select>
+
+            <!-- Acciones rápidas de ubicación -->
+            <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+              <button type="button" onclick="floodVisibleRiver()" 
+                class="py-1.5 px-2 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                title="Detectar el río en la vista actual e inundarlo">
+                <span class="material-symbols-outlined text-[13px]">fit_screen</span>
+                <span>Inundar Vista Actual</span>
+              </button>
+              <button type="button" onclick="startPickRiverPoint()" 
+                class="py-1.5 px-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                title="Hacer clic en cualquier río del mapa">
+                <span class="material-symbols-outlined text-[13px] text-amber-400">ads_click</span>
+                <span>Clic en el Río</span>
+              </button>
+            </div>
           </div>
 
           <!-- 2. SELECTOR DE PRECIPITACIÓN -->
@@ -10874,6 +10909,14 @@ async function deleteFromCloud(fileName, url, storagePath) {
             const container = document.getElementById('map3DContainer');
             container.style.display = 'block';
 
+            // Show 3D flood simulation trigger button
+            const btnFloodTrigger = document.getElementById('btnFloodSimTrigger');
+            if (btnFloodTrigger) btnFloodTrigger.style.display = 'flex';
+
+            // Hide empty state if present in 3D
+            const es = document.getElementById('emptyState');
+            if (es) es.style.display = 'none';
+
             // Get current Leaflet map center and zoom
             if (!state.map) {
                 console.error('[3D] ❌ state.map is null');
@@ -10924,6 +10967,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
         // Hide 3D container, show Leaflet map
         document.getElementById('map3DContainer').style.display = 'none';
         document.getElementById('map').style.display = 'block';
+
+        // Hide 3D flood simulation trigger button and options menu
+        const btnFloodTrigger = document.getElementById('btnFloodSimTrigger');
+        if (btnFloodTrigger) btnFloodTrigger.style.display = 'none';
+        const floodDock = document.getElementById('flood3DDock');
+        if (floodDock) floodDock.style.display = 'none';
+
+        // Restore empty state if no active layers in 2D
+        const es = document.getElementById('emptyState');
+        if (es && (!state.layers || state.layers.length === 0)) es.style.display = 'flex';
 
         // Close terrain 3D modal if open
         const modal = document.getElementById('terrain3DModal');
