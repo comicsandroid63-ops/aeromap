@@ -2522,6 +2522,150 @@
           <span>Scroll: Zoom</span>
         </div>
       </div>
+
+      <!-- DOCK FLOTANTE DE SIMULACIÓN DE INUNDACIÓN 3D -->
+      <div id="flood3DDock" class="absolute top-6 right-6 z-20 w-84 max-w-[calc(100vw-3rem)] flex flex-col gap-3 p-4 bg-zinc-950/90 backdrop-blur-md border border-cyan-500/40 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto transition-all duration-300">
+        
+        <!-- Header con título, badge y botones de control -->
+        <div class="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shadow-inner">
+              <span class="material-symbols-outlined text-[18px]">water</span>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-black tracking-wide text-zinc-100 uppercase">Simulación de Inundación</span>
+                <span class="text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">3D</span>
+              </div>
+              <span class="text-[8px] font-bold text-zinc-400">Modelo Fluvial & Desbordamiento</span>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-1">
+            <!-- Toggle Activar/Desactivar -->
+            <button id="btnToggleFlood" onclick="toggleFloodSimulation()" 
+              class="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
+              title="Activar o pausar capa de agua">
+              <span class="w-2 h-2 rounded-full bg-cyan-200 animate-pulse"></span>
+              <span>Activa</span>
+            </button>
+            <button onclick="toggleMinimizeFloodDock()" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors">
+              <span id="iconMinimizeFlood" class="material-symbols-outlined text-[16px]">expand_less</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="floodDockBody" class="flex flex-col gap-3">
+          <!-- 1. SELECTOR DE ZONA / CUENCA FLUVIAL -->
+          <div class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-zinc-300">
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-cyan-400 text-[13px]">location_on</span>
+                <span>Zona / Cuenca Fluvial</span>
+              </span>
+              <span id="floodZoneLabel" class="text-[8px] font-mono text-cyan-400 font-bold">Río Guatapurí</span>
+            </div>
+            <select id="selectFloodZone" onchange="onFloodZoneChange(this.value)"
+              class="w-full bg-zinc-900 border border-zinc-700/80 rounded-xl p-2 text-[10px] font-bold text-zinc-200 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer">
+              <option value="guatapuri">🏞️ Valledupar – Río Guatapurí & Balneario Hurtado</option>
+              <option value="cesar">🌊 Valle del Cesar – Meandros y Humedales Río Cesar</option>
+              <option value="sur">🌾 Sur del Cesar – Depresión Momposina / Ciénagas</option>
+              <option value="viewport">📍 Zona Visible en Pantalla (Cuenca actual)</option>
+              <option value="custom">🎯 Elegir Punto en Mapa 3D (Clic interactivo)</option>
+            </select>
+          </div>
+
+          <!-- 2. SELECTOR DE PRECIPITACIÓN -->
+          <div class="flex flex-col gap-2 p-2.5 rounded-xl bg-zinc-900/60 border border-white/5">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1">
+                <span class="material-symbols-outlined text-cyan-400 text-[13px]">rainy</span>
+                <span>Precipitación Acumulada</span>
+              </span>
+              <div class="flex items-center gap-1.5">
+                <span id="badgePrecipitation" class="text-[11px] font-black font-mono px-2 py-0.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">120 mm</span>
+                <span id="badgeFloodRisk" class="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30">Alerta Naranja</span>
+              </div>
+            </div>
+
+            <!-- Slider de precipitación -->
+            <div class="flex flex-col gap-1">
+              <input type="range" id="sliderPrecipitation" min="0" max="500" step="5" value="120"
+                oninput="setFloodPrecipitation(parseFloat(this.value))"
+                class="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+              <div class="flex justify-between text-[7.5px] font-bold text-zinc-500 uppercase px-0.5">
+                <span>0 mm (Normal)</span>
+                <span>120 mm (Fuerte)</span>
+                <span>250 mm (Torrencial)</span>
+                <span>500 mm (Catastrófico)</span>
+              </div>
+            </div>
+
+            <!-- Presets de lluvia -->
+            <div class="grid grid-cols-4 gap-1 pt-1">
+              <button type="button" onclick="setFloodPrecipitation(25)" class="py-1 px-1 bg-white/5 hover:bg-white/10 rounded-lg text-[8px] font-bold text-zinc-300 text-center transition-colors">
+                🌤️ 25mm
+              </button>
+              <button type="button" onclick="setFloodPrecipitation(80)" class="py-1 px-1 bg-white/5 hover:bg-white/10 rounded-lg text-[8px] font-bold text-yellow-300 text-center transition-colors">
+                🌧️ 80mm
+              </button>
+              <button type="button" onclick="setFloodPrecipitation(180)" class="py-1 px-1 bg-white/5 hover:bg-white/10 rounded-lg text-[8px] font-bold text-orange-300 text-center transition-colors">
+                ⛈️ 180mm
+              </button>
+              <button type="button" onclick="setFloodPrecipitation(360)" class="py-1 px-1 bg-white/5 hover:bg-white/10 rounded-lg text-[8px] font-bold text-rose-300 text-center transition-colors">
+                🌪️ 360mm
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. ANIMACIÓN DE CRECIDA FLUVIAL -->
+          <div class="flex items-center gap-2">
+            <button id="btnPlayFloodSim" onclick="togglePlayFloodSimulation()" 
+              class="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all">
+              <span id="iconPlayFlood" class="material-symbols-outlined text-[15px]">play_arrow</span>
+              <span id="labelPlayFlood">Simular Crecida</span>
+            </button>
+            <button type="button" onclick="resetFloodSimulation()" 
+              class="py-1.5 px-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all"
+              title="Reiniciar a caudal base">
+              <span class="material-symbols-outlined text-[14px]">restart_alt</span>
+            </button>
+          </div>
+
+          <!-- 4. DASHBOARD HIDROLÓGICO EN VIVO -->
+          <div class="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-zinc-900/40 border border-white/5 text-center">
+            <div class="flex flex-col">
+              <span class="text-[7.5px] uppercase font-bold text-zinc-400">Nivel Río</span>
+              <span id="metricFloodLevel" class="text-[11px] font-black font-mono text-cyan-300">+2.1 m</span>
+            </div>
+            <div class="flex flex-col border-x border-white/10">
+              <span class="text-[7.5px] uppercase font-bold text-zinc-400">Caudal Q</span>
+              <span id="metricFloodDischarge" class="text-[11px] font-black font-mono text-cyan-300">420 m³/s</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[7.5px] uppercase font-bold text-zinc-400">Área Anegada</span>
+              <span id="metricFloodArea" class="text-[11px] font-black font-mono text-cyan-300">185 Ha</span>
+            </div>
+          </div>
+
+          <!-- 5. LEYENDA HIDROLÓGICA (ZONAS DE INUNDACIÓN) -->
+          <div class="flex items-center justify-between text-[7.5px] font-bold text-zinc-400 pt-0.5">
+            <div class="flex items-center gap-1">
+              <span class="w-2.5 h-2 rounded bg-cyan-700"></span>
+              <span>Cauce (>2m)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-2.5 h-2 rounded bg-sky-500"></span>
+              <span>Medio (0.8-2m)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-2.5 h-2 rounded bg-sky-300"></span>
+              <span>Bajo (<0.8m)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="empty-state absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-4"
       id="emptyState">
