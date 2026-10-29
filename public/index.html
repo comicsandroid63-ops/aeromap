@@ -11210,8 +11210,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             if (samples.length < 5) {
               return {
                 p2: isByte ? 0 : 0.01,
-                p98: isByte ? 255 : 0.38,
-                rng: isByte ? 255 : 0.37,
+                p98: isByte ? 255 : 0.18,
+                rng: isByte ? 255 : 0.17,
                 maxV: isByte ? 255 : 1,
                 shouldStretch: true
               };
@@ -11221,14 +11221,8 @@ async function deleteFromCloud(fileName, url, storagePath) {
             let p98 = samples[Math.floor(samples.length * 0.985)];
 
             if (!isByte) {
-              // Float32 surface reflectance (0.0 a 1.0 o ~2.0)
-              // Calibración anti-brillo: asegurar que el límite superior no colapse por debajo de 0.36
-              // para proteger suelos claros, edificaciones y laderas soleadas de quedar quemados/blancos
-              if (maxV <= 2.5 && maxV > 0) {
-                p98 = Math.max(p98, 0.36);
-                p2 = Math.min(p2, 0.025);
-              } else if (maxV > 2.5 && maxV <= 10000) {
-                p98 = Math.max(p98, 3600);
+              // Float32 surface reflectance o enteros escalados: asegurar que el span mínimo proteja contra divisiones espurias
+              if (maxV > 2.5 && maxV <= 10000) {
                 p2 = Math.min(p2, 250);
               }
             } else {
@@ -11238,7 +11232,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             }
             const span = p98 - p2;
-            const minRng = isByte ? 1 : 0.05;
+            const minRng = isByte ? 1 : 0.02;
             const rng = Math.max(minRng, span);
             return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, maxV, shouldStretch: true };
           }
@@ -11357,15 +11351,16 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             } else {
               // Float32 / 16-bit
-              // Calibración Gamma: 1.05 mantiene sombras y tonos medios con saturación natural rica (elimina el deslumbramiento artificial de gamma 0.72)
-              const gamma = 1.05;
+              // Calibración Gamma: 0.88 equilibra a la perfección el brillo y contraste:
+              // ilumina sombras y vegetación densa sin sobreexponer ni quemar suelos ni claros
+              const gamma = 0.88;
               function tonemapFloat(val, p2, rng) {
                 let n = (val - p2) / rng;
                 if (n <= 0) return 0;
                 // Hombro suave (knee) para altas luces: comprime progresivamente el brillo extremo evitando saturación plana a blanco
-                if (n > 0.78) {
-                  const excess = n - 0.78;
-                  n = 0.78 + (0.22 * excess) / (excess + 0.32);
+                if (n > 0.80) {
+                  const excess = n - 0.80;
+                  n = 0.80 + (0.20 * excess) / (excess + 0.25);
                 }
                 return Math.max(0, Math.min(1, n));
               }
@@ -11594,14 +11589,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               this.options.bands[1] === 1 &&
               this.options.bands[2] === 2
             );
-            if (isCesarMosaic && (sampleFormat === 3 || bits === 32) && isDefaultBands) {
-              this._globalStats = {
-                isRgb: isRgbRender,
-                r: { p2: 0.010, p98: 0.380, rng: 0.370, maxV: 1.0, shouldStretch: true },
-                g: { p2: 0.012, p98: 0.340, rng: 0.328, maxV: 1.0, shouldStretch: true },
-                b: { p2: 0.010, p98: 0.300, rng: 0.290, maxV: 1.0, shouldStretch: true }
-              };
-              return this._globalStats;
+            const isNaturalRgbBands = this.options.bands && (
+              this.options.bands.length === 3 &&
+              this.options.bands[0] === 2 &&
+              this.options.bands[1] === 1 &&
+              this.options.bands[2] === 0
+            );
+            if (isCesarMosaic && (sampleFormat === 3 || bits === 32)) {
+              if (isDefaultBands) {
+                // Bandas nativas [0, 1, 2] = [B1, B2, B3]
+                this._globalStats = {
+                  isRgb: isRgbRender,
+                  r: { p2: 0.014, p98: 0.115, rng: 0.101, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.019, p98: 0.110, rng: 0.091, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.012, p98: 0.080, rng: 0.068, maxV: 1.0, shouldStretch: true }
+                };
+                return this._globalStats;
+              } else if (isNaturalRgbBands) {
+                // Color natural [2, 1, 0] = [B3, B2, B1]
+                this._globalStats = {
+                  isRgb: isRgbRender,
+                  r: { p2: 0.012, p98: 0.080, rng: 0.068, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.019, p98: 0.110, rng: 0.091, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.014, p98: 0.115, rng: 0.101, maxV: 1.0, shouldStretch: true }
+                };
+                return this._globalStats;
+              }
             }
 
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
@@ -11681,8 +11694,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               if (vals.length < 5) {
                 return {
                   p2: isByteType ? 0 : 0.01,
-                  p98: isByteType ? 255 : 0.38,
-                  rng: isByteType ? 255 : 0.37,
+                  p98: isByteType ? 255 : 0.18,
+                  rng: isByteType ? 255 : 0.17,
                   shouldStretch: true,
                   maxV: isByteType ? 255 : 1,
                   minV: 0
@@ -11693,12 +11706,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               let p98 = vals[Math.floor(vals.length * 0.985)];
 
               if (!isByteType) {
-                // Calibración anti-deslumbramiento para datos reflectancia / satelitales
-                if (maxV <= 2.5 && maxV > 0) {
-                  p98 = Math.max(p98, 0.36);
-                  p2 = Math.min(p2, 0.025);
-                } else if (maxV > 2.5 && maxV <= 10000) {
-                  p98 = Math.max(p98, 3600);
+                if (maxV > 2.5 && maxV <= 10000) {
                   p2 = Math.min(p2, 250);
                 }
               } else {
@@ -11707,7 +11715,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
               }
               const span = p98 - p2;
-              const minRng = isByteType ? 1 : 0.05;
+              const minRng = isByteType ? 1 : 0.02;
               const rng = Math.max(minRng, span);
               return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, shouldStretch: true, maxV, minV };
             }
@@ -22103,19 +22111,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const data = imgData.data;
       const n = w * h;
       const getStats = b => {
-        let min = Infinity, max = -Infinity;
+        const samples = [];
         const s = Math.max(1, Math.floor(n / 2000));
-        for (let i = 0; i < n; i += s) { if (b[i] < min) min = b[i]; if (b[i] > max) max = b[i]; }
-        if (max <= 2.5 && max > 0) {
-          max = Math.max(max, 0.36);
-          min = Math.min(min, 0.02);
+        for (let i = 0; i < n; i += s) {
+          const v = b[i];
+          if (!isNaN(v) && isFinite(v) && v > -9990 && v < 1e30 && v !== 0) samples.push(v);
         }
-        return { min, max, r: max - min || 1 };
+        if (samples.length < 5) return { min: 0, max: 1, r: 1 };
+        samples.sort((a, b) => a - b);
+        let min = samples[Math.floor(samples.length * 0.015)];
+        let max = samples[Math.floor(samples.length * 0.985)];
+        const r = Math.max(max <= 2.5 ? 0.02 : 1, max - min);
+        return { min, max, r };
       };
       const bV = params.brightness || 0;
       const cF = (259 * ((params.contrast || 0) + 255)) / (255 * (259 - (params.contrast || 0)));
       const proc = (v, s) => {
-        let m = ((v - s.min) / s.r) * 255;
+        let norm = Math.max(0, (v - s.min) / s.r);
+        if (s.max <= 2.5 && norm > 0.80) {
+          const excess = norm - 0.80;
+          norm = 0.80 + (0.20 * excess) / (excess + 0.25);
+        }
+        norm = Math.max(0, Math.min(1, norm));
+        let m = (s.max <= 2.5 ? Math.pow(norm, 0.88) : norm) * 255;
         m = cF * (m - 128) + 128 + bV;
         return Math.max(0, Math.min(255, m));
       };
