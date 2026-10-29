@@ -11221,8 +11221,13 @@ async function deleteFromCloud(fileName, url, storagePath) {
             let p98 = samples[Math.floor(samples.length * 0.985)];
 
             if (!isByte) {
-              // Float32 surface reflectance o enteros escalados: asegurar que el span mínimo proteja contra divisiones espurias
-              if (maxV > 2.5 && maxV <= 10000) {
+              // En reflectancia satelital Float32, asegurar que el techo dinámico (p98) no colapse
+              // por debajo de 0.18 en escenas con mucha selva/montaña, para que las ciudades (ej. Valledupar),
+              // pistas y suelos claros mantengan textura visible y jamás se quemen a blanco deslumbrante
+              if (maxV <= 2.5 && maxV > 0) {
+                p98 = Math.max(p98, 0.185);
+              } else if (maxV > 2.5 && maxV <= 10000) {
+                p98 = Math.max(p98, 1850);
                 p2 = Math.min(p2, 250);
               }
             } else {
@@ -11232,7 +11237,7 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             }
             const span = p98 - p2;
-            const minRng = isByte ? 1 : 0.02;
+            const minRng = isByte ? 1 : 0.12;
             const rng = Math.max(minRng, span);
             return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, maxV, shouldStretch: true };
           }
@@ -11351,16 +11356,17 @@ async function deleteFromCloud(fileName, url, storagePath) {
               }
             } else {
               // Float32 / 16-bit
-              // Calibración Gamma: 0.88 equilibra a la perfección el brillo y contraste:
-              // ilumina sombras y vegetación densa sin sobreexponer ni quemar suelos ni claros
-              const gamma = 0.88;
+              // Calibración fotométrica natural fiel al mapa base (Google Satellite):
+              // gamma 0.86 equilibra vegetación esmeralda viva con suelos y relieve nítidos
+              const gamma = 0.86;
               function tonemapFloat(val, p2, rng) {
                 let n = (val - p2) / rng;
                 if (n <= 0) return 0;
-                // Hombro suave (knee) para altas luces: comprime progresivamente el brillo extremo evitando saturación plana a blanco
-                if (n > 0.80) {
-                  const excess = n - 0.80;
-                  n = 0.80 + (0.20 * excess) / (excess + 0.25);
+                // Hombro suave (knee) a partir de 0.72: comprime asintóticamente las altas luces
+                // preservando las manzanas urbanas, carreteras y suelos claros sin cegar ni sobreiluminar
+                if (n > 0.72) {
+                  const excess = n - 0.72;
+                  n = 0.72 + (0.28 * excess) / (excess + 0.35);
                 }
                 return Math.max(0, Math.min(1, n));
               }
@@ -11581,37 +11587,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const sampleFormat = baseImg.fileDirectory?.SampleFormat?.[0] || 1;
 
             // Fast-path instantáneo (0ms) calibrado para mosaicos Landsat y Cesar (evita sobreexposición)
-            const fileUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl || '';
+            const fileUrl = this.options.overviewUrl || this.options.fileUrl || this.geo?.fileUrl || this.geo?.storageUrl || this.options.serverFilename || this.geo?.name || '';
             const isCesarMosaic = typeof fileUrl === 'string' && (fileUrl.includes('Mosaico_Cesar') || fileUrl.includes('Landsat_Cesar') || fileUrl.includes('cesar'));
-            const isDefaultBands = !this.options.bands || (
-              this.options.bands.length === 3 &&
-              this.options.bands[0] === 0 &&
-              this.options.bands[1] === 1 &&
-              this.options.bands[2] === 2
-            );
             const isNaturalRgbBands = this.options.bands && (
               this.options.bands.length === 3 &&
               this.options.bands[0] === 2 &&
               this.options.bands[1] === 1 &&
               this.options.bands[2] === 0
             );
+            const isDefaultBands = !this.options.bands || (
+              this.options.bands.length === 3 &&
+              this.options.bands[0] === 0 &&
+              this.options.bands[1] === 1 &&
+              this.options.bands[2] === 2
+            );
             if (isCesarMosaic && (sampleFormat === 3 || bits === 32)) {
-              if (isDefaultBands) {
-                // Bandas nativas [0, 1, 2] = [B1, B2, B3]
+              if (isNaturalRgbBands) {
+                // Color natural [2, 1, 0] = [B3 (Rojo), B2 (Verde), B1 (Azul)]
+                // Calibración exacta idéntica al mapa base Google Satellite (bosques esmeralda, suelos cálidos, ciudad texturada)
                 this._globalStats = {
                   isRgb: isRgbRender,
-                  r: { p2: 0.014, p98: 0.115, rng: 0.101, maxV: 1.0, shouldStretch: true },
-                  g: { p2: 0.019, p98: 0.110, rng: 0.091, maxV: 1.0, shouldStretch: true },
-                  b: { p2: 0.012, p98: 0.080, rng: 0.068, maxV: 1.0, shouldStretch: true }
+                  r: { p2: 0.005, p98: 0.185, rng: 0.180, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.016, p98: 0.190, rng: 0.174, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.016, p98: 0.205, rng: 0.189, maxV: 1.0, shouldStretch: true }
                 };
                 return this._globalStats;
-              } else if (isNaturalRgbBands) {
-                // Color natural [2, 1, 0] = [B3, B2, B1]
+              } else if (isDefaultBands) {
+                // Bandas directas [0, 1, 2] = [B1, B2, B3]
                 this._globalStats = {
                   isRgb: isRgbRender,
-                  r: { p2: 0.012, p98: 0.080, rng: 0.068, maxV: 1.0, shouldStretch: true },
-                  g: { p2: 0.019, p98: 0.110, rng: 0.091, maxV: 1.0, shouldStretch: true },
-                  b: { p2: 0.014, p98: 0.115, rng: 0.101, maxV: 1.0, shouldStretch: true }
+                  r: { p2: 0.016, p98: 0.205, rng: 0.189, maxV: 1.0, shouldStretch: true },
+                  g: { p2: 0.016, p98: 0.190, rng: 0.174, maxV: 1.0, shouldStretch: true },
+                  b: { p2: 0.005, p98: 0.185, rng: 0.180, maxV: 1.0, shouldStretch: true }
                 };
                 return this._globalStats;
               }
@@ -11706,7 +11713,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               let p98 = vals[Math.floor(vals.length * 0.985)];
 
               if (!isByteType) {
-                if (maxV > 2.5 && maxV <= 10000) {
+                if (maxV <= 2.5 && maxV > 0) {
+                  p98 = Math.max(p98, 0.185);
+                } else if (maxV > 2.5 && maxV <= 10000) {
+                  p98 = Math.max(p98, 1850);
                   p2 = Math.min(p2, 250);
                 }
               } else {
@@ -11715,7 +11725,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
               }
               const span = p98 - p2;
-              const minRng = isByteType ? 1 : 0.02;
+              const minRng = isByteType ? 1 : 0.12;
               const rng = Math.max(minRng, span);
               return { p2, p98: p98 > p2 ? p98 : p2 + minRng, rng, shouldStretch: true, maxV, minV };
             }
@@ -13740,8 +13750,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // 2. IMMEDIATE LAYER CREATION: Never block with modals for standard RGB / Monoband TIFFs
       const numBands = clientBands || 3;
       const initialRenderer = opts.renderer || (numBands === 3 || numBands === 4 ? 'rgb' : numBands > 4 ? 'multiband' : 'single_gray');
+      let defaultBands = [0, 1, 2];
+      if (numBands >= 7) {
+        defaultBands = [3, 2, 1]; // Landsat 8 OLI: Color Real Natural (4-3-2)
+      } else if (numBands >= 4) {
+        defaultBands = [2, 1, 0]; // Landsat 4/5/7: Color Real Natural (3-2-1)
+      }
       const initialParams = opts.rendererParams || {
-        bands: numBands >= 3 ? [0, 1, 2] : [0],
+        bands: defaultBands,
         colormap: null,
         invert: false,
         classes: 5,
