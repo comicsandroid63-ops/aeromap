@@ -2485,6 +2485,7 @@
   <main class="fixed inset-0 z-0 bg-surface-container">
     <div id="map"></div>
     <div id="map3DContainer" style="display:none;position:absolute;inset:0;background:#000;overflow:hidden;">
+      <canvas id="floodRainCanvas" class="pointer-events-none absolute inset-0 z-10 w-full h-full"></canvas>
       <div id="dbg3d" style="display:none;"></div>
       <!-- HUD flotante para control del Terreno 3D -->
       <div class="absolute bottom-6 left-72 z-20 flex flex-col gap-2.5 p-3.5 bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white font-sans pointer-events-auto">
@@ -2586,24 +2587,28 @@
             </div>
             <select id="selectFloodZone" onchange="onFloodZoneChange(this.value)"
               class="w-full bg-zinc-900 border border-zinc-700/80 rounded-xl p-2 text-[10px] font-bold text-zinc-200 outline-none focus:ring-1 focus:ring-cyan-500 transition-all cursor-pointer">
-              <option value="viewport">🌊 Cuenca / Río Visible en Pantalla (Detectar)</option>
-              <option value="guatapuri">🏞️ Valledupar – Río Guatapurí & Balneario Hurtado</option>
-              <option value="cesar">🌊 Valle del Cesar – Meandros y Humedales Río Cesar</option>
-              <option value="sur">🌾 Sur del Cesar – Depresión Momposina / Ciénagas</option>
-              <option value="custom">🎯 Marcar Punto en el Río (Clic interactivo)</option>
+              <option value="guatapuri">🏞️ Río Guatapurí – Valledupar & Hurtado</option>
+              <option value="cesar">🌊 Río Cesar – Meandros y Humedales Centrales</option>
+              <option value="zapatosa">🌾 Ciénaga de Zapatosa & Depresión Momposina</option>
+              <option value="magdalena">🚢 Río Magdalena – Gamarra & Aguachica</option>
+              <option value="badillo">💎 Río Badillo – Norte de Valledupar & Patillal</option>
+              <option value="ariguani">🌿 Río Ariguaní – Bosconia & El Copey</option>
+              <option value="lebrija">🌲 Río Lebrija – Sur del Cesar / San Alberto</option>
+              <option value="viewport">📍 Buscar Río Real en Pantalla (Enfoque actual)</option>
+              <option value="custom">🎯 Clic en el Río (Identificar cauce real)</option>
             </select>
 
             <!-- Acciones rápidas de ubicación -->
             <div class="grid grid-cols-2 gap-1.5 pt-0.5">
               <button type="button" onclick="floodVisibleRiver()" 
                 class="py-1.5 px-2 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-300 text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                title="Detectar el río en la vista actual e inundarlo">
-                <span class="material-symbols-outlined text-[13px]">fit_screen</span>
-                <span>Inundar Vista Actual</span>
+                title="Identificar río real en la vista actual e inundarlo">
+                <span class="material-symbols-outlined text-[13px]">travel_explore</span>
+                <span>Buscar Río Real Aquí</span>
               </button>
               <button type="button" onclick="startPickRiverPoint()" 
                 class="py-1.5 px-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 text-[8.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                title="Hacer clic en cualquier río del mapa">
+                title="Hacer clic directamente sobre cualquier río">
                 <span class="material-symbols-outlined text-[13px] text-amber-400">ads_click</span>
                 <span>Clic en el Río</span>
               </button>
