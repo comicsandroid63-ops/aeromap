@@ -6160,6 +6160,13 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Botón Ocultar / Mostrar Capa de Clasificación -->
+          <button type="button" onclick="toggleSupervisedLayerVisibility()" id="supModalToggleVisibilityBtn"
+            class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-emerald-300 bg-emerald-50 text-emerald-800"
+            title="Ocultar o mostrar la capa de clasificación para ver la imagen satelital original debajo">
+            <span class="material-symbols-outlined text-[15px]" id="supModalToggleVisibilityIcon">visibility</span>
+            <span id="supModalToggleVisibilityText">Ocultar Capa</span>
+          </button>
           <button type="button" onclick="minimizeSupervisedToMap()" class="px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:opacity-95"
             style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;" title="Minimizar panel a la barra flotante del mapa para muestrear libremente">
             <span class="material-symbols-outlined text-[15px]">open_in_full</span>
@@ -6174,6 +6181,30 @@
       <!-- Cuerpo del Modal (Scrollable) -->
       <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-5 text-zinc-800">
         
+        <!-- Control de Visibilidad y Comparación con Imagen Original -->
+        <div class="p-3.5 rounded-2xl border border-zinc-200 bg-white shadow-2xs flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <button type="button" onclick="toggleSupervisedLayerVisibility()"
+              class="px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+              title="Alternar visibilidad de la capa clasificada">
+              <span class="material-symbols-outlined text-[15px] text-emerald-700">visibility</span>
+              <span>Alternar Capa</span>
+            </button>
+            <div class="flex flex-col">
+              <span class="text-[11px] font-black text-zinc-800">Visualización de la Clasificación</span>
+              <span class="text-[9px] text-zinc-500 font-medium">Oculta o atenúa la capa para ver y comparar la imagen satelital original</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="text-[9px] font-black uppercase tracking-wider text-zinc-500">Opacidad:</label>
+            <input type="range" id="supLayerOpacitySlider" min="0" max="100" value="85"
+              oninput="setSupervisedLayerOpacity(this.value / 100)"
+              class="w-28 accent-emerald-600 h-1.5 bg-zinc-200 rounded-lg cursor-pointer">
+            <span id="supLayerOpacityValue" class="text-[10px] font-mono font-bold text-zinc-700 w-8 text-right">85%</span>
+          </div>
+        </div>
+
         <!-- Herramientas de Muestreo (Punto, Pincel/Arrastre continuo, Polígono) -->
         <div class="p-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 shadow-2xs flex flex-col gap-3">
           <div class="flex items-center justify-between">
@@ -6380,6 +6411,13 @@
 
     <!-- Acciones Rápidas -->
     <div class="flex items-center gap-1.5">
+      <!-- Botón Ocultar / Mostrar Capa en Vivo -->
+      <button type="button" onclick="toggleSupervisedLayerVisibility()" id="supDockToggleVisibilityBtn"
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs"
+        title="Ocultar o mostrar la capa clasificada para ver la imagen satelital original debajo">
+        <span class="material-symbols-outlined text-[14px]" id="supDockToggleVisibilityIcon">visibility</span>
+        <span id="supDockToggleVisibilityText">Capa On</span>
+      </button>
       <button type="button" onclick="clearActiveSupervisedSamples()" 
         class="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-colors" title="Limpiar muestras de la clase activa">
         <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
@@ -21273,112 +21311,107 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     //  CLASIFICACIÓN ESPECTRAL SUPERVISADA (MUESTREO ROI DINÁMICO EN VIVO)
     // ══════════════════════════════════════════════════════════════
 
-    // Capa Canvas interactiva de alto rendimiento en Leaflet (0ms de latencia PNG)
-    const L_CanvasOverlay = (typeof L !== "undefined" && L.Layer) ? L.Layer.extend({
-      options: {
-        opacity: 0.85,
-        zIndex: 600,
-        interactive: false
-      },
-      initialize: function(canvas, bounds, options) {
-        this._canvas = canvas;
-        this._bounds = (bounds && bounds._southWest) ? bounds : L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]);
-        L.setOptions(this, options);
-      },
-      onAdd: function(map) {
-        this._map = map;
-        if (!this._canvas.classList.contains("leaflet-image-layer")) {
-          this._canvas.classList.add("leaflet-image-layer");
-        }
-        if (map._zoomAnimated && !this._canvas.classList.contains("leaflet-zoom-animated")) {
-          this._canvas.classList.add("leaflet-zoom-animated");
-        }
-        this._canvas.style.position = "absolute";
-        this._canvas.style.pointerEvents = this.options.interactive ? "auto" : "none";
-        const pane = this.getPane() || map.getPane("overlayPane") || map.getPanes().overlayPane;
-        pane.appendChild(this._canvas);
-        this._updateOpacity();
-        this._updateZIndex();
-        this._reset();
-      },
-      onRemove: function() {
-        if (this._canvas && this._canvas.parentNode) {
-          this._canvas.parentNode.removeChild(this._canvas);
-        }
-      },
-      getEvents: function() {
-        const events = {
-          zoom: this._reset,
-          viewreset: this._reset,
-          moveend: this._reset
-        };
-        if (this._zoomAnimated) {
-          events.zoomanim = this._animateZoom;
-        }
-        return events;
-      },
-      setBounds: function(bounds) {
-        this._bounds = (bounds && bounds._southWest) ? bounds : L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]);
-        if (this._map) this._reset();
-        return this;
-      },
-      setUrl: function() {
-        if (this._map) this._reset();
-        return this;
-      },
-      redraw: function() {
-        if (this._map) this._reset();
-        return this;
-      },
-      getElement: function() {
-        return this._canvas;
-      },
-      getBounds: function() {
-        return this._bounds;
-      },
-      bringToFront: function() {
-        if (this._map && this._canvas) {
-          const pane = this.getPane() || this._map.getPane("overlayPane");
-          if (pane) pane.appendChild(this._canvas);
-        }
-        return this;
-      },
-      bringToBack: function() {
-        if (this._map && this._canvas) {
-          const pane = this.getPane() || this._map.getPane("overlayPane");
-          if (pane && pane.firstChild) pane.insertBefore(this._canvas, pane.firstChild);
-        }
-        return this;
-      },
-      setOpacity: function(opacity) {
-        this.options.opacity = opacity;
-        this._updateOpacity();
-        return this;
-      },
-      _updateOpacity: function() {
-        if (this._canvas) this._canvas.style.opacity = this.options.opacity;
-      },
-      _updateZIndex: function() {
-        if (this._canvas && this.options.zIndex !== undefined && this.options.zIndex !== null) {
-          this._canvas.style.zIndex = this.options.zIndex;
-        }
-      },
-      _reset: function() {
-        if (!this._map || !this._canvas || !this._bounds) return;
-        const nw = this._map.latLngToLayerPoint(this._bounds.getNorthWest());
-        const se = this._map.latLngToLayerPoint(this._bounds.getSouthEast());
-        const size = se.subtract(nw);
-        L.DomUtil.setPosition(this._canvas, nw);
-        this._canvas.style.width = Math.round(size.x) + "px";
-        this._canvas.style.height = Math.round(size.y) + "px";
-      },
-      _animateZoom: function(e) {
-        if (!this._map || !this._canvas || !this._bounds) return;
-        const scale = this._map.getZoomScale(e.zoom);
-        const offset = this._map._latLngBoundsToNewLayerBounds(this._bounds, e.zoom, e.center).min;
-        L.DomUtil.setTransform(this._canvas, offset, scale);
+    // Normalizar límites de capa (bounds) para asegurar coincidencia subpíxel exacta con el satélite
+    function getNormalizedLayerBounds(layer) {
+      if (!layer) return null;
+      let b = layer.bounds;
+      if (!b && layer._geotiffTileLayer) {
+        b = layer._geotiffTileLayer.geo?.bounds || layer._geotiffTileLayer.options?.bounds;
       }
-    }) : null;
+      if (!b && layer.mapLayer) {
+        b = layer.mapLayer.geo?.bounds || layer.mapLayer.options?.bounds;
+      }
+      if (!b) return null;
+
+      if (typeof L !== "undefined" && L.LatLngBounds && b instanceof L.LatLngBounds) {
+        return b;
+      }
+      if (typeof b.getSouthWest === "function" && typeof b.getNorthEast === "function") {
+        return L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+      }
+      if (b._southWest && b._northEast) {
+        const sw = b._southWest;
+        const ne = b._northEast;
+        return L.latLngBounds(
+          [sw.lat !== undefined ? sw.lat : sw[0], sw.lng !== undefined ? sw.lng : sw[1]],
+          [ne.lat !== undefined ? ne.lat : ne[0], ne.lng !== undefined ? ne.lng : ne[1]]
+        );
+      }
+      if (b.south !== undefined && b.west !== undefined && b.north !== undefined && b.east !== undefined) {
+        return L.latLngBounds([b.south, b.west], [b.north, b.east]);
+      }
+      if (Array.isArray(b) && b.length === 2) {
+        return L.latLngBounds(b);
+      }
+      try {
+        return L.latLngBounds(b);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // Control de Ocultar / Mostrar capa de clasificación supervisada
+    function toggleSupervisedLayerVisibility() {
+      const state_sup = window._supervisedState;
+      if (!state_sup) return;
+      state_sup.visible = state_sup.visible === false ? true : false;
+      updateSupervisedLayerVisibilityUI();
+      toast(state_sup.visible ? "✓ Capa clasificada visible" : "👁 Capa clasificada oculta (viendo satélite original)", "info");
+    }
+
+    function setSupervisedLayerOpacity(opacity) {
+      const state_sup = window._supervisedState;
+      if (!state_sup) return;
+      const op = Math.max(0, Math.min(1, parseFloat(opacity) || 0));
+      state_sup.opacity = op;
+      state_sup.visible = op > 0;
+      updateSupervisedLayerVisibilityUI();
+    }
+
+    function updateSupervisedLayerVisibilityUI() {
+      const state_sup = window._supervisedState;
+      if (!state_sup) return;
+      const isVisible = state_sup.visible !== false;
+      const opacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
+
+      if (state._supervisedLiveLayer && typeof state._supervisedLiveLayer.setOpacity === "function") {
+        state._supervisedLiveLayer.setOpacity(opacity);
+      }
+
+      // 1. Actualizar botón en el Dock flotante del mapa
+      const dockIcon = document.getElementById("supDockToggleVisibilityIcon");
+      const dockText = document.getElementById("supDockToggleVisibilityText");
+      const dockBtn = document.getElementById("supDockToggleVisibilityBtn");
+      if (dockIcon) dockIcon.textContent = isVisible ? "visibility" : "visibility_off";
+      if (dockText) dockText.textContent = isVisible ? "Capa On" : "Capa Off";
+      if (dockBtn) {
+        if (isVisible) {
+          dockBtn.className = "px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs";
+        } else {
+          dockBtn.className = "px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-amber-600 text-white shadow-xs ring-1 ring-amber-400";
+        }
+      }
+
+      // 2. Actualizar botón en el encabezado del Modal
+      const modalIcon = document.getElementById("supModalToggleVisibilityIcon");
+      const modalText = document.getElementById("supModalToggleVisibilityText");
+      const modalBtn = document.getElementById("supModalToggleVisibilityBtn");
+      if (modalIcon) modalIcon.textContent = isVisible ? "visibility" : "visibility_off";
+      if (modalText) modalText.textContent = isVisible ? "Ocultar Capa" : "Mostrar Capa";
+      if (modalBtn) {
+        if (isVisible) {
+          modalBtn.className = "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-emerald-300 bg-emerald-50 text-emerald-800";
+        } else {
+          modalBtn.className = "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer border border-amber-300 bg-amber-50 text-amber-800";
+        }
+      }
+
+      // 3. Actualizar slider y etiqueta de opacidad
+      const slider = document.getElementById("supLayerOpacitySlider");
+      if (slider) slider.value = Math.round((state_sup.opacity !== undefined ? state_sup.opacity : 0.85) * 100);
+      const sliderVal = document.getElementById("supLayerOpacityValue");
+      if (sliderVal) sliderVal.textContent = Math.round((state_sup.opacity !== undefined ? state_sup.opacity : 0.85) * 100) + "%";
+    }
     window._supervisedState = {
       active: false,
       layerId: null,
@@ -21393,7 +21426,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       tempPolyPreview: null,
       _liveCanvas: null,
       _liveImgData: null,
-      _classificationMap: null
+      _classificationMap: null,
+      visible: true,
+      opacity: 0.85
     };
 
     let _liveClassificationPending = false;
@@ -21444,8 +21479,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderSupervisedClassesList();
       updateSupervisedDockClassSelect();
       setSupervisedSamplingTool(state_sup.samplingTool || 'drag');
+      updateSupervisedLayerVisibilityUI();
       setSupervisedAlgorithm(state_sup.algorithm || 'min_distance');
       drawSupervisedSpectralChart();
+      updateSupervisedLayerVisibilityUI();
 
       const modal = document.getElementById('supervisedClassificationModal');
       if (modal) modal.style.display = 'flex';
@@ -21720,8 +21757,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const ctx = state_sup._liveCanvas.getContext("2d");
       ctx.putImageData(imgData, 0, 0);
 
-      if (state._supervisedLiveLayer && typeof state._supervisedLiveLayer.redraw === "function") {
-        state._supervisedLiveLayer.redraw();
+      const isVisible = state_sup.visible !== false;
+      const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
+
+      const updateOverlayUrl = (url) => {
+        if (state._supervisedLiveLayer) {
+          const oldUrl = state._supervisedLiveLayer._blobUrl;
+          state._supervisedLiveLayer.setUrl(url);
+          state._supervisedLiveLayer.setOpacity(targetOpacity);
+          state._supervisedLiveLayer._blobUrl = url;
+          if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+            setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+          }
+        }
+      };
+
+      if (state_sup._liveCanvas && state_sup._liveCanvas.toBlob) {
+        state_sup._liveCanvas.toBlob((blob) => {
+          if (!blob) return;
+          const objectUrl = URL.createObjectURL(blob);
+          updateOverlayUrl(objectUrl);
+        }, "image/png");
+      } else if (state_sup._liveCanvas) {
+        updateOverlayUrl(state_sup._liveCanvas.toDataURL("image/png"));
       }
     }
 
@@ -22536,40 +22594,43 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       ctx.putImageData(imgData, 0, 0);
 
-      // Montar o actualizar capa en vivo en Leaflet con L_CanvasOverlay (cero compresión PNG)
-      const b = layer.bounds;
-      const latlngBounds = (b && b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+      // Montar o actualizar capa en vivo en Leaflet con L.imageOverlay nativo (100% fijada sin desplazamientos)
+      const latlngBounds = getNormalizedLayerBounds(layer);
+      if (latlngBounds) {
+        const isVisible = state_sup.visible !== false;
+        const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
 
-      if (L_CanvasOverlay) {
-        if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L_CanvasOverlay)) {
-          if (state._supervisedLiveLayer) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+        const applyOverlayImage = (url) => {
+          if (!state._supervisedLiveLayer) {
+            state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
+              opacity: targetOpacity,
+              interactive: false,
+              zIndex: 600
+            }).addTo(state.map);
+            state._supervisedLiveLayer._blobUrl = url;
+          } else {
+            const oldUrl = state._supervisedLiveLayer._blobUrl;
+            state._supervisedLiveLayer.setUrl(url);
+            state._supervisedLiveLayer.setBounds(latlngBounds);
+            state._supervisedLiveLayer.setOpacity(targetOpacity);
+            state._supervisedLiveLayer._blobUrl = url;
+            if (!state.map.hasLayer(state._supervisedLiveLayer)) {
+              state._supervisedLiveLayer.addTo(state.map);
+            }
+            if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+              setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+            }
           }
-          state._supervisedLiveLayer = new L_CanvasOverlay(canvas, latlngBounds, {
-            opacity: 0.85,
-            zIndex: 600
-          }).addTo(state.map);
+        };
+
+        if (canvas.toBlob) {
+          canvas.toBlob((blob) => {
+            if (!blob) return;
+            const objectUrl = URL.createObjectURL(blob);
+            applyOverlayImage(objectUrl);
+          }, "image/png");
         } else {
-          state._supervisedLiveLayer.setBounds(latlngBounds);
-          if (!state.map.hasLayer(state._supervisedLiveLayer)) {
-            state._supervisedLiveLayer.addTo(state.map);
-          }
-        }
-      } else {
-        // Fallback estándar si L_CanvasOverlay no estuviera disponible
-        const dataUrl = canvas.toDataURL("image/png");
-        if (!state._supervisedLiveLayer) {
-          state._supervisedLiveLayer = L.imageOverlay(dataUrl, latlngBounds, {
-            opacity: 0.85,
-            interactive: false,
-            zIndex: 600
-          }).addTo(state.map);
-        } else {
-          state._supervisedLiveLayer.setUrl(dataUrl);
-          state._supervisedLiveLayer.setBounds(latlngBounds);
-          if (!state.map.hasLayer(state._supervisedLiveLayer)) {
-            state._supervisedLiveLayer.addTo(state.map);
-          }
+          applyOverlayImage(canvas.toDataURL("image/png"));
         }
       }
 
@@ -23105,6 +23166,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.setSupervisedAlgorithm = setSupervisedAlgorithm;
     window.updateSupervisedLiveClassification = updateSupervisedLiveClassification;
     window.recolorSupervisedLiveClassification = recolorSupervisedLiveClassification;
+    window.toggleSupervisedLayerVisibility = toggleSupervisedLayerVisibility;
+    window.setSupervisedLayerOpacity = setSupervisedLayerOpacity;
+    window.updateSupervisedLayerVisibilityUI = updateSupervisedLayerVisibilityUI;
+    window.getNormalizedLayerBounds = getNormalizedLayerBounds;
     window.executeSupervisedClassification = executeSupervisedClassification;
     window.handleSupervisedMapClick = handleSupervisedMapClick;
     window.handleSupervisedMapDragStart = handleSupervisedMapDragStart;
