@@ -12329,6 +12329,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       onAdd: function(map) {
         L.GridLayer.prototype.onAdd.call(this, map);
+        if (this.options.zIndex && typeof this.setZIndex === "function") {
+          this.setZIndex(this.options.zIndex);
+        }
         this.updateFilter();
       },
 
@@ -12795,6 +12798,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
         } catch (_) {}
+
+        // En capas de clasificación temática (en vivo o con lienzo clasificado), el lienzo clasificado es el render final de la tesela
+        if (this.options.classification && (this.options.classificationCanvas || drewPreview)) {
+          if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+          return;
+        }
 
         // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
         if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
@@ -21760,26 +21769,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const isVisible = state_sup.visible !== false;
       const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
 
-      const updateOverlayUrl = (url) => {
-        if (state._supervisedLiveLayer) {
-          const oldUrl = state._supervisedLiveLayer._blobUrl;
-          state._supervisedLiveLayer.setUrl(url);
-          state._supervisedLiveLayer.setOpacity(targetOpacity);
-          state._supervisedLiveLayer._blobUrl = url;
-          if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
-            setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+      if (state._supervisedLiveLayer && (state._supervisedLiveLayer instanceof L.GeoTIFFTileLayer)) {
+        state._supervisedLiveLayer.setOpacity(targetOpacity);
+        state._supervisedLiveLayer.setClassification({
+          algorithm: state_sup.algorithm,
+          classes: sampledClasses
+        }, state_sup._liveCanvas);
+      } else if (state._supervisedLiveLayer && typeof state._supervisedLiveLayer.setUrl === "function") {
+        const updateOverlayUrl = (url) => {
+          if (state._supervisedLiveLayer) {
+            const oldUrl = state._supervisedLiveLayer._blobUrl;
+            state._supervisedLiveLayer.setUrl(url);
+            state._supervisedLiveLayer.setOpacity(targetOpacity);
+            state._supervisedLiveLayer._blobUrl = url;
+            if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+              setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+            }
           }
-        }
-      };
+        };
 
-      if (state_sup._liveCanvas && state_sup._liveCanvas.toBlob) {
-        state_sup._liveCanvas.toBlob((blob) => {
-          if (!blob) return;
-          const objectUrl = URL.createObjectURL(blob);
-          updateOverlayUrl(objectUrl);
-        }, "image/png");
-      } else if (state_sup._liveCanvas) {
-        updateOverlayUrl(state_sup._liveCanvas.toDataURL("image/png"));
+        if (state_sup._liveCanvas && state_sup._liveCanvas.toBlob) {
+          state_sup._liveCanvas.toBlob((blob) => {
+            if (!blob) return;
+            const objectUrl = URL.createObjectURL(blob);
+            updateOverlayUrl(objectUrl);
+          }, "image/png");
+        } else if (state_sup._liveCanvas) {
+          updateOverlayUrl(state_sup._liveCanvas.toDataURL("image/png"));
+        }
       }
     }
 
@@ -22594,43 +22611,86 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       ctx.putImageData(imgData, 0, 0);
 
-      // Montar o actualizar capa en vivo en Leaflet con L.imageOverlay nativo (100% fijada sin desplazamientos)
-      const latlngBounds = getNormalizedLayerBounds(layer);
-      if (latlngBounds) {
-        const isVisible = state_sup.visible !== false;
-        const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
+      // Montar o actualizar capa en vivo en Leaflet con reproyección exacta GeoTIFF TileLayer o ImageOverlay
+      const isVisible = state_sup.visible !== false;
+      const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
+      let parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null);
+      if (!parentTileLayer && layer.parentLayerId) {
+        const parent = state.layers.find(l => l.id === layer.parentLayerId);
+        if (parent) {
+          parentTileLayer = parent._geotiffTileLayer || (parent.mapLayer?.geo ? parent.mapLayer : null);
+        }
+      }
 
-        const applyOverlayImage = (url) => {
-          if (!state._supervisedLiveLayer) {
-            state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
-              opacity: targetOpacity,
-              interactive: false,
-              zIndex: 600
-            }).addTo(state.map);
-            state._supervisedLiveLayer._blobUrl = url;
-          } else {
-            const oldUrl = state._supervisedLiveLayer._blobUrl;
-            state._supervisedLiveLayer.setUrl(url);
-            state._supervisedLiveLayer.setBounds(latlngBounds);
-            state._supervisedLiveLayer.setOpacity(targetOpacity);
-            state._supervisedLiveLayer._blobUrl = url;
-            if (!state.map.hasLayer(state._supervisedLiveLayer)) {
-              state._supervisedLiveLayer.addTo(state.map);
-            }
-            if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
-              setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
-            }
+      if (parentTileLayer && parentTileLayer.geo) {
+        // Modo GeoTIFF: Reproyección exacta subpíxel por teselas (Proj4 / EPSG:9377) idéntica al satélite original
+        if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L.GeoTIFFTileLayer)) {
+          if (state._supervisedLiveLayer) {
+            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+            state._supervisedLiveLayer = null;
           }
-        };
-
-        if (canvas.toBlob) {
-          canvas.toBlob((blob) => {
-            if (!blob) return;
-            const objectUrl = URL.createObjectURL(blob);
-            applyOverlayImage(objectUrl);
-          }, "image/png");
+          state._supervisedLiveLayer = L.geoTIFFTileLayer(parentTileLayer.geo, {
+            tileSize: 256,
+            maxNativeZoom: 24,
+            maxZoom: 28,
+            opacity: targetOpacity,
+            bounds: parentTileLayer.geo.bounds || layer.bounds,
+            classification: {
+              algorithm: state_sup.algorithm,
+              classes: classStats
+            },
+            classificationCanvas: canvas,
+            zIndex: 600
+          }).addTo(state.map);
         } else {
-          applyOverlayImage(canvas.toDataURL("image/png"));
+          state._supervisedLiveLayer.setOpacity(targetOpacity);
+          state._supervisedLiveLayer.setClassification({
+            algorithm: state_sup.algorithm,
+            classes: classStats
+          }, canvas);
+          if (!state.map.hasLayer(state._supervisedLiveLayer)) {
+            state._supervisedLiveLayer.addTo(state.map);
+          }
+        }
+      } else {
+        // Fallback estándar L.imageOverlay si no hay motor GeoTIFF TileLayer
+        const latlngBounds = getNormalizedLayerBounds(layer);
+        if (latlngBounds) {
+          const applyOverlayImage = (url) => {
+            if (!state._supervisedLiveLayer || (state._supervisedLiveLayer instanceof L.GeoTIFFTileLayer)) {
+              if (state._supervisedLiveLayer) {
+                try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+              }
+              state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
+                opacity: targetOpacity,
+                interactive: false,
+                zIndex: 600
+              }).addTo(state.map);
+              state._supervisedLiveLayer._blobUrl = url;
+            } else {
+              const oldUrl = state._supervisedLiveLayer._blobUrl;
+              state._supervisedLiveLayer.setUrl(url);
+              state._supervisedLiveLayer.setBounds(latlngBounds);
+              state._supervisedLiveLayer.setOpacity(targetOpacity);
+              state._supervisedLiveLayer._blobUrl = url;
+              if (!state.map.hasLayer(state._supervisedLiveLayer)) {
+                state._supervisedLiveLayer.addTo(state.map);
+              }
+              if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+                setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+              }
+            }
+          };
+
+          if (canvas.toBlob) {
+            canvas.toBlob((blob) => {
+              if (!blob) return;
+              const objectUrl = URL.createObjectURL(blob);
+              applyOverlayImage(objectUrl);
+            }, "image/png");
+          } else {
+            applyOverlayImage(canvas.toDataURL("image/png"));
+          }
         }
       }
 
