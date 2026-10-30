@@ -14434,22 +14434,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layer.serverFilename = key;
         layer._tileSavedAs = key;
         
-        // Limpiar cualquier capa previa temporal si existiera
-        if (layer._geotiffTileLayer) {
-          try { state.map.removeLayer(layer._geotiffTileLayer); } catch (_) {}
-          layer._geotiffTileLayer = null;
-        }
-        if (layer.mapLayer) {
-          try { state.map.removeLayer(layer.mapLayer); } catch (_) {}
-          layer.mapLayer = null;
-        }
-
-        // Inicializar la capa definitiva 100% Cloud desde Cloudflare R2 con su overview transparente y teselado dinámico
-        if (typeof showPreviewOverlay === 'function') {
-          console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2 (100% Cloud)...');
-          await showPreviewOverlay(layer, key, { maxSize: 0, skipFit: true });
-        }
-        
+        // Si no hay capa visual activa, inicializarla desde R2
+        if (!layer._geotiffTileLayer && !layer.mapLayer && typeof showPreviewOverlay === 'function') {
+          console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2...');
+          await showPreviewOverlay(layer, key, { maxSize: 0, skipFit: true });
+        }
+        
         if (layer.bounds && state.map) {
           state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 14, duration: 1 });
         }
@@ -14625,22 +14615,41 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state.map.fitBounds(clientBounds, { padding: [40, 40], maxZoom: 18, animate: true });
       }
 
-      // Si la capa ya proviene de almacenamiento en la nube (restauración/proyecto), inicializar directamente
-      if (layer.storageUrl && typeof showPreviewOverlay === 'function') {
-        await showPreviewOverlay(layer, opts.serverFilename || file.name, { maxSize: 0, skipFit: opts.skipFit });
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`✓ ${file.name} visualizado en alta resolución desde la nube`, 'success');
-      } else {
-        // Flujo 100% Cloud en Cloudflare R2:
-        // No montar capa local en memoria; subir directamente a Cloudflare R2 y conectar la capa cloud
-        hideProgress();
-        updateZtifBadgeUI(layer);
-        toast(`Subiendo ${file.name} a Cloudflare R2 (100% Cloud)...`, 'info');
-        optimizeAndUploadRasterToCloud(layer, file, clientGeo);
-      }
-    }
-
+      // 1. MONTAR INMEDIATAMENTE EL ARCHIVO IMPORTADO POR EL USUARIO (Fidelidad 100% garantizada)
+      if (clientGeo && clientGeo.image && typeof L.geoTIFFTileLayer === 'function') {
+        try {
+          const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
+            tileSize: 256,
+            maxNativeZoom: 24,
+            maxZoom: 28,
+            opacity: layer.opacity ?? 1,
+            bounds: clientBounds || clientGeo.bounds,
+            bands: initialParams.bands,
+            rendererParams: initialParams
+          });
+          clientTileLayer.addTo(state.map);
+          layer._geotiffTileLayer = clientTileLayer;
+          layer.mapLayer = clientTileLayer;
+          layer.clientGeo = clientGeo;
+          console.log('[loadTiff] ✓ Capa raster montada instantáneamente con el archivo del usuario:', file.name);
+        } catch (mountErr) {
+          console.warn('[loadTiff] Error montando capa local inmediata:', mountErr);
+        }
+      } else if (layer.storageUrl && typeof showPreviewOverlay === 'function') {
+        await showPreviewOverlay(layer, opts.serverFilename || file.name, { maxSize: 0, skipFit: opts.skipFit });
+      }
+
+      hideProgress();
+      updateZtifBadgeUI(layer);
+      toast(`✓ ${file.name} visualizado en alta resolución`, 'success');
+
+      // 2. Subida en segundo plano a Cloudflare R2 para respaldo/persistencia sin interferir en la visualización
+      if (!layer.storageUrl && !opts.isRestored) {
+        optimizeAndUploadRasterToCloud(layer, file, clientGeo);
+      }
+    }
+
+
     async function uploadVisualizationToCloud(savedAs, originalName, layer) {
       try {
         const uid = _currentUser?.id || 'guest';
