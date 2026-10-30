@@ -10107,7 +10107,9 @@ self.onmessage = async function(e) {
                         ztifSize: L.config?.ztifSize ?? null,
                         origSize: L.config?.origSize ?? null,
                         savingsPercent: L.config?.savingsPercent ?? null,
-                        _geotiffFileUrl: resolveCloudRasterUrl(L.storage_url, L.config?.serverFilename)
+                        _geotiffFileUrl: resolveCloudRasterUrl(L.storage_url, L.config?.serverFilename),
+                  sensor: L.config?.sensor || null,
+                  overviewUrl: L.config?.overviewUrl || null
                     };
 
                     state.layers.unshift(layerObj);
@@ -10704,7 +10706,12 @@ async function deleteFromCloud(fileName, url, storagePath) {
                     if (resp.ok) {
                         const ab = await resp.arrayBuffer();
                         const tiff = await GeoTIFF.fromArrayBuffer(ab);
-                        const image = await tiff.getImage();
+                        // Si se cargó desde la nube por primera vez (streaming R2), guardar en caché local en segundo plano para próximas visitas a 0ms
+          if (!isFromLocalCache && typeof fileUrl === 'string' && fileUrl.startsWith('http') && typeof _backgroundCacheCloudTiff === 'function') {
+            _backgroundCacheCloudTiff(fileUrl);
+          }
+
+          const image = await tiff.getImage();
                         layer.width = image.getWidth();
                         layer.height = image.getHeight();
                         layer.bands = image.getSamplesPerPixel();
@@ -11553,7 +11560,214 @@ async function deleteFromCloud(fileName, url, storagePath) {
     // ─── ADVANCED GEOTIFF TILE ENGINE v2.0 ───
     // High-performance viewport-based tile rendering with zero pixel loss
     
-    class TileLRUCache {
+    
+    // ════════════════════════════════════════════════════════════════════════════════
+    //  ZIMA GEOTIFF PERSISTENT CLOUD & LOCAL CACHE (INDEXEDDB v2)
+    //  Almacenamiento persistente en dispositivo: TIFFs completos, overviews y tiles
+    //  0ms latencia tras primera visualización · Sincronización multi-dispositivo
+    // ════════════════════════════════════════════════════════════════════════════════
+    const ZimaTiffCache = {
+      dbName: 'zima_geotiff_cloud_cache_v2',
+      version: 2,
+      _dbPromise: null,
+
+      async getDB() {
+        if (this._dbPromise) return this._dbPromise;
+        if (typeof window === 'undefined' || !window.indexedDB) return null;
+
+        this._dbPromise = new Promise((resolve) => {
+          const req = window.indexedDB.open(this.dbName, this.version);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('tiffs')) {
+              db.createObjectStore('tiffs', { keyPath: 'key' });
+            }
+            if (!db.objectStoreNames.contains('overviews')) {
+              db.createObjectStore('overviews', { keyPath: 'key' });
+            }
+            if (!db.objectStoreNames.contains('tiles')) {
+              db.createObjectStore('tiles', { keyPath: 'key' });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => {
+            console.warn('[ZimaTiffCache] Error abriendo IndexedDB:', req.error);
+            resolve(null);
+          };
+        });
+        return this._dbPromise;
+      },
+
+      async get(key) {
+        if (!key) return null;
+        const db = await this.getDB();
+        if (!db) return null;
+        const cleanKey = String(key).split('?')[0];
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('tiffs', 'readonly');
+            const store = tx.objectStore('tiffs');
+            const req = store.get(cleanKey);
+            req.onsuccess = () => {
+              if (req.result && req.result.blob) {
+                resolve(req.result.blob);
+              } else {
+                resolve(null);
+              }
+            };
+            req.onerror = () => resolve(null);
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      },
+
+      async set(key, blob, name = '') {
+        if (!key || !blob) return false;
+        const db = await this.getDB();
+        if (!db) return false;
+        const cleanKey = String(key).split('?')[0];
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('tiffs', 'readwrite');
+            const store = tx.objectStore('tiffs');
+            const item = {
+              key: cleanKey,
+              blob: blob,
+              name: name || (blob.name || cleanKey.split('/').pop()),
+              size: blob.size || 0,
+              cachedAt: Date.now()
+            };
+            store.put(item);
+            tx.oncomplete = () => {
+              console.log('⚡ [ZimaTiffCache] TIFF cacheado en disco local (' + ((blob.size||0)/1048576).toFixed(1) + ' MB):', cleanKey);
+              resolve(true);
+            };
+            tx.onerror = () => resolve(false);
+          } catch (err) {
+            console.warn('[ZimaTiffCache] Excepción al guardar:', err);
+            resolve(false);
+          }
+        });
+      },
+
+      async has(key) {
+        if (!key) return false;
+        const blob = await this.get(key);
+        return !!blob;
+      },
+
+      async getOverview(key) {
+        if (!key) return null;
+        const db = await this.getDB();
+        if (!db) return null;
+        const cleanKey = String(key).split('?')[0];
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('overviews', 'readonly');
+            const store = tx.objectStore('overviews');
+            const req = store.get(cleanKey);
+            req.onsuccess = () => resolve(req.result?.blob || null);
+            req.onerror = () => resolve(null);
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      },
+
+      async setOverview(key, blob) {
+        if (!key || !blob) return false;
+        const db = await this.getDB();
+        if (!db) return false;
+        const cleanKey = String(key).split('?')[0];
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('overviews', 'readwrite');
+            const store = tx.objectStore('overviews');
+            store.put({ key: cleanKey, blob: blob, cachedAt: Date.now() });
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          } catch (_) {
+            resolve(false);
+          }
+        });
+      },
+
+      async getTile(tileKey) {
+        if (!tileKey) return null;
+        const db = await this.getDB();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('tiles', 'readonly');
+            const store = tx.objectStore('tiles');
+            const req = store.get(tileKey);
+            req.onsuccess = () => resolve(req.result?.blob || null);
+            req.onerror = () => resolve(null);
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      },
+
+      async setTile(tileKey, blob) {
+        if (!tileKey || !blob) return false;
+        const db = await this.getDB();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('tiles', 'readwrite');
+            const store = tx.objectStore('tiles');
+            store.put({ key: tileKey, blob: blob, cachedAt: Date.now() });
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          } catch (_) {
+            resolve(false);
+          }
+        });
+      }
+    };
+    window.ZimaTiffCache = ZimaTiffCache;
+
+    // Descarga en segundo plano el TIFF desde Cloudflare R2 y lo guarda en IndexedDB local
+    const _activeBgDownloads = new Set();
+    async function _backgroundCacheCloudTiff(url, layer = null) {
+      if (!url || typeof url !== 'string' || !url.startsWith('http')) return;
+      const cleanUrl = url.split('?')[0];
+      if (_activeBgDownloads.has(cleanUrl)) return;
+
+      try {
+        const alreadyCached = await ZimaTiffCache.has(cleanUrl);
+        if (alreadyCached) {
+          if (layer) layer._isLocalCached = true;
+          return;
+        }
+
+        _activeBgDownloads.add(cleanUrl);
+        console.log('[ZimaTiffCache] Iniciando precarga silenciosa en segundo plano para caché local 0ms:', cleanUrl);
+
+        const resp = await fetch(cleanUrl, { mode: 'cors' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const blob = await resp.blob();
+
+        await ZimaTiffCache.set(cleanUrl, blob);
+        const key = cleanUrl.split('/').pop();
+        if (key) await ZimaTiffCache.set(key, blob);
+
+        if (layer) {
+          layer._isLocalCached = true;
+          if (typeof updateLayersSidebar === 'function') updateLayersSidebar();
+        }
+        console.log('⚡ [ZimaTiffCache] Precarga completa: TIFF guardado localmente en este dispositivo (' + (blob.size/1048576).toFixed(1) + ' MB). Próximas aperturas serán a 0ms.');
+      } catch (err) {
+        console.warn('[ZimaTiffCache] Fallo de precarga silenciosa:', err.message);
+      } finally {
+        _activeBgDownloads.delete(cleanUrl);
+      }
+    }
+    window._backgroundCacheCloudTiff = _backgroundCacheCloudTiff;
+
+class TileLRUCache {
       constructor(maxMemoryMB = 512) {
         this.cache = new Map();
         this.maxMemory = maxMemoryMB * 1024 * 1024;
@@ -13682,6 +13896,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           } else if (fileUrl instanceof Blob && (fileUrl.name?.endsWith('.gz') || fileUrl.type === 'application/gzip')) {
             target = await decompressGzip(fileUrl);
           }
+          // ⚡ REVISAR CACHÉ PERSISTENTE LOCAL (IndexedDB) ANTES DE IR A LA RED
+          let isFromLocalCache = false;
+          if (typeof target === 'string' && typeof ZimaTiffCache !== 'undefined') {
+            try {
+              const cachedBlob = await ZimaTiffCache.get(target);
+              if (cachedBlob) {
+                console.log('⚡ [ZimaTiffCache] HIT! Cargando TIFF completo desde caché local IndexedDB (0ms):', target);
+                target = cachedBlob;
+                isFromLocalCache = true;
+              }
+            } catch (cErr) {
+              console.warn('[ZimaTiffCache] Error leyendo caché local:', cErr);
+            }
+          }
+
           const tiff = (target instanceof Blob)
             ? await GeoTIFF.fromBlob(target)
             : await GeoTIFF.fromUrl(target, {
@@ -14344,7 +14573,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       if (presignRes.ok) {
                         const { presignedUrl, publicUrl } = await presignRes.json();
                         await fetch(presignedUrl, { method: 'PUT', body: imgBlob, headers: { 'Content-Type': 'image/png' } });
-                        layer.overviewUrl = publicUrl;
+                        layer.overviewUrl = publicUrl;
+          if (typeof ZimaTiffCache !== 'undefined' && blob) {
+            ZimaTiffCache.setOverview(publicUrl, blob);
+            if (overviewKey) ZimaTiffCache.setOverview(overviewKey, blob);
+          }
                         if (layer._geotiffTileLayer) layer._geotiffTileLayer.options.overviewUrl = publicUrl;
                         console.log(`[R2 Overview] ✓ Overview estándar (${cb}) asociado a ${overviewKey}`);
                         return;
@@ -14407,7 +14640,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         });
 
-        layer.storageUrl = publicUrl;
+        layer.storageUrl = publicUrl;
+        // ⚡ Guardar inmediatamente en caché local en este dispositivo bajo la URL de la nube y la clave
+        if (typeof ZimaTiffCache !== 'undefined' && file) {
+          try {
+            await ZimaTiffCache.set(publicUrl, file, file.name);
+            if (key) await ZimaTiffCache.set(key, file, file.name);
+            layer._isLocalCached = true;
+            console.log('⚡ [ZimaTiffCache] Guardado localmente en este dispositivo bajo URL R2 (0ms):', publicUrl);
+          } catch (_) {}
+        }
         layer.serverFilename = key;
         layer._tileSavedAs = key;
         layer.parts = null;
@@ -18196,7 +18438,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
              parts: (Array.isArray(layer.parts) && layer.parts.length) ? layer.parts : undefined,
              format: layer.format,
              lossless: layer.lossless,
-             zeroLossVerified: layer.zeroLossVerified,
+             zeroLossVerified: layer.zeroLossVerified,
+            overviewUrl: layer.overviewUrl,
+            sensor: layer.sensor,
+            _bandStats: layer._bandStats,
              ztifSize: layer.ztifSize,
              origSize: layer.origSize,
              savingsPercent: layer.savingsPercent,
@@ -22432,7 +22677,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'Raster ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
               ${!isVector && !layer.isClassified && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
               ${!isVector && layer.sensor?.sensorBadge ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shadow-2xs">${layer.sensor.sensorBadge}</span>` : ''}
-            </div>
+            
+                        ${!isVector ? `<span id="cached-indicator-${layer.id}" style="${layer._isLocalCached ? 'display:inline-flex' : 'display:none'}" class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 items-center gap-0.5" title="Imagen TIFF en caché local (0ms de latencia)"><span class="material-symbols-outlined text-[10px]">bolt</span>0ms</span>` : ''}
+</div>
           </div>
           <span class="material-symbols-outlined text-zinc-400 text-sm transition-transform duration-200 ${isSelected ? 'rotate-180 text-indigo-600' : ''}">
             expand_more
