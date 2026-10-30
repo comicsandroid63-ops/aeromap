@@ -14485,7 +14485,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       let clientHeight = 0;
       let clientBands = 3;
       let clientGeo = null;
-      let clientEpsg = 4326;
+      let clientEpsg = 4326;
+      let clientImg = null;
 
       try {
         if (window.GeoTIFF) {
@@ -14499,7 +14500,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
           if (clientTiff) {
-            const clientImg = await clientTiff.getImage();
+            clientImg = await clientTiff.getImage();
             clientWidth = clientImg.getWidth();
             clientHeight = clientImg.getHeight();
             clientBands = clientImg.getSamplesPerPixel();
@@ -14562,7 +14563,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
 
       // 2. IMMEDIATE LAYER CREATION: Sensor inteligente basado en metadatos internos del TIFF
-      const sensorInfo = detectTiffSensorMetadata(clientImg, clientImg?.fileDirectory, file.name);
+      const activeImg = clientImg || clientGeo?.image || null;
+      const sensorInfo = detectTiffSensorMetadata(activeImg, activeImg?.fileDirectory, file.name);
       const numBands = sensorInfo.nBands || clientBands || 3;
       const initialRenderer = opts.renderer || sensorInfo.defaultRenderer || (numBands === 3 || numBands === 4 ? 'rgb' : numBands > 4 ? 'multiband' : 'single_gray');
       const defaultBands = opts.rendererParams?.bands || sensorInfo.defaultBands || (numBands >= 7 ? [3, 2, 1] : numBands >= 4 ? [2, 1, 0] : [0, 1, 2]);
