@@ -642,6 +642,36 @@ app.post('/api/import-tiff', (req, res) => {
         const ztifSize = report.ztifSize;
         const origSize = report.origSize;
         const savings = report.savingsPercent;
+        const localUrl = `/compressed/${encodeURIComponent(outName)}`;
+
+        // Notificar de inmediato que el formato ZTIF Lossless local está listo para visualización instantánea (0ms)
+        optimizationJobs.set(savedAs, {
+          status: 'ready_local',
+          result: {
+            format: 'ZTIF',
+            savedAs: outName,
+            fileUrl: localUrl,
+            localUrl: localUrl,
+            mode: 'ztif_lossless',
+            codec: report.codec,
+            lossless: true,
+            zeroLossVerified: report.zeroLossVerified,
+            sizeBytes: ztifSize,
+            origSize: origSize,
+            savingsPercent: savings,
+            metadata: report.metadata,
+            sidecar: report.sidecar
+          },
+          phase: 'uploading',
+          progress: 88,
+          message: `✓ Formato ZTIF Lossless generado (${fmtBytes(ztifSize)} · -${savings}%). Sincronizando con la nube...`
+        });
+
+        // Regla de proyecto: borrar el original pesado de uploads/ de inmediato
+        try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(_) {}
+        try { const ovrPath = destPath + '.ovr'; if (fs.existsSync(ovrPath)) fs.unlinkSync(ovrPath); } catch(_) {}
+        try { const auxXml = destPath + '.aux.xml'; if (fs.existsSync(auxXml)) fs.unlinkSync(auxXml); } catch(_) {}
+        console.log(`[import-tiff] Original pesado ${savedAs} eliminado de uploads/ tras generar ZTIF`);
 
         // Subir a nube si está disponible
         const uid = req.query.user_id || 'guest';
@@ -670,6 +700,7 @@ app.post('/api/import-tiff', (req, res) => {
             savedAs: outName,
             fileUrl: cloudUrl,
             cloudUrl,
+            localUrl,
             mode: 'ztif_lossless',
             codec: report.codec,
             lossless: true,

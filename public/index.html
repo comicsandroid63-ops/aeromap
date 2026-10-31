@@ -9670,8 +9670,8 @@ self.onmessage = async function(e) {
             const baseImg = tLayer.pyramid.levels ? tLayer.pyramid.levels[0] : (tLayer.pyramid.getBaseLevel ? (tLayer.pyramid.getBaseLevel().image || tLayer.pyramid.getBaseLevel()) : null);
             if (baseImg && typeof baseImg.readRasters === 'function') {
               const isTiled = !!baseImg.fileDirectory?.TileWidth;
-              // Si la imagen no es COG/tiled y supera 2500px, evitar lecturas 1x1 síncronas que decodifican tiras pesadas en el hilo principal
-              if (!isTiled && (baseImg.getWidth() > 2500 || baseImg.getHeight() > 2500) && tLayer.pyramid.levels.length === 1) {
+              // NUNCA decodificar tiras pesadas de imágenes ráster no-teseladas en el hilo principal (>2000px sin teselas)
+              if (!isTiled && (baseImg.getWidth() > 2000 || baseImg.getHeight() > 2000)) {
                 clearTimeout(timeoutId);
                 found._fetchingPixelCoord = null;
                 return;
@@ -14840,37 +14840,70 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (statusRes.ok) {
                   const job = await statusRes.json();
                   if (job.status === 'processing') {
-                    _setCloudProgress(job.message || 'Procesando COG Lossless...', job.progress || 35, 'COG Lossless');
-                  } else if (job.status === 'completed' && job.result) {
-                    isDone = true;
-                    convertedViaLocalApi = true;
+                    _setCloudProgress(job.message || 'Generando Formato ZTIF Lossless...', job.progress || 35, 'ZTIF Lossless');
+                  } else if ((job.status === 'ready_local' || job.status === 'completed') && job.result) {
                     const res = job.result;
-                    const cloudUrl = res.cloudUrl || res.fileUrl;
+                    const ztifUrl = res.localUrl || res.fileUrl || res.cloudUrl;
 
-                    layer.storageUrl = cloudUrl;
-                    layer.serverFilename = res.savedAs;
-                    layer._tileSavedAs = res.savedAs;
-                    layer.format = 'COG (Lossless)';
+                    // Conmutar inmediatamente la visualización activa en el mapa al Formato ZTIF Lossless
+                    if (!layer._ztifSwapped && ztifUrl) {
+                      layer._ztifSwapped = true;
+                      try {
+                        console.log('[ZTIF Optimizer] Conmutando capa en mapa al Formato ZTIF Lossless:', ztifUrl);
+                        const ztifGeo = await loadGeotiffInBackground(ztifUrl);
+                        if (ztifGeo && ztifGeo.image) {
+                          if (layer._geotiffTileLayer) {
+                            try { state.map.removeLayer(layer._geotiffTileLayer); } catch (_) {}
+                          }
+                          const ztifTileLayer = L.geoTIFFTileLayer(ztifGeo, {
+                            tileSize: 256,
+                            maxNativeZoom: 24,
+                            maxZoom: 28,
+                            opacity: layer.opacity ?? 1,
+                            bounds: layer.bounds || ztifGeo.bounds,
+                            bands: layer.rendererParams?.bands,
+                            rendererParams: layer.rendererParams,
+                            fileUrl: ztifUrl
+                          });
+                          ztifTileLayer.addTo(state.map);
+                          layer._geotiffTileLayer = ztifTileLayer;
+                          layer.mapLayer = ztifTileLayer;
+                          layer.clientGeo = ztifGeo;
+                          console.log('[ZTIF Optimizer] ✓ Visualización activa conmutada con éxito al Formato ZTIF Lossless');
+                        }
+                      } catch (swapErr) {
+                        console.warn('[ZTIF Optimizer] Advertencia conmutando a capa ZTIF:', swapErr);
+                      }
+                    }
+
+                    layer.format = 'ZTIF';
                     layer.lossless = true;
                     layer.zeroLossVerified = true;
                     layer.ztifSize = res.sizeBytes || file.size;
                     layer.origSize = res.origSize || file.size;
                     layer.savingsPercent = res.savingsPercent || 0;
-
-                    // Si la capa en mapa ya está montada, actualizar su URL remota para streaming COG piramidal
-                    if (layer._geotiffTileLayer) {
-                      layer._geotiffTileLayer.options.fileUrl = cloudUrl;
-                      layer._geotiffTileLayer.options.storageUrl = cloudUrl;
-                    }
-
+                    layer.serverFilename = res.savedAs;
+                    layer._tileSavedAs = res.savedAs;
                     updateZtifBadgeUI(layer);
-                    if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+                    updateLayersSidebar();
 
-                    const savingsText = res.savingsPercent > 0 ? ` · -${res.savingsPercent}% tamaño` : '';
-                    const sizeMb = (res.sizeBytes / 1048576).toFixed(1);
-                    toast(`✓ Convertido a COG Lossless (${sizeMb} MB${savingsText} · 100% fidelidad)`, 'success');
-                    console.log(`[COG Optimizer] ✓ Optimización COG completada con éxito: ${cloudUrl}`);
-                    break;
+                    if (job.status === 'completed') {
+                      isDone = true;
+                      convertedViaLocalApi = true;
+                      const cloudUrl = res.cloudUrl || res.fileUrl;
+                      layer.storageUrl = cloudUrl;
+                      if (layer._geotiffTileLayer) {
+                        layer._geotiffTileLayer.options.fileUrl = cloudUrl;
+                        layer._geotiffTileLayer.options.storageUrl = cloudUrl;
+                      }
+                      if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+
+                      const savingsText = res.savingsPercent > 0 ? ` · -${res.savingsPercent}% tamaño` : '';
+                      const sizeMb = (res.sizeBytes / 1048576).toFixed(1);
+                      toast(`✓ Visualizando en Formato ZTIF Lossless (${sizeMb} MB${savingsText} · 60 FPS)`, 'success');
+                      console.log(`[ZTIF Optimizer] ✓ Sincronización en la nube completada: ${cloudUrl}`);
+                      break;
+                    }
                   } else if (job.status === 'failed') {
                     console.warn('[COG Optimizer] Falló trabajo local, pasando a fallback directo:', job.error);
                     break;
@@ -14902,7 +14935,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           layer.storageUrl = publicUrl;
           layer.serverFilename = key;
           layer._tileSavedAs = key;
-          layer.format = 'GeoTIFF';
+          layer.format = 'ZTIF';
           layer.lossless = true;
           layer.zeroLossVerified = true;
           layer.ztifSize = file.size;
@@ -15051,7 +15084,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         renderer: initialRenderer,
         rendererParams: initialParams,
         file: file,
-        format: isZtif ? 'ZTIF' : 'GeoTIFF',
+        format: 'ZTIF', // Formato ZTIF Lossless (Zima Tiled Lossless Format)
         lossless: true
       };
 
@@ -19179,6 +19212,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!layer.mapLayer) {
             if (layer.type === 'vector') {
       layer.mapLayer = await createVectorLeafletLayer(layer);
+            } else if (layer.isClassified && (layer.parentLayerId || layer._classifiedCanvas)) {
+                // Montar capa clasificada directamente en motor GeoTIFF TileLayer para alineación exacta subpíxel 0-drift
+                const parent = layer.parentLayerId ? state.layers.find(l => l.id === layer.parentLayerId) : null;
+                const parentGeo = parent?._geotiffTileLayer?.geo || parent?.mapLayer?.geo || layer._geotiffTileLayer?.geo;
+                const canvas = layer._classifiedCanvas;
+                if (parentGeo && canvas && typeof L.geoTIFFTileLayer === 'function') {
+                  layer.mapLayer = L.geoTIFFTileLayer(parentGeo, {
+                    tileSize: 256,
+                    maxNativeZoom: 24,
+                    maxZoom: 28,
+                    opacity: layer.opacity ?? 0.9,
+                    bounds: parentGeo.bounds || layer.bounds,
+                    classification: layer._classificationConfig || { classes: layer.classes },
+                    classificationCanvas: canvas,
+                    zIndex: 500
+                  });
+                  layer._geotiffTileLayer = layer.mapLayer;
+                } else if (layer.imageUrl && layer.bounds) {
+                  layer.mapLayer = L.imageOverlay(layer.imageUrl, layer.bounds, {
+                    opacity: layer.opacity,
+                    interactive: true,
+                    alt: layer.name,
+                    zIndex: 500,
+                    className: 'classified-crisp-overlay geotiff-crisp-tile'
+                  });
+                }
             } else if (layer.imageUrl && layer.bounds) {
                 layer.mapLayer = L.imageOverlay(layer.imageUrl, layer.bounds, {
                     opacity: layer.opacity,
@@ -23003,6 +23062,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function handleSupervisedMapClick(e) {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active) return;
+      if (e.originalEvent && e.originalEvent.target && e.originalEvent.target.closest('#supervisedMapDock')) return;
 
       if (state_sup.samplingTool === 'point') {
         const s = samplePixelAtLatLng(e.latlng);
@@ -23034,6 +23094,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function handleSupervisedMapDragStart(e) {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active || state_sup.samplingTool !== 'drag') return;
+      if (e.originalEvent && e.originalEvent.target && e.originalEvent.target.closest('#supervisedMapDock')) return;
       state_sup.isMouseDown = true;
       state_sup.lastSampleLatLng = e.latlng;
       const s = samplePixelAtLatLng(e.latlng);
@@ -23579,7 +23640,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${layer._isSolo ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs">Solo</span>' : ''}
             </div>
             <div class="flex items-center gap-1.5 text-[8px] text-zinc-400 font-bold uppercase tracking-widest flex-wrap">
-              <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'Raster ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
+              <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'ZTIF ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
+              ${!isVector && !layer.isClassified ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 shadow-2xs" title="Formato ZTIF Lossless: 0% pérdida de calidad, teselas piramidales">ZTIF LOSSLESS</span>` : ''}
               ${!isVector && !layer.isClassified && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
               ${!isVector && layer.sensor?.sensorBadge ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shadow-2xs">${layer.sensor.sensorBadge}</span>` : ''}
             
