@@ -6230,7 +6230,7 @@
             <button type="button" onclick="setSupervisedSamplingTool('drag')" id="supToolBtn-drag"
               class="flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-emerald-50/60 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20">
               <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-600 text-white">
-                <span class="material-symbols-outlined text-[20px]">draw</span>
+                <span class="material-symbols-outlined text-[20px]">brush</span>
               </div>
               <span class="text-[11px] font-black text-emerald-950">Pincel / Arrastre</span>
               <span class="text-[8px] text-emerald-700 font-medium leading-tight">Mantén clic y arrastra libremente</span>
@@ -6240,7 +6240,7 @@
             <button type="button" onclick="setSupervisedSamplingTool('polygon')" id="supToolBtn-polygon"
               class="flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center gap-1.5 bg-white border-zinc-200 hover:border-emerald-500 shadow-2xs">
               <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-700">
-                <span class="material-symbols-outlined text-[20px]">polyline</span>
+                <span class="material-symbols-outlined text-[20px]">pentagon</span>
               </div>
               <span class="text-[11px] font-black text-zinc-800">Polígono (Área ROI)</span>
               <span class="text-[8px] text-zinc-400 font-medium leading-tight">Delimita un área con vértices</span>
@@ -6391,20 +6391,20 @@
     <!-- Herramientas de Muestreo: Punto, Pincel, Polígono -->
     <div class="flex items-center gap-1 border-r border-white/15 pr-3">
       <button type="button" onclick="setSupervisedSamplingTool('point')" id="supDockTool-point"
-        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700" title="Punto Individual (Clic en píxel)">
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white" title="Punto Individual (Clic en píxel)">
         <span class="material-symbols-outlined text-[14px]">ads_click</span>
         <span>Punto</span>
       </button>
 
       <button type="button" onclick="setSupervisedSamplingTool('drag')" id="supDockTool-drag"
         class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs" title="Pincel continuo (Mantén clic y arrastra)">
-        <span class="material-symbols-outlined text-[14px]">draw</span>
+        <span class="material-symbols-outlined text-[14px]">brush</span>
         <span>Pincel</span>
       </button>
 
       <button type="button" onclick="setSupervisedSamplingTool('polygon')" id="supDockTool-polygon"
-        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700" title="Polígono ROI (Vértices sobre mapa)">
-        <span class="material-symbols-outlined text-[14px]">polyline</span>
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white" title="Polígono ROI (Vértices sobre mapa)">
+        <span class="material-symbols-outlined text-[14px]">pentagon</span>
         <span>Polígono</span>
       </button>
     </div>
@@ -9489,14 +9489,25 @@ self.onmessage = async function(e) {
         if (!layer || layer._rawSpectralBands || layer._loadingSpectralBands) return;
         const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
         if (!tileLayer || !tileLayer.pyramid || !tileLayer.pyramid.levels) return;
+
+        // Si la imagen no tiene pirámides internas o es de dimensiones masivas, NO decodificar globalmente
+        // para evitar congelar el navegador. El inspector lee celdas 1x1 (< 2ms) bajo demanda con 0 congelamiento.
+        if (tileLayer.pyramid.levels.length === 1 && (tileLayer.pyramid.baseWidth > 1500 || tileLayer.pyramid.baseHeight > 1500)) {
+          return;
+        }
+
         layer._loadingSpectralBands = true;
         try {
           const levels = tileLayer.pyramid.levels;
-          let targetImg = levels[levels.length - 1];
+          let targetImg = null;
           for (let i = 0; i < levels.length; i++) {
             const w = levels[i].getWidth();
             if (w >= 600 && w <= 1400) { targetImg = levels[i]; break; }
           }
+          if (!targetImg) {
+            targetImg = levels.length >= 4 ? levels[3] : (levels.length >= 3 ? levels[2] : null);
+          }
+          if (!targetImg) return;
           const w = targetImg.getWidth();
           const h = targetImg.getHeight();
           const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
@@ -9649,10 +9660,13 @@ self.onmessage = async function(e) {
 
         // Si los valores espectrales de este píxel aún no están en memoria, leer directamente la celda 1x1 (< 2ms, 0 freeze)
         if (!bandValues && coordKey && coords.satPx >= 0 && coords.satPy >= 0) {
-          const tileLayer = found._geotiffTileLayer || (found.mapLayer?.pyramid ? layer => layer.mapLayer : null);
           const tLayer = found._geotiffTileLayer || (found.mapLayer?.pyramid ? found.mapLayer : null);
           if (tLayer && tLayer.pyramid && (!found._fetchingPixelCoord || found._fetchingPixelCoord !== coordKey)) {
             found._fetchingPixelCoord = coordKey;
+            const timeoutId = setTimeout(() => {
+              if (found._fetchingPixelCoord === coordKey) found._fetchingPixelCoord = null;
+            }, 1000);
+
             const baseImg = tLayer.pyramid.getBaseLevel();
             if (baseImg) {
               const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (found.bands || 3);
@@ -9668,17 +9682,19 @@ self.onmessage = async function(e) {
                 : baseImg.readRasters(readOpts);
 
               readPromise.then(raw => {
+                clearTimeout(timeoutId);
                 found._fetchingPixelCoord = null;
                 if (raw && raw.length > 0) {
                   const vals = Array.from(raw).map(b => b[0]);
                   if (!found._pixelValuesCache) found._pixelValuesCache = new Map();
-                  if (found._pixelValuesCache.size > 300) found._pixelValuesCache.clear();
+                  if (found._pixelValuesCache.size > 500) found._pixelValuesCache.clear();
                   found._pixelValuesCache.set(coordKey, vals);
                   if (window._currentInspectedCoord === coordKey && pixelCard.style.display !== 'none') {
                     renderPixelInspectorCard(pixelCard, found, coords, e);
                   }
                 }
               }).catch(() => {
+                clearTimeout(timeoutId);
                 found._fetchingPixelCoord = null;
               });
             }
@@ -12789,42 +12805,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return this._quickOverview;
             }
 
-            // Para imágenes de 1 solo nivel (GeoTIFFs estándar como Landsat/Sentinel sin pirámides internas),
-            // generamos un overview submuestreado (256x256) una sola vez para visualización instantánea
-            if (this.pyramid.levels.length === 1) {
-              try {
-                const baseImg = this.pyramid.levels[0];
-                const targetSize = 512;
-                const aspect = fullW / fullH;
-                const ovW = aspect >= 1 ? targetSize : Math.max(32, Math.round(targetSize * aspect));
-                const ovH = aspect >= 1 ? Math.max(32, Math.round(targetSize / aspect)) : targetSize;
-
-                const raw = await baseImg.readRasters({
-                  samples: bandsToUse,
-                  width: ovW,
-                  height: ovH,
-                  resampleMethod: 'nearest'
-                });
-
-                if (raw && raw.length > 0) {
-                  const isArr = Array.isArray(raw);
-                  const fB = isArr ? raw[0] : raw;
-                  const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
-                  const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-                  const globalStats = await this._getGlobalStats();
-                  const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
-                  const canvas = document.createElement('canvas');
-                  canvas.width = ovW;
-                  canvas.height = ovH;
-                  canvas.getContext('2d').putImageData(new ImageData(px, ovW, ovH), 0, 0);
-                  this._quickOverview = { canvas, width: ovW, height: ovH, fullW, fullH };
-                  return this._quickOverview;
-                }
-              } catch (e) {
-                console.warn('[GeoTIFFTile] Single level overview build warning:', e);
-              }
-            }
-
+            // Para imágenes de 1 solo nivel sin pirámides internas, el streaming nativo de teselas
+            // se encarga de renderizar la imagen con máxima fidelidad sin congelar el navegador.
             return null;
           } catch (e) {
             console.warn('[GeoTIFFTile] Fast overview build warning:', e);
@@ -12847,30 +12829,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const abortController = new AbortController();
         this._activeTileAbortControllers.set(tileKey, abortController);
         const signal = abortController.signal;
-
-        let isDone = false;
-        const markTileLoaded = () => {
-          if (!isDone) {
-            isDone = true;
-            done(null, tile);
-          }
-        };
         
-        this._renderTile(tile, coords, signal, tileKey, markTileLoaded).then(() => {
+        this._renderTile(tile, coords, signal, tileKey).then(() => {
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          markTileLoaded();
+          done(null, tile);
         }).catch((err) => {
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          if (!isDone) {
-            isDone = true;
-            done(err, tile);
-          }
+          done(err, tile);
         });
         
         return tile;
       },
       
-      async _renderTile(tile, coords, signal = null, tileKey = null, onPreviewReady = null) {
+      async _renderTile(tile, coords, signal = null, tileKey = null) {
         const tileSize = this.options.tileSize;
         const cacheKey = `${this._layerUid}_${coords.z}_${coords.x}_${coords.y}`;
         const cached = _tileCache.get(cacheKey);
@@ -12926,57 +12897,43 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         if (windowW <= 0 || windowH <= 0) return;
 
-        // 1. RENDERIZADO PROGRESIVO INSTANTÁNEO (0 ms):
-        // Dibuja de inmediato el sector desde la vista general (overview) para eliminar cualquier pantalla en blanco o parpadeo
-        let drewPreview = false;
-        try {
-          const ov = await this._getOrBuildOverview();
-          if (ov && ov.canvas && !(signal && signal.aborted)) {
-            const ctx = tile.getContext('2d');
-            const srcX = (fullWndL / ov.fullW) * ov.width;
-            const srcY = (fullWndT / ov.fullH) * ov.height;
-            const srcW = ((fullWndR - fullWndL) / ov.fullW) * ov.width;
-            const srcH = ((fullWndB - fullWndT) / ov.fullH) * ov.height;
+        // 1. CAPAS TEMÁTICAS CLASIFICADAS: Proyección directa desde el lienzo temático clasificado
+        if (this.options.classification && this.options.classificationCanvas) {
+          const c = this.options.classificationCanvas;
+          const ctx = tile.getContext('2d');
+          const fullW = this.pyramid.baseWidth;
+          const fullH = this.pyramid.baseHeight;
 
-            const clampX = Math.max(0, Math.min(ov.width, srcX));
-            const clampY = Math.max(0, Math.min(ov.height, srcY));
-            const clampR = Math.max(0, Math.min(ov.width, srcX + srcW));
-            const clampB = Math.max(0, Math.min(ov.height, srcY + srcH));
-            const validW = clampR - clampX;
-            const validH = clampB - clampY;
+          const srcX = (fullWndL / fullW) * c.width;
+          const srcY = (fullWndT / fullH) * c.height;
+          const srcW = ((fullWndR - fullWndL) / fullW) * c.width;
+          const srcH = ((fullWndB - fullWndT) / fullH) * c.height;
 
-            if (validW > 0 && validH > 0 && srcW > 0 && srcH > 0) {
-              const dstX = ((clampX - srcX) / srcW) * tileSize;
-              const dstY = ((clampY - srcY) / srcH) * tileSize;
-              const dstW = (validW / srcW) * tileSize;
-              const dstH = (validH / srcH) * tileSize;
+          const clampX = Math.max(0, Math.min(c.width, srcX));
+          const clampY = Math.max(0, Math.min(c.height, srcY));
+          const clampR = Math.max(0, Math.min(c.width, srcX + srcW));
+          const clampB = Math.max(0, Math.min(c.height, srcY + srcH));
+          const validW = clampR - clampX;
+          const validH = clampB - clampY;
 
-              if (this.options.classification) {
-                ctx.imageSmoothingEnabled = false;
-                ctx.mozImageSmoothingEnabled = false;
-                ctx.webkitImageSmoothingEnabled = false;
-                ctx.msImageSmoothingEnabled = false;
-              } else {
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-              }
-              ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
-              drewPreview = true;
-              if (typeof onPreviewReady === 'function') {
-                onPreviewReady();
-              }
-            }
+          if (validW > 0 && validH > 0 && srcW > 0 && srcH > 0) {
+            const dstX = ((clampX - srcX) / srcW) * tileSize;
+            const dstY = ((clampY - srcY) / srcH) * tileSize;
+            const dstW = (validW / srcW) * tileSize;
+            const dstH = (validH / srcH) * tileSize;
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+            ctx.drawImage(c, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
+            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
           }
-        } catch (_) {}
-
-        if (signal && signal.aborted) return;
-
-        // En capas de clasificación temática (en vivo o con lienzo clasificado), el lienzo clasificado es el render final de la tesela
-        if (this.options.classification && (this.options.classificationCanvas || drewPreview)) {
-          if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
+
+        if (signal && signal.aborted) return;
         
         // 2. STREAMING EN ALTA RESOLUCIÓN NATIVA (100% Sin Pérdida):
         // Descarga y procesa teselas exactas desde Cloudflare R2 vía HTTP Range Request
@@ -21775,7 +21732,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (t === tool) {
             dockBtn.className = 'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-emerald-600 text-white shadow-xs';
           } else {
-            dockBtn.className = 'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700';
+            dockBtn.className = 'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white';
           }
         }
       });
