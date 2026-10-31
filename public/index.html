@@ -9667,8 +9667,15 @@ self.onmessage = async function(e) {
               if (found._fetchingPixelCoord === coordKey) found._fetchingPixelCoord = null;
             }, 1000);
 
-            const baseImg = tLayer.pyramid.getBaseLevel();
-            if (baseImg) {
+            const baseImg = tLayer.pyramid.levels ? tLayer.pyramid.levels[0] : (tLayer.pyramid.getBaseLevel ? (tLayer.pyramid.getBaseLevel().image || tLayer.pyramid.getBaseLevel()) : null);
+            if (baseImg && typeof baseImg.readRasters === 'function') {
+              const isTiled = !!baseImg.fileDirectory?.TileWidth;
+              // Si la imagen no es COG/tiled y supera 2500px, evitar lecturas 1x1 síncronas que decodifican tiras pesadas en el hilo principal
+              if (!isTiled && (baseImg.getWidth() > 2500 || baseImg.getHeight() > 2500) && tLayer.pyramid.levels.length === 1) {
+                clearTimeout(timeoutId);
+                found._fetchingPixelCoord = null;
+                return;
+              }
               const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (found.bands || 3);
               const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
               const pool = getGeoTIFFWorkerPool();
@@ -9851,9 +9858,9 @@ self.onmessage = async function(e) {
       window.extractSpectralValues = extractSpectralValues;
       window.renderPixelInspectorCard = renderPixelInspectorCard;
 
-      // Seguimiento de coordenadas del mouse y raster hover
+      // Seguimiento de coordenadas del mouse y raster hover optimizado a 60 FPS
       window._rasterAreaCache = {};
-      let _lastInspectorMoveTime = 0;
+      let _inspectorDebounceTimer = null;
       state.map.on('mousemove', (e) => {
           const display = document.getElementById('mouseCoords');
           if (display) {
@@ -9866,6 +9873,10 @@ self.onmessage = async function(e) {
           if (window._supervisedState && window._supervisedState.active) {
             if (pixelCard) pixelCard.style.display = 'none';
             if (hoverInfo) hoverInfo.style.display = 'none';
+            if (window._pixelHoverBox) {
+              try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+              window._pixelHoverBox = null;
+            }
             if (window._supervisedState.isMouseDown && window._supervisedState.samplingTool === 'drag') {
               if (typeof handleSupervisedMapDrag === 'function') handleSupervisedMapDrag(e);
             } else if (window._supervisedState.samplingTool === 'polygon' && window._supervisedState.polygonDrawingPoints?.length > 0) {
@@ -9874,78 +9885,92 @@ self.onmessage = async function(e) {
             return;
           }
 
-          // Throttle raster hover / inspector during mouse movements (fluidez a 60fps sin saturar la CPU)
-          const now = performance.now();
-          if (now - _lastInspectorMoveTime < 30) return;
-          _lastInspectorMoveTime = now;
+          // Durante el movimiento continuo del cursor, ocultar la tarjeta para 60 FPS puros
+          if (pixelCard) pixelCard.style.display = 'none';
+          if (window._pixelHoverBox) {
+            try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+            window._pixelHoverBox = null;
+          }
+          if (_inspectorDebounceTimer) {
+            clearTimeout(_inspectorDebounceTimer);
+            _inspectorDebounceTimer = null;
+          }
+
+          // DEBOUNCE INTELIGENTE (300ms): Solo inspeccionar cuando el usuario detiene el mouse sobre un píxel
+          _inspectorDebounceTimer = setTimeout(() => {
+            if (window._supervisedState && window._supervisedState.active) return;
+            let found = null;
+            if (state.selectedLayerId) {
+              const sel = state.layers.find(l => l.id === state.selectedLayerId);
+              if (sel && sel.type === 'raster' && sel.visible && sel.bounds) {
+                const b = sel.bounds;
+                const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+                if (latlngBounds.contains(e.latlng)) found = sel;
+              }
+            }
+            if (!found) {
+              for (const l of state.layers) {
+                if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
+                const b = l.bounds;
+                const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
+                if (latlngBounds.contains(e.latlng)) { found = l; break; }
+              }
+            }
+
+            if (found) {
+              const coords = getRasterPixelCoords(found, e.latlng);
+              if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
+                const pBounds = getPixelLatLngBounds(coords, found);
+                if (pBounds) {
+                  if (!window._pixelHoverBox) {
+                    window._pixelHoverBox = L.rectangle(pBounds, {
+                      color: '#ec4899',
+                      weight: 2,
+                      fill: true,
+                      fillColor: '#f472b6',
+                      fillOpacity: 0.35,
+                      interactive: false,
+                      zIndexOffset: 10000
+                    }).addTo(state.map);
+                  } else {
+                    window._pixelHoverBox.setBounds(pBounds);
+                  }
+                }
+                if (window._rasterHoverRect) {
+                  try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
+                  window._rasterHoverRect = null;
+                }
+                window._lastRasterHoverId = null;
+                renderPixelInspectorCard(pixelCard, found, coords, e);
+                if (hoverInfo) hoverInfo.style.display = 'none';
+              }
+            }
+          }, 300);
 
           let found = null;
-          // 1. Priorizar la capa seleccionada por el usuario si está visible bajo el cursor
           if (state.selectedLayerId) {
             const sel = state.layers.find(l => l.id === state.selectedLayerId);
             if (sel && sel.type === 'raster' && sel.visible && sel.bounds) {
               const b = sel.bounds;
               const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-              if (latlngBounds.contains(e.latlng)) {
-                found = sel;
-              }
+              if (latlngBounds.contains(e.latlng)) found = sel;
             }
           }
-
-          // 2. Si no, tomar la capa raster visible superior en el mapa
           if (!found) {
             for (const l of state.layers) {
               if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
               const b = l.bounds;
               const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-              if (latlngBounds.contains(e.latlng)) {
-                found = l;
-                break;
-              }
+              if (latlngBounds.contains(e.latlng)) { found = l; break; }
             }
           }
 
           if (found) {
             const b = found.bounds;
             const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-
-            // Precarga en background de bandas si es multiespectral
-            if ((found.bands > 1 || found.bandsCount > 1 || found._spectralBandCount > 1) && !found._rawSpectralBands) {
-              ensureLayerSpectralBands(found);
-            }
-
-            // Cálculo geodésico exacto de celda satelital
             const coords = getRasterPixelCoords(found, e.latlng);
 
             if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
-              // Resaltar en el mapa el píxel individual exacto de 30m
-              const pBounds = getPixelLatLngBounds(coords, found);
-              if (pBounds) {
-                if (!window._pixelHoverBox) {
-                  window._pixelHoverBox = L.rectangle(pBounds, {
-                    color: '#ec4899',
-                    weight: 2,
-                    fill: true,
-                    fillColor: '#f472b6',
-                    fillOpacity: 0.35,
-                    interactive: false,
-                    zIndexOffset: 10000
-                  }).addTo(state.map);
-                } else {
-                  window._pixelHoverBox.setBounds(pBounds);
-                }
-              }
-
-              // Quitar recuadro general de la escena para no obstruir el píxel
-              if (window._rasterHoverRect) {
-                try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
-                window._rasterHoverRect = null;
-              }
-              window._lastRasterHoverId = null;
-
-              // Renderizar la tarjeta del Inspector Multiespectral
-              renderPixelInspectorCard(pixelCard, found, coords, e);
-              if (hoverInfo) hoverInfo.style.display = 'none';
               return;
             }
 
@@ -14783,94 +14808,120 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function optimizeAndUploadRasterToCloud(layer, file, clientGeo) {
       if (!file || layer.storageUrl) return;
-      const baseName = _safeCloudName(String(file.name || 'raster').replace(/\.(tiff?|img|vrt|ztif)$/i, ''), 'raster');
       const mb = (file.size / 1048576).toFixed(1);
 
+      // 1. Intentar optimización nativa a formato Cloud Optimized GeoTIFF (COG Lossless) mediante GDAL
+      let convertedViaLocalApi = false;
       try {
-        console.log(`[R2 Upload] Subiendo ${file.name} (${mb} MB) directamente a Cloudflare R2...`);
-        _setCloudProgress(`Subiendo imagen completa a Cloudflare R2 (${mb} MB)...`, 5, 'Cloudflare R2');
+        console.log(`[COG Optimizer] Iniciando conversión de ${file.name} (${mb} MB) a Cloud Optimized GeoTIFF (COG Lossless)...`);
+        _setCloudProgress(`Optimizando ráster a formato COG Lossless (0% pérdida)...`, 10, 'COG Lossless');
 
-        const { publicUrl, key } = await uploadFileToR2Direct(file, (pct) => {
-          _setCloudProgress(`Subiendo a Cloudflare R2 (${pct}% de ${mb} MB)...`, 5 + Math.round(pct * 0.9), 'Cloudflare R2');
-          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-            $cloudUploadStatus.textContent = `Subiendo a R2: ${pct}%`;
-          }
+        const formData = new FormData();
+        formData.append('file', file);
+        const uid = (typeof _currentUser !== 'undefined' && _currentUser?.id) ? _currentUser.id : 'guest';
+        const pid = (typeof _currentProject !== 'undefined' && _currentProject?.id) ? _currentProject.id : '';
+
+        const resp = await fetch(`/api/import-tiff?fast=true&user_id=${encodeURIComponent(uid)}&project_id=${encodeURIComponent(pid)}`, {
+          method: 'POST',
+          body: formData
         });
 
-        layer.storageUrl = publicUrl;
-        // ⚡ Guardar inmediatamente en caché local en este dispositivo bajo la URL de la nube y la clave
-        if (typeof ZimaTiffCache !== 'undefined' && file) {
-          try {
-            await ZimaTiffCache.set(publicUrl, file, file.name);
-            if (key) await ZimaTiffCache.set(key, file, file.name);
-            layer._isLocalCached = true;
-            console.log('⚡ [ZimaTiffCache] Guardado localmente en este dispositivo bajo URL R2 (0ms):', publicUrl);
-          } catch (_) {}
-        }
-        layer.serverFilename = key;
-        layer._tileSavedAs = key;
-        layer.parts = null;
-        layer.format = 'GeoTIFF';
-        layer.lossless = true;
-        layer.zeroLossVerified = true;
-        layer.ztifSize = file.size;
-        layer.origSize = file.size;
-        layer.savingsPercent = 0;
-        updateZtifBadgeUI(layer);
+        if (resp.ok) {
+          const initData = await resp.json();
+          const jobId = initData.savedAs || initData.id;
+          if (jobId) {
+            console.log(`[COG Optimizer] Trabajo de optimización iniciado: ${jobId}. Polling de progreso...`);
+            const pollStart = Date.now();
+            let isDone = false;
+            while (!isDone && (Date.now() - pollStart < 300000)) { // 5 min max
+              await new Promise(r => setTimeout(r, 1500));
+              try {
+                const statusRes = await fetch(`/api/import-status/${encodeURIComponent(jobId)}`);
+                if (statusRes.ok) {
+                  const job = await statusRes.json();
+                  if (job.status === 'processing') {
+                    _setCloudProgress(job.message || 'Procesando COG Lossless...', job.progress || 35, 'COG Lossless');
+                  } else if (job.status === 'completed' && job.result) {
+                    isDone = true;
+                    convertedViaLocalApi = true;
+                    const res = job.result;
+                    const cloudUrl = res.cloudUrl || res.fileUrl;
 
-        // Generar y subir overview complementario a Cloudflare R2 para visualización instantánea y fluida a zoom bajo
-        try {
-          _setCloudProgress(`Generando y subiendo vista general (overview) a Cloudflare R2...`, 96, 'Cloudflare R2');
-          await generateAndUploadOverviewToR2(layer, file, clientGeo, key);
-        } catch (ovErr) {
-          console.warn('[R2 Upload] Overview upload error (no fatal):', ovErr);
-        }
+                    layer.storageUrl = cloudUrl;
+                    layer.serverFilename = res.savedAs;
+                    layer._tileSavedAs = res.savedAs;
+                    layer.format = 'COG (Lossless)';
+                    layer.lossless = true;
+                    layer.zeroLossVerified = true;
+                    layer.ztifSize = res.sizeBytes || file.size;
+                    layer.origSize = res.origSize || file.size;
+                    layer.savingsPercent = res.savingsPercent || 0;
 
-        if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+                    // Si la capa en mapa ya está montada, actualizar su URL remota para streaming COG piramidal
+                    if (layer._geotiffTileLayer) {
+                      layer._geotiffTileLayer.options.fileUrl = cloudUrl;
+                      layer._geotiffTileLayer.options.storageUrl = cloudUrl;
+                    }
 
-        // Guardar URL remota para persistencia del proyecto
-        layer.storageUrl = publicUrl;
-        layer.serverFilename = key;
-        layer._tileSavedAs = key;
-        
-        // Si no hay capa visual activa, inicializarla desde R2
-        if (!layer._geotiffTileLayer && !layer.mapLayer && typeof showPreviewOverlay === 'function') {
-          console.log('[R2 Upload] Inicializando capa en mapa desde URL pública de Cloudflare R2...');
-          await showPreviewOverlay(layer, key, { maxSize: 0, skipFit: true });
-        }
-        
-        // Vista ya centrada al importar capa inicialmente; evitar movimientos no solicitados durante la subida
+                    updateZtifBadgeUI(layer);
+                    if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
 
-        toast(`✓ Subido a Cloudflare R2 (${mb} MB · disponible al instante)`, 'success');
-        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `¡Subida exitosa: ${file.name}!`;
+                    const savingsText = res.savingsPercent > 0 ? ` · -${res.savingsPercent}% tamaño` : '';
+                    const sizeMb = (res.sizeBytes / 1048576).toFixed(1);
+                    toast(`✓ Convertido a COG Lossless (${sizeMb} MB${savingsText} · 100% fidelidad)`, 'success');
+                    console.log(`[COG Optimizer] ✓ Optimización COG completada con éxito: ${cloudUrl}`);
+                    break;
+                  } else if (job.status === 'failed') {
+                    console.warn('[COG Optimizer] Falló trabajo local, pasando a fallback directo:', job.error);
+                    break;
+                  }
+                }
+              } catch (pollErr) {
+                console.warn('[COG Optimizer] Error en polling:', pollErr);
+              }
+            }
+          }
         }
-      } catch (err) {
-        console.error('[R2 Upload] Error:', err);
-        if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
-          $cloudUploadStatus.textContent = `Error R2: ${err.message}`;
-        }
-        toast('Subida a Cloudflare R2: ' + err.message, 'warning');
-
-        // Fallback local SOLO en caso de error de red / modo offline
-        if (!layer.mapLayer && clientGeo && layer.bounds && typeof L.geoTIFFTileLayer === 'function') {
-          try {
-            const clientTileLayer = L.geoTIFFTileLayer(clientGeo, {
-              tileSize: 256,
-              maxNativeZoom: 24,
-              maxZoom: 28,
-              opacity: layer.opacity ?? 1,
-              bounds: layer.bounds,
-              bands: layer.rendererParams?.bands
-            });
-            clientTileLayer.addTo(state.map);
-            layer._geotiffTileLayer = clientTileLayer;
-            layer.mapLayer = clientTileLayer;
-          } catch (_) {}
-        }
-      } finally {
-        hideProgress();
+      } catch (apiErr) {
+        console.warn('[COG Optimizer] Endpoint local no disponible o error:', apiErr);
       }
+
+      // 2. Si la API local no completó la optimización (ej. en Vercel estático sin servidor GDAL local), fallback directo
+      if (!convertedViaLocalApi && !layer.storageUrl) {
+        console.log(`[R2 Upload] Fallback directo: Subiendo ${file.name} (${mb} MB) a Cloudflare R2...`);
+        _setCloudProgress(`Subiendo imagen a Cloudflare R2 (${mb} MB)...`, 5, 'Cloudflare R2');
+
+        try {
+          const { publicUrl, key } = await uploadFileToR2Direct(file, (pct) => {
+            _setCloudProgress(`Subiendo a Cloudflare R2 (${pct}% de ${mb} MB)...`, 5 + Math.round(pct * 0.9), 'Cloudflare R2');
+            if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+              $cloudUploadStatus.textContent = `Subiendo a R2: ${pct}%`;
+            }
+          });
+
+          layer.storageUrl = publicUrl;
+          layer.serverFilename = key;
+          layer._tileSavedAs = key;
+          layer.format = 'GeoTIFF';
+          layer.lossless = true;
+          layer.zeroLossVerified = true;
+          layer.ztifSize = file.size;
+          layer.origSize = file.size;
+          layer.savingsPercent = 0;
+          updateZtifBadgeUI(layer);
+
+          try {
+            await generateAndUploadOverviewToR2(layer, file, clientGeo, key);
+          } catch (_) {}
+
+          if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+          toast(`✓ Subido a Cloudflare R2 (${mb} MB)`, 'success');
+        } catch (err) {
+          console.error('[R2 Upload] Fallback error:', err);
+          toast('Subida a Cloudflare R2: ' + err.message, 'warning');
+        }
+      }
+      hideProgress();
     }
 
     async function loadTiff(file, opts = {}) {
@@ -22185,10 +22236,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
       if (activeCls.pixelSet.has(pixelKey)) return null;
 
-      const spectral = extractSpectralValues(targetLayer, coords);
-      if (!spectral || !spectral.bandValues || spectral.bandValues.length === 0) return null;
+      let vals = null;
+      let ndvi = null, ndwi = null;
 
-      const vals = spectral.bandValues;
+      const spectral = extractSpectralValues(targetLayer, coords);
+      if (spectral && spectral.bandValues && spectral.bandValues.length > 0) {
+        vals = spectral.bandValues;
+        ndvi = spectral.ndvi;
+        ndwi = spectral.ndwi;
+      }
+
+      // Si no están en caché instantánea, leer de las bandas multiespectrales cargadas
+      if (!vals) {
+        const sData = targetLayer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+        if (sData && sData.bands && sData.width && sData.height) {
+          const sPx = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * sData.width), 0), sData.width - 1);
+          const sPy = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * sData.height), 0), sData.height - 1);
+          const sIdx = sPy * sData.width + sPx;
+          vals = sData.bands.map(b => b[sIdx]);
+        }
+      }
+
+      if (!vals || vals.length === 0) return null;
       let isValid = false;
       for (let i = 0; i < vals.length; i++) {
         if (vals[i] !== null && !isNaN(vals[i]) && vals[i] > 0 && vals[i] < 1e12) {
@@ -22316,7 +22385,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         }
         for (let d = 0; d < dims; d++) {
-          variance[d] = Math.max(1e-5, variance[d] / N);
+          const mVal = Math.abs(mean[d]);
+          // Piso de varianza adaptativo: al menos 12% del valor medio para generalización espectral natural
+          const adaptiveFloor = Math.max(1e-4, Math.pow(mVal * 0.12, 2));
+          variance[d] = Math.max(adaptiveFloor, variance[d] / N);
         }
 
         let normSq = 0;
@@ -22384,9 +22456,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const alg = state_sup.algorithm || "min_distance";
       let validCount = 0;
 
-      // ── MODO 1 CLASE (Trivial) ─────────────────────────────────
+      // ── MODO 1 CLASE (Clasificación Espectral Delimitada por Tolerancia) ─────────
       if (numClasses === 1) {
         const c0Color = classColorsU32[0];
+        const m = classStats[0].mean;
+        const v = classStats[0].variance;
+        const maxDistSq = dims * 7.5; // Tolerancia espectral adaptativa (~3 sigmas)
+
         if (spectralData.type === "multispectral") {
           const bands = spectralData.bands;
           for (let i = 0; i < totalPixels; i++) {
@@ -22399,12 +22475,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               classMap[i] = -1;
               continue;
             }
-            classMap[i] = 0;
-            u32[i] = c0Color;
-            validCount++;
+            // Distancia de Mahalanobis normalizada al grupo
+            let dSq = 0;
+            for (let b = 0; b < bCount; b++) {
+              const diff = bands[b][i] - m[b];
+              dSq += (diff * diff) / v[b];
+            }
+            if (dSq <= maxDistSq) {
+              classMap[i] = 0;
+              u32[i] = c0Color;
+              validCount++;
+            } else {
+              classMap[i] = -1;
+              u32[i] = 0; // Transparente: deja visible el satélite original
+            }
           }
         } else {
           const sData = spectralData.data;
+          const inv255 = 1 / 255;
           for (let i = 0; i < totalPixels; i++) {
             const p = i * 4;
             if (sData[p + 3] < 20 || (sData[p] === 0 && sData[p + 1] === 0 && sData[p + 2] === 0)) {
@@ -22412,9 +22500,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               classMap[i] = -1;
               continue;
             }
-            classMap[i] = 0;
-            u32[i] = c0Color;
-            validCount++;
+            const diff0 = (sData[p] * inv255) - m[0];
+            const diff1 = (sData[p + 1] * inv255) - m[1];
+            const diff2 = (sData[p + 2] * inv255) - m[2];
+            const dSq = (diff0 * diff0) / v[0] + (diff1 * diff1) / v[1] + (diff2 * diff2) / v[2];
+            if (dSq <= 3 * 6.0) {
+              classMap[i] = 0;
+              u32[i] = c0Color;
+              validCount++;
+            } else {
+              classMap[i] = -1;
+              u32[i] = 0;
+            }
           }
         }
         classStats[0].count = validCount;
@@ -22436,6 +22533,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
 
           if (alg === "min_distance") {
+            const invVar0 = new Float32Array(numClasses);
+            const invVar1 = new Float32Array(numClasses);
+            const invVar2 = new Float32Array(numClasses);
+            for (let c = 0; c < numClasses; c++) {
+              invVar0[c] = 1 / classStats[c].variance[0];
+              invVar1[c] = 1 / classStats[c].variance[1];
+              invVar2[c] = 1 / classStats[c].variance[2];
+            }
+            const maxDistSq = 3 * 8.5; // Umbral de tolerancia espectral (~3 sigmas)
             for (let i = 0; i < totalPixels; i++) {
               const v0 = b0[i], v1 = b1[i], v2 = b2[i];
               if (v0 <= 0 && v1 <= 0 && v2 <= 0) {
@@ -22448,13 +22554,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const d0 = v0 - cm0[c];
                 const d1 = v1 - cm1[c];
                 const d2 = v2 - cm2[c];
-                const d = d0 * d0 + d1 * d1 + d2 * d2;
+                const d = d0 * d0 * invVar0[c] + d1 * d1 * invVar1[c] + d2 * d2 * invVar2[c];
                 if (d < minD) { minD = d; bestC = c; }
               }
-              classStats[bestC].count++;
-              validCount++;
-              classMap[i] = bestC;
-              u32[i] = classColorsU32[bestC];
+              if (minD <= maxDistSq) {
+                classStats[bestC].count++;
+                validCount++;
+                classMap[i] = bestC;
+                u32[i] = classColorsU32[bestC];
+              } else {
+                classMap[i] = -1;
+                u32[i] = 0; // Transparente: permite ver el satélite original
+              }
             }
           } else if (alg === "max_likelihood") {
             const inv2Var0 = new Float32Array(numClasses);
@@ -22527,6 +22638,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
 
           if (alg === "min_distance") {
+            const invVar0 = new Float32Array(numClasses);
+            const invVar1 = new Float32Array(numClasses);
+            const invVar2 = new Float32Array(numClasses);
+            const invVar3 = new Float32Array(numClasses);
+            for (let c = 0; c < numClasses; c++) {
+              invVar0[c] = 1 / classStats[c].variance[0];
+              invVar1[c] = 1 / classStats[c].variance[1];
+              invVar2[c] = 1 / classStats[c].variance[2];
+              invVar3[c] = 1 / classStats[c].variance[3];
+            }
+            const maxDistSq = 4 * 8.5; // Umbral de tolerancia espectral (~3 sigmas)
             for (let i = 0; i < totalPixels; i++) {
               const v0 = b0[i], v1 = b1[i], v2 = b2[i], v3 = b3[i];
               if (v0 <= 0 && v1 <= 0 && v2 <= 0 && v3 <= 0) {
@@ -22540,13 +22662,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const d1 = v1 - cm1[c];
                 const d2 = v2 - cm2[c];
                 const d3 = v3 - cm3[c];
-                const d = d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
+                const d = d0 * d0 * invVar0[c] + d1 * d1 * invVar1[c] + d2 * d2 * invVar2[c] + d3 * d3 * invVar3[c];
                 if (d < minD) { minD = d; bestC = c; }
               }
-              classStats[bestC].count++;
-              validCount++;
-              classMap[i] = bestC;
-              u32[i] = classColorsU32[bestC];
+              if (minD <= maxDistSq) {
+                classStats[bestC].count++;
+                validCount++;
+                classMap[i] = bestC;
+                u32[i] = classColorsU32[bestC];
+              } else {
+                classMap[i] = -1;
+                u32[i] = 0; // Transparente: permite ver el satélite original
+              }
             }
           } else if (alg === "max_likelihood") {
             const inv2Var0 = new Float32Array(numClasses);
@@ -22625,6 +22752,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
 
           if (alg === "min_distance") {
+            const maxDistSq = dims * 8.5; // Umbral chi-cuadrado para ~3 sigmas multiespectrales
             for (let i = 0; i < totalPixels; i++) {
               let isZero = true;
               for (let b = 0; b < dims; b++) {
@@ -22641,14 +22769,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 let d = 0;
                 for (let b = 0; b < dims; b++) {
                   const diff = bands[b][i] - flatMeans[cOff + b];
-                  d += diff * diff;
+                  d += (diff * diff) * (flatInv2Var[cOff + b] * 2);
                 }
                 if (d < minD) { minD = d; bestC = c; }
               }
-              classStats[bestC].count++;
-              validCount++;
-              classMap[i] = bestC;
-              u32[i] = classColorsU32[bestC];
+              if (minD <= maxDistSq) {
+                classStats[bestC].count++;
+                validCount++;
+                classMap[i] = bestC;
+                u32[i] = classColorsU32[bestC];
+              } else {
+                classMap[i] = -1;
+                u32[i] = 0; // Transparente: permite ver el satélite original debajo
+              }
             }
           } else if (alg === "max_likelihood") {
             for (let i = 0; i < totalPixels; i++) {
@@ -22745,10 +22878,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const d = d0 * d0 + d1 * d1 + d2 * d2;
             if (d < minD) { minD = d; bestC = c; }
           }
-          classStats[bestC].count++;
-          validCount++;
-          classMap[i] = bestC;
-          u32[i] = classColorsU32[bestC];
+          const maxDistRgb = 3 * 0.16 * 0.16;
+          if (minD <= maxDistRgb) {
+            classStats[bestC].count++;
+            validCount++;
+            classMap[i] = bestC;
+            u32[i] = classColorsU32[bestC];
+          } else {
+            classMap[i] = -1;
+            u32[i] = 0;
+          }
         }
       }
 
