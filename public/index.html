@@ -12768,16 +12768,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         this._activeTileAbortControllers.set(tileKey, abortController);
         const signal = abortController.signal;
         
-        this._renderTile(tile, coords).then(() => {
+        this._renderTile(tile, coords, signal, tileKey).then(() => {
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           done(null, tile);
         }).catch((err) => {
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           done(err, tile);
         });
         
         return tile;
       },
       
-      async _renderTile(tile, coords) {
+      async _renderTile(tile, coords, signal = null, tileKey = null) {
         const tileSize = this.options.tileSize;
         const cacheKey = `${this._layerUid}_${coords.z}_${coords.x}_${coords.y}`;
         const cached = _tileCache.get(cacheKey);
@@ -12838,7 +12840,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let drewPreview = false;
         try {
           const ov = await this._getOrBuildOverview();
-          if (ov && ov.canvas && !signal.aborted) {
+          if (ov && ov.canvas && !(signal && signal.aborted)) {
             const ctx = tile.getContext('2d');
             const srcX = (fullWndL / ov.fullW) * ov.width;
             const srcY = (fullWndT / ov.fullH) * ov.height;
@@ -12873,25 +12875,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         } catch (_) {}
 
-        if (signal.aborted) return;
+        if (signal && signal.aborted) return;
 
         // En capas de clasificación temática (en vivo o con lienzo clasificado), el lienzo clasificado es el render final de la tesela
         if (this.options.classification && (this.options.classificationCanvas || drewPreview)) {
           if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          this._activeTileAbortControllers?.delete(tileKey);
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
 
         // En niveles de zoom bajo/medio (z <= 11) o decimation elevada, el overview proporciona resolución perfecta
         if (drewPreview && (coords.z <= 11 || (this.pyramid.levels.length === 1 && windowW > 256))) {
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          this._activeTileAbortControllers?.delete(tileKey);
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
 
         // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
         if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
           _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
         
@@ -12903,11 +12906,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (_tileRequests.has(requestKey)) {
           try {
             const res = await _tileRequests.get(requestKey);
-            await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH, 
-              lvlWndL, lvlWndT, lvlWndR, lvlWndB,
-              fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
-            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+            if (signal && signal.aborted) return;
+            if (res && res.pixels) {
+              await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH, 
+                lvlWndL, lvlWndT, lvlWndR, lvlWndB,
+                fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
+              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+            }
           } catch(e) {}
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
         
@@ -12917,13 +12924,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         
         try {
           const res = await requestPromise;
-          await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
-            lvlWndL, lvlWndT, lvlWndR, lvlWndB,
-            fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
-          _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+          if (signal && signal.aborted) return;
+          if (res && res.pixels) {
+            await this._compositeToTile(tile, res.pixels, res.actualW, res.actualH,
+              lvlWndL, lvlWndT, lvlWndR, lvlWndB,
+              fullWndL, fullWndT, fullWndR, fullWndB, levelDecimation);
+            _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
+          }
         } catch(e) {
         } finally {
           _tileRequests.delete(requestKey);
+          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
         }
       },
       
@@ -12987,6 +12998,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         try {
           // Motor de clasificación temática pixel-por-pixel en streaming de teselas
           if (this.options.classification) {
+            if (signal && signal.aborted) return { pixels: null, actualW: 0, actualH: 0 };
             const cls = this.options.classification;
             const k = cls.k || 5;
             const dims = cls.dims || (cls.centers ? cls.centers[0]?.length : 3);
@@ -13019,6 +13031,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 interleave: false
               });
             }
+
+            if (signal && signal.aborted) return { pixels: null, actualW: 0, actualH: 0 };
 
             const actualW = (raw && raw.width) ? raw.width : windowW;
             const actualH = (raw && raw.height) ? raw.height : windowH;
@@ -39812,6 +39826,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     // Init: palette click listeners and Escape key
     document.addEventListener('DOMContentLoaded', () => {
+      const supDockEl = document.getElementById('supervisedMapDock');
+      if (supDockEl) {
+        if (typeof L !== 'undefined' && L.DomEvent) {
+          L.DomEvent.disableClickPropagation(supDockEl);
+          L.DomEvent.disableScrollPropagation(supDockEl);
+        }
+        ['mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'pointerdown'].forEach(evt => {
+          supDockEl.addEventListener(evt, (e) => e.stopPropagation());
+        });
+      }
       document.querySelectorAll('#modelBuilderModal [data-tool]').forEach(btn => {
         btn.addEventListener('click', () => MB.addNode(btn.dataset.tool));
       });
