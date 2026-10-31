@@ -9484,7 +9484,7 @@ self.onmessage = async function(e) {
         return val.toFixed(2);
       }
 
-      // 5. Precarga en segundo plano de bandas espectrales para rasters multiespectrales
+      // 5. Precarga en segundo plano de bandas espectrales para rasters multiespectrales (siempre acotada a <= 800px)
       async function ensureLayerSpectralBands(layer) {
         if (!layer || layer._rawSpectralBands || layer._loadingSpectralBands) return;
         const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
@@ -9501,11 +9501,33 @@ self.onmessage = async function(e) {
           const h = targetImg.getHeight();
           const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
           const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
-          const raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+
+          let targetW = w;
+          let targetH = h;
+          const readOpts = { samples: sampleBands, interleave: false };
+          // NUNCA decodificar resoluciones gigantes (>1000px) completas en memoria para vistas previas
+          if (w > 1000 || h > 1000) {
+            const maxDim = 800;
+            const aspect = w / h;
+            targetW = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
+            targetH = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
+            readOpts.width = targetW;
+            readOpts.height = targetH;
+            readOpts.resampleMethod = 'nearest';
+          }
+
+          const pool = getGeoTIFFWorkerPool();
+          let raw = null;
+          if (pool) {
+            try { raw = await targetImg.readRasters({ ...readOpts, pool }); } catch (_) {}
+          }
+          if (!raw) {
+            raw = await targetImg.readRasters(readOpts);
+          }
           if (raw && raw.length > 0) {
             layer._rawSpectralBands = raw;
-            layer._canvasWidth = w;
-            layer._canvasHeight = h;
+            layer._canvasWidth = targetW;
+            layer._canvasHeight = targetH;
           }
         } catch (err) {
           console.warn('[PixelInspector] Error precargando bandas espectrales:', err);
@@ -9518,42 +9540,53 @@ self.onmessage = async function(e) {
       function extractSpectralValues(found, coords) {
         if (!found) return { bandValues: null, bandCount: 1, classInfo: null, ndvi: null, ndwi: null };
         const parent = coords ? coords.parent : null;
-        const rawBands = found._rawSpectralBands || parent?._rawSpectralBands;
-        const canvasW = found._canvasWidth || parent?._canvasWidth;
-        const canvasH = found._canvasHeight || parent?._canvasHeight;
+        const coordKey = (coords && coords.satPx !== undefined && coords.satPy !== undefined) ? `${coords.satPx}_${coords.satPy}` : null;
 
         let bandValues = null;
         let bandCount = 0;
 
-        if (rawBands && Array.isArray(rawBands) && rawBands.length > 0) {
-          bandCount = rawBands.length;
-          const bW = canvasW || Math.round(Math.sqrt(rawBands[0].length));
-          const bH = canvasH || Math.round(rawBands[0].length / bW);
-          const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
-          const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
-          const idx = py * bW + px;
+        // 1. Prioridad: Valores nativos exactos en caché de píxel (0 ms)
+        if (coordKey && found._pixelValuesCache && found._pixelValuesCache.has(coordKey)) {
+          bandValues = found._pixelValuesCache.get(coordKey);
+          bandCount = bandValues.length;
+        }
 
-          bandValues = [];
-          for (let b = 0; b < bandCount; b++) {
-            const val = rawBands[b] ? rawBands[b][idx] : 0;
-            bandValues.push(val);
+        // 2. Valores desde bandas multiespectrales en memoria
+        if (!bandValues) {
+          const rawBands = found._rawSpectralBands || parent?._rawSpectralBands;
+          const canvasW = found._canvasWidth || parent?._canvasWidth;
+          const canvasH = found._canvasHeight || parent?._canvasHeight;
+
+          if (rawBands && Array.isArray(rawBands) && rawBands.length > 0) {
+            bandCount = rawBands.length;
+            const bW = canvasW || Math.round(Math.sqrt(rawBands[0].length));
+            const bH = canvasH || Math.round(rawBands[0].length / bW);
+            const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+            const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+            const idx = py * bW + px;
+
+            bandValues = [];
+            for (let b = 0; b < bandCount; b++) {
+              const val = rawBands[b] ? rawBands[b][idx] : 0;
+              bandValues.push(val);
+            }
+          } else if (found.rasters && Array.isArray(found.rasters) && found.rasters.length > 0) {
+            bandCount = found.rasters.length;
+            const rW = found.width || coords.natW;
+            const rH = found.height || coords.natH;
+            const idx = Math.min(Math.max(coords.satPy * rW + coords.satPx, 0), found.rasters[0].length - 1);
+            bandValues = found.rasters.map(b => b[idx]);
+          } else if (found._rawCanvasData) {
+            // Fallback a canvas RGBA
+            const bW = found._canvasWidth || 1000;
+            const bH = found._canvasHeight || 1000;
+            const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
+            const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
+            const p = (py * bW + px) * 4;
+            const d = found._rawCanvasData;
+            bandValues = [d[p], d[p + 1], d[p + 2]];
+            bandCount = 3;
           }
-        } else if (found.rasters && Array.isArray(found.rasters) && found.rasters.length > 0) {
-          bandCount = found.rasters.length;
-          const rW = found.width || coords.natW;
-          const rH = found.height || coords.natH;
-          const idx = Math.min(Math.max(coords.satPy * rW + coords.satPx, 0), found.rasters[0].length - 1);
-          bandValues = found.rasters.map(b => b[idx]);
-        } else if (found._rawCanvasData) {
-          // Fallback a canvas RGBA
-          const bW = found._canvasWidth || 1000;
-          const bH = found._canvasHeight || 1000;
-          const px = Math.min(Math.max(Math.floor((coords.baseX / coords.natW) * bW), 0), bW - 1);
-          const py = Math.min(Math.max(Math.floor((coords.baseY / coords.natH) * bH), 0), bH - 1);
-          const p = (py * bW + px) * 4;
-          const d = found._rawCanvasData;
-          bandValues = [d[p], d[p + 1], d[p + 2]];
-          bandCount = 3;
         }
 
         // Información de clase temática si es clasificada
@@ -9606,10 +9639,51 @@ self.onmessage = async function(e) {
           return;
         }
 
+        const coordKey = (coords.satPx !== undefined && coords.satPy !== undefined) ? `${coords.satPx}_${coords.satPy}` : null;
+        if (coordKey) window._currentInspectedCoord = coordKey;
+
         const spectral = extractSpectralValues(found, coords);
         const bandValues = spectral.bandValues;
         const bandCount = spectral.bandCount;
         const classInfo = spectral.classInfo;
+
+        // Si los valores espectrales de este píxel aún no están en memoria, leer directamente la celda 1x1 (< 2ms, 0 freeze)
+        if (!bandValues && coordKey && coords.satPx >= 0 && coords.satPy >= 0) {
+          const tileLayer = found._geotiffTileLayer || (found.mapLayer?.pyramid ? layer => layer.mapLayer : null);
+          const tLayer = found._geotiffTileLayer || (found.mapLayer?.pyramid ? found.mapLayer : null);
+          if (tLayer && tLayer.pyramid && (!found._fetchingPixelCoord || found._fetchingPixelCoord !== coordKey)) {
+            found._fetchingPixelCoord = coordKey;
+            const baseImg = tLayer.pyramid.getBaseLevel();
+            if (baseImg) {
+              const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (found.bands || 3);
+              const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+              const pool = getGeoTIFFWorkerPool();
+              const readOpts = {
+                window: [coords.satPx, coords.satPy, coords.satPx + 1, coords.satPy + 1],
+                samples: sampleBands,
+                interleave: false
+              };
+              const readPromise = pool
+                ? baseImg.readRasters({ ...readOpts, pool }).catch(() => baseImg.readRasters(readOpts))
+                : baseImg.readRasters(readOpts);
+
+              readPromise.then(raw => {
+                found._fetchingPixelCoord = null;
+                if (raw && raw.length > 0) {
+                  const vals = Array.from(raw).map(b => b[0]);
+                  if (!found._pixelValuesCache) found._pixelValuesCache = new Map();
+                  if (found._pixelValuesCache.size > 300) found._pixelValuesCache.clear();
+                  found._pixelValuesCache.set(coordKey, vals);
+                  if (window._currentInspectedCoord === coordKey && pixelCard.style.display !== 'none') {
+                    renderPixelInspectorCard(pixelCard, found, coords, e);
+                  }
+                }
+              }).catch(() => {
+                found._fetchingPixelCoord = null;
+              });
+            }
+          }
+        }
 
         let layerTitle = found.name;
         if (layerTitle.length > 28) layerTitle = layerTitle.substring(0, 26) + '…';
@@ -9763,6 +9837,7 @@ self.onmessage = async function(e) {
 
       // Seguimiento de coordenadas del mouse y raster hover
       window._rasterAreaCache = {};
+      let _lastInspectorMoveTime = 0;
       state.map.on('mousemove', (e) => {
           const display = document.getElementById('mouseCoords');
           if (display) {
@@ -9782,6 +9857,11 @@ self.onmessage = async function(e) {
             }
             return;
           }
+
+          // Throttle raster hover / inspector during mouse movements (fluidez a 60fps sin saturar la CPU)
+          const now = performance.now();
+          if (now - _lastInspectorMoveTime < 30) return;
+          _lastInspectorMoveTime = now;
 
           let found = null;
           // 1. Priorizar la capa seleccionada por el usuario si está visible bajo el cursor
@@ -20351,25 +20431,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const h = targetImg.getHeight();
           const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
           const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+
+          let targetW = w;
+          let targetH = h;
+          const readOpts = { samples: sampleBands, interleave: false };
+          if (w > 1200 || h > 1200) {
+            const maxDim = 800;
+            const aspect = w / h;
+            targetW = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
+            targetH = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
+            readOpts.width = targetW;
+            readOpts.height = targetH;
+            readOpts.resampleMethod = 'nearest';
+          }
           
           let raw = null;
           const pool = getGeoTIFFWorkerPool();
           if (pool) {
             try {
-              raw = await targetImg.readRasters({ samples: sampleBands, interleave: false, pool });
+              raw = await targetImg.readRasters({ ...readOpts, pool });
             } catch (_) {
               raw = null;
             }
           }
           if (!raw) {
-            raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+            raw = await targetImg.readRasters(readOpts);
           }
 
           if (raw && raw.length > 0) {
             spectralData = {
               type: 'multispectral',
-              width: w,
-              height: h,
+              width: targetW,
+              height: targetH,
               bands: raw,
               bandsCount: raw.length,
               nativeWidth: tileLayer.pyramid.baseWidth || w,
@@ -20385,12 +20478,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const fh = fallbackImg.getHeight();
             const nSamples = fallbackImg.getSamplesPerPixel ? fallbackImg.getSamplesPerPixel() : (layer.bands || 3);
             const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
-            const raw = await fallbackImg.readRasters({ samples: sampleBands, interleave: false });
+            let fW = fw;
+            let fH = fh;
+            const fOpts = { samples: sampleBands, interleave: false };
+            if (fw > 1200 || fh > 1200) {
+              const maxDim = 800;
+              const aspect = fw / fh;
+              fW = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
+              fH = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
+              fOpts.width = fW;
+              fOpts.height = fH;
+              fOpts.resampleMethod = 'nearest';
+            }
+            const raw = await fallbackImg.readRasters(fOpts);
             if (raw && raw.length > 0) {
               spectralData = {
                 type: 'multispectral',
-                width: fw,
-                height: fh,
+                width: fW,
+                height: fH,
                 bands: raw,
                 bandsCount: raw.length,
                 nativeWidth: tileLayer.pyramid.baseWidth || fw,
