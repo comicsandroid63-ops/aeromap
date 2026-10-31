@@ -12794,7 +12794,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (this.pyramid.levels.length === 1) {
               try {
                 const baseImg = this.pyramid.levels[0];
-                const targetSize = 256;
+                const targetSize = 512;
                 const aspect = fullW / fullH;
                 const ovW = aspect >= 1 ? targetSize : Math.max(32, Math.round(targetSize * aspect));
                 const ovH = aspect >= 1 ? Math.max(32, Math.round(targetSize / aspect)) : targetSize;
@@ -12847,19 +12847,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const abortController = new AbortController();
         this._activeTileAbortControllers.set(tileKey, abortController);
         const signal = abortController.signal;
+
+        let isDone = false;
+        const markTileLoaded = () => {
+          if (!isDone) {
+            isDone = true;
+            done(null, tile);
+          }
+        };
         
-        this._renderTile(tile, coords, signal, tileKey).then(() => {
+        this._renderTile(tile, coords, signal, tileKey, markTileLoaded).then(() => {
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          done(null, tile);
+          markTileLoaded();
         }).catch((err) => {
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          done(err, tile);
+          if (!isDone) {
+            isDone = true;
+            done(err, tile);
+          }
         });
         
         return tile;
       },
       
-      async _renderTile(tile, coords, signal = null, tileKey = null) {
+      async _renderTile(tile, coords, signal = null, tileKey = null, onPreviewReady = null) {
         const tileSize = this.options.tileSize;
         const cacheKey = `${this._layerUid}_${coords.z}_${coords.x}_${coords.y}`;
         const cached = _tileCache.get(cacheKey);
@@ -12951,6 +12962,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               }
               ctx.drawImage(ov.canvas, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
               drewPreview = true;
+              if (typeof onPreviewReady === 'function') {
+                onPreviewReady();
+              }
             }
           }
         } catch (_) {}
@@ -12960,20 +12974,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         // En capas de clasificación temática (en vivo o con lienzo clasificado), el lienzo clasificado es el render final de la tesela
         if (this.options.classification && (this.options.classificationCanvas || drewPreview)) {
           if (drewPreview) _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          return;
-        }
-
-        // En niveles de zoom bajo/medio (z <= 11) o decimation elevada, el overview proporciona resolución perfecta
-        if (drewPreview && (coords.z <= 11 || (this.pyramid.levels.length === 1 && windowW > 256))) {
-          _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-          if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-          return;
-        }
-
-        // En niveles de zoom bajo/medio (z <= 10), el overview ya proporciona máxima fidelidad
-        if (drewPreview && this.pyramid.levels.length === 1 && (coords.z <= 10 || windowW > 384 || windowH > 384)) {
-          _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
           if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
           return;
         }
