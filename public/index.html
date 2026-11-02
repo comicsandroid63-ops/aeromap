@@ -9669,32 +9669,23 @@ self.onmessage = async function(e) {
 
             const baseImg = tLayer.pyramid.levels ? tLayer.pyramid.levels[0] : (tLayer.pyramid.getBaseLevel ? (tLayer.pyramid.getBaseLevel().image || tLayer.pyramid.getBaseLevel()) : null);
             if (baseImg && typeof baseImg.readRasters === 'function') {
-              const isTiled = !!baseImg.fileDirectory?.TileWidth;
-              // NUNCA decodificar tiras pesadas de imágenes ráster no-teseladas en el hilo principal (>2000px sin teselas)
-              if (!isTiled && (baseImg.getWidth() > 2000 || baseImg.getHeight() > 2000)) {
-                clearTimeout(timeoutId);
-                found._fetchingPixelCoord = null;
-                return;
-              }
               const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (found.bands || 3);
               const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
-              const pool = getGeoTIFFWorkerPool();
               const readOpts = {
                 window: [coords.satPx, coords.satPy, coords.satPx + 1, coords.satPy + 1],
                 samples: sampleBands,
                 interleave: false
               };
-              const readPromise = pool
-                ? baseImg.readRasters({ ...readOpts, pool }).catch(() => baseImg.readRasters(readOpts))
-                : baseImg.readRasters(readOpts);
+              const readPromise = baseImg.readRasters(readOpts);
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
 
-              readPromise.then(raw => {
+              Promise.race([readPromise, timeoutPromise]).then(raw => {
                 clearTimeout(timeoutId);
                 found._fetchingPixelCoord = null;
                 if (raw && raw.length > 0) {
                   const vals = Array.from(raw).map(b => b[0]);
                   if (!found._pixelValuesCache) found._pixelValuesCache = new Map();
-                  if (found._pixelValuesCache.size > 500) found._pixelValuesCache.clear();
+                  if (found._pixelValuesCache.size > 1000) found._pixelValuesCache.clear();
                   found._pixelValuesCache.set(coordKey, vals);
                   if (window._currentInspectedCoord === coordKey && pixelCard.style.display !== 'none') {
                     renderPixelInspectorCard(pixelCard, found, coords, e);
@@ -12830,36 +12821,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return this._quickOverview;
             }
 
-            // Para imágenes de 1 solo nivel sin pirámides internas:
-            // Generar la vista general una sola vez acotada a ~600px para que el zoom alejado sea instantáneo a 60 FPS
-            if (this.pyramid.levels.length === 1) {
-              const baseImg = this.pyramid.levels[0];
-              const bw = baseImg.getWidth();
-              const bh = baseImg.getHeight();
-              const maxDim = 600;
-              const aspect = bw / bh;
-              const ovW = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
-              const ovH = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
-              const raw = await baseImg.readRasters({
-                samples: bandsToUse,
-                interleave: isRgbRender,
-                width: ovW,
-                height: ovH,
-                resampleMethod: 'nearest'
-              });
-              const isArr = Array.isArray(raw);
-              const fB = isArr ? raw[0] : raw;
-              const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
-              const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-              const globalStats = await this._getGlobalStats();
-              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
-              const canvas = document.createElement('canvas');
-              canvas.width = ovW;
-              canvas.height = ovH;
-              canvas.getContext('2d').putImageData(new ImageData(px, ovW, ovH), 0, 0);
-              this._quickOverview = { canvas, width: ovW, height: ovH, fullW, fullH };
-              return this._quickOverview;
-            }
+            // Para imágenes de 1 solo nivel sin pirámides internas, el streaming nativo de teselas por ventana
+            // procesa únicamente las áreas visibles con resolución 100% nativa y sin congelar el hilo principal.
             return null;
           } catch (e) {
             console.warn('[GeoTIFFTile] Fast overview build warning:', e);
@@ -12986,42 +12949,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return;
         }
 
-        // Renderizado instantáneo para imágenes sin pirámides internas en niveles alejados (decimation >= 2)
-        // Evita decodificar tiras pesadas en cada tesela (prevención total de congelamiento de Chrome)
-        if (this.pyramid.levels.length === 1 && decimation >= 2) {
-          const ov = await this._getOrBuildOverview();
-          if (ov && ov.canvas) {
-            const c = ov.canvas;
-            const ctx = tile.getContext('2d');
-            const fullW = this.pyramid.baseWidth;
-            const fullH = this.pyramid.baseHeight;
-
-            const srcX = (fullWndL / fullW) * c.width;
-            const srcY = (fullWndT / fullH) * c.height;
-            const srcW = ((fullWndR - fullWndL) / fullW) * c.width;
-            const srcH = ((fullWndB - fullWndT) / fullH) * c.height;
-
-            const clampX = Math.max(0, Math.min(c.width, srcX));
-            const clampY = Math.max(0, Math.min(c.height, srcY));
-            const clampR = Math.max(0, Math.min(c.width, srcX + srcW));
-            const clampB = Math.max(0, Math.min(c.height, srcY + srcH));
-            const validW = clampR - clampX;
-            const validH = clampB - clampY;
-
-            if (validW > 0 && validH > 0 && srcW > 0 && srcH > 0) {
-              const dstX = ((clampX - srcX) / srcW) * tileSize;
-              const dstY = ((clampY - srcY) / srcH) * tileSize;
-              const dstW = (validW / srcW) * tileSize;
-              const dstH = (validH / srcH) * tileSize;
-
-              ctx.imageSmoothingEnabled = false;
-              ctx.drawImage(c, clampX, clampY, validW, validH, dstX, dstY, dstW, dstH);
-              _tileCache.set(cacheKey, tile, tileSize * tileSize * 4);
-            }
-            if (tileKey) this._activeTileAbortControllers?.delete(tileKey);
-            return;
-          }
-        }
+// Streaming nativo por ventana a 60 FPS sin artefactos
 
         if (signal && signal.aborted) return;
         
@@ -14771,8 +14699,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       try {
         let canvas = null;
         if (layer._geotiffTileLayer && typeof layer._geotiffTileLayer._getOrBuildOverview === 'function') {
-          const ov = await layer._geotiffTileLayer._getOrBuildOverview();
-          if (ov && ov.canvas) canvas = ov.canvas;
+          if (layer._geotiffTileLayer.pyramid?.levels?.length > 1 || layer._geotiffTileLayer.options?.overviewUrl) {
+            const ov = await layer._geotiffTileLayer._getOrBuildOverview();
+            if (ov && ov.canvas) canvas = ov.canvas;
+          }
         }
 
         if (!canvas && clientGeo && clientGeo.image) {
@@ -20847,9 +20777,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function openUnsupervisedClassificationModal(layerId) {
-      state._unsupervisedLayerId = layerId;
-      const layer = state.layers.find(l => l.id === layerId);
-      if (!layer) return;
+      let layer = null;
+      if (layerId !== undefined && layerId !== null && layerId !== '') {
+        layer = state.layers.find(l => String(l.id) === String(layerId) || String(l.dbId) === String(layerId));
+      }
+      if (!layer && state.selectedLayerId != null) {
+        layer = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster' && l.visible);
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster');
+      }
+      if (!layer) {
+        toast('Carga o selecciona una capa ráster para clasificar.', 'warning');
+        return;
+      }
+
+      if (layer.isClassified && layer.parentLayerId) {
+        const parent = state.layers.find(l => String(l.id) === String(layer.parentLayerId));
+        if (parent) layer = parent;
+      }
+
+      state._unsupervisedLayerId = layer.id;
 
       const modal = document.getElementById('unsupervisedClassificationModal');
       if (!modal) return;
@@ -21081,7 +21032,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function executeUnsupervisedClassification() {
       const layerId = state._unsupervisedLayerId;
-      const layer = state.layers.find(l => l.id === layerId);
+      let layer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!layer && state.selectedLayerId != null) {
+        layer = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster');
+      }
       if (!layer) return;
 
       const k = state._unsupervisedK || 5;
@@ -21796,11 +21753,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function openSupervisedClassificationModal(layerId) {
       const state_sup = window._supervisedState;
-      state_sup.layerId = layerId;
-      state_sup.active = true;
 
-      const layer = state.layers.find(l => l.id === layerId);
-      if (!layer) return;
+      let layer = null;
+      if (layerId !== undefined && layerId !== null && layerId !== '') {
+        layer = state.layers.find(l => String(l.id) === String(layerId) || String(l.dbId) === String(layerId));
+      }
+      if (!layer && state.selectedLayerId != null) {
+        layer = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster' && l.visible);
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster');
+      }
+      if (!layer) {
+        toast('Carga o selecciona una capa ráster para clasificar.', 'warning');
+        return;
+      }
+
+      // Si la capa seleccionada es clasificada, usar su ráster satelital padre
+      if (layer.isClassified && layer.parentLayerId) {
+        const parent = state.layers.find(l => String(l.id) === String(layer.parentLayerId));
+        if (parent) layer = parent;
+      }
+
+      state_sup.layerId = layer.id;
+      state_sup.active = true;
 
       if (typeof closeUnsupervisedClassificationModal === 'function') closeUnsupervisedClassificationModal();
 
@@ -22373,7 +22352,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         addSupervisedClass('Grupo 1');
       }
 
-      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      const targetLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
       if (!targetLayer) return null;
 
       if (targetLayer.bounds) {
@@ -22465,7 +22444,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active || !state_sup.layerId) return;
 
-      const layer = state.layers.find(l => l.id === state_sup.layerId);
+      const layer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
       if (!layer) return;
 
       const sampledClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
@@ -23284,7 +23263,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return;
       }
 
-      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      const targetLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
       const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
       if (!targetLayer || !activeCls) {
         clearSupervisedTempPolygon();
@@ -23395,7 +23374,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
       if (emptyMsg) emptyMsg.style.display = 'none';
 
-      const targetLayer = state.layers.find(l => l.id === state_sup.layerId);
+      const targetLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
       const nBands = targetLayer ? (targetLayer._rawSpectralBands?.length || targetLayer.bands || 3) : 3;
 
       const bandRangeLabel = document.getElementById('supervisedChartBandRange');
@@ -23504,16 +23483,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // 5. Guardar Clasificación Supervisada Permanente
     async function executeSupervisedClassification() {
       const state_sup = window._supervisedState;
-      if (!state_sup || !state_sup.layerId) {
+      if (!state_sup) return;
+
+      let layer = null;
+      if (state_sup.layerId != null) {
+        layer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
+      }
+      if (!layer && state.selectedLayerId != null) {
+        layer = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+      }
+      if (!layer) {
+        layer = state.layers.find(l => l.type === 'raster');
+      }
+      if (!layer) {
         toast('Selecciona una capa ráster para clasificar.', 'error');
         return;
       }
-      const layer = state.layers.find(l => l.id === state_sup.layerId);
-      if (!layer) return;
+      state_sup.layerId = layer.id;
 
       const activeClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
       if (activeClasses.length < 1) {
-        toast('Debes recolectar muestras para al menos 1 grupo antes de guardar la capa.', 'warning');
+        minimizeSupervisedToMap();
+        toast('Toma muestras en el mapa (Punto, Pincel o Polígono) para entrenar tus clases.', 'info');
         return;
       }
 
@@ -23974,16 +23965,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           <!-- Botones de Clasificación Espectral (Supervisada y No Supervisada) -->
           <div class="flex flex-col gap-1.5 pt-2 border-t border-zinc-200/80">
             <!-- 1. Supervisada (Muestreo en Mapa: Punto, Pincel, Polígono) -->
-            <div class="flex items-center justify-between p-1.5 rounded-xl bg-emerald-50/60 border border-emerald-100/80">
+            <div onclick="event.stopPropagation(); openSupervisedClassificationModal('${layer.id}')"
+              class="flex items-center justify-between p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 hover:bg-emerald-100/70 transition-all cursor-pointer shadow-2xs group"
+              title="Abrir Clasificación Supervisada para esta capa">
               <div class="flex flex-col">
-                <span class="text-[9px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[13px] text-emerald-600">psychology</span>
+                <span class="text-[9.5px] font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1 group-hover:text-emerald-950">
+                  <span class="material-symbols-outlined text-[14px] text-emerald-600">psychology</span>
                   Clasificación Supervisada
                 </span>
-                <span class="text-[7.5px] text-emerald-600/90 font-medium">Muestreo en mapa: Punto, Pincel y Polígono</span>
+                <span class="text-[7.5px] text-emerald-700/90 font-medium">Muestreo en mapa: Punto, Pincel y Polígono</span>
               </div>
-              <button onclick="event.stopPropagation(); openSupervisedClassificationModal('${layer.id}')"
-                class="px-2.5 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+              <button type="button" onclick="event.stopPropagation(); openSupervisedClassificationModal('${layer.id}')"
+                class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                 style="background-color: #059669 !important; background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important; color: #ffffff !important; border: none !important;"
                 title="Entrenar clases mediante muestras interactivas sobre el mapa">
                 <span class="material-symbols-outlined text-[13px]" style="color: #ffffff !important;">gesture</span>
@@ -23992,16 +23985,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </div>
 
             <!-- 2. No Supervisada (K-Means automático) -->
-            <div class="flex items-center justify-between p-1.5 rounded-xl bg-violet-50/50 border border-violet-100/70">
+            <div onclick="event.stopPropagation(); openUnsupervisedClassificationModal('${layer.id}')"
+              class="flex items-center justify-between p-2 rounded-xl bg-violet-50/60 border border-violet-200/70 hover:bg-violet-100/70 transition-all cursor-pointer shadow-2xs group"
+              title="Abrir Clasificación No Supervisada (K-Means) para esta capa">
               <div class="flex flex-col">
-                <span class="text-[9px] font-black uppercase tracking-wider text-violet-800 flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[13px] text-violet-600">auto_awesome</span>
+                <span class="text-[9.5px] font-black uppercase tracking-wider text-violet-900 flex items-center gap-1 group-hover:text-violet-950">
+                  <span class="material-symbols-outlined text-[14px] text-violet-600">auto_awesome</span>
                   Clasificación No Supervisada
                 </span>
-                <span class="text-[7.5px] text-violet-600/90 font-medium">Agrupación K-Means automática por IA</span>
+                <span class="text-[7.5px] text-violet-700/90 font-medium">Agrupación K-Means automática por IA</span>
               </div>
-              <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal('${layer.id}')"
-                class="px-2.5 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+              <button type="button" onclick="event.stopPropagation(); openUnsupervisedClassificationModal('${layer.id}')"
+                class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
                 style="background-color: #4f46e5 !important; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important; color: #ffffff !important; border: none !important;"
                 title="Clasificar espectralmente las coberturas terrestres">
                 <span class="material-symbols-outlined text-[13px]" style="color: #ffffff !important;">scatter_plot</span>
