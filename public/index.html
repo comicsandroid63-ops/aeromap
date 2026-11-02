@@ -5170,6 +5170,128 @@
     </div>
   </div>
 
+  <!-- Modal Configuración de Exportación Temática / Clasificada (GeoTIFF / GeoPNG / GeoJSON / CSV) -->
+  <div id="exportClassifiedModal" style="display:none" class="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100 flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-violet-50/40">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-violet-100 border border-violet-200 text-violet-700 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">donut_small</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-zinc-900">Exportar Clasificación Temática</h3>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-violet-700" id="exportClassifiedModalLayerName">Capa Clasificada</p>
+          </div>
+        </div>
+        <button onclick="closeExportClassifiedModal()" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
+          <span class="material-symbols-outlined text-zinc-500 text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (scrollable) -->
+      <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <!-- Selector de capa a exportar -->
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Capa Clasificada:</label>
+          <select id="exportClassifiedLayerSel" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-violet-500/20" onchange="onExportClassifiedLayerChange()">
+            <!-- Opciones inyectadas -->
+          </select>
+        </div>
+
+        <!-- Formatos de salida -->
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Formato de Salida:</label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-violet-600 bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50/40">
+              <input type="radio" name="exportClassifiedFormat" value="geotiff" checked class="w-4 h-4 text-violet-600 border-zinc-300 focus:ring-violet-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-emerald-600">grid_on</span> GeoTIFF (.tif + .tfw)
+                </span>
+                <span class="text-[9px] text-zinc-500">QGIS / ArcGIS / Georreferenciado</span>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-violet-600 bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50/40">
+              <input type="radio" name="exportClassifiedFormat" value="geopng" class="w-4 h-4 text-violet-600 border-zinc-300 focus:ring-violet-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-blue-600">image</span> GeoPNG (.png + .pgw)
+                </span>
+                <span class="text-[9px] text-zinc-500">PNG Nítido con Worldfile</span>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-violet-600 bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50/40">
+              <input type="radio" name="exportClassifiedFormat" value="geojson" class="w-4 h-4 text-violet-600 border-zinc-300 focus:ring-violet-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-violet-600">polyline</span> Polígonos GeoJSON
+                </span>
+                <span class="text-[9px] text-zinc-500">Vectores de cobertura y área</span>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-violet-600 bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-violet-600 has-[:checked]:bg-violet-50/40">
+              <input type="radio" name="exportClassifiedFormat" value="csv" class="w-4 h-4 text-violet-600 border-zinc-300 focus:ring-violet-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-amber-600">table_chart</span> Estadísticas (.csv)
+                </span>
+                <span class="text-[9px] text-zinc-500">Hectáreas, % y píxeles</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sistema de Referencia Espacial (CRS) -->
+        <div id="exportClassifiedCrsContainer">
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Sistema de Coordenadas (CRS):</label>
+          <select id="exportClassifiedCrsSel" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-violet-500/20">
+            <option value="EPSG:9377" selected>EPSG:9377 - MAGNA-SIRGAS Origen Nacional (Colombia)</option>
+            <option value="EPSG:4326">EPSG:4326 - WGS 84 (Coordenadas Geográficas Lat/Lng)</option>
+            <option value="EPSG:3857">EPSG:3857 - WGS 84 / Pseudo-Mercator (Web)</option>
+            <option value="EPSG:3116">EPSG:3116 - MAGNA-SIRGAS / Bogotá Zone</option>
+          </select>
+        </div>
+
+        <!-- Nombre del archivo -->
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Nombre del Archivo:</label>
+          <input type="text" id="exportClassifiedFilename" placeholder="clasificacion_exportada" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-violet-500/20">
+        </div>
+
+        <!-- Opciones adicionales (ej. Añadir vector al mapa) -->
+        <div id="exportClassifiedAddVectorContainer" class="flex items-center justify-between p-3 rounded-xl bg-violet-50/50 border border-violet-100">
+          <div class="flex flex-col">
+            <span class="text-xs font-bold text-zinc-900">Añadir polígonos al mapa actual</span>
+            <span class="text-[9px] text-zinc-500">Carga la capa vectorial directamente al visor</span>
+          </div>
+          <input type="checkbox" id="exportClassifiedAddToMapChk" checked class="w-4 h-4 text-violet-600 border-zinc-300 rounded focus:ring-violet-500 cursor-pointer">
+        </div>
+
+        <!-- Resumen de clases y cobertura -->
+        <div class="p-3 bg-zinc-50 rounded-2xl border border-zinc-200/80 space-y-1.5">
+          <span class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block">Resumen de Coberturas:</span>
+          <div id="exportClassifiedClassesSummary" class="flex flex-col gap-1 max-h-36 overflow-y-auto custom-scrollbar">
+            <!-- Badges inyectados dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex gap-3 pt-2">
+          <button onclick="closeExportClassifiedModal()" class="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider border border-zinc-200 text-zinc-600 hover:bg-zinc-100 transition-colors">
+            Cancelar
+          </button>
+          <button onclick="executeExportClassified()" id="btnStartExportClassified" class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">download</span> Descargar Exportación
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
     <!-- Clip/Intersect Layer Picker Modal -->
   <div id="clipModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -6433,6 +6555,12 @@
         class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Guardar clasificación supervisada como capa permanente">
         <span class="material-symbols-outlined text-[14px]">save</span>
         <span>Guardar Capa</span>
+      </button>
+
+      <button type="button" onclick="exportSupervisedFromDock()" 
+        class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-violet-600 text-white hover:bg-violet-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Exportar clasificación (GeoTIFF, GeoPNG, GeoJSON, CSV)">
+        <span class="material-symbols-outlined text-[14px]">download</span>
+        <span>Exportar</span>
       </button>
 
       <button type="button" onclick="closeSupervisedClassificationModal()" 
@@ -14618,6 +14746,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function _prepareExportResolution(layerObj) {
         if (layerObj.type !== 'raster') { toast('Abort: Not a raster', 'error'); return null; }
+        
+        // Si la capa es temática clasificada en cliente, retornar su georreferenciación sin requerir archivo en servidor
+        if (layerObj.isClassified) {
+            return layerObj._geotiffTileLayer?.geo || layerObj.mapLayer?.geo || {
+                bounds: layerObj.bounds,
+                epsg: layerObj.epsg || 'EPSG:4326',
+                canvas: layerObj._classifiedCanvas
+            };
+        }
         
         let geo;
         try {
@@ -23215,12 +23352,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       if (!spectralData) {
         if (typeof ensureSupervisedSpectralData === "function") {
-          ensureSupervisedSpectralData(layer).then((sd) => {
-            if (sd) updateSupervisedLiveClassification(true);
-          }).catch(() => {});
+          try {
+            spectralData = await ensureSupervisedSpectralData(layer);
+          } catch (_) {}
         }
-        return;
       }
+      if (!spectralData) return;
 
       const w = spectralData.width;
       const h = spectralData.height;
@@ -23622,6 +23759,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
 
       ctx.putImageData(imgData, 0, 0);
+      } else {
+        // Re-contar píxeles y validCount si se reutiliza la clasificación en caché
+        for (let i = 0; i < totalPixels; i++) {
+          const c = classMap[i];
+          if (c >= 0 && c < numClasses) {
+            classStats[c].count++;
+            validCount++;
+          }
+        }
       } // Fin de if (!canReuseClassification)
 
       // Montar o actualizar capa en vivo en Leaflet respetando la visibilidad del usuario
@@ -24140,7 +24286,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
     }
 
-    // 5. Guardar Clasificación Supervisada Permanente
+    // 5. Guardar Clasificación Supervisada Permanente (Zero-Crash & Alta Fidelidad)
     async function executeSupervisedClassification() {
       const state_sup = window._supervisedState;
       if (!state_sup) return;
@@ -24170,16 +24316,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
 
       const btn = document.getElementById('btnRunSupervised');
+      const dockBtn = document.querySelector('#supervisedMapDock button[onclick*="executeSupervisedClassification"]');
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<span class="material-symbols-outlined text-[17px] animate-spin" style="color: #ffffff !important;">sync</span> <span>Guardando Capa...</span>';
+      }
+      if (dockBtn) {
+        dockBtn.disabled = true;
+        dockBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">sync</span> <span>Guardando...</span>';
       }
 
       showProgress('Guardando capa clasificada permanente...', 30);
 
       setTimeout(async () => {
         try {
-          // Asegurar que la clasificación en vivo esté calculada
+          // 1. Asegurar cálculo de clasificación en vivo
           await updateSupervisedLiveClassification(true);
 
           const canvas = state_sup._liveCanvas;
@@ -24190,10 +24341,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const res = layer.resolution || [30, -30];
           const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
           const pixelAreaHa = pixelAreaM2 / 10000;
-          const validCount = state_sup._liveValidCount || 1;
+          const validCount = Math.max(1, state_sup._liveValidCount || 1);
 
           const finalThematicClasses = activeClasses.map((cls, idx) => {
-            const count = (state_sup._liveClassStats && state_sup._liveClassStats[idx]) ? state_sup._liveClassStats[idx].count : cls.samples.length;
+            const count = (state_sup._liveClassStats && state_sup._liveClassStats[idx] && state_sup._liveClassStats[idx].count > 0)
+              ? state_sup._liveClassStats[idx].count
+              : (cls.samples ? cls.samples.length : 1);
             const pct = validCount > 0 ? ((count / validCount) * 100).toFixed(1) : '0.0';
             const totalHa = Math.round(count * pixelAreaHa);
             const areaFormatted = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + 'k ha' : totalHa + ' ha';
@@ -24212,8 +24365,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             };
           });
 
-          const parentGeo = layer._geotiffTileLayer?.geo || layer.mapLayer?.geo || layer.clientGeo || (layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId))?.clientGeo : null);
-          let classifiedTileLayer = null;
+          // 2. Clonar canvas y clasificación aislada para proteger la capa guardada de futuras mutaciones
+          const savedCanvas = document.createElement('canvas');
+          savedCanvas.width = canvas.width;
+          savedCanvas.height = canvas.height;
+          const sCtx = savedCanvas.getContext('2d');
+          sCtx.imageSmoothingEnabled = false;
+          sCtx.drawImage(canvas, 0, 0);
+
+          const savedClassMap = state_sup._classificationMap ? new Int16Array(state_sup._classificationMap) : null;
+
+          // 3. Miniatura liviana (<80KB) para imageUrl sin riesgo de Out-of-Memory ni SecurityError
+          let thumbUrl = '';
+          try {
+            const thumbC = document.createElement('canvas');
+            const maxDim = 512;
+            const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+            thumbC.width = Math.max(1, Math.round(canvas.width * sc));
+            thumbC.height = Math.max(1, Math.round(canvas.height * sc));
+            const tCtx = thumbC.getContext('2d');
+            tCtx.imageSmoothingEnabled = false;
+            tCtx.drawImage(canvas, 0, 0, thumbC.width, thumbC.height);
+            thumbUrl = thumbC.toDataURL('image/png');
+          } catch (tErr) {
+            console.warn('[Supervised] Miniatura omitida:', tErr);
+          }
+
+          // 4. Configuración permanente de clasificación temática
           const permanentClassificationConfig = {
             isSupervised: true,
             algorithm: state_sup.algorithm,
@@ -24231,19 +24409,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             })
           };
 
-          if (parentGeo && typeof L.geoTIFFTileLayer === 'function') {
-            classifiedTileLayer = L.geoTIFFTileLayer(parentGeo, {
-              tileSize: 256,
-              maxNativeZoom: 24,
-              maxZoom: 28,
-              opacity: 0.9,
-              bounds: parentGeo.bounds || layer.bounds,
-              classification: permanentClassificationConfig,
-              classificationCanvas: canvas
-            });
+          // 5. Vincular con capa GeoTIFF de teselas o crear imagen superpuesta exacta
+          const parentGeo = layer._geotiffTileLayer?.geo || layer.mapLayer?.geo || layer.clientGeo || layer.geo || (layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId))?.clientGeo : null);
+          let classifiedTileLayer = null;
+
+          if (parentGeo && parentGeo.image && typeof L.geoTIFFTileLayer === 'function') {
+            try {
+              classifiedTileLayer = L.geoTIFFTileLayer(parentGeo, {
+                tileSize: 256,
+                maxNativeZoom: 24,
+                maxZoom: 28,
+                opacity: 0.9,
+                bounds: parentGeo.bounds || layer.bounds,
+                classification: permanentClassificationConfig,
+                classificationCanvas: savedCanvas
+              });
+            } catch (tileLayerErr) {
+              console.warn('[Supervised] geoTIFFTileLayer advertencia, usando overlay directo:', tileLayerErr);
+              classifiedTileLayer = null;
+            }
           }
 
-          const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null) || (layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId))?._geotiffTileLayer : null);
+          const normBounds = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
           const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
           const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
 
@@ -24253,36 +24440,45 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             type: 'raster',
             visible: true,
             opacity: 0.9,
-            bounds: layer.bounds,
-            origin: layer.origin || (parentTileLayer && parentTileLayer.origin) || null,
-            resolution: layer.resolution || (parentTileLayer && parentTileLayer.resolution) || null,
-            epsg: layer.epsg || (parentTileLayer && parentTileLayer.epsg) || null,
-            imageUrl: canvas.toDataURL('image/png'),
-            width: canvas.width,
-            height: canvas.height,
-            _canvasWidth: canvas.width,
-            _canvasHeight: canvas.height,
+            bounds: normBounds,
+            origin: layer.origin || (parentGeo && parentGeo.origin) || null,
+            resolution: layer.resolution || (parentGeo && parentGeo.resolution) || null,
+            epsg: layer.epsg || (parentGeo && parentGeo.epsg) || null,
+            imageUrl: thumbUrl,
+            width: savedCanvas.width,
+            height: savedCanvas.height,
+            _canvasWidth: savedCanvas.width,
+            _canvasHeight: savedCanvas.height,
             bands: 1,
             renderer: 'classified',
             isClassified: true,
             supervised: true,
             parentLayerId: layer.id,
             classes: finalThematicClasses,
-            _classifiedCanvas: canvas,
+            _classifiedCanvas: savedCanvas,
+            _classificationMap: savedClassMap,
+            _pixelClusterMap: savedClassMap,
             _totalValidPixels: validCount,
             _highlightMasks: {},
-            _classificationConfig: {
-              algorithm: state_sup.algorithm,
-              classes: finalThematicClasses
-            }
+            _classificationConfig: permanentClassificationConfig
           };
 
           if (classifiedTileLayer) {
             newLayer._geotiffTileLayer = classifiedTileLayer;
             newLayer.mapLayer = classifiedTileLayer;
+          } else if (normBounds) {
+            try {
+              newLayer.mapLayer = L.imageOverlay(thumbUrl || savedCanvas.toDataURL('image/png'), normBounds, {
+                opacity: 0.9,
+                interactive: true,
+                alt: newLayer.name,
+                zIndex: 500,
+                className: 'classified-crisp-overlay geotiff-crisp-tile'
+              });
+            } catch (_) {}
           }
 
-          // Retirar capa temporal en vivo
+          // 6. Retirar capa en vivo temporal
           if (state._supervisedLiveLayer) {
             try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
             state._supervisedLiveLayer = null;
@@ -24298,7 +24494,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           closeSupervisedClassificationModal();
           hideProgress();
           toast('✓ Capa clasificada guardada con éxito (' + activeClasses.length + ' grupos)', 'success');
-          zoomToLayer(newLayer.id);
+          try {
+            if (newLayer.bounds) zoomToLayer(newLayer.id);
+          } catch (_) {}
 
         } catch (err) {
           console.error('[SupervisedClassification] Error guardando:', err);
@@ -24308,6 +24506,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (btn) {
             btn.disabled = false;
             btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">save</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">GUARDAR CAPA CLASIFICADA</span>';
+          }
+          if (dockBtn) {
+            dockBtn.disabled = false;
+            dockBtn.innerHTML = '<span class="material-symbols-outlined text-[14px]">save</span> <span>Guardar Capa</span>';
           }
         }
       }, 40);
@@ -24463,9 +24665,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <span class="material-symbols-outlined text-xs">tune</span>
           </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-zinc-400 hover:text-indigo-600 transition-colors"
-            onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa">
+            onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa Vectorial">
             <span class="material-symbols-outlined text-xs">download</span>
-          </button>` : ''}
+          </button>` : (layer.isClassified ? `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-violet-50 text-zinc-400 hover:text-violet-600 transition-colors"
+            onclick="event.stopPropagation(); openExportClassifiedModal(${layer.id})" title="Exportar Clasificación (GeoTIFF, GeoPNG, GeoJSON, CSV)">
+            <span class="material-symbols-outlined text-xs">download</span>
+          </button>` : '')}
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
             onclick="event.stopPropagation(); openLayerContextMenu(event, ${layer.id})" title="Más opciones">
             <span class="material-symbols-outlined text-xs">more_vert</span>
@@ -24546,21 +24752,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             `).join('')}
           </div>
 
-          <!-- Botón para Re-analizar / Cambiar número de clases -->
-          <div class="flex justify-end pt-1 gap-1.5">
+          <!-- Botón para Exportar y Re-analizar / Cambiar número de clases -->
+          <div class="flex justify-between items-center pt-1 gap-1.5">
+            <button onclick="event.stopPropagation(); openExportClassifiedModal(${layer.id})"
+              class="px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white shadow-2xs transition-colors cursor-pointer"
+              title="Exportar clasificación a GeoTIFF, GeoPNG, GeoJSON o CSV">
+              <span class="material-symbols-outlined text-[11px]">download</span> Exportar
+            </button>
+            <div class="flex items-center gap-1.5">
             ${layer.supervised ? `
             <button onclick="event.stopPropagation(); openSupervisedClassificationModal('${layer.parentLayerId || layer.id}')"
               class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
               style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;">
-              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">gesture</span> Re-entrenar / Ajustar
+              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">gesture</span> Re-entrenar
             </button>
             ` : `
             <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal('${layer.parentLayerId || layer.id}')"
               class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
               style="background-color: #f5f3ff !important; color: #6d28d9 !important; border: 1px solid #ddd6fe !important;">
-              <span class="material-symbols-outlined text-[11px]" style="color: #6d28d9 !important;">tune</span> Re-clasificar / Ajustar
+              <span class="material-symbols-outlined text-[11px]" style="color: #6d28d9 !important;">tune</span> Re-clasificar
             </button>
             `}
+            </div>
           </div>
         </div>
         ` : (!isVector ? `
@@ -24823,6 +25036,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     async function downloadActiveRaster(format = 'ZTIF') {
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return toast('Selecciona una capa ráster', 'warning');
+      if (layer.isClassified) {
+        return openExportClassifiedModal(layer);
+      }
       const filename = layer._tileSavedAs || layer.serverFilename;
       if (!filename) return toast('Capa sin archivo registrado en el servidor', 'error');
 
@@ -27046,6 +27262,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => String(l.id) === String(state.ctxLayerId));
       hideContextMenu();
       if (!layer) return toast('Capa no encontrada para exportar', 'warning');
+      if (layer.isClassified) {
+        return openExportClassifiedModal(layer);
+      }
+      if (layer.type === 'raster') {
+        return openRasterToolModal('export');
+      }
       openExportVectorModal(layer);
     }
 
@@ -34961,6 +35183,525 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const modal = document.getElementById('exportVectorModal');
         if (modal) modal.style.display = 'none';
     }
+
+    // ══════════════════════════════════════════════════════════════
+    //  EXPORTADOR DE CLASIFICACIÓN TEMÁTICA (GeoTIFF, GeoPNG, GeoJSON, CSV)
+    // ══════════════════════════════════════════════════════════════
+
+    function openExportClassifiedModal(targetLayerOrId = null) {
+      const modal = document.getElementById('exportClassifiedModal');
+      if (!modal) return;
+
+      const sel = document.getElementById('exportClassifiedLayerSel');
+      if (!sel) return;
+
+      let classifiedLayers = state.layers.filter(l => l.isClassified || l.supervised);
+
+      // Si no hay capa guardada pero hay clasificación en vivo activa:
+      if (classifiedLayers.length === 0 && window._supervisedState && window._supervisedState._liveCanvas) {
+        exportSupervisedFromDock();
+        return;
+      }
+
+      if (classifiedLayers.length === 0) {
+        return toast('No hay capas clasificadas guardadas en el mapa.', 'warning');
+      }
+
+      sel.innerHTML = classifiedLayers.map(l => `<option value="${l.id}">${l.name || 'Clasificación ' + l.id}</option>`).join('');
+
+      let targetId = null;
+      if (targetLayerOrId) {
+        targetId = typeof targetLayerOrId === 'object' ? targetLayerOrId.id : targetLayerOrId;
+      }
+      if (!targetId && state.selectedLayerId && classifiedLayers.some(l => String(l.id) === String(state.selectedLayerId))) {
+        targetId = state.selectedLayerId;
+      }
+      if (!targetId && classifiedLayers[0]) {
+        targetId = classifiedLayers[0].id;
+      }
+
+      if (targetId != null) {
+        sel.value = String(targetId);
+      }
+
+      onExportClassifiedLayerChange();
+      modal.style.display = 'flex';
+    }
+    window.openExportClassifiedModal = openExportClassifiedModal;
+
+    function closeExportClassifiedModal() {
+      const modal = document.getElementById('exportClassifiedModal');
+      if (modal) modal.style.display = 'none';
+    }
+    window.closeExportClassifiedModal = closeExportClassifiedModal;
+
+    function onExportClassifiedLayerChange() {
+      const sel = document.getElementById('exportClassifiedLayerSel');
+      if (!sel) return;
+
+      const layerId = sel.value;
+      let layer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!layer && window._tempExportClassifiedLayer && String(window._tempExportClassifiedLayer.id) === String(layerId)) {
+        layer = window._tempExportClassifiedLayer;
+      }
+      if (!layer) return;
+
+      const titleEl = document.getElementById('exportClassifiedModalLayerName');
+      if (titleEl) titleEl.textContent = layer.name;
+
+      const safeBase = (layer.name || 'clasificacion').replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+      const fnInput = document.getElementById('exportClassifiedFilename');
+      if (fnInput) fnInput.value = safeBase;
+
+      // Autoseleccionar CRS de la capa si coincide
+      const crsSel = document.getElementById('exportClassifiedCrsSel');
+      if (crsSel && layer.epsg) {
+        const epsgStr = String(layer.epsg).startsWith('EPSG:') ? String(layer.epsg) : 'EPSG:' + layer.epsg;
+        if (Array.from(crsSel.options).some(o => o.value === epsgStr)) {
+          crsSel.value = epsgStr;
+        }
+      }
+
+      // Renderizar resumen de coberturas
+      const summaryContainer = document.getElementById('exportClassifiedClassesSummary');
+      if (summaryContainer) {
+        const classes = layer.classes || [];
+        if (classes.length === 0) {
+          summaryContainer.innerHTML = '<span class="text-[10px] text-zinc-400 italic">Sin clases detectadas</span>';
+        } else {
+          summaryContainer.innerHTML = classes.map(c => `
+            <div class="flex items-center justify-between p-1.5 rounded-lg bg-white border border-zinc-200/80">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-black/10 shadow-2xs" style="background-color: ${c.color || '#22c55e'};"></span>
+                <span class="text-[10px] font-bold text-zinc-800 truncate">${c.name}</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[9px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-100">
+                  ${c.percentage || '0.0'}%
+                </span>
+                <span class="text-[9px] font-mono text-zinc-500 font-semibold">
+                  ${c.areaLabel || (c.areaHa != null ? c.areaHa + ' ha' : (c.count || 0) + ' px')}
+                </span>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+    window.onExportClassifiedLayerChange = onExportClassifiedLayerChange;
+
+    async function executeExportClassified() {
+      const sel = document.getElementById('exportClassifiedLayerSel');
+      if (!sel) return;
+
+      const layerId = sel.value;
+      let layer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!layer && window._tempExportClassifiedLayer && String(window._tempExportClassifiedLayer.id) === String(layerId)) {
+        layer = window._tempExportClassifiedLayer;
+      }
+      if (!layer) return toast('Capa clasificada no encontrada', 'error');
+
+      const formatRadio = document.querySelector('input[name="exportClassifiedFormat"]:checked');
+      const format = formatRadio ? formatRadio.value : 'geotiff';
+      const crs = document.getElementById('exportClassifiedCrsSel')?.value || 'EPSG:9377';
+      const fnInput = document.getElementById('exportClassifiedFilename');
+      const filename = (fnInput?.value.trim()) || layer.name || 'clasificacion';
+      const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'clasificacion';
+      const addToMap = document.getElementById('exportClassifiedAddToMapChk')?.checked || false;
+
+      const btn = document.getElementById('btnStartExportClassified');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Procesando...';
+      }
+
+      try {
+        if (format === 'geotiff') {
+          await exportClassifiedAsGeoTIFF(layer, safeBase, crs);
+          toast('✓ Paquete GeoTIFF (.tif + .tfw + .prj) exportado con éxito', 'success');
+        } else if (format === 'geopng') {
+          await exportClassifiedAsGeoPNG(layer, safeBase, crs);
+          toast('✓ GeoPNG (.png + .pgw + .prj) exportado con éxito', 'success');
+        } else if (format === 'geojson') {
+          await exportClassifiedAsGeoJSON(layer, safeBase, crs, addToMap);
+          toast('✓ Polígonos GeoJSON exportados con éxito', 'success');
+        } else if (format === 'csv') {
+          await exportClassifiedAsCSV(layer, safeBase);
+          toast('✓ Estadísticas de cobertura (.csv) exportadas con éxito', 'success');
+        }
+        closeExportClassifiedModal();
+      } catch (err) {
+        console.error('[ExportClassified] Error:', err);
+        toast('Error exportando clasificación: ' + err.message, 'error');
+      } finally {
+        hideProgress();
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">download</span> Descargar Exportación';
+        }
+      }
+    }
+    window.executeExportClassified = executeExportClassified;
+
+    async function exportClassifiedAsGeoTIFF(layer, safeBase, crs) {
+      showProgress('Codificando GeoTIFF temático...', 35, 'Exportador');
+      const canvas = layer._classifiedCanvas;
+      if (!canvas) throw new Error('El lienzo de clasificación no está disponible');
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, w, h);
+
+      if (typeof UTIF === 'undefined' || typeof UTIF.encodeImage !== 'function') {
+        throw new Error('Librería UTIF no disponible para compresión GeoTIFF');
+      }
+
+      const rawRgba = new Uint8Array(imgData.data.buffer);
+      const tiffBuffer = UTIF.encodeImage(rawRgba, w, h);
+
+      const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
+      if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
+      const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
+      const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
+      const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
+      const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+
+      let pxX, pxY, originX, originY;
+      if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
+        try {
+          const pMin = proj4('EPSG:4326', crs, [west, south]);
+          const pMax = proj4('EPSG:4326', crs, [east, north]);
+          pxX = (pMax[0] - pMin[0]) / w;
+          pxY = (pMin[1] - pMax[1]) / h;
+          originX = pMin[0] + pxX / 2;
+          originY = pMax[1] + pxY / 2;
+        } catch (_) {
+          pxX = (east - west) / w;
+          pxY = (south - north) / h;
+          originX = west + pxX / 2;
+          originY = north + pxY / 2;
+        }
+      } else {
+        pxX = (east - west) / w;
+        pxY = (south - north) / h;
+        originX = west + pxX / 2;
+        originY = north + pxY / 2;
+      }
+
+      const tfwText = [
+        pxX.toFixed(10),
+        '0.0000000000',
+        '0.0000000000',
+        pxY.toFixed(10),
+        originX.toFixed(10),
+        originY.toFixed(10)
+      ].join('\n') + '\n';
+
+      const prjText = (typeof CRS_PRJ_WKT_MAP !== 'undefined' && CRS_PRJ_WKT_MAP[crs]) 
+        ? CRS_PRJ_WKT_MAP[crs] 
+        : ((typeof CRS_PRJ_WKT_MAP !== 'undefined' && CRS_PRJ_WKT_MAP['EPSG:4326']) ? CRS_PRJ_WKT_MAP['EPSG:4326'] : 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]');
+
+      if (typeof fflate !== 'undefined' && fflate.zipSync) {
+        const zipData = fflate.zipSync({
+          [`${safeBase}.tif`]: new Uint8Array(tiffBuffer),
+          [`${safeBase}.tfw`]: fflate.strToU8(tfwText),
+          [`${safeBase}.prj`]: fflate.strToU8(prjText)
+        });
+        const blob = new Blob([zipData], { type: 'application/zip' });
+        triggerFileDownload(blob, `${safeBase}_geotiff.zip`);
+      } else {
+        const tifBlob = new Blob([tiffBuffer], { type: 'image/tiff' });
+        triggerFileDownload(tifBlob, `${safeBase}.tif`);
+        const tfwBlob = new Blob([tfwText], { type: 'text/plain' });
+        triggerFileDownload(tfwBlob, `${safeBase}.tfw`);
+      }
+    }
+
+    async function exportClassifiedAsGeoPNG(layer, safeBase, crs) {
+      showProgress('Generando GeoPNG georreferenciado...', 35, 'Exportador');
+      const canvas = layer._classifiedCanvas;
+      if (!canvas) throw new Error('El lienzo de clasificación no está disponible');
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
+      if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
+      const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
+      const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
+      const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
+      const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+
+      let pxX, pxY, originX, originY;
+      if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
+        try {
+          const pMin = proj4('EPSG:4326', crs, [west, south]);
+          const pMax = proj4('EPSG:4326', crs, [east, north]);
+          pxX = (pMax[0] - pMin[0]) / w;
+          pxY = (pMin[1] - pMax[1]) / h;
+          originX = pMin[0] + pxX / 2;
+          originY = pMax[1] + pxY / 2;
+        } catch (_) {
+          pxX = (east - west) / w;
+          pxY = (south - north) / h;
+          originX = west + pxX / 2;
+          originY = north + pxY / 2;
+        }
+      } else {
+        pxX = (east - west) / w;
+        pxY = (south - north) / h;
+        originX = west + pxX / 2;
+        originY = north + pxY / 2;
+      }
+
+      const pgwText = [
+        pxX.toFixed(10),
+        '0.0000000000',
+        '0.0000000000',
+        pxY.toFixed(10),
+        originX.toFixed(10),
+        originY.toFixed(10)
+      ].join('\n') + '\n';
+
+      const prjText = (typeof CRS_PRJ_WKT_MAP !== 'undefined' && CRS_PRJ_WKT_MAP[crs]) 
+        ? CRS_PRJ_WKT_MAP[crs] 
+        : ((typeof CRS_PRJ_WKT_MAP !== 'undefined' && CRS_PRJ_WKT_MAP['EPSG:4326']) ? CRS_PRJ_WKT_MAP['EPSG:4326'] : 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]');
+
+      const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      if (!pngBlob) throw new Error('No se pudo generar el archivo PNG');
+
+      if (typeof fflate !== 'undefined' && fflate.zipSync) {
+        const pngArrayBuf = await pngBlob.arrayBuffer();
+        const zipData = fflate.zipSync({
+          [`${safeBase}.png`]: new Uint8Array(pngArrayBuf),
+          [`${safeBase}.pgw`]: fflate.strToU8(pgwText),
+          [`${safeBase}.prj`]: fflate.strToU8(prjText)
+        });
+        const blob = new Blob([zipData], { type: 'application/zip' });
+        triggerFileDownload(blob, `${safeBase}_geopng.zip`);
+      } else {
+        triggerFileDownload(pngBlob, `${safeBase}.png`);
+        const pgwBlob = new Blob([pgwText], { type: 'text/plain' });
+        triggerFileDownload(pgwBlob, `${safeBase}.pgw`);
+      }
+    }
+
+    async function exportClassifiedAsGeoJSON(layer, safeBase, crs, addToMap = false) {
+      showProgress('Vectorizando coberturas temáticas en polígonos...', 30, 'Exportador');
+      const canvas = layer._classifiedCanvas;
+      const classes = layer.classes || [];
+      if (!classes || classes.length === 0) throw new Error('La capa no contiene clases registradas');
+
+      const w = canvas ? canvas.width : (layer.width || 512);
+      const h = canvas ? canvas.height : (layer.height || 512);
+      const totalPixels = w * h;
+
+      let classMap = layer._classificationMap || layer._pixelClusterMap;
+      if (!classMap && canvas) {
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        classMap = new Int16Array(totalPixels);
+        classMap.fill(-1);
+
+        const rgbColors = classes.map(c => {
+          const hex = (c.color || '#000000').replace('#', '');
+          return [
+            parseInt(hex.substring(0, 2), 16) || 0,
+            parseInt(hex.substring(2, 4), 16) || 0,
+            parseInt(hex.substring(4, 6), 16) || 0
+          ];
+        });
+
+        for (let i = 0; i < totalPixels; i++) {
+          const p = i * 4;
+          if (data[p + 3] < 20) continue;
+          const r = data[p], g = data[p + 1], b = data[p + 2];
+          let minD = Infinity, bestC = -1;
+          for (let c = 0; c < rgbColors.length; c++) {
+            const rc = rgbColors[c];
+            const dist = Math.abs(r - rc[0]) + Math.abs(g - rc[1]) + Math.abs(b - rc[2]);
+            if (dist < minD) { minD = dist; bestC = c; }
+          }
+          classMap[i] = bestC;
+        }
+      }
+      if (!classMap) throw new Error('No se pudo extraer el mapa de clases');
+
+      const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
+      if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
+      const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
+      const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
+      const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
+      const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+
+      const step = Math.max(1, Math.floor(Math.max(w, h) / 600));
+      const classPolygons = Array.from({ length: classes.length }, () => []);
+
+      for (let y = 0; y < h; y += step) {
+        const yOff = y * w;
+        const latTop = +(north - (y / h) * (north - south)).toFixed(7);
+        const latBottom = +(north - (Math.min(h, y + step) / h) * (north - south)).toFixed(7);
+
+        let x = 0;
+        while (x < w) {
+          const c = classMap[yOff + x];
+          if (c < 0 || c >= classes.length) {
+            x += step;
+            continue;
+          }
+          const startX = x;
+          while (x < w && classMap[yOff + x] === c) {
+            x += step;
+          }
+          const endX = x;
+
+          const lngStart = +(west + (startX / w) * (east - west)).toFixed(7);
+          const lngEnd = +(west + (Math.min(w, endX) / w) * (east - west)).toFixed(7);
+
+          const ring = [
+            [lngStart, latTop],
+            [lngEnd, latTop],
+            [lngEnd, latBottom],
+            [lngStart, latBottom],
+            [lngStart, latTop]
+          ];
+          classPolygons[c].push([ring]);
+        }
+      }
+
+      showProgress('Estructurando GeoJSON FeatureCollection...', 70, 'Exportador');
+      const features = [];
+      for (let c = 0; c < classes.length; c++) {
+        const polys = classPolygons[c];
+        if (!polys || polys.length === 0) continue;
+        const cls = classes[c];
+
+        const maxPolysPerClass = 5000;
+        const sampledPolys = polys.length > maxPolysPerClass 
+          ? polys.filter((_, idx) => idx % Math.ceil(polys.length / maxPolysPerClass) === 0)
+          : polys;
+
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'MultiPolygon',
+            coordinates: sampledPolys
+          },
+          properties: {
+            class_id: c,
+            name: cls.name,
+            color: cls.color,
+            count: cls.count || 0,
+            area_ha: cls.areaHa || 0,
+            area_pct: cls.percentage || '0.0',
+            area_label: cls.areaLabel || (cls.areaHa + ' ha'),
+            layer_source: layer.name
+          }
+        });
+      }
+
+      let fc = {
+        type: 'FeatureCollection',
+        name: `${safeBase}_poligonos`,
+        crs: {
+          type: 'name',
+          properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' }
+        },
+        features: features
+      };
+
+      if (crs && crs !== 'EPSG:4326' && typeof reprojectGeoJsonCoords === 'function') {
+        try {
+          fc = reprojectGeoJsonCoords(fc, crs);
+        } catch (_) {}
+      }
+
+      const geojsonBlob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' });
+      triggerFileDownload(geojsonBlob, `${safeBase}_poligonos.geojson`);
+
+      if (addToMap && typeof addVectorLayer === 'function') {
+        try {
+          await addVectorLayer(fc, `Vectores (${features.length} Clases) - ${layer.name}`, {
+            color: '#8b5cf6',
+            strokeWidth: 1.5,
+            fillOpacity: 0.55
+          });
+          toast('✓ Capa vectorial añadida al mapa con éxito', 'success');
+        } catch (e) {
+          console.warn('[ExportClassified] Error añadiendo capa al mapa:', e);
+        }
+      }
+    }
+
+    async function exportClassifiedAsCSV(layer, safeBase) {
+      showProgress('Generando tabla de cobertura y estadísticas...', 50, 'Exportador');
+      const classes = layer.classes || [];
+      if (!classes || classes.length === 0) throw new Error('La capa no contiene clases registradas');
+
+      let csv = 'Clase_ID,Nombre_Clase,Color_Hex,Pixeles,Porcentaje_Cob,Area_Hectareas,Area_M2\n';
+      classes.forEach(c => {
+        const areaM2 = Math.round((c.areaHa || 0) * 10000);
+        const safeName = (c.name || 'Clase ' + c.id).replace(/"/g, '""');
+        csv += `"${c.id}","${safeName}","${c.color || '#000000'}",${c.count || 0},"${c.percentage || 0}%",${c.areaHa || 0},${areaM2}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      triggerFileDownload(blob, `${safeBase}_estadisticas.csv`);
+    }
+
+    function exportSupervisedFromDock() {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup._liveCanvas) {
+        return toast('Realiza al menos un muestreo antes de exportar.', 'warning');
+      }
+      let targetLayer = state.layers.find(l => l.isClassified && l.supervised && String(l.parentLayerId) === String(state_sup.layerId));
+      if (!targetLayer) {
+        const layer = state.layers.find(l => String(l.id) === String(state_sup.layerId)) || state.layers.find(l => l.type === 'raster');
+        const activeClasses = (state_sup.classes || []).filter(c => c.samples && c.samples.length > 0);
+        const validCount = Math.max(1, state_sup._liveValidCount || 1);
+        const res = layer?.resolution || [30, -30];
+        const pixelAreaHa = (Math.abs(res[0] * res[1]) || 900) / 10000;
+        
+        const finalThematicClasses = activeClasses.map((cls, idx) => {
+          const count = (state_sup._liveClassStats && state_sup._liveClassStats[idx] && state_sup._liveClassStats[idx].count > 0)
+            ? state_sup._liveClassStats[idx].count 
+            : (cls.samples ? cls.samples.length : 1);
+          const pct = validCount > 0 ? ((count / validCount) * 100).toFixed(1) : '0.0';
+          const totalHa = Math.round(count * pixelAreaHa);
+          return {
+            id: idx,
+            name: cls.name,
+            color: cls.color,
+            count: count,
+            percentage: pct,
+            areaHa: totalHa,
+            areaLabel: totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + 'k ha' : totalHa + ' ha'
+          };
+        });
+
+        targetLayer = {
+          id: 'live_supervised_' + Date.now(),
+          name: 'Clasificación Supervisada - ' + (layer ? layer.name : 'Raster'),
+          type: 'raster',
+          isClassified: true,
+          supervised: true,
+          bounds: layer ? (getNormalizedLayerBounds(layer) || layer.bounds) : (state.map ? state.map.getBounds() : null),
+          resolution: layer?.resolution || null,
+          origin: layer?.origin || null,
+          epsg: layer?.epsg || null,
+          _classifiedCanvas: state_sup._liveCanvas,
+          _classificationMap: state_sup._classificationMap,
+          _pixelClusterMap: state_sup._classificationMap,
+          classes: finalThematicClasses
+        };
+        window._tempExportClassifiedLayer = targetLayer;
+      }
+      openExportClassifiedModal(targetLayer);
+    }
+    window.exportSupervisedFromDock = exportSupervisedFromDock;
+
 
     function onExportLayerChange(preferredOnlySelected = false) {
         const sel = document.getElementById('exportVectorLayerSel');
