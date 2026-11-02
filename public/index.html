@@ -8011,6 +8011,54 @@
     };
     window.state = state;
 
+    // ══════════════════════════════════════════
+    //  BOUNDS NORMALIZATION UTILITY
+    // ══════════════════════════════════════════
+    function getNormalizedLayerBounds(layer) {
+      if (!layer) return null;
+      let b = layer.bounds;
+      if (!b && layer._geotiffTileLayer) {
+        b = layer._geotiffTileLayer.geo?.bounds || layer._geotiffTileLayer.options?.bounds;
+      }
+      if (!b && layer.mapLayer) {
+        b = layer.mapLayer.geo?.bounds || layer.mapLayer.options?.bounds;
+      }
+      if (!b && layer.parentLayerId) {
+        const parent = state.layers.find(l => String(l.id) === String(layer.parentLayerId));
+        if (parent) {
+          b = parent.bounds || parent._geotiffTileLayer?.geo?.bounds || parent._geotiffTileLayer?.options?.bounds || parent.mapLayer?.geo?.bounds;
+        }
+      }
+      if (!b) return null;
+
+      if (typeof L !== 'undefined' && L.LatLngBounds && b instanceof L.LatLngBounds) {
+        return b;
+      }
+      if (typeof b.getSouthWest === 'function' && typeof b.getNorthEast === 'function') {
+        return L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+      }
+      if (b._southWest && b._northEast) {
+        const sw = b._southWest;
+        const ne = b._northEast;
+        return L.latLngBounds(
+          [sw.lat !== undefined ? sw.lat : sw[0], sw.lng !== undefined ? sw.lng : sw[1]],
+          [ne.lat !== undefined ? ne.lat : ne[0], ne.lng !== undefined ? ne.lng : ne[1]]
+        );
+      }
+      if (b.south !== undefined && b.west !== undefined && b.north !== undefined && b.east !== undefined) {
+        return L.latLngBounds([b.south, b.west], [b.north, b.east]);
+      }
+      if (Array.isArray(b) && b.length === 2) {
+        return L.latLngBounds(b);
+      }
+      try {
+        return L.latLngBounds(b);
+      } catch (_) {
+        return null;
+      }
+    }
+    window.getNormalizedLayerBounds = getNormalizedLayerBounds;
+
     // --- SHAPEFILE WORKER INITIALIZATION ---
     let shpWorker = null;
     let _activeZipBuffer = null; // Buffer stored in main thread until transferred to worker
@@ -9312,10 +9360,8 @@ self.onmessage = async function(e) {
       // 1. Cálculo exacto de coordenadas de píxel mediante CRS proyectado
       function getRasterPixelCoords(layer, latlng) {
         if (!layer || !latlng) return null;
-        const b = layer.bounds;
-        if (!b) return null;
-        const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-        if (!latlngBounds.contains(latlng)) return null;
+        const latlngBounds = getNormalizedLayerBounds(layer);
+        if (!latlngBounds || !latlngBounds.contains(latlng)) return null;
 
         let tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
         let parent = null;
@@ -9893,18 +9939,16 @@ self.onmessage = async function(e) {
             let found = null;
             if (state.selectedLayerId) {
               const sel = state.layers.find(l => l.id === state.selectedLayerId);
-              if (sel && sel.type === 'raster' && sel.visible && sel.bounds) {
-                const b = sel.bounds;
-                const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-                if (latlngBounds.contains(e.latlng)) found = sel;
+              if (sel && sel.type === 'raster' && sel.visible) {
+                const latlngBounds = getNormalizedLayerBounds(sel);
+                if (latlngBounds && latlngBounds.contains(e.latlng)) found = sel;
               }
             }
             if (!found) {
               for (const l of state.layers) {
-                if (l.type !== 'raster' || !l.visible || !l.bounds) continue;
-                const b = l.bounds;
-                const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-                if (latlngBounds.contains(e.latlng)) { found = l; break; }
+                if (l.type !== 'raster' || !l.visible) continue;
+                const latlngBounds = getNormalizedLayerBounds(l);
+                if (latlngBounds && latlngBounds.contains(e.latlng)) { found = l; break; }
               }
             }
 
@@ -13093,6 +13137,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const actualH = (raw && raw.height) ? raw.height : windowH;
             const pxCount = actualW * actualH;
             const pixels = new Uint8ClampedArray(pxCount * 4);
+
+            const photo = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric;
+            if (photo === 6 && raw && raw.length >= 3) {
+              const yB = raw[0], cbB = raw[1], crB = raw[2];
+              const rB = new Uint8Array(pxCount);
+              const gB = new Uint8Array(pxCount);
+              const bB = new Uint8Array(pxCount);
+              for (let i = 0; i < pxCount; i++) {
+                const y = yB[i], cb = cbB[i], cr = crB[i];
+                if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                  rB[i] = gB[i] = bB[i] = 0;
+                } else {
+                  const cbS = cb - 128, crS = cr - 128;
+                  rB[i] = Math.max(0, Math.min(255, Math.round(y + 1.402 * crS)));
+                  gB[i] = Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS)));
+                  bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
+                }
+              }
+              raw = [rB, gB, bB];
+            }
 
             // Precalcular colores RGB y visibilidad por clase
             const classColors = new Uint8Array(k * 4);
@@ -20508,7 +20572,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (levels && levels.length > 1) {
             for (let i = 0; i < levels.length; i++) {
               const w = levels[i].getWidth();
-              if (w >= 750 && w <= 1400) {
+              if (w >= 500 && w <= 1400) {
                 targetImg = levels[i];
                 break;
               }
@@ -20516,6 +20580,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (!targetImg) {
               targetImg = levels.length >= 4 ? levels[3] : (levels.length >= 3 ? levels[2] : levels[levels.length - 1]);
             }
+          } else if (levels && levels.length === 1) {
+            targetImg = levels[0];
           }
 
           const w = targetImg.getWidth();
@@ -20550,6 +20616,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
 
           if (raw && raw.length > 0) {
+            const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer.geo?.photometric ?? layer.photometric;
+            if (photo === 6 && raw.length >= 3) {
+              const yB = raw[0], cbB = raw[1], crB = raw[2];
+              const pxLen = yB.length;
+              const rB = new Uint8Array(pxLen);
+              const gB = new Uint8Array(pxLen);
+              const bB = new Uint8Array(pxLen);
+              for (let i = 0; i < pxLen; i++) {
+                const y = yB[i], cb = cbB[i], cr = crB[i];
+                if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                  rB[i] = gB[i] = bB[i] = 0;
+                } else {
+                  const cbS = cb - 128, crS = cr - 128;
+                  rB[i] = Math.max(0, Math.min(255, Math.round(y + 1.402 * crS)));
+                  gB[i] = Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS)));
+                  bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
+                }
+              }
+              raw = [rB, gB, bB];
+            }
             spectralData = {
               type: 'multispectral',
               width: targetW,
@@ -21275,6 +21361,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             });
           }
 
+          const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null) || (layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId))?._geotiffTileLayer : null);
           const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
           const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
           const nativeW = spectralData.nativeWidth || (parentTileLayer?.geo?.image?.getWidth()) || w;
@@ -21783,6 +21870,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       state_sup.layerId = layer.id;
       state_sup.active = true;
 
+      // Inicializar clases por defecto si la lista está vacía
+      if (!state_sup.classes || state_sup.classes.length === 0) {
+        state_sup.classes = [
+          {
+            id: 1,
+            name: 'Vegetación / Bosque',
+            color: '#15803d',
+            samples: [],
+            pixelSet: new Set(),
+            visible: true
+          },
+          {
+            id: 2,
+            name: 'Suelo / Área Despejada',
+            color: '#d97706',
+            samples: [],
+            pixelSet: new Set(),
+            visible: true
+          }
+        ];
+        state_sup.activeClassId = 1;
+      }
+
       if (typeof closeUnsupervisedClassificationModal === 'function') closeUnsupervisedClassificationModal();
 
       if (typeof ensureLayerSpectralBands === 'function') {
@@ -22275,7 +22385,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           </div>
         `;
-      }).join('');
+      }).join('') + `
+        <div class="mt-3 pt-2.5 border-t border-zinc-100">
+          <button type="button" onclick="minimizeSupervisedToMap()"
+            class="w-full py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer active:scale-98">
+            <span class="material-symbols-outlined text-[17px]">touch_app</span>
+            <span>Ir al Mapa a Tomar Muestras</span>
+          </button>
+        </div>
+      `;
+
+      const totalSamples = state_sup.classes.reduce((acc, c) => acc + (c.samples ? c.samples.length : 0), 0);
+      const runBtn = document.getElementById('btnRunSupervised');
+      if (runBtn) {
+        if (totalSamples === 0) {
+          runBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">touch_app</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">IR AL MAPA A TOMAR MUESTRAS</span>';
+        } else {
+          runBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color: #ffffff !important;">play_circle</span> <span style="color: #ffffff !important; font-weight: 900; letter-spacing: 0.05em;">GENERAR CAPA CLASIFICADA</span>';
+        }
+      }
     }
 
     function clearSupervisedClassSamples(classId) {
@@ -22350,9 +22478,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       try {
         const pt = state.map.latLngToContainerPoint(latlng);
         const mapContainer = state.map.getContainer();
+        const liveLayer = state._supervisedLiveLayer;
+        const liveContainer = (liveLayer && typeof liveLayer.getContainer === 'function') ? liveLayer.getContainer() : null;
         const canvases = mapContainer.querySelectorAll('.leaflet-tile-pane canvas');
         for (let i = canvases.length - 1; i >= 0; i--) {
           const cv = canvases[i];
+          if (liveContainer && liveContainer.contains(cv)) continue;
+          if (cv._isClassifiedLayer || cv.classList?.contains('classified-crisp-overlay')) continue;
           const rect = cv.getBoundingClientRect();
           const mapRect = mapContainer.getBoundingClientRect();
           const cx = pt.x - (rect.left - mapRect.left);
@@ -22389,7 +22521,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return layer._unsupervisedSpectralData;
       }
 
-      // 1. Cargar desde overviewUrl (PNG ligero de ~40 KB en R2 - respuesta < 25ms)
+      // 1. Cargar desde overviewUrl (PNG ligero en Cloudflare R2 / local - respuesta < 25ms con colores exactos)
       const imgUrl = layer.overviewUrl || layer._geotiffTileLayer?.options?.overviewUrl || (layer.storageUrl ? layer.storageUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png') : null);
       if (imgUrl && typeof imgUrl === 'string') {
         try {
@@ -22427,22 +22559,71 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      // 2. Si tiene niveles piramidales (> 1), leer el nivel más pequeño (demora ~20ms)
+      // 2. Si tiene niveles piramidales o imagen GeoTIFF, leer nivel para análisis subpíxel
       const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
-      if (tileLayer && tileLayer.pyramid?.levels && tileLayer.pyramid.levels.length > 1) {
+      if (tileLayer && tileLayer.pyramid?.levels && tileLayer.pyramid.levels.length > 0) {
         try {
           const levels = tileLayer.pyramid.levels;
-          const targetImg = levels[levels.length - 1];
+          let targetImg = null;
+          if (levels.length > 1) {
+            for (let i = 0; i < levels.length; i++) {
+              const w = levels[i].getWidth();
+              if (w >= 400 && w <= 1200) { targetImg = levels[i]; break; }
+            }
+            if (!targetImg) targetImg = levels[Math.min(3, levels.length - 1)];
+          } else {
+            targetImg = levels[0];
+          }
+
           const w = targetImg.getWidth();
           const h = targetImg.getHeight();
           const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || 3);
           const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
-          const raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+          let readOpts = { samples: sampleBands, interleave: false };
+          let rw = w, rh = h;
+          if (w > 1200 || h > 1200) {
+            const maxDim = 800;
+            const aspect = w / h;
+            rw = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
+            rh = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
+            readOpts.width = rw;
+            readOpts.height = rh;
+            readOpts.resampleMethod = 'nearest';
+          }
+          let raw = null;
+          try {
+            raw = await targetImg.readRasters(readOpts);
+          } catch (_) {
+            raw = await targetImg.readRasters({ samples: sampleBands, interleave: false });
+            rw = w; rh = h;
+          }
+
           if (raw && raw.length > 0) {
+            const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer.geo?.photometric ?? layer.photometric;
+            if (photo === 6 && raw.length >= 3) {
+              const yB = raw[0], cbB = raw[1], crB = raw[2];
+              const pxLen = yB.length;
+              const rB = new Uint8Array(pxLen);
+              const gB = new Uint8Array(pxLen);
+              const bB = new Uint8Array(pxLen);
+              for (let i = 0; i < pxLen; i++) {
+                const y = yB[i], cb = cbB[i], cr = crB[i];
+                if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                  rB[i] = gB[i] = bB[i] = 0;
+                } else {
+                  const cbS = cb - 128, crS = cr - 128;
+                  rB[i] = Math.max(0, Math.min(255, Math.round(y + 1.402 * crS)));
+                  gB[i] = Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS)));
+                  bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
+                }
+              }
+              raw = [rB, gB, bB];
+            }
+
             layer._unsupervisedSpectralData = {
               type: 'multispectral',
-              width: w,
-              height: h,
+              width: rw,
+              height: rh,
               bands: raw,
               bandsCount: raw.length,
               nativeWidth: tileLayer.pyramid.baseWidth || w,
@@ -22450,8 +22631,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             };
             state._unsupervisedSpectralData = layer._unsupervisedSpectralData;
             layer._rawSpectralBands = raw;
-            layer._canvasWidth = w;
-            layer._canvasHeight = h;
+            layer._canvasWidth = rw;
+            layer._canvasHeight = rh;
             return layer._unsupervisedSpectralData;
           }
         } catch (e) {
@@ -22459,45 +22640,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      // 3. Fallback: Capturar el mapa de teselas renderizadas actualmente en pantalla
-      try {
-        const mapContainer = state.map ? state.map.getContainer() : null;
-        if (mapContainer) {
-          const canvases = mapContainer.querySelectorAll('.leaflet-tile-pane canvas');
-          if (canvases.length > 0) {
-            const offCanvas = document.createElement('canvas');
-            offCanvas.width = 600;
-            offCanvas.height = 500;
-            const offCtx = offCanvas.getContext('2d');
-            canvases.forEach(cv => {
-              const r = cv.getBoundingClientRect();
-              const mr = mapContainer.getBoundingClientRect();
-              const dx = (r.left - mr.left) * (600 / mr.width);
-              const dy = (r.top - mr.top) * (500 / mr.height);
-              const dw = r.width * (600 / mr.width);
-              const dh = r.height * (500 / mr.height);
-              try { offCtx.drawImage(cv, dx, dy, dw, dh); } catch (_) {}
-            });
-            const idata = offCtx.getImageData(0, 0, 600, 500);
-            layer._unsupervisedSpectralData = {
-              type: 'canvas',
-              width: 600,
-              height: 500,
-              data: idata.data,
-              bandsCount: 3
-            };
-            state._unsupervisedSpectralData = layer._unsupervisedSpectralData;
-            layer._canvasWidth = 600;
-            layer._canvasHeight = 500;
-            return layer._unsupervisedSpectralData;
-          }
-        }
-      } catch (_) {}
+      // 3. Fallback a rasters en memoria
+      if (layer.rasters && layer.rasters.length > 0) {
+        layer._unsupervisedSpectralData = {
+          type: 'multispectral',
+          width: layer.width || 800,
+          height: layer.height || 800,
+          bands: layer.rasters,
+          bandsCount: layer.rasters.length
+        };
+        state._unsupervisedSpectralData = layer._unsupervisedSpectralData;
+        return layer._unsupervisedSpectralData;
+      }
 
       return null;
     }
 
-    // Muestreo individual de píxel en coordenadas geográficas
     function samplePixelAtLatLng(latlng) {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active || !state_sup.layerId) return null;
@@ -22510,11 +22668,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const targetLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
       if (!targetLayer) return null;
 
-      if (targetLayer.bounds) {
-        const b = targetLayer.bounds;
-        const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-        if (!latlngBounds.contains(latlng)) return null;
-      }
+      const latlngBounds = getNormalizedLayerBounds(targetLayer);
+      if (latlngBounds && !latlngBounds.contains(latlng)) return null;
 
       if (typeof getRasterPixelCoords !== 'function') return null;
       const coords = getRasterPixelCoords(targetLayer, latlng);
@@ -23672,7 +23827,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const activeClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
       if (activeClasses.length < 1) {
         minimizeSupervisedToMap();
-        toast('Toma muestras en el mapa (Punto, Pincel o Polígono) para entrenar tus clases.', 'info');
+        const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId) || state_sup.classes[0];
+        toast('👆 Haz clic o arrastra en el satélite para muestrear "' + (activeCls?.name || 'la clase activa') + '".', 'info');
         return;
       }
 
@@ -23736,6 +23892,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             });
           }
 
+          const parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null) || (layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId))?._geotiffTileLayer : null);
           const cleanBase = (layer.name || 'Raster').replace(/\.(tiff?|ztif)$/i, '').replace(/\s*\([^)]*\)/g, '');
           const nextLayerId = (state.layers.reduce((m, l) => Math.max(m, typeof l.id === 'number' ? l.id : 0), 0) + 1) || Date.now();
 
@@ -26899,10 +27056,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (state.drawMode === 'select') {
           // Si el clic fue sobre una capa temática clasificada, no abrir popup de geocodificación de dirección
           const isOverClassified = state.layers && state.layers.some(l => {
-            if (l.type !== 'raster' || !l.visible || !l.bounds || !l.isClassified) return false;
-            const b = l.bounds;
-            const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
-            return latlngBounds.contains(e.latlng);
+            if (l.type !== 'raster' || !l.visible || !l.isClassified) return false;
+            const latlngBounds = getNormalizedLayerBounds(l);
+            return latlngBounds ? latlngBounds.contains(e.latlng) : false;
           });
           if (isOverClassified) return;
 
