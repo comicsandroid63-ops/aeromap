@@ -13249,9 +13249,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   continue;
                 }
 
-                // Algoritmo: Distancia Mínima (Euclidiana Robusta + Anclaje de Prototipos de Muestra)
+                const activeClassIdx = targetClasses.findIndex(tc => tc.id === cls.activeClassId);
+
+                // Algoritmo: Distancia Mínima (Euclidiana Robusta + Dominancia de Muestras 75% + Afinidad Activa)
                 if (alg === 'min_distance') {
-                  let minD = Infinity, bestC = 0;
+                  let minD = Infinity, bestC = activeClassIdx >= 0 ? activeClassIdx : 0;
                   for (let c = 0; c < numClasses; c++) {
                     const cOff = c * dims;
                     const d0 = v0 - flatMeans[cOff];
@@ -13272,8 +13274,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         if (sd < minSampD) minSampD = sd;
                       }
                     }
-                    // Ponderación inteligente: 55% centroide global de clase + 45% muestra cercana
-                    const d = 0.55 * dCentroid + 0.45 * minSampD;
+                    const affinity = (c === activeClassIdx) ? 0.95 : 1.0;
+                    const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
                     if (d < minD) { minD = d; bestC = c; }
                   }
                   tileClassMap[i] = bestC;
@@ -13331,8 +13333,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       }
                     }
                   }
-                  // Reasignación solo si la mayoría (>= 5 de 8) discrepa fuertemente
-                  if (sameCount < 2) {
+                  // Solo limpiar ruido aislado de 1 píxel (7 u 8 de los 8 vecinos coinciden en otra clase).
+                  // Nunca borrar parches ni muestras de la clase recién entrenada:
+                  if (sameCount === 0) {
                     let maxVotes = 0, majC = selfC;
                     for (let c = 0; c < numClasses; c++) {
                       if (votes[c] > maxVotes) {
@@ -13340,7 +13343,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         majC = c;
                       }
                     }
-                    if (maxVotes >= 5) {
+                    if (maxVotes >= 7) {
                       smoothedMap[idx] = majC;
                       continue;
                     }
@@ -22881,7 +22884,45 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state_sup.activeClassId = activeCls.id;
       }
 
-      const pixelKey = coords.satPx + '_' + coords.satPy;
+      const satPx = coords.satPx;
+      const satPy = coords.satPy;
+
+      // 1. REASIGNACIÓN Y DESALOJO: Si el usuario entrena sobre una zona previamente clasificada por otro grupo,
+      // se retiran las muestras anteriores de ese grupo en este radio para que la nueva clase tome el control total.
+      const conflictRadius = state_sup.samplingTool === 'point' ? 4 : 2;
+      let removedFromOther = false;
+      state_sup.classes.forEach(otherCls => {
+        if (otherCls.id === activeCls.id || !otherCls.samples) return;
+        const initLen = otherCls.samples.length;
+        otherCls.samples = otherCls.samples.filter(s => {
+          const dx = s.px - satPx;
+          const dy = s.py - satPy;
+          const isConflict = (dx * dx + dy * dy) <= (conflictRadius * conflictRadius);
+          if (isConflict && otherCls.pixelSet) {
+            otherCls.pixelSet.delete(s.px + '_' + s.py);
+          }
+          return !isConflict;
+        });
+        if (otherCls.samples.length < initLen) {
+          removedFromOther = true;
+          if (state_sup.sampleMarkersLayer) {
+            state_sup.sampleMarkersLayer.eachLayer(layer => {
+              if (layer._classId === otherCls.id && layer.getLatLng) {
+                const distM = layer.getLatLng().distanceTo(latlng);
+                if (distM < 35) {
+                  state_sup.sampleMarkersLayer.removeLayer(layer);
+                }
+              }
+            });
+          }
+        }
+      });
+      if (removedFromOther) {
+        renderSupervisedClassesList();
+        updateDockSampleBadge();
+      }
+
+      const pixelKey = satPx + '_' + satPy;
       if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
       if (activeCls.pixelSet.has(pixelKey)) return null;
 
@@ -22931,8 +22972,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       activeCls.pixelSet.add(pixelKey);
       const sample = {
-        px: coords.satPx,
-        py: coords.satPy,
+        px: satPx,
+        py: satPy,
         latlng: [latlng.lat, latlng.lng],
         values: Array.from(vals),
         ndvi: ndvi,
@@ -22940,12 +22981,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
       activeCls.samples.push(sample);
 
+      // Parche 3x3 de anclaje para herramienta 'point': asegura que el nuevo entrenamiento capture la zona
+      if (state_sup.samplingTool === 'point') {
+        const sData = targetLayer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nPx = satPx + dx;
+            const nPy = satPy + dy;
+            const nKey = nPx + '_' + nPy;
+            if (activeCls.pixelSet.has(nKey)) continue;
+
+            let nVals = null;
+            if (sData && sData.width && sData.height) {
+              const snPx = Math.min(Math.max(Math.floor(((coords.baseX + dx) / coords.natW) * sData.width), 0), sData.width - 1);
+              const snPy = Math.min(Math.max(Math.floor(((coords.baseY + dy) / coords.natH) * sData.height), 0), sData.height - 1);
+              const sIdx = snPy * sData.width + snPx;
+              if (sData.bands && sData.bands.length > 0) {
+                nVals = sData.bands.map(b => b[sIdx]);
+              } else if (sData.data) {
+                const p = sIdx * 4;
+                nVals = [sData.data[p], sData.data[p + 1], sData.data[p + 2]];
+              }
+            }
+            if (!nVals) nVals = vals;
+
+            activeCls.pixelSet.add(nKey);
+            activeCls.samples.push({
+              px: nPx,
+              py: nPy,
+              latlng: [latlng.lat, latlng.lng],
+              values: Array.from(nVals)
+            });
+          }
+        }
+      }
+
       // Dibujar marcador visual en el mapa para feedback inmediato del usuario
       if (state_sup.sampleMarkersLayer) {
         const marker = L.circleMarker(latlng, {
-          radius: 5,
+          radius: 5.5,
           color: '#ffffff',
-          weight: 2,
+          weight: 2.5,
           fillColor: activeCls.color,
           fillOpacity: 0.95,
           interactive: false
@@ -23257,6 +23334,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           repSamplesList.push(classStats[c].repSamples || []);
         }
 
+        const activeIdx = classStats.findIndex(cs => cs.cls.id === state_sup.activeClassId);
+
         if (alg === "min_distance") {
           for (let i = 0; i < totalPixels; i++) {
             const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
@@ -23264,7 +23343,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               classMap[i] = -1;
               continue;
             }
-            let minD = Infinity, bestC = 0;
+            let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
             for (let c = 0; c < numClasses; c++) {
               const d0 = v0 - cm0[c];
               const d1 = v1 - cm1[c];
@@ -23284,7 +23363,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   if (sd < minSampD) minSampD = sd;
                 }
               }
-              const d = 0.55 * dCentroid + 0.45 * minSampD;
+              // 25% centroide + 75% muestra más cercana + 5% afinidad para la clase en entrenamiento activo
+              const affinity = (c === activeIdx) ? 0.95 : 1.0;
+              const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
               if (d < minD) { minD = d; bestC = c; }
             }
             classMap[i] = bestC;
@@ -23397,7 +23478,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
               }
             }
-            if (sameCount < 2) {
+            // Solo limpiar ruido aislado de 1 píxel (7 u 8 de los 8 vecinos coinciden en otra clase).
+            // Nunca eliminar parches ni muestras de la clase recién entrenada:
+            if (sameCount === 0) {
               let maxVotes = 0, majC = selfC;
               for (let c = 0; c < numClasses; c++) {
                 if (votes[c] > maxVotes) {
@@ -23405,7 +23488,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   majC = c;
                 }
               }
-              if (maxVotes >= 5) {
+              if (maxVotes >= 7) {
                 smoothed[idx] = majC;
                 continue;
               }
@@ -23466,6 +23549,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const liveClassificationConfig = {
             isSupervised: true,
             algorithm: state_sup.algorithm,
+            activeClassId: state_sup.activeClassId,
             dims: dims,
             classes: classStats.map(cs => ({
               id: cs.id,
@@ -23725,6 +23809,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const py = Math.min(Math.max(Math.floor((c.baseY / c.natH) * gridH), 0), gridH - 1);
           pixelPoly.push([px, py]);
         }
+      }
+
+      // Desalojar muestras de otros grupos que estén dentro de este nuevo polígono
+      state_sup.classes.forEach(otherCls => {
+        if (otherCls.id === activeCls.id || !otherCls.samples) return;
+        otherCls.samples = otherCls.samples.filter(s => {
+          const inside = isPointInPolygon([s.px, s.py], pixelPoly);
+          if (inside && otherCls.pixelSet) {
+            otherCls.pixelSet.delete(s.px + '_' + s.py);
+          }
+          return !inside;
+        });
+      });
+      if (state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer.eachLayer(layer => {
+          if (layer._classId !== activeCls.id && layer.getLatLng) {
+            const ll = layer.getLatLng();
+            if (isPointInPolygon([ll.lat, ll.lng], pts)) {
+              state_sup.sampleMarkersLayer.removeLayer(layer);
+            }
+          }
+        });
       }
 
       let sampledCount = 0;
