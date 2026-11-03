@@ -6416,6 +6416,24 @@
           </div>
         </div>
 
+        <!-- Selector Rápido de Clases de la Leyenda Oficial -->
+        <div class="flex flex-col gap-2 p-2.5 rounded-2xl bg-zinc-50 border border-zinc-200 shadow-2xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[9.5px] font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600">palette</span>
+              Leyenda Oficial (Haz clic para seleccionar o añadir clase)
+            </span>
+            <button type="button" onclick="loadOfficialLegendClasses(true)" 
+              class="px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider bg-white border border-zinc-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-zinc-600 transition-all cursor-pointer shadow-2xs"
+              title="Cargar o restablecer las 6 coberturas oficiales">
+              Cargar Oficiales
+            </button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5" id="supervisedLegendChips">
+            <!-- 6 chips con sus colores oficiales: Pastos, Agricultura, Bosque, Urbano, Suelo Descubierto, Agua -->
+          </div>
+        </div>
+
         <!-- Clases de Entrenamiento y Muestras Recolectadas -->
         <div class="flex flex-col gap-2.5">
           <div class="flex items-center justify-between">
@@ -6540,9 +6558,10 @@
 
     <!-- Selector Rápido de Clase Activa -->
     <div class="flex items-center gap-1.5 border-r border-white/15 pr-3">
-      <label class="text-[8px] font-black uppercase text-zinc-400 tracking-wider">Grupo:</label>
+      <span id="supDockClassColorIndicator" class="w-3 h-3 rounded-full border border-white/50 shrink-0 shadow-xs" style="background-color: #83ceed;" title="Color de la cobertura activa"></span>
+      <label class="text-[8px] font-black uppercase text-zinc-400 tracking-wider">Clase:</label>
       <select id="supDockClassSelect" onchange="setActiveSupervisedClass(parseInt(this.value, 10))"
-        class="bg-zinc-800 text-white text-[10px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer max-w-[130px] truncate">
+        class="bg-zinc-800 text-white text-[10px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer max-w-[135px] truncate">
         <!-- Opciones pobladas dinámicamente -->
       </select>
       <span id="supDockSampleCountBadge" class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
@@ -22731,6 +22750,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const $dockLayerName = document.getElementById('supDockLayerName');
       if ($dockLayerName) $dockLayerName.textContent = layer.name;
 
+      if (!state_sup.classes || state_sup.classes.length === 0) {
+        loadOfficialLegendClasses(false);
+      }
+
       renderSupervisedClassesList();
       updateSupervisedDockClassSelect();
       setSupervisedSamplingTool(state_sup.samplingTool || 'drag');
@@ -22897,17 +22920,151 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateDockSampleBadge();
     }
 
-    function addSupervisedClass(customName = null) {
+    // Leyenda Oficial de Coberturas solicitada por el usuario
+    const OFFICIAL_SUPERVISED_LEGEND = [
+      { name: 'Pastos', color: '#83ceed' },             // ex-Invernadero (celeste / cian)
+      { name: 'Agricultura', color: '#e59921' },        // naranja / ámbar
+      { name: 'Bosque', color: '#09744d' },             // verde oscuro
+      { name: 'Urbano', color: '#e61c28' },             // rojo
+      { name: 'Suelo Descubierto', color: '#734e1f' },  // marrón
+      { name: 'Agua', color: '#436eb2' }                // azul oscuro
+    ];
+
+    function selectOrAddOfficialClass(name, color) {
+      const state_sup = window._supervisedState;
+      let existing = state_sup.classes.find(c => c.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        setActiveSupervisedClass(existing.id);
+        toast('Clase "' + existing.name + '" activa.', 'info');
+      } else {
+        const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
+        const newCls = {
+          id: nextId,
+          name: name,
+          color: color,
+          samples: [],
+          pixelSet: new Set()
+        };
+        state_sup.classes.push(newCls);
+        state_sup.activeClassId = nextId;
+        renderSupervisedClassesList();
+        updateSupervisedDockClassSelect();
+        updateDockSampleBadge();
+        drawSupervisedSpectralChart();
+        toast('✓ Clase "' + name + '" añadida con color oficial.', 'success');
+      }
+    }
+
+    function loadOfficialLegendClasses(forceReset = false) {
+      const state_sup = window._supervisedState;
+      if (!state_sup) return;
+
+      if (forceReset) {
+        if (state_sup.sampleMarkersLayer) {
+          try { state_sup.sampleMarkersLayer.clearLayers(); } catch (_) {}
+        }
+        state_sup.trainingAreas = [];
+        state_sup.selectedAreaId = null;
+        state_sup.classes = [];
+      }
+
+      // Si las clases actuales son solo "Grupo 1" vacío sin muestras, reemplazarlas
+      if (state_sup.classes.length === 1 && state_sup.classes[0].name.startsWith('Grupo') && (!state_sup.classes[0].samples || state_sup.classes[0].samples.length === 0)) {
+        state_sup.classes = [];
+      }
+
+      OFFICIAL_SUPERVISED_LEGEND.forEach((off, idx) => {
+        let existing = state_sup.classes.find(c => c.name.toLowerCase() === off.name.toLowerCase());
+        if (!existing) {
+          state_sup.classes.push({
+            id: idx,
+            name: off.name,
+            color: off.color,
+            samples: [],
+            pixelSet: new Set()
+          });
+        } else {
+          existing.color = off.color;
+        }
+      });
+
+      if (state_sup.classes.length > 0 && (state_sup.activeClassId === null || !state_sup.classes.some(c => c.id === state_sup.activeClassId))) {
+        state_sup.activeClassId = state_sup.classes[0].id;
+      }
+
+      renderSupervisedClassesList();
+      updateSupervisedDockClassSelect();
+      updateDockSampleBadge();
+      drawSupervisedSpectralChart();
+      updateSupervisedLiveClassification(true);
+
+      if (forceReset) {
+        toast('✓ 6 Coberturas oficiales cargadas (Pastos, Agricultura, Bosque, Urbano, Suelo Descubierto, Agua)', 'success');
+      }
+    }
+
+    function renderSupervisedLegendChips() {
+      const state_sup = window._supervisedState;
+      const container = document.getElementById('supervisedLegendChips');
+      if (!container) return;
+
+      container.innerHTML = OFFICIAL_SUPERVISED_LEGEND.map(off => {
+        const existing = state_sup.classes.find(c => c.name.toLowerCase() === off.name.toLowerCase());
+        const isActive = existing && existing.id === state_sup.activeClassId;
+        const count = existing && existing.samples ? existing.samples.length : 0;
+
+        return `
+          <button type="button" onclick="selectOrAddOfficialClass('${off.name}', '${off.color}')"
+            class="flex items-center justify-between px-2 py-1.5 rounded-xl border text-left transition-all cursor-pointer ${
+              isActive
+                ? 'bg-emerald-50/90 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                : 'bg-white border-zinc-200 hover:border-zinc-400 shadow-2xs'
+            }"
+            title="${existing ? `Activar ${off.name} (${count} px)` : `Añadir clase ${off.name}`}">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="w-3.5 h-3.5 rounded-md shrink-0 border border-black/15 shadow-2xs" style="background-color: ${off.color};"></span>
+              <span class="text-[9.5px] font-black ${isActive ? 'text-emerald-950 font-black' : 'text-zinc-800'} truncate">${off.name}</span>
+            </div>
+            ${existing ? `<span class="text-[8px] font-mono font-bold ${count > 0 ? 'text-emerald-700' : 'text-zinc-400'} shrink-0 ml-1">${count} px</span>` : '<span class="text-[8px] text-zinc-400 shrink-0 ml-1">+</span>'}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function addSupervisedClass(customName = null, customColor = null) {
       const state_sup = window._supervisedState;
       const palette = [
-        '#22c55e', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444',
-        '#2563eb', '#ec4899', '#84cc16', '#ea580c', '#6366f1',
-        '#14b8a6', '#d946ef', '#f97316', '#0284c7', '#a855f7',
-        '#e11d48', '#ca8a04', '#64748b', '#0d9488', '#3b82f6'
+        '#83ceed', '#e59921', '#09744d', '#e61c28', '#734e1f', '#436eb2',
+        '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#ea580c', '#6366f1',
+        '#14b8a6', '#d946ef', '#f97316', '#0284c7', '#a855f7'
       ];
       const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
-      const color = palette[nextId % palette.length];
-      const name = customName || ('Grupo ' + (nextId + 1));
+
+      let name = customName;
+      let color = customColor;
+
+      if (!name) {
+        const missingOfficial = OFFICIAL_SUPERVISED_LEGEND.find(off => 
+          !state_sup.classes.some(c => c.name.toLowerCase() === off.name.toLowerCase())
+        );
+        if (missingOfficial) {
+          name = missingOfficial.name;
+          color = color || missingOfficial.color;
+        } else {
+          name = 'Grupo ' + (nextId + 1);
+        }
+      }
+
+      if (!color) {
+        const matchedOfficial = OFFICIAL_SUPERVISED_LEGEND.find(off => 
+          off.name.toLowerCase() === name.toLowerCase()
+        );
+        if (matchedOfficial) {
+          color = matchedOfficial.color;
+        } else {
+          color = palette[nextId % palette.length];
+        }
+      }
 
       const newCls = {
         id: nextId,
@@ -22925,7 +23082,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateDockSampleBadge();
       drawSupervisedSpectralChart();
 
-      // Auto-enfocar el campo de nombre en el modal si está visible
       setTimeout(() => {
         const input = document.getElementById('supClassNameInput-' + nextId);
         if (input) {
@@ -22934,19 +23090,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }, 50);
 
-      toast('✓ "' + name + '" añadido. Puedes cambiarle el nombre y color.', 'info');
+      toast('✓ "' + name + '" añadido.', 'info');
       return newCls;
     }
 
     function promptAddSupervisedClassFromDock() {
       const state_sup = window._supervisedState;
-      const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
-      const newName = 'Grupo ' + (nextId + 1);
-      const newCls = addSupervisedClass(newName);
+      const newCls = addSupervisedClass();
       if (newCls) {
         setActiveSupervisedClass(newCls.id);
-        setSupervisedSamplingTool('point');
-        toast('✓ "' + newCls.name + '" creada y activa. Haz clic en el satélite para muestrear.', 'info');
+        toast('✓ "' + newCls.name + '" creada y activa para muestreo.', 'info');
       }
     }
 
@@ -23174,6 +23327,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function renderSupervisedClassesList() {
       const state_sup = window._supervisedState;
       const container = document.getElementById('supervisedClassesList');
+      if (typeof renderSupervisedLegendChips === 'function') {
+        renderSupervisedLegendChips();
+      }
       if (!container) return;
 
       if (state_sup.classes.length === 0) {
@@ -23293,19 +23449,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function updateSupervisedDockClassSelect() {
       const state_sup = window._supervisedState;
       const select = document.getElementById('supDockClassSelect');
+      const indicator = document.getElementById('supDockClassColorIndicator');
       if (!select) return;
 
       if (state_sup.classes.length === 0) {
-        select.innerHTML = '<option value="">(Sin grupos - Pulsa + Clase)</option>';
+        select.innerHTML = '<option value="">(Sin clases - Pulsa + Clase)</option>';
+        if (indicator) indicator.style.backgroundColor = 'transparent';
         updateDockSampleBadge();
         return;
       }
 
       select.innerHTML = state_sup.classes.map(c => 
-        '<option value="' + c.id + '" ' + (c.id === state_sup.activeClassId ? 'selected' : '') + '>' +
-          c.name +
+        '<option value="' + c.id + '" ' + (c.id === state_sup.activeClassId ? 'selected' : '') + ' style="background-color: #18181b; color: ' + c.color + '; font-weight: bold;">' +
+          '■ ' + c.name + ' (' + (c.samples ? c.samples.length : 0) + ' px)' +
         '</option>'
       ).join('');
+
+      const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
+      if (indicator && activeCls) {
+        indicator.style.backgroundColor = activeCls.color;
+      }
 
       updateDockSampleBadge();
     }
@@ -23313,12 +23476,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function updateDockSampleBadge() {
       const state_sup = window._supervisedState;
       const badge = document.getElementById('supDockSampleCountBadge');
+      const indicator = document.getElementById('supDockClassColorIndicator');
       if (!badge) return;
       if (state_sup.activeClassId === null || state_sup.classes.length === 0) {
         badge.textContent = '0 px';
         badge.style.backgroundColor = '';
         badge.style.borderColor = '';
         badge.style.color = '';
+        if (indicator) indicator.style.backgroundColor = 'transparent';
         return;
       }
       const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
@@ -23328,6 +23493,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         badge.style.backgroundColor = activeCls.color + '25';
         badge.style.borderColor = activeCls.color + '60';
         badge.style.color = activeCls.color;
+        if (indicator) indicator.style.backgroundColor = activeCls.color;
       }
     }
 
@@ -23521,7 +23687,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       // Si no hay clases creadas, auto-crear la primera
       if (state_sup.classes.length === 0) {
-        addSupervisedClass('Grupo 1');
+        loadOfficialLegendClasses(false);
       }
 
       const targetLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
@@ -24815,7 +24981,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return;
       }
       if (!activeCls) {
-        if (state_sup.classes.length === 0) addSupervisedClass('Grupo 1');
+        if (state_sup.classes.length === 0) loadOfficialLegendClasses(false);
         activeCls = state_sup.classes[0];
         state_sup.activeClassId = activeCls.id;
       }
@@ -25386,6 +25552,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.deleteSelectedSupervisedArea = deleteSelectedSupervisedArea;
     window.deleteSupervisedArea = deleteSupervisedArea;
     window.undoLastSupervisedSample = undoLastSupervisedSample;
+    window.OFFICIAL_SUPERVISED_LEGEND = OFFICIAL_SUPERVISED_LEGEND;
+    window.selectOrAddOfficialClass = selectOrAddOfficialClass;
+    window.loadOfficialLegendClasses = loadOfficialLegendClasses;
+    window.renderSupervisedLegendChips = renderSupervisedLegendChips;
     window.updateSupervisedClassColor = updateSupervisedClassColor;
     window.updateSupervisedClassName = updateSupervisedClassName;
     window.setSupervisedAlgorithm = setSupervisedAlgorithm;
