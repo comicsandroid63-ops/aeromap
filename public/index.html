@@ -22268,7 +22268,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state_sup.visible = state_sup.visible === false ? true : false;
       }
       updateSupervisedLayerVisibilityUI();
-      toast(state_sup.visible ? "✓ Capa clasificada visible" : "👁 Capa clasificada oculta (viendo satélite original)", "info");
+      toast(state_sup.visible ? "✓ Vista previa de clasificación activada" : "👁 Vista previa desactivada (viendo satélite original)", "info");
     }
 
     function setSupervisedLayerOpacity(opacity) {
@@ -22286,24 +22286,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const isVisible = state_sup.visible !== false;
       const opacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
 
-      // 1. Manejo eficiente de recursos en Leaflet:
-      // Cuando la capa se apaga, se remueve completamente del mapa Leaflet (0 recursos GPU/CPU en paneo y zoom).
-      // Cuando se reactiva, se vuelve a montar de inmediato desde caché sin recalcular.
-      if (state._supervisedLiveLayer) {
-        if (!isVisible) {
-          if (state.map && state.map.hasLayer(state._supervisedLiveLayer)) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-          }
-        } else {
-          if (state.map && !state.map.hasLayer(state._supervisedLiveLayer)) {
-            try { state._supervisedLiveLayer.addTo(state.map); } catch (_) {}
-          }
-          if (typeof state._supervisedLiveLayer.setOpacity === "function") {
-            state._supervisedLiveLayer.setOpacity(opacity);
-          }
+      // 1. Manejo riguroso de visibilidad: remover AMBAS capas (live y base) si isVisible es false
+      if (!isVisible) {
+        if (state._supervisedLiveLayer && state.map && state.map.hasLayer(state._supervisedLiveLayer)) {
+          try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
         }
-      } else if (isVisible && state_sup.active && state_sup.classes && state_sup.classes.some(c => c.samples && c.samples.length > 0)) {
-        updateSupervisedLiveClassification(true);
+        if (state._supervisedBaseLayer && state.map && state.map.hasLayer(state._supervisedBaseLayer)) {
+          try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
+        }
+      } else {
+        if (state._supervisedBaseLayer && state.map && !state.map.hasLayer(state._supervisedBaseLayer)) {
+          try { state._supervisedBaseLayer.addTo(state.map); } catch (_) {}
+        }
+        if (state._supervisedLiveLayer && state.map && !state.map.hasLayer(state._supervisedLiveLayer)) {
+          try { state._supervisedLiveLayer.addTo(state.map); } catch (_) {}
+        }
+        if (state._supervisedBaseLayer && typeof state._supervisedBaseLayer.setOpacity === "function") {
+          state._supervisedBaseLayer.setOpacity(opacity);
+        }
+        if (state._supervisedLiveLayer && typeof state._supervisedLiveLayer.setOpacity === "function") {
+          state._supervisedLiveLayer.setOpacity(opacity);
+        }
+        if (!state._supervisedLiveLayer && !state._supervisedBaseLayer && state_sup.active && state_sup.classes && state_sup.classes.some(c => c.samples && c.samples.length > 0)) {
+          updateSupervisedLiveClassification(true);
+        }
       }
 
       // 2. Actualizar botón en el Dock flotante del mapa
@@ -22340,6 +22346,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const sliderVal = document.getElementById("supLayerOpacityValue");
       if (sliderVal) sliderVal.textContent = Math.round((state_sup.opacity !== undefined ? state_sup.opacity : 0.85) * 100) + "%";
     }
+
     window._supervisedState = {
       active: false,
       layerId: null,
@@ -22473,6 +22480,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (state._supervisedLiveLayer) {
         try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
         state._supervisedLiveLayer = null;
+      }
+      if (state._supervisedBaseLayer) {
+        try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
+        state._supervisedBaseLayer = null;
       }
 
       state.map.dragging.enable();
@@ -22628,11 +22639,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function promptAddSupervisedClassFromDock() {
       const state_sup = window._supervisedState;
-      const defaultName = 'Grupo ' + (state_sup.classes.length + 1);
-      const chosenName = prompt('Nombre del nuevo grupo / cobertura:', defaultName);
-      if (chosenName !== null) {
-        const finalName = chosenName.trim() || defaultName;
-        addSupervisedClass(finalName);
+      const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
+      const newName = 'Grupo ' + (nextId + 1);
+      const newCls = addSupervisedClass(newName);
+      if (newCls) {
+        setActiveSupervisedClass(newCls.id);
+        setSupervisedSamplingTool('point');
+        toast('✓ "' + newCls.name + '" creada y activa. Haz clic en el satélite para muestrear.', 'info');
       }
     }
 
@@ -23807,6 +23820,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!isVisible) {
         if (state._supervisedLiveLayer && state.map && state.map.hasLayer(state._supervisedLiveLayer)) {
           try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+        }
+        if (state._supervisedBaseLayer && state.map && state.map.hasLayer(state._supervisedBaseLayer)) {
+          try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
         }
         return;
       }
