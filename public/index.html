@@ -13459,12 +13459,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
               let isNormalizedFloat = false;
               if (isFloatType) {
-                for (let k = 0; k < Math.min(1000, pxCount); k++) {
-                  if (b0[k] > 0 && b0[k] <= 1.0) {
-                    isNormalizedFloat = true;
-                    break;
+                const step = Math.max(1, Math.floor(pxCount / 300));
+                let hasValid = false, maxVal = 0;
+                for (let k = 0; k < pxCount; k += step) {
+                  const val = b0[k];
+                  if (!isNaN(val) && isFinite(val) && val > 0.001) {
+                    hasValid = true;
+                    if (val > maxVal) maxVal = val;
+                    if (val > 2.0) { hasValid = false; break; }
                   }
                 }
+                if (hasValid && maxVal <= 2.0) isNormalizedFloat = true;
               }
               const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
               const collarThreshold = isNormalizedFloat ? 0.005 : 5;
@@ -23311,7 +23316,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!vals || vals.length === 0) return null;
 
       // Normalizar valores float 0.0..1.0 a escala estándar 0..255
-      if (vals.every(v => v >= 0 && v <= 1.0)) {
+      if (vals.some(v => v > 0) && vals.every(v => v >= 0 && v <= 2.0)) {
         vals = vals.map(v => Math.round(v * 255));
       }
 
@@ -23362,7 +23367,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }).then(raw => {
           if (raw && raw.length > 0) {
             let fullVals = Array.from(raw).map(b => b[0]);
-            if (fullVals.every(v => v >= 0 && v <= 1.0)) {
+            if (fullVals.some(v => v > 0) && fullVals.every(v => v >= 0 && v <= 2.0)) {
               fullVals = fullVals.map(v => Math.round(v * 255));
             }
             const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? targetLayer._geotiffTileLayer?.geo?.photometric ?? targetLayer.photometric;
@@ -23662,7 +23667,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   if (sd < minSampD) minSampD = sd;
                 }
               }
-              const affinity = (c === activeIdx) ? 0.95 : 1.0;
+              const affinity = 1.0;
               const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
               if (d < minD) { minD = d; bestC = c; }
             }
@@ -23756,9 +23761,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
         let isNormalizedFloat = false;
         if (isFloatType) {
-          for (let k = 0; k < Math.min(1000, totalPixels); k++) {
-            if (b0[k] > 0 && b0[k] <= 1.0) { isNormalizedFloat = true; break; }
+          const step = Math.max(1, Math.floor(totalPixels / 300));
+          let hasValid = false, maxVal = 0;
+          for (let k = 0; k < totalPixels; k += step) {
+            const val = b0[k];
+            if (!isNaN(val) && isFinite(val) && val > 0.001) {
+              hasValid = true;
+              if (val > maxVal) maxVal = val;
+              if (val > 2.0) { hasValid = false; break; }
+            }
           }
+          if (hasValid && maxVal <= 2.0) isNormalizedFloat = true;
         }
         const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
         const collarThreshold = isNormalizedFloat ? 0.005 : 5;
@@ -23980,9 +23993,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const isFloat = (b0 instanceof Float32Array || b0 instanceof Float64Array);
                 let isNorm = false;
                 if (isFloat) {
-                  for (let k = 0; k < Math.min(500, actTotal); k++) {
-                    if (b0[k] > 0 && b0[k] <= 1.0) { isNorm = true; break; }
+                  const step = Math.max(1, Math.floor(actTotal / 300));
+                  let hasValid = false, maxVal = 0;
+                  for (let k = 0; k < actTotal; k += step) {
+                    const val = b0[k];
+                    if (!isNaN(val) && isFinite(val) && val > 0.001) {
+                      hasValid = true;
+                      if (val > maxVal) maxVal = val;
+                      if (val > 2.0) { hasValid = false; break; }
+                    }
                   }
+                  if (hasValid && maxVal <= 2.0) isNorm = true;
                 }
                 const scale = isNorm ? 255.0 : 1.0;
                 const collar = isNorm ? 0.005 : 0;
@@ -24275,11 +24296,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   }
                 }
                 if (isValid) {
+                  let scaledVals = Array.from(vals);
+                  if (scaledVals.some(v => v > 0) && scaledVals.every(v => v >= 0 && v <= 2.0)) {
+                    scaledVals = scaledVals.map(v => Math.round(v * 255));
+                  }
                   if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
                   activeCls.pixelSet.add(pixelKey);
                   activeCls.samples.push({
                     px: x, py: y,
-                    values: Array.from(vals)
+                    values: scaledVals
                   });
                   sampledCount++;
                 }
@@ -35725,12 +35750,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
         let isNormalizedFloat = false;
         if (isFloatType) {
-          for (let k = 0; k < Math.min(1000, curPxCount); k++) {
-            if (b0[k] > 0 && b0[k] <= 1.0) {
-              isNormalizedFloat = true;
-              break;
+          const step = Math.max(1, Math.floor(curPxCount / 300));
+          let hasValid = false, maxVal = 0;
+          for (let k = 0; k < curPxCount; k += step) {
+            const val = b0[k];
+            if (!isNaN(val) && isFinite(val) && val > 0.001) {
+              hasValid = true;
+              if (val > maxVal) maxVal = val;
+              if (val > 2.0) { hasValid = false; break; }
             }
           }
+          if (hasValid && maxVal <= 2.0) isNormalizedFloat = true;
         }
         const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
         const collarThreshold = isNormalizedFloat ? 0.005 : 5;
