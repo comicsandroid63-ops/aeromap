@@ -5245,6 +5245,24 @@
           </div>
         </div>
 
+        <!-- Resolución de Exportación (Nativa / Alta Resolución) -->
+        <div id="exportClassifiedResContainer">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500">Resolución de Exportación:</label>
+            <span id="exportClassifiedResBadge" class="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">100% Nativa</span>
+          </div>
+          <select id="exportClassifiedResSel" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-violet-500/20" onchange="onExportClassifiedResChange()">
+            <option value="native" selected>Resolución Nativa Completa (100% - Máxima Calidad del Sensor)</option>
+            <option value="half">Alta Resolución (50% - Detallada y Liviana)</option>
+            <option value="quarter">Resolución Estándar (25% - Balanceada)</option>
+            <option value="preview">Resolución Rápida (Previsualización de Pantalla)</option>
+          </select>
+          <p id="exportClassifiedResInfo" class="text-[9.5px] text-zinc-500 mt-1 flex items-center gap-1 font-mono">
+            <span class="material-symbols-outlined text-[13px] text-violet-600">info</span>
+            <span id="exportClassifiedResDimensions">Resolución original del sensor satelital (sin decimación ni pérdida).</span>
+          </p>
+        </div>
+
         <!-- Sistema de Referencia Espacial (CRS) -->
         <div id="exportClassifiedCrsContainer">
           <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-1">Sistema de Coordenadas (CRS):</label>
@@ -13242,12 +13260,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const destW = Math.ceil(dstW * scaleX);
         const destH = Math.ceil(dstH * scaleY);
 
+        // Limpieza total del lienzo de la tesela para evitar fuga de píxeles fuera de capa
+        ctx.clearRect(0, 0, tileSize, tileSize);
+
         // Aceleración GPU mediante ImageBitmap para evitar cuello de botella en CPU
         if (typeof createImageBitmap === 'function') {
           try {
             const imgData = new ImageData(pixels, actualW, actualH);
             const bitmap = await createImageBitmap(imgData);
-            ctx.clearRect(destX, destY, destW, destH);
             ctx.drawImage(bitmap, srcX, srcY, actualW, actualH, destX, destY, destW, destH);
             bitmap.close();
             return;
@@ -13261,7 +13281,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const tempCtx = tempCanvas.getContext('2d');
         tempCtx.clearRect(0, 0, actualW, actualH);
         tempCtx.putImageData(imgData, 0, 0);
-        ctx.clearRect(destX, destY, destW, destH);
         ctx.drawImage(tempCanvas, srcX, srcY, actualW, actualH, destX, destY, destW, destH);
       },
       
@@ -13409,11 +13428,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const v1 = b1 ? b1[i] : 0;
                 const v2 = b2 ? b2[i] : 0;
 
-                if (v0 <= 0 && v1 <= 0 && v2 <= 0) {
+                // Filtro riguroso: NoData, NaN, infinitos y collar exterior negro (<=3)
+                if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
                   tileClassMap[i] = -1;
                   continue;
                 }
-                if (noDataValue != null && Math.abs(v0 - noDataValue) < 1e-4) {
+                if (noDataValue != null && (Math.abs(v0 - noDataValue) < 1e-4 || (b1 && Math.abs(v1 - noDataValue) < 1e-4) || (b2 && Math.abs(v2 - noDataValue) < 1e-4))) {
+                  tileClassMap[i] = -1;
+                  continue;
+                }
+                if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
                   tileClassMap[i] = -1;
                   continue;
                 }
@@ -23574,10 +23598,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const activeIdx = classStats.findIndex(cs => cs.cls.id === state_sup.activeClassId);
 
+        const layerNoData = layer.noDataValue ?? (layer._geotiffTileLayer?.geo?.noDataValue) ?? (state._unsupervisedSpectralData?.noDataValue);
+
         if (alg === "min_distance") {
           for (let i = 0; i < totalPixels; i++) {
             const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (v0 <= 0 && v1 <= 0 && v2 <= 0) {
+            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+              classMap[i] = -1;
+              continue;
+            }
+            if (layerNoData != null && (Math.abs(v0 - layerNoData) < 1e-4 || (b1 && Math.abs(v1 - layerNoData) < 1e-4) || (b2 && Math.abs(v2 - layerNoData) < 1e-4))) {
+              classMap[i] = -1;
+              continue;
+            }
+            if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
               classMap[i] = -1;
               continue;
             }
@@ -23659,7 +23693,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         for (let i = 0; i < totalPixels; i++) {
           const p = i * 4;
-          if (sData[p + 3] < 20 || (sData[p] === 0 && sData[p + 1] === 0 && sData[p + 2] === 0)) {
+          const a = sData[p + 3];
+          const r = sData[p], g = sData[p + 1], bVal = sData[p + 2];
+          if (a < 20 || (r <= 3 && g <= 3 && bVal <= 3)) {
             classMap[i] = -1;
             continue;
           }
@@ -35235,6 +35271,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
     window.closeExportClassifiedModal = closeExportClassifiedModal;
 
+    function onExportClassifiedResChange() {
+      const resSel = document.getElementById('exportClassifiedResSel');
+      const infoEl = document.getElementById('exportClassifiedResDimensions');
+      const badgeEl = document.getElementById('exportClassifiedResBadge');
+      if (!resSel || !infoEl) return;
+      const val = resSel.value;
+      if (val === 'native') {
+        infoEl.textContent = 'Resolución original completa del sensor (sin decimación ni pérdida).';
+        if (badgeEl) { badgeEl.textContent = '100% Nativa'; badgeEl.className = 'text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200'; }
+      } else if (val === 'half') {
+        infoEl.textContent = 'Escala 1:2 de alta densidad, óptima para informes cartográficos y SIG.';
+        if (badgeEl) { badgeEl.textContent = '50% Alta Res'; badgeEl.className = 'text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200'; }
+      } else if (val === 'quarter') {
+        infoEl.textContent = 'Escala 1:4 estándar rápida con bajo consumo de memoria.';
+        if (badgeEl) { badgeEl.textContent = '25% Estándar'; badgeEl.className = 'text-[9px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200'; }
+      } else {
+        infoEl.textContent = 'Exportación directa desde el lienzo de visualización actual.';
+        if (badgeEl) { badgeEl.textContent = 'Previa Pantalla'; badgeEl.className = 'text-[9px] font-mono font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200'; }
+      }
+    }
+    window.onExportClassifiedResChange = onExportClassifiedResChange;
+
     function onExportClassifiedLayerChange() {
       const sel = document.getElementById('exportClassifiedLayerSel');
       if (!sel) return;
@@ -35260,6 +35318,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (Array.from(crsSel.options).some(o => o.value === epsgStr)) {
           crsSel.value = epsgStr;
         }
+      }
+
+      // Configurar resoluciones disponibles (Nativa 100%, 50%, 25%, Previa)
+      let parentLayer = layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId)) : null;
+      if (!parentLayer) {
+        if (layer.type === 'raster' && !layer.isClassified) parentLayer = layer;
+        else if (window._supervisedState && window._supervisedState.layerId) {
+          parentLayer = state.layers.find(l => String(l.id) === String(window._supervisedState.layerId));
+        }
+        if (!parentLayer) parentLayer = state.layers.find(l => l.type === 'raster' && !l.isClassified);
+      }
+      const tileLayer = parentLayer?._geotiffTileLayer || parentLayer?.mapLayer;
+      const pyr = tileLayer?.pyramid;
+      const nativeW = pyr?.baseWidth || parentLayer?.width || layer.width || 4713;
+      const nativeH = pyr?.baseHeight || parentLayer?.height || layer.height || 11758;
+      const previewW = (layer._classifiedCanvas || window._supervisedState?._liveCanvas)?.width || 471;
+      const previewH = (layer._classifiedCanvas || window._supervisedState?._liveCanvas)?.height || 1175;
+
+      const resSel = document.getElementById('exportClassifiedResSel');
+      if (resSel) {
+        resSel.innerHTML = `
+          <option value="native" selected>Resolución Nativa Completa (${nativeW.toLocaleString()} x ${nativeH.toLocaleString()} px - 100% Calidad Sensor)</option>
+          ${pyr?.levels?.length > 1 ? `<option value="half">Alta Resolución (${Math.round(nativeW/2).toLocaleString()} x ${Math.round(nativeH/2).toLocaleString()} px - 50% Detallada)</option>` : ''}
+          ${pyr?.levels?.length > 2 ? `<option value="quarter">Resolución Estándar (${Math.round(nativeW/4).toLocaleString()} x ${Math.round(nativeH/4).toLocaleString()} px - 25% Balanceada)</option>` : ''}
+          <option value="preview">Resolución Rápida (${previewW.toLocaleString()} x ${previewH.toLocaleString()} px - Previa en Pantalla)</option>
+        `;
+        onExportClassifiedResChange();
       }
 
       // Renderizar resumen de coberturas
@@ -35315,15 +35400,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Procesando...';
       }
 
+      const targetRes = document.getElementById('exportClassifiedResSel')?.value || 'native';
+
       try {
         if (format === 'geotiff') {
-          await exportClassifiedAsGeoTIFF(layer, safeBase, crs);
-          toast('✓ Paquete GeoTIFF (.tif + .tfw + .prj) exportado con éxito', 'success');
+          await exportClassifiedAsGeoTIFF(layer, safeBase, crs, targetRes);
+          toast('✓ Paquete GeoTIFF en Alta Resolución (.tif + .tfw + .prj) exportado con éxito', 'success');
         } else if (format === 'geopng') {
-          await exportClassifiedAsGeoPNG(layer, safeBase, crs);
-          toast('✓ GeoPNG (.png + .pgw + .prj) exportado con éxito', 'success');
+          await exportClassifiedAsGeoPNG(layer, safeBase, crs, targetRes);
+          toast('✓ GeoPNG en Alta Resolución (.png + .pgw + .prj) exportado con éxito', 'success');
         } else if (format === 'geojson') {
-          await exportClassifiedAsGeoJSON(layer, safeBase, crs, addToMap);
+          await exportClassifiedAsGeoJSON(layer, safeBase, crs, addToMap, targetRes);
           toast('✓ Polígonos GeoJSON exportados con éxito', 'success');
         } else if (format === 'csv') {
           await exportClassifiedAsCSV(layer, safeBase);
@@ -35343,13 +35430,271 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
     window.executeExportClassified = executeExportClassified;
 
-    async function exportClassifiedAsGeoTIFF(layer, safeBase, crs) {
-      showProgress('Codificando GeoTIFF temático...', 35, 'Exportador');
-      const canvas = layer._classifiedCanvas;
+    // ════════════════════════════════════════════════════════════════════════
+    // MOTOR DE EXPORTACIÓN EN ALTA RESOLUCIÓN Y PRECISIÓN SUBPÍXEL SIN NODATA
+    // ════════════════════════════════════════════════════════════════════════
+
+    async function generateHighResClassifiedData(layer, targetResMode = 'native') {
+      let parentLayer = layer.parentLayerId ? state.layers.find(l => String(l.id) === String(layer.parentLayerId)) : null;
+      if (!parentLayer) {
+        if (layer.type === 'raster' && !layer.isClassified) parentLayer = layer;
+        else if (window._supervisedState && window._supervisedState.layerId) {
+          parentLayer = state.layers.find(l => String(l.id) === String(window._supervisedState.layerId));
+        }
+        if (!parentLayer) parentLayer = state.layers.find(l => l.type === 'raster' && !l.isClassified);
+      }
+
+      if (targetResMode === 'preview' || !parentLayer) {
+        const c = layer._classifiedCanvas || window._supervisedState?._liveCanvas;
+        return {
+          canvas: c,
+          width: c ? c.width : 512,
+          height: c ? c.height : 512,
+          isNative: false,
+          parentLayer: parentLayer || layer
+        };
+      }
+
+      const tileLayer = parentLayer._geotiffTileLayer || parentLayer.mapLayer;
+      const pyr = tileLayer?.pyramid;
+      if (!pyr || !pyr.levels || pyr.levels.length === 0) {
+        const c = layer._classifiedCanvas || window._supervisedState?._liveCanvas;
+        return {
+          canvas: c,
+          width: c ? c.width : 512,
+          height: c ? c.height : 512,
+          isNative: false,
+          parentLayer: parentLayer
+        };
+      }
+
+      let targetImg = pyr.levels[0];
+      if (targetResMode === 'half' && pyr.levels.length > 1) {
+        targetImg = pyr.levels[1];
+      } else if (targetResMode === 'quarter') {
+        targetImg = pyr.levels.length > 2 ? pyr.levels[2] : (pyr.levels[1] || pyr.levels[0]);
+      }
+
+      const w = targetImg.getWidth();
+      const h = targetImg.getHeight();
+
+      const state_sup = window._supervisedState;
+      const config = layer._classificationConfig || state_sup?._liveClassificationConfig;
+      const targetClasses = (config?.classes && config.classes.length > 0)
+        ? config.classes
+        : (layer.classes || state_sup?.classes || []).filter(c => c && (c.mean || (c.samples && c.samples.length > 0)));
+
+      if (!targetClasses || targetClasses.length === 0) {
+        const c = layer._classifiedCanvas || state_sup?._liveCanvas;
+        return {
+          canvas: c,
+          width: c ? c.width : w,
+          height: c ? c.height : h,
+          isNative: false,
+          parentLayer: parentLayer
+        };
+      }
+
+      const numClasses = targetClasses.length;
+      const alg = config?.algorithm || state_sup?.algorithm || 'min_distance';
+      const dims = config?.dims || 3;
+      const noDataValue = parentLayer.noDataValue ?? tileLayer?.geo?.noDataValue ?? targetImg.fileDirectory?.GDAL_NODATA;
+
+      const classColorsU32 = new Uint32Array(numClasses);
+      for (let c = 0; c < numClasses; c++) {
+        const cl = targetClasses[c] || {};
+        const hex = (cl.color || '#22c55e').replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16) || 0;
+        const g = parseInt(hex.substring(2, 4), 16) || 0;
+        const b = parseInt(hex.substring(4, 6), 16) || 0;
+        classColorsU32[c] = ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+      }
+
+      const flatMeans = new Float32Array(numClasses * dims);
+      const flatInv2Var = new Float32Array(numClasses * dims);
+      const baseLL = new Float32Array(numClasses);
+      const invNorm = new Float32Array(numClasses);
+      const classSamples = [];
+
+      for (let c = 0; c < numClasses; c++) {
+        const cl = targetClasses[c];
+        const cOff = c * dims;
+        const m = cl.mean || [];
+        const v = cl.variance || [];
+        baseLL[c] = -0.5 * (cl.logDetVar || (dims * Math.log(2 * Math.PI * 25)));
+        invNorm[c] = cl.invNorm || 1.0;
+
+        for (let b = 0; b < dims; b++) {
+          flatMeans[cOff + b] = m[b] || 0;
+          const varVal = Math.max(4.0, v[b] || 25);
+          flatInv2Var[cOff + b] = 0.5 / varVal;
+        }
+
+        const smps = cl.samples || [];
+        const stride = Math.max(1, Math.floor(smps.length / 16));
+        const subset = [];
+        for (let s = 0; s < smps.length; s += stride) {
+          const sv = smps[s]?.values || smps[s];
+          if (sv && Array.isArray(sv)) subset.push(sv);
+        }
+        classSamples.push(subset);
+      }
+
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = w;
+      outCanvas.height = h;
+      const outCtx = outCanvas.getContext('2d');
+
+      const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : dims;
+      const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
+      const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer?.geo?.photometric;
+
+      const chunkH = Math.min(1000, h);
+      const activeClassIdx = targetClasses.findIndex(tc => tc.id === config?.activeClassId);
+
+      for (let y = 0; y < h; y += chunkH) {
+        const curH = Math.min(chunkH, h - y);
+        const pct = Math.round(20 + ((y + curH) / h) * 60);
+        showProgress(`Clasificando en alta resolución (${Math.round(((y + curH) / h) * 100)}%)...`, pct, 'Exportador');
+
+        let raw = null;
+        try {
+          raw = await targetImg.readRasters({
+            window: [0, y, w, y + curH],
+            samples: sampleBands,
+            interleave: false
+          });
+        } catch (readErr) {
+          console.warn('[ExportHighRes] Error en lectura por tiras:', readErr);
+          break;
+        }
+
+        if (!raw || raw.length === 0) continue;
+
+        const curPxCount = w * curH;
+        let b0 = raw[0];
+        let b1 = dims > 1 ? raw[1] : null;
+        let b2 = dims > 2 ? raw[2] : null;
+
+        if (photo === 6 && raw.length >= 3) {
+          const yB = raw[0], cbB = raw[1], crB = raw[2];
+          const rB = new Uint8Array(curPxCount);
+          const gB = new Uint8Array(curPxCount);
+          const bB = new Uint8Array(curPxCount);
+          for (let i = 0; i < curPxCount; i++) {
+            const yv = yB[i], cb = cbB[i], cr = crB[i];
+            if (yv === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+              rB[i] = gB[i] = bB[i] = 0;
+            } else {
+              const cbS = cb - 128, crS = cr - 128;
+              rB[i] = Math.max(0, Math.min(255, Math.round(yv + 1.402 * crS)));
+              gB[i] = Math.max(0, Math.min(255, Math.round(yv - 0.344136 * cbS - 0.714136 * crS)));
+              bB[i] = Math.max(0, Math.min(255, Math.round(yv + 1.772 * cbS)));
+            }
+          }
+          b0 = rB; b1 = gB; b2 = bB;
+        }
+
+        const chunkImgData = outCtx.createImageData(w, curH);
+        const chunkU32 = new Uint32Array(chunkImgData.data.buffer);
+
+        for (let i = 0; i < curPxCount; i++) {
+          const v0 = b0[i];
+          const v1 = b1 ? b1[i] : 0;
+          const v2 = b2 ? b2[i] : 0;
+
+          // ── FILTRO RIGUROSO DE NODATA / FUERA DE CAPA ──
+          if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+            chunkU32[i] = 0; // Transparente
+            continue;
+          }
+          if (noDataValue != null && (Math.abs(v0 - noDataValue) < 1e-4 || (b1 && Math.abs(v1 - noDataValue) < 1e-4) || (b2 && Math.abs(v2 - noDataValue) < 1e-4))) {
+            chunkU32[i] = 0; // Transparente
+            continue;
+          }
+          if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
+            chunkU32[i] = 0; // Transparente
+            continue;
+          }
+
+          let bestC = activeClassIdx >= 0 ? activeClassIdx : 0;
+          if (numClasses === 1) {
+            const d0 = v0 - flatMeans[0], d1 = v1 - flatMeans[1], d2 = v2 - flatMeans[2];
+            bestC = (d0 * d0 + d1 * d1 + d2 * d2 <= dims * 40 * 40) ? 0 : -1;
+          } else if (alg === 'min_distance') {
+            let minD = Infinity;
+            for (let c = 0; c < numClasses; c++) {
+              const cOff = c * dims;
+              const d0 = v0 - flatMeans[cOff];
+              const d1 = v1 - flatMeans[cOff + 1];
+              const d2 = v2 - flatMeans[cOff + 2];
+              const dCentroid = d0 * d0 + d1 * d1 + d2 * d2;
+
+              let minSampD = dCentroid;
+              const smps = classSamples[c];
+              const sLen = smps.length;
+              if (sLen > 0) {
+                for (let s = 0; s < sLen; s++) {
+                  const sv = smps[s];
+                  const sd0 = v0 - sv[0];
+                  const sd1 = v1 - sv[1];
+                  const sd2 = v2 - sv[2];
+                  const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+                  if (sd < minSampD) minSampD = sd;
+                }
+              }
+              const affinity = (c === activeClassIdx) ? 0.95 : 1.0;
+              const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
+              if (d < minD) { minD = d; bestC = c; }
+            }
+          } else if (alg === 'max_likelihood') {
+            let maxLL = -Infinity;
+            for (let c = 0; c < numClasses; c++) {
+              const cOff = c * dims;
+              const d0 = v0 - flatMeans[cOff];
+              const d1 = v1 - flatMeans[cOff + 1];
+              const d2 = v2 - flatMeans[cOff + 2];
+              const ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
+              if (ll > maxLL) { maxLL = ll; bestC = c; }
+            }
+          } else if (alg === 'spectral_angle') {
+            const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+            const invPNorm = 1 / pNorm;
+            let maxCos = -1;
+            for (let c = 0; c < numClasses; c++) {
+              const dot = v0 * flatMeans[cOff] + v1 * flatMeans[cOff + 1] + v2 * flatMeans[cOff + 2];
+              const cosA = (dot * invPNorm) * invNorm[c];
+              if (cosA > maxCos) { maxCos = cosA; bestC = c; }
+            }
+          }
+
+          if (bestC >= 0 && bestC < numClasses) {
+            chunkU32[i] = classColorsU32[bestC];
+          } else {
+            chunkU32[i] = 0;
+          }
+        }
+
+        outCtx.putImageData(chunkImgData, 0, y);
+      }
+
+      return {
+        canvas: outCanvas,
+        width: w,
+        height: h,
+        isNative: true,
+        parentLayer: parentLayer
+      };
+    }
+
+    async function exportClassifiedAsGeoTIFF(layer, safeBase, crs, targetRes = 'native') {
+      showProgress('Generando GeoTIFF en alta resolución...', 25, 'Exportador');
+      const resData = await generateHighResClassifiedData(layer, targetRes);
+      const canvas = resData.canvas;
       if (!canvas) throw new Error('El lienzo de clasificación no está disponible');
 
-      const w = canvas.width;
-      const h = canvas.height;
+      const w = resData.width || canvas.width;
+      const h = resData.height || canvas.height;
       const ctx = canvas.getContext('2d');
       const imgData = ctx.getImageData(0, 0, w, h);
 
@@ -35357,36 +35702,52 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         throw new Error('Librería UTIF no disponible para compresión GeoTIFF');
       }
 
+      showProgress('Codificando compresión GeoTIFF...', 85, 'Exportador');
       const rawRgba = new Uint8Array(imgData.data.buffer);
       const tiffBuffer = UTIF.encodeImage(rawRgba, w, h);
 
-      const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
-      if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
-      const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
-      const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
-      const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
-      const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
-
+      const parentLayer = resData.parentLayer || layer;
       let pxX, pxY, originX, originY;
-      if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
-        try {
-          const pMin = proj4('EPSG:4326', crs, [west, south]);
-          const pMax = proj4('EPSG:4326', crs, [east, north]);
-          pxX = (pMax[0] - pMin[0]) / w;
-          pxY = (pMin[1] - pMax[1]) / h;
-          originX = pMin[0] + pxX / 2;
-          originY = pMax[1] + pxY / 2;
-        } catch (_) {
+      const origOrigin = parentLayer.origin;
+      const origRes = parentLayer.resolution;
+      const origW = parentLayer.width || parentLayer._canvasWidth || w;
+      const origH = parentLayer.height || parentLayer._canvasHeight || h;
+
+      if (origOrigin && origRes && origOrigin[0] !== undefined && origRes[0]) {
+        const scaleX = origW / w;
+        const scaleY = origH / h;
+        pxX = origRes[0] * scaleX;
+        pxY = origRes[1] * scaleY;
+        originX = origOrigin[0] + pxX / 2;
+        originY = origOrigin[1] + pxY / 2;
+      } else {
+        const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(parentLayer || layer) : null) || layer.bounds;
+        if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
+        const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
+        const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
+        const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
+        const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+
+        if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
+          try {
+            const pMin = proj4('EPSG:4326', crs, [west, south]);
+            const pMax = proj4('EPSG:4326', crs, [east, north]);
+            pxX = (pMax[0] - pMin[0]) / w;
+            pxY = (pMin[1] - pMax[1]) / h;
+            originX = pMin[0] + pxX / 2;
+            originY = pMax[1] + pxY / 2;
+          } catch (_) {
+            pxX = (east - west) / w;
+            pxY = (south - north) / h;
+            originX = west + pxX / 2;
+            originY = north + pxY / 2;
+          }
+        } else {
           pxX = (east - west) / w;
           pxY = (south - north) / h;
           originX = west + pxX / 2;
           originY = north + pxY / 2;
         }
-      } else {
-        pxX = (east - west) / w;
-        pxY = (south - north) / h;
-        originX = west + pxX / 2;
-        originY = north + pxY / 2;
       }
 
       const tfwText = [
@@ -35418,41 +35779,57 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
-    async function exportClassifiedAsGeoPNG(layer, safeBase, crs) {
-      showProgress('Generando GeoPNG georreferenciado...', 35, 'Exportador');
-      const canvas = layer._classifiedCanvas;
+    async function exportClassifiedAsGeoPNG(layer, safeBase, crs, targetRes = 'native') {
+      showProgress('Generando GeoPNG en alta resolución...', 25, 'Exportador');
+      const resData = await generateHighResClassifiedData(layer, targetRes);
+      const canvas = resData.canvas;
       if (!canvas) throw new Error('El lienzo de clasificación no está disponible');
 
-      const w = canvas.width;
-      const h = canvas.height;
-
-      const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
-      if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
-      const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
-      const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
-      const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
-      const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+      const w = resData.width || canvas.width;
+      const h = resData.height || canvas.height;
+      const parentLayer = resData.parentLayer || layer;
 
       let pxX, pxY, originX, originY;
-      if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
-        try {
-          const pMin = proj4('EPSG:4326', crs, [west, south]);
-          const pMax = proj4('EPSG:4326', crs, [east, north]);
-          pxX = (pMax[0] - pMin[0]) / w;
-          pxY = (pMin[1] - pMax[1]) / h;
-          originX = pMin[0] + pxX / 2;
-          originY = pMax[1] + pxY / 2;
-        } catch (_) {
+      const origOrigin = parentLayer.origin;
+      const origRes = parentLayer.resolution;
+      const origW = parentLayer.width || parentLayer._canvasWidth || w;
+      const origH = parentLayer.height || parentLayer._canvasHeight || h;
+
+      if (origOrigin && origRes && origOrigin[0] !== undefined && origRes[0]) {
+        const scaleX = origW / w;
+        const scaleY = origH / h;
+        pxX = origRes[0] * scaleX;
+        pxY = origRes[1] * scaleY;
+        originX = origOrigin[0] + pxX / 2;
+        originY = origOrigin[1] + pxY / 2;
+      } else {
+        const b = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(parentLayer || layer) : null) || layer.bounds;
+        if (!b) throw new Error('No se encontraron coordenadas geográficas de la capa');
+        const south = b.getSouth ? b.getSouth() : (Array.isArray(b) ? b[0][0] : b.south);
+        const west = b.getWest ? b.getWest() : (Array.isArray(b) ? b[0][1] : b.west);
+        const north = b.getNorth ? b.getNorth() : (Array.isArray(b) ? b[1][0] : b.north);
+        const east = b.getEast ? b.getEast() : (Array.isArray(b) ? b[1][1] : b.east);
+
+        if (crs && crs !== 'EPSG:4326' && typeof proj4 !== 'undefined') {
+          try {
+            const pMin = proj4('EPSG:4326', crs, [west, south]);
+            const pMax = proj4('EPSG:4326', crs, [east, north]);
+            pxX = (pMax[0] - pMin[0]) / w;
+            pxY = (pMin[1] - pMax[1]) / h;
+            originX = pMin[0] + pxX / 2;
+            originY = pMax[1] + pxY / 2;
+          } catch (_) {
+            pxX = (east - west) / w;
+            pxY = (south - north) / h;
+            originX = west + pxX / 2;
+            originY = north + pxY / 2;
+          }
+        } else {
           pxX = (east - west) / w;
           pxY = (south - north) / h;
           originX = west + pxX / 2;
           originY = north + pxY / 2;
         }
-      } else {
-        pxX = (east - west) / w;
-        pxY = (south - north) / h;
-        originX = west + pxX / 2;
-        originY = north + pxY / 2;
       }
 
       const pgwText = [
@@ -35468,6 +35845,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         ? CRS_PRJ_WKT_MAP[crs] 
         : ((typeof CRS_PRJ_WKT_MAP !== 'undefined' && CRS_PRJ_WKT_MAP['EPSG:4326']) ? CRS_PRJ_WKT_MAP['EPSG:4326'] : 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]');
 
+      showProgress('Codificando compresión GeoPNG...', 85, 'Exportador');
       const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
       if (!pngBlob) throw new Error('No se pudo generar el archivo PNG');
 
