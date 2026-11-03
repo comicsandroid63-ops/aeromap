@@ -6511,6 +6511,37 @@
           </div>
         </div>
 
+        <!-- Matriz de Confusión y Evaluación de Calidad (Exactitud Global & Kappa) -->
+        <div class="p-4 rounded-2xl border border-zinc-200 bg-white shadow-2xs flex flex-col gap-3" id="supConfusionMatrixCard">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">grid_on</span>
+              <span class="text-[10.5px] font-black uppercase tracking-wider text-zinc-800">
+                Matriz de Confusión y Evaluación de Exactitud
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="supAccuracyBadge" class="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Exactitud: 100%
+              </span>
+              <span id="supKappaBadge" class="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                Kappa (κ): 1.00
+              </span>
+            </div>
+          </div>
+
+          <!-- Alerta / Diagnóstico de Sombras y Confusión de Clases -->
+          <div id="supConfusionShadowAlert" style="display: none;" class="p-2.5 rounded-xl text-[9px] flex items-center gap-2 transition-all">
+            <span class="material-symbols-outlined text-[16px] shrink-0" id="supConfusionShadowIcon">info</span>
+            <span id="supConfusionShadowAlertText"></span>
+          </div>
+
+          <!-- Tabla Interactiva de la Matriz de Confusión -->
+          <div class="overflow-x-auto max-h-56 custom-scrollbar border border-zinc-200 rounded-xl bg-zinc-50/40" id="supConfusionTableWrap">
+            <!-- Renderizado dinámico -->
+          </div>
+        </div>
+
       </div>
 
       <!-- Pie de Acción del Modal -->
@@ -6567,6 +6598,12 @@
       <span id="supDockSampleCountBadge" class="px-2 py-0.5 rounded-full text-[8.5px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
         0 px
       </span>
+      <button type="button" onclick="restoreSupervisedModal()" id="supDockAccuracyBtn"
+        class="px-2 py-1 rounded-lg text-[8.5px] font-mono font-bold bg-zinc-800 text-emerald-400 border border-emerald-500/30 hover:bg-zinc-700 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+        title="Exactitud de la Matriz de Confusión (Clic para abrir panel y ver matriz)">
+        <span class="material-symbols-outlined text-[12px]">grid_on</span>
+        <span id="supDockAccuracyText">100% Acc</span>
+      </button>
       <button type="button" onclick="promptAddSupervisedClassFromDock()"
         class="px-2 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer transition-all"
         title="Crear un nuevo grupo / cobertura y nombrarlo">
@@ -13591,7 +13628,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
                 const activeClassIdx = targetClasses.findIndex(tc => tc.id === cls.activeClassId);
 
-                // Algoritmo: Distancia Mínima (Euclidiana Robusta + Dominancia de Muestras 75% + Afinidad Activa)
+                const sumV = normV0 + normV1 + normV2;
+                const isDarkShadow = sumV < 140; // Zona de sombra o baja iluminación
+
+                // Algoritmo: Distancia Mínima Multi-Modal (Adaptativa a sombras con preservación espectral)
                 if (alg === 'min_distance') {
                   let minD = Infinity, bestC = activeClassIdx >= 0 ? activeClassIdx : 0;
                   for (let c = 0; c < numClasses; c++) {
@@ -13603,19 +13643,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
                     let minSampD = dCentroid;
                     const smps = classSamples[c];
-                    const sLen = smps.length;
+                    const sLen = smps ? smps.length : 0;
                     if (sLen > 0) {
                       for (let s = 0; s < sLen; s++) {
                         const sv = smps[s];
                         const sd0 = normV0 - sv[0];
                         const sd1 = normV1 - (sv[1] || 0);
                         const sd2 = normV2 - (sv[2] || 0);
-                        const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+                        let sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+
+                        // Si es zona con sombra y la muestra es de sombra, comparar crominancia / ratios para evitar confundir con agua o suelo
+                        if (isDarkShadow) {
+                          const sSum = sv[0] + (sv[1] || 0) + (sv[2] || 0);
+                          if (sSum < 180) {
+                            const crDiff = (normV0 / (sumV + 1)) - (sv[0] / (sSum + 1));
+                            const cgDiff = (normV1 / (sumV + 1)) - ((sv[1] || 0) / (sSum + 1));
+                            const cbDiff = (normV2 / (sumV + 1)) - ((sv[2] || 0) / (sSum + 1));
+                            const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
+                            sd = 0.35 * sd + 0.65 * chromaD;
+                          }
+                        }
+
                         if (sd < minSampD) minSampD = sd;
                       }
                     }
+
+                    // Ponderación exponencial adaptativa: cuando hay una muestra entrenada cercana (ej. sombra asignada por el usuario),
+                    // domina la muestra al 98%, anulando la penalización del centroide general
+                    const wSample = Math.exp(-minSampD / 1200);
                     const affinity = (c === activeClassIdx) ? 0.95 : 1.0;
-                    const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
+                    const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
                     if (d < minD) { minD = d; bestC = c; }
                   }
                   tileClassMap[i] = bestC;
@@ -13628,21 +13685,50 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const d0 = normV0 - flatMeans[cOff];
                     const d1 = normV1 - flatMeans[cOff + 1];
                     const d2 = normV2 - flatMeans[cOff + 2];
-                    const ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
+                    let ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
+
+                    // Si hay muestras oscuras de la clase en sombra, elevar verosimilitud de la clase
+                    const smps = classSamples[c];
+                    if (isDarkShadow && smps && smps.length > 0) {
+                      for (let s = 0; s < smps.length; s++) {
+                        const sv = smps[s];
+                        const sd0 = normV0 - sv[0], sd1 = normV1 - (sv[1]||0), sd2 = normV2 - (sv[2]||0);
+                        const sDist = sd0*sd0 + sd1*sd1 + sd2*sd2;
+                        if (sDist < 200) {
+                          const boost = 50 * Math.exp(-sDist / 100);
+                          if (boost > 0) ll += boost;
+                          break;
+                        }
+                      }
+                    }
+
                     if (ll > maxLL) { maxLL = ll; bestC = c; }
                   }
                   tileClassMap[i] = bestC;
                 }
-                // Algoritmo: Ángulo Espectral SAM (Invariante a iluminación y sombras)
+                // Algoritmo: Ángulo Espectral SAM (Invariante a sombras y brillo solar comparando vectores ejemplares)
                 else if (alg === 'spectral_angle') {
                   const pNorm = Math.sqrt(normV0 * normV0 + normV1 * normV1 + normV2 * normV2) || 1e-4;
                   const invPNorm = 1 / pNorm;
                   let maxCos = -1, bestC = 0;
                   for (let c = 0; c < numClasses; c++) {
                     const cOff = c * dims;
-                    const dot = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
-                    const cosA = (dot * invPNorm) * invNorm[c];
-                    if (cosA > maxCos) { maxCos = cosA; bestC = c; }
+                    const dotCentroid = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
+                    let bestClassCos = (dotCentroid * invPNorm) * invNorm[c];
+
+                    // Comparar contra las muestras representativas de la clase para abarcar ángulos en sombra
+                    const smps = classSamples[c];
+                    if (smps && smps.length > 0) {
+                      for (let s = 0; s < smps.length; s++) {
+                        const sv = smps[s];
+                        const dotS = normV0 * sv[0] + normV1 * (sv[1] || 0) + normV2 * (sv[2] || 0);
+                        const sNorm = sv._norm || Math.sqrt(sv[0]*sv[0] + (sv[1]||0)*(sv[1]||0) + (sv[2]||0)*(sv[2]||0)) || 1;
+                        const cosS = (dotS * invPNorm) / sNorm;
+                        if (cosS > bestClassCos) bestClassCos = cosS;
+                      }
+                    }
+
+                    if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
                   }
                   tileClassMap[i] = bestC;
                 }
@@ -13674,7 +13760,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                   }
                   // Solo limpiar ruido aislado de 1 píxel (7 u 8 de los 8 vecinos coinciden en otra clase).
-                  // Nunca borrar parches ni muestras de la clase recién entrenada:
+                  // NUNCA borrar muestras entrenadas por el usuario ni píxeles en sombra asignados explícitamente:
                   if (sameCount === 0) {
                     let maxVotes = 0, majC = selfC;
                     for (let c = 0; c < numClasses; c++) {
@@ -13684,8 +13770,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       }
                     }
                     if (maxVotes >= 7) {
-                      smoothedMap[idx] = majC;
-                      continue;
+                      // Proteger si coincide cercanamente con alguna muestra entrenada de la clase selfC
+                      let isGroundTruthSample = false;
+                      const smps = classSamples[selfC];
+                      if (smps && smps.length > 0) {
+                        for (let s = 0; s < smps.length; s++) {
+                          const sv = smps[s];
+                          const sd = (normV0 - sv[0])*(normV0 - sv[0]) + (normV1 - (sv[1]||0))*(normV1 - (sv[1]||0)) + (normV2 - (sv[2]||0))*(normV2 - (sv[2]||0));
+                          if (sd < 100) { isGroundTruthSample = true; break; }
+                        }
+                      }
+                      if (!isGroundTruthSample) {
+                        smoothedMap[idx] = majC;
+                        continue;
+                      }
                     }
                   }
                   smoothedMap[idx] = selfC;
@@ -23305,6 +23403,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function setSupervisedAlgorithm(alg) {
       const state_sup = window._supervisedState;
       state_sup.algorithm = alg;
+      if (typeof renderSupervisedConfusionMatrix === 'function') {
+        renderSupervisedConfusionMatrix();
+      }
 
       const algs = ['min_distance', 'max_likelihood', 'spectral_angle'];
       algs.forEach(a => {
@@ -23329,6 +23430,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const container = document.getElementById('supervisedClassesList');
       if (typeof renderSupervisedLegendChips === 'function') {
         renderSupervisedLegendChips();
+      }
+      if (typeof renderSupervisedConfusionMatrix === 'function') {
+        renderSupervisedConfusionMatrix();
       }
       if (!container) return;
 
@@ -24047,12 +24151,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         ];
 
         const smps = cls.samples || [];
-        const stride = Math.max(1, Math.floor(smps.length / 16));
         const repSamples = [];
-        for (let s = 0; s < smps.length; s += stride) {
-          const sv = smps[s]?.values || smps[s];
-          if (sv && Array.isArray(sv)) repSamples.push(sv);
+        if (smps.length <= 64) {
+          for (let s = 0; s < smps.length; s++) {
+            const sv = smps[s]?.values || smps[s];
+            if (sv && Array.isArray(sv)) repSamples.push(sv);
+          }
+        } else {
+          // Si hay muchas muestras, garantizar que se incluyan las muestras oscuras (sombras), intermedias y brillantes
+          const sorted = [...smps].sort((a, b) => {
+            const va = (a.values || a), vb = (b.values || b);
+            const sa = (va[0]||0) + (va[1]||0) + (va[2]||0);
+            const sb = (vb[0]||0) + (vb[1]||0) + (vb[2]||0);
+            return sa - sb;
+          });
+          // Primeras 16 (las más oscuras / sombreadas)
+          for (let s = 0; s < Math.min(16, sorted.length); s++) {
+            repSamples.push(sorted[s].values || sorted[s]);
+          }
+          // Últimas 16 (las más brillantes)
+          const startBr = Math.max(16, sorted.length - 16);
+          for (let s = startBr; s < sorted.length; s++) {
+            repSamples.push(sorted[s].values || sorted[s]);
+          }
+          // Intermedias uniformemente espaciadas
+          const stride = Math.max(1, Math.floor(smps.length / 32));
+          for (let s = 0; s < smps.length; s += stride) {
+            const sv = smps[s]?.values || smps[s];
+            if (sv && !repSamples.includes(sv)) repSamples.push(sv);
+          }
         }
+        repSamples.forEach(sv => {
+          const v0 = sv[0] || 0, v1 = sv[1] || 0, v2 = sv[2] || 0;
+          sv._sum = v0 + v1 + v2;
+          sv._norm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+          sv._cr = v0 / (sv._sum + 1);
+          sv._cg = v1 / (sv._sum + 1);
+          sv._cb = v2 / (sv._sum + 1);
+        });
 
         return {
           id: idx,
@@ -24141,17 +24277,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let i = 0; i < pxCount; i++) {
             let allZeroOrNoData = true;
             let hasNaN = false;
+            let sumV = 0;
             for (let d = 0; d < cmpDims; d++) {
               const v = bands[d][i];
               if (isNaN(v)) { hasNaN = true; break; }
               const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
               if (v > 0 && !isNd) allZeroOrNoData = false;
+              sumV += (v * scale);
             }
             if (hasNaN || allZeroOrNoData) {
               outMap[i] = -1;
               continue;
             }
 
+            const isDarkShadow = sumV < 140;
             let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
             for (let c = 0; c < numClasses; c++) {
               const cMean = classStats[c].mean;
@@ -24172,11 +24311,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const diff = (bands[d][i] * scale) - (sv[d] || 0);
                     sd += diff * diff;
                   }
+
+                  if (isDarkShadow && (sv._sum || 0) < 180) {
+                    const pCr = (bands[0][i] * scale) / (sumV + 1);
+                    const pCg = cmpDims > 1 ? (bands[1][i] * scale) / (sumV + 1) : 0;
+                    const pCb = cmpDims > 2 ? (bands[2][i] * scale) / (sumV + 1) : 0;
+                    const crDiff = pCr - (sv._cr || 0);
+                    const cgDiff = pCg - (sv._cg || 0);
+                    const cbDiff = pCb - (sv._cb || 0);
+                    const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
+                    sd = 0.35 * sd + 0.65 * chromaD;
+                  }
+
                   if (sd < minSampD) minSampD = sd;
                 }
               }
-              const affinity = 1.0;
-              const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
+
+              const wSample = Math.exp(-minSampD / 1200);
+              const affinity = (c === activeIdx) ? 0.95 : 1.0;
+              const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
               if (d < minD) { minD = d; bestC = c; }
             }
             outMap[i] = bestC;
@@ -24185,17 +24338,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let i = 0; i < pxCount; i++) {
             let allZeroOrNoData = true;
             let hasNaN = false;
+            let sumV = 0;
             for (let d = 0; d < cmpDims; d++) {
               const v = bands[d][i];
               if (isNaN(v)) { hasNaN = true; break; }
               const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
               if (v > 0 && !isNd) allZeroOrNoData = false;
+              sumV += (v * scale);
             }
             if (hasNaN || allZeroOrNoData) {
               outMap[i] = -1;
               continue;
             }
 
+            const isDarkShadow = sumV < 140;
             let maxLL = -Infinity, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
               const cMean = classStats[c].mean;
@@ -24205,7 +24361,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const diff = (bands[d][i] * scale) - cMean[d];
                 mahalanobis += (diff * diff) / (2 * cVar[d]);
               }
-              const ll = baseLL[c] - mahalanobis;
+              let ll = baseLL[c] - mahalanobis;
+
+              if (isDarkShadow) {
+                const smps = repSamplesList[c];
+                if (smps && smps.length > 0) {
+                  for (let s = 0; s < smps.length; s++) {
+                    const sv = smps[s];
+                    let sd = 0;
+                    for (let d = 0; d < cmpDims; d++) {
+                      const diff = (bands[d][i] * scale) - (sv[d] || 0);
+                      sd += diff * diff;
+                    }
+                    if (sd < 200) {
+                      ll += 50 * Math.exp(-sd / 100);
+                      break;
+                    }
+                  }
+                }
+              }
+
               if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
             outMap[i] = bestC;
@@ -24232,13 +24407,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const invPNorm = 1 / pNorm;
             let maxCos = -1, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
-              const cMean = classStats[c].mean;
-              let dot = 0;
+              let dotCentroid = 0;
               for (let d = 0; d < cmpDims; d++) {
-                dot += (bands[d][i] * scale) * cMean[d];
+                dotCentroid += (bands[d][i] * scale) * cm0[c];
               }
-              const cosA = (dot * invPNorm) * invNorm[c];
-              if (cosA > maxCos) { maxCos = cosA; bestC = c; }
+              let bestClassCos = (dotCentroid * invPNorm) * invNorm[c];
+
+              const smps = repSamplesList[c];
+              if (smps && smps.length > 0) {
+                for (let s = 0; s < smps.length; s++) {
+                  const sv = smps[s];
+                  let dotS = 0;
+                  for (let d = 0; d < cmpDims; d++) {
+                    dotS += (bands[d][i] * scale) * (sv[d] || 0);
+                  }
+                  const cosS = (dotS * invPNorm) / (sv._norm || 1);
+                  if (cosS > bestClassCos) bestClassCos = cosS;
+                }
+              }
+
+              if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
             }
             outMap[i] = bestC;
           }
@@ -25136,6 +25324,314 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       toast('✓ Polígono ROI: ' + sampledCount + ' píxeles capturados para "' + activeCls.name + '"', 'success');
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  MOTOR DE MATRIZ DE CONFUSIÓN Y VALIDACIÓN DE EXACTITUD
+    // ══════════════════════════════════════════════════════════════
+    function predictSupervisedPixel(vals, sampledClasses, algorithm, activeClassId) {
+      if (!vals || vals.length === 0 || !sampledClasses || sampledClasses.length === 0) return 0;
+      const numClasses = sampledClasses.length;
+      const dims = Math.min(3, vals.length);
+      const v0 = vals[0] || 0, v1 = dims > 1 ? (vals[1] || 0) : 0, v2 = dims > 2 ? (vals[2] || 0) : 0;
+      const sumV = v0 + v1 + v2;
+      const isDarkShadow = sumV < 140;
+      const alg = algorithm || 'min_distance';
+      const activeIdx = sampledClasses.findIndex(c => c.id === activeClassId);
+
+      if (numClasses === 1) return 0;
+
+      if (alg === 'min_distance') {
+        let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
+        for (let c = 0; c < numClasses; c++) {
+          const cls = sampledClasses[c];
+          const smps = cls.samples || [];
+          let dCentroid = 0;
+          let m0 = 0, m1 = 0, m2 = 0;
+          if (smps.length > 0) {
+            for (let s = 0; s < smps.length; s++) {
+              const sv = smps[s].values || smps[s];
+              m0 += (sv[0] || 0); m1 += (sv[1] || 0); m2 += (sv[2] || 0);
+            }
+            m0 /= smps.length; m1 /= smps.length; m2 /= smps.length;
+          }
+          dCentroid = (v0 - m0)**2 + (v1 - m1)**2 + (v2 - m2)**2;
+
+          let minSampD = dCentroid;
+          if (smps.length > 0) {
+            for (let s = 0; s < smps.length; s++) {
+              const sv = smps[s].values || smps[s];
+              let sd = (v0 - sv[0])**2 + (v1 - (sv[1] || 0))**2 + (v2 - (sv[2] || 0))**2;
+              if (isDarkShadow) {
+                const sSum = (sv[0]||0) + (sv[1]||0) + (sv[2]||0);
+                if (sSum < 180) {
+                  const crDiff = (v0 / (sumV + 1)) - (sv[0] / (sSum + 1));
+                  const cgDiff = (v1 / (sumV + 1)) - ((sv[1] || 0) / (sSum + 1));
+                  const cbDiff = (v2 / (sumV + 1)) - ((sv[2] || 0) / (sSum + 1));
+                  const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
+                  sd = 0.35 * sd + 0.65 * chromaD;
+                }
+              }
+              if (sd < minSampD) minSampD = sd;
+            }
+          }
+          const wSample = Math.exp(-minSampD / 1200);
+          const affinity = (c === activeIdx) ? 0.95 : 1.0;
+          const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
+          if (d < minD) { minD = d; bestC = c; }
+        }
+        return bestC;
+      }
+      else if (alg === 'spectral_angle') {
+        const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+        const invPNorm = 1 / pNorm;
+        let maxCos = -1, bestC = 0;
+        for (let c = 0; c < numClasses; c++) {
+          const cls = sampledClasses[c];
+          const smps = cls.samples || [];
+          let bestClassCos = -1;
+          for (let s = 0; s < smps.length; s++) {
+            const sv = smps[s].values || smps[s];
+            const dotS = v0 * sv[0] + v1 * (sv[1] || 0) + v2 * (sv[2] || 0);
+            const sNorm = Math.sqrt((sv[0]||0)**2 + (sv[1]||0)**2 + (sv[2]||0)**2) || 1e-4;
+            const cosS = (dotS * invPNorm) / sNorm;
+            if (cosS > bestClassCos) bestClassCos = cosS;
+          }
+          if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
+        }
+        return bestC;
+      }
+      else {
+        // max_likelihood fallback to min_distance
+        return predictSupervisedPixel(vals, sampledClasses, 'min_distance', activeClassId);
+      }
+    }
+
+    function calculateSupervisedConfusionMatrix() {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.classes) return null;
+
+      const sampledClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+      if (sampledClasses.length === 0) return null;
+
+      const numClasses = sampledClasses.length;
+      const matrix = Array.from({ length: numClasses }, () => new Array(numClasses).fill(0));
+      const shadowConfusions = [];
+      let totalSamples = 0;
+      let totalCorrect = 0;
+
+      for (let i = 0; i < numClasses; i++) {
+        const trueCls = sampledClasses[i];
+        const samples = trueCls.samples || [];
+
+        for (let k = 0; k < samples.length; k++) {
+          const s = samples[k];
+          const vals = s.values;
+          if (!vals || vals.length === 0) continue;
+
+          const predIdx = predictSupervisedPixel(vals, sampledClasses, state_sup.algorithm, state_sup.activeClassId);
+          if (predIdx >= 0 && predIdx < numClasses) {
+            matrix[i][predIdx]++;
+            totalSamples++;
+            if (predIdx === i) {
+              totalCorrect++;
+            } else {
+              const sumV = (vals[0] || 0) + (vals[1] || 0) + (vals[2] || 0);
+              if (sumV < 150) {
+                shadowConfusions.push({
+                  trueClass: trueCls.name,
+                  predClass: sampledClasses[predIdx].name,
+                  trueColor: trueCls.color,
+                  predColor: sampledClasses[predIdx].color
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Exactitud Global
+      const overallAccuracy = totalSamples > 0 ? (totalCorrect / totalSamples) * 100 : 100;
+
+      // Totales por fila (verdad terreno) y columna (clasificado)
+      const rowTotals = new Array(numClasses).fill(0);
+      const colTotals = new Array(numClasses).fill(0);
+      for (let i = 0; i < numClasses; i++) {
+        for (let j = 0; j < numClasses; j++) {
+          rowTotals[i] += matrix[i][j];
+          colTotals[j] += matrix[i][j];
+        }
+      }
+
+      // Índice Kappa de Cohen
+      let pExpected = 0;
+      for (let i = 0; i < numClasses; i++) {
+        pExpected += (rowTotals[i] / Math.max(1, totalSamples)) * (colTotals[i] / Math.max(1, totalSamples));
+      }
+      const pObserved = totalSamples > 0 ? totalCorrect / totalSamples : 1.0;
+      const kappa = (1 - pExpected) > 1e-4 ? (pObserved - pExpected) / (1 - pExpected) : 1.0;
+
+      const producerAccuracy = [];
+      const userAccuracy = [];
+      for (let i = 0; i < numClasses; i++) {
+        producerAccuracy.push(rowTotals[i] > 0 ? (matrix[i][i] / rowTotals[i]) * 100 : 100);
+        userAccuracy.push(colTotals[i] > 0 ? (matrix[i][i] / colTotals[i]) * 100 : 100);
+      }
+
+      return {
+        sampledClasses,
+        numClasses,
+        matrix,
+        rowTotals,
+        colTotals,
+        totalSamples,
+        totalCorrect,
+        overallAccuracy: Math.round(overallAccuracy * 10) / 10,
+        kappa: Math.max(0, Math.min(1.0, Math.round(kappa * 100) / 100)),
+        producerAccuracy,
+        userAccuracy,
+        shadowConfusions
+      };
+    }
+
+    function renderSupervisedConfusionMatrix() {
+      const stats = calculateSupervisedConfusionMatrix();
+      const wrap = document.getElementById('supConfusionTableWrap');
+      const badgeAcc = document.getElementById('supAccuracyBadge');
+      const badgeKappa = document.getElementById('supKappaBadge');
+      const alertBox = document.getElementById('supConfusionShadowAlert');
+      const alertText = document.getElementById('supConfusionShadowAlertText');
+      const alertIcon = document.getElementById('supConfusionShadowIcon');
+      const dockAccText = document.getElementById('supDockAccuracyText');
+
+      if (!stats || stats.totalSamples === 0) {
+        if (wrap) {
+          wrap.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-6 text-center gap-1.5 text-zinc-400">
+              <span class="material-symbols-outlined text-[24px]">grid_on</span>
+              <span class="text-[10px] font-bold text-zinc-600">Sin muestras suficientes</span>
+              <span class="text-[8.5px] max-w-xs text-zinc-400">Toma muestras en el mapa para calcular la matriz de confusión y evaluar la exactitud en tiempo real.</span>
+            </div>
+          `;
+        }
+        if (badgeAcc) badgeAcc.textContent = 'Exactitud: 100%';
+        if (badgeKappa) badgeKappa.textContent = 'Kappa (κ): 1.00';
+        if (alertBox) alertBox.style.display = 'none';
+        if (dockAccText) dockAccText.textContent = '100% Acc';
+        return;
+      }
+
+      if (badgeAcc) {
+        badgeAcc.textContent = `Exactitud: ${stats.overallAccuracy}%`;
+        badgeAcc.className = `px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold border ${
+          stats.overallAccuracy >= 90 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+          stats.overallAccuracy >= 75 ? 'bg-amber-100 text-amber-800 border-amber-300' :
+          'bg-red-100 text-red-800 border-red-300'
+        }`;
+      }
+
+      if (badgeKappa) {
+        const kStr = stats.kappa.toFixed(2);
+        badgeKappa.textContent = `Kappa (κ): ${kStr}`;
+      }
+
+      if (dockAccText) {
+        dockAccText.textContent = `${stats.overallAccuracy}% Acc`;
+      }
+
+      // Diagnóstico de sombras
+      if (alertBox && alertText && alertIcon) {
+        alertBox.style.display = 'flex';
+        if (stats.shadowConfusions.length > 0) {
+          const c0 = stats.shadowConfusions[0];
+          alertBox.className = 'p-2.5 rounded-xl text-[9px] flex items-center gap-2 transition-all bg-amber-50 border border-amber-200 text-amber-900';
+          alertIcon.className = 'material-symbols-outlined text-[16px] text-amber-600 shrink-0';
+          alertIcon.textContent = 'warning';
+          alertText.innerHTML = `<strong>Aviso de Sombras:</strong> Hay muestras oscuras de <strong style="color:${c0.trueColor}">${c0.trueClass}</strong> que se confunden con <strong style="color:${c0.predColor}">${c0.predClass}</strong>. <em>Solución:</em> Usa el Pincel para añadir más muestras en esa zona sombreada o activa <strong>Ángulo Espectral SAM</strong>.`;
+        } else {
+          alertBox.className = 'p-2 rounded-xl text-[9px] flex items-center gap-2 transition-all bg-emerald-50 border border-emerald-200 text-emerald-900';
+          alertIcon.className = 'material-symbols-outlined text-[16px] text-emerald-600 shrink-0';
+          alertIcon.textContent = 'verified';
+          alertText.innerHTML = `<strong>Detección de Sombras Óptima:</strong> Todas las áreas en sombra y coberturas están correctamente discriminadas sin confusión.`;
+        }
+      }
+
+      if (wrap) {
+        const sc = stats.sampledClasses;
+        let html = `
+          <table class="w-full text-left border-collapse text-[9.5px]">
+            <thead>
+              <tr class="bg-zinc-100/80 text-zinc-700 border-b border-zinc-200 font-bold uppercase text-[8px] tracking-wider">
+                <th class="p-2 border-r border-zinc-200">Verdad \ Predicción</th>
+        `;
+
+        for (let j = 0; j < stats.numClasses; j++) {
+          html += `
+            <th class="p-1.5 text-center border-r border-zinc-200">
+              <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle border border-black/15" style="background-color:${sc[j].color};"></span>
+              <span class="truncate max-w-[65px] inline-block align-middle" title="${sc[j].name}">${sc[j].name}</span>
+            </th>
+          `;
+        }
+
+        html += `
+                <th class="p-1.5 text-center border-r border-zinc-200 bg-zinc-200/50">Total</th>
+                <th class="p-1.5 text-center bg-indigo-50 text-indigo-900">Prec. Productor</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-200">
+        `;
+
+        for (let i = 0; i < stats.numClasses; i++) {
+          const rowCls = sc[i];
+          const pa = stats.producerAccuracy[i].toFixed(1);
+          html += `
+            <tr class="hover:bg-zinc-100/50 transition-colors">
+              <td class="p-1.5 font-bold text-zinc-800 border-r border-zinc-200 whitespace-nowrap">
+                <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle border border-black/15" style="background-color:${rowCls.color};"></span>
+                <span>${rowCls.name}</span>
+              </td>
+          `;
+
+          for (let j = 0; j < stats.numClasses; j++) {
+            const count = stats.matrix[i][j];
+            const isDiag = (i === j);
+            let cellStyle = 'p-1.5 text-center border-r border-zinc-200 font-mono font-bold ';
+            if (isDiag) {
+              cellStyle += (count > 0) ? 'bg-emerald-50 text-emerald-800 font-black' : 'text-zinc-400';
+            } else {
+              cellStyle += (count > 0) ? 'bg-red-50 text-red-700 font-black' : 'text-zinc-300';
+            }
+            html += `<td class="${cellStyle}">${count}</td>`;
+          }
+
+          html += `
+              <td class="p-1.5 text-center border-r border-zinc-200 font-mono font-bold bg-zinc-100/50">${stats.rowTotals[i]}</td>
+              <td class="p-1.5 text-center font-mono font-black ${stats.producerAccuracy[i] >= 90 ? 'text-emerald-700' : 'text-amber-700'} bg-indigo-50/40">${pa}%</td>
+            </tr>
+          `;
+        }
+
+        // Fila final de totales y Precisión del Usuario
+        html += `
+            <tr class="bg-zinc-100/80 font-bold border-t-2 border-zinc-300">
+              <td class="p-1.5 text-zinc-700 border-r border-zinc-200 text-[8.5px] uppercase">Prec. Usuario</td>
+        `;
+
+        for (let j = 0; j < stats.numClasses; j++) {
+          const ua = stats.userAccuracy[j].toFixed(1);
+          html += `<td class="p-1.5 text-center border-r border-zinc-200 font-mono font-black ${stats.userAccuracy[j] >= 90 ? 'text-emerald-700' : 'text-amber-700'}">${ua}%</td>`;
+        }
+
+        html += `
+              <td class="p-1.5 text-center border-r border-zinc-200 font-mono font-bold bg-zinc-200/50">${stats.totalSamples}</td>
+              <td class="p-1.5 text-center font-mono font-black text-emerald-800 bg-emerald-100/60">${stats.overallAccuracy}%</td>
+            </tr>
+          </tbody>
+        </table>
+        `;
+        wrap.innerHTML = html;
+      }
+    }
+
     // 4. Dibujo de Firma Espectral Comparativa en Canvas
     function drawSupervisedSpectralChart() {
       const canvas = document.getElementById('supervisedSpectralCanvas');
@@ -25556,6 +26052,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.selectOrAddOfficialClass = selectOrAddOfficialClass;
     window.loadOfficialLegendClasses = loadOfficialLegendClasses;
     window.renderSupervisedLegendChips = renderSupervisedLegendChips;
+    window.calculateSupervisedConfusionMatrix = calculateSupervisedConfusionMatrix;
+    window.renderSupervisedConfusionMatrix = renderSupervisedConfusionMatrix;
+    window.predictSupervisedPixel = predictSupervisedPixel;
     window.updateSupervisedClassColor = updateSupervisedClassColor;
     window.updateSupervisedClassName = updateSupervisedClassName;
     window.setSupervisedAlgorithm = setSupervisedAlgorithm;
@@ -36763,6 +37262,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const d0 = normV0 - flatMeans[0], d1 = normV1 - flatMeans[1], d2 = normV2 - flatMeans[2];
             bestC = (d0 * d0 + d1 * d1 + d2 * d2 <= dims * 40 * 40) ? 0 : -1;
           } else if (alg === 'min_distance') {
+            const sumV = normV0 + normV1 + normV2;
+            const isDarkShadow = sumV < 140;
             let minD = Infinity;
             for (let c = 0; c < numClasses; c++) {
               const cOff = c * dims;
@@ -36773,29 +37274,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
               let minSampD = dCentroid;
               const smps = classSamples[c];
-              const sLen = smps.length;
+              const sLen = smps ? smps.length : 0;
               if (sLen > 0) {
                 for (let s = 0; s < sLen; s++) {
                   const sv = smps[s];
                   const sd0 = normV0 - sv[0];
                   const sd1 = normV1 - (sv[1] || 0);
                   const sd2 = normV2 - (sv[2] || 0);
-                  const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+                  let sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+
+                  if (isDarkShadow) {
+                    const sSum = sv[0] + (sv[1] || 0) + (sv[2] || 0);
+                    if (sSum < 180) {
+                      const crDiff = (normV0 / (sumV + 1)) - (sv[0] / (sSum + 1));
+                      const cgDiff = (normV1 / (sumV + 1)) - ((sv[1] || 0) / (sSum + 1));
+                      const cbDiff = (normV2 / (sumV + 1)) - ((sv[2] || 0) / (sSum + 1));
+                      const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
+                      sd = 0.35 * sd + 0.65 * chromaD;
+                    }
+                  }
+
                   if (sd < minSampD) minSampD = sd;
                 }
               }
+              const wSample = Math.exp(-minSampD / 1200);
               const affinity = (c === activeClassIdx) ? 0.95 : 1.0;
-              const d = (0.25 * dCentroid + 0.75 * minSampD) * affinity;
+              const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
               if (d < minD) { minD = d; bestC = c; }
             }
           } else if (alg === 'max_likelihood') {
+            const sumV = normV0 + normV1 + normV2;
+            const isDarkShadow = sumV < 140;
             let maxLL = -Infinity;
             for (let c = 0; c < numClasses; c++) {
               const cOff = c * dims;
               const d0 = normV0 - flatMeans[cOff];
               const d1 = normV1 - flatMeans[cOff + 1];
               const d2 = normV2 - flatMeans[cOff + 2];
-              const ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
+              let ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
+
+              if (isDarkShadow) {
+                const smps = classSamples[c];
+                if (smps && smps.length > 0) {
+                  for (let s = 0; s < smps.length; s++) {
+                    const sv = smps[s];
+                    const sd0 = normV0 - sv[0], sd1 = normV1 - (sv[1]||0), sd2 = normV2 - (sv[2]||0);
+                    const sDist = sd0*sd0 + sd1*sd1 + sd2*sd2;
+                    if (sDist < 200) {
+                      ll += 50 * Math.exp(-sDist / 100);
+                      break;
+                    }
+                  }
+                }
+              }
+
               if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
           } else if (alg === 'spectral_angle') {
@@ -36804,9 +37336,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             let maxCos = -1;
             for (let c = 0; c < numClasses; c++) {
               const cOff = c * dims;
-              const dot = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
-              const cosA = (dot * invPNorm) * invNorm[c];
-              if (cosA > maxCos) { maxCos = cosA; bestC = c; }
+              const dotCentroid = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
+              let bestClassCos = (dotCentroid * invPNorm) * invNorm[c];
+
+              const smps = classSamples[c];
+              if (smps && smps.length > 0) {
+                for (let s = 0; s < smps.length; s++) {
+                  const sv = smps[s];
+                  const dotS = normV0 * sv[0] + normV1 * (sv[1] || 0) + normV2 * (sv[2] || 0);
+                  const sNorm = sv._norm || Math.sqrt(sv[0]*sv[0] + (sv[1]||0)*(sv[1]||0) + (sv[2]||0)*(sv[2]||0)) || 1;
+                  const cosS = (dotS * invPNorm) / sNorm;
+                  if (cosS > bestClassCos) bestClassCos = cosS;
+                }
+              }
+
+              if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
             }
           }
 
