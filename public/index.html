@@ -6638,6 +6638,22 @@
         <span class="material-symbols-outlined text-[14px]">pentagon</span>
         <span>Polígono</span>
       </button>
+
+      <!-- Botón inteligente para cerrar polígono cuando se están agregando vértices -->
+      <button type="button" onclick="finishSupervisedPolygon()" id="supDockFinishPolyBtn"
+        style="display: none;"
+        class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400/40 animate-pulse"
+        title="Cerrar polígono y clasificar píxeles interiores (Doble clic o Enter)">
+        <span class="material-symbols-outlined text-[14px]">check_circle</span>
+        <span id="supDockFinishPolyText">Cerrar Polígono</span>
+      </button>
+
+      <button type="button" onclick="clearSupervisedTempPolygon(); updateSupervisedPolygonDockButtons();" id="supDockCancelPolyBtn"
+        style="display: none;"
+        class="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
+        title="Cancelar trazo de polígono (Esc)">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
     </div>
 
     <!-- Gestión de Áreas: Deshacer y Eliminar Selección -->
@@ -13670,9 +13686,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
                     // Ponderación exponencial adaptativa: cuando hay una muestra entrenada cercana (ej. sombra asignada por el usuario),
                     // domina la muestra al 98%, anulando la penalización del centroide general
-                    const wSample = Math.exp(-minSampD / 1200);
-                    const affinity = (c === activeClassIdx) ? 0.95 : 1.0;
-                    const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
+                    const affinity = (c === activeClassIdx) ? 0.90 : 1.0;
+                    const d = (sLen > 0 ? minSampD : dCentroid) * affinity;
                     if (d < minD) { minD = d; bestC = c; }
                   }
                   tileClassMap[i] = bestC;
@@ -22994,18 +23009,46 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (state_sup.active && document.getElementById('supervisedMapDock')?.style.display !== 'none') {
         if (tool === 'select') {
           state.map.dragging.enable();
+          if (state.map?.doubleClickZoom) state.map.doubleClickZoom.enable();
           if (state.map._container) state.map._container.style.cursor = 'grab';
         } else if (tool === 'drag') {
           state.map.dragging.disable();
+          if (state.map?.doubleClickZoom) state.map.doubleClickZoom.enable();
           if (state.map._container) state.map._container.style.cursor = 'crosshair';
         } else if (tool === 'polygon') {
           state.map.dragging.disable();
+          if (state.map?.doubleClickZoom) state.map.doubleClickZoom.disable();
           if (state.map._container) state.map._container.style.cursor = 'crosshair';
         } else {
           // 'point'
           state.map.dragging.enable();
+          if (state.map?.doubleClickZoom) state.map.doubleClickZoom.enable();
           if (state.map._container) state.map._container.style.cursor = 'crosshair';
         }
+      }
+      if (typeof updateSupervisedPolygonDockButtons === 'function') {
+        updateSupervisedPolygonDockButtons();
+      }
+    }
+
+    function updateSupervisedPolygonDockButtons() {
+      const s = window._supervisedState;
+      const finishBtn = document.getElementById('supDockFinishPolyBtn');
+      const cancelBtn = document.getElementById('supDockCancelPolyBtn');
+      const finishText = document.getElementById('supDockFinishPolyText');
+      if (!finishBtn || !cancelBtn) return;
+      const pts = s?.polygonDrawingPoints || [];
+      if (s && s.active && s.samplingTool === 'polygon') {
+        if (pts.length >= 3) {
+          finishBtn.style.display = 'flex';
+          if (finishText) finishText.textContent = `Cerrar Polígono (${pts.length} pts)`;
+        } else {
+          finishBtn.style.display = 'none';
+        }
+        cancelBtn.style.display = (pts.length > 0) ? 'flex' : 'none';
+      } else {
+        finishBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
       }
     }
 
@@ -23968,39 +24011,90 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
       }
 
-      // Lectura en segundo plano de bandas satelitales 1x1 nativas (< 4ms) para enriquecer la firma espectral exacta
+      // Lectura en segundo plano de bandas satelitales nativas (< 4ms) para enriquecer la firma espectral exacta.
+      // Si es un punto individual, leer un parche 3x3 para capturar la varianza real del terreno y que la clasificación cambie al instante.
       const baseImg = targetLayer._geotiffTileLayer?.pyramid?.levels ? targetLayer._geotiffTileLayer.pyramid.levels[0] : null;
       if (baseImg && typeof baseImg.readRasters === 'function') {
         const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (targetLayer.bands || 3);
         const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
+        const natW = targetLayer.width || coords.natW || 1000;
+        const natH = targetLayer.height || coords.natH || 1000;
+        const isPoint = (!explicitAreaId && state_sup.samplingTool === 'point');
+        const rRad = isPoint ? 1 : 0;
+        const wndL = Math.max(0, coords.satPx - rRad);
+        const wndT = Math.max(0, coords.satPy - rRad);
+        const wndR = Math.min(natW, coords.satPx + rRad + 1);
+        const wndB = Math.min(natH, coords.satPy + rRad + 1);
+
         baseImg.readRasters({
-          window: [coords.satPx, coords.satPy, coords.satPx + 1, coords.satPy + 1],
-          samples: sampleBands
+          window: [wndL, wndT, wndR, wndB],
+          samples: sampleBands,
+          interleave: false
         }).then(raw => {
           if (raw && raw.length > 0) {
-            let fullVals = Array.from(raw).map(b => b[0]);
-            if (fullVals.some(v => v > 0) && fullVals.every(v => v >= 0 && v <= 2.0)) {
-              fullVals = fullVals.map(v => Math.round(v * 255));
-            }
+            const actW = wndR - wndL;
             const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? targetLayer._geotiffTileLayer?.geo?.photometric ?? targetLayer.photometric;
-            if (photo === 6 && fullVals.length >= 3) {
-              const y = fullVals[0], cb = fullVals[1], cr = fullVals[2];
-              if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
-                fullVals = [0, 0, 0];
-              } else {
-                const cbS = cb - 128, crS = cr - 128;
-                fullVals = [
-                  Math.max(0, Math.min(255, Math.round(y + 1.402 * crS))),
-                  Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS))),
-                  Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)))
-                ];
+            const decodePixel = (idx) => {
+              let fv = Array.from(raw).map(b => b[idx]);
+              if (fv.some(v => v > 0) && fv.every(v => v >= 0 && v <= 2.0)) {
+                fv = fv.map(v => Math.round(v * 255));
+              }
+              if (photo === 6 && fv.length >= 3) {
+                const y = fv[0], cb = fv[1], cr = fv[2];
+                if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                  fv = [0, 0, 0];
+                } else {
+                  const cbS = cb - 128, crS = cr - 128;
+                  fv = [
+                    Math.max(0, Math.min(255, Math.round(y + 1.402 * crS))),
+                    Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS))),
+                    Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)))
+                  ];
+                }
+              }
+              return fv;
+            };
+
+            const centerIdx = (coords.satPy - wndT) * actW + (coords.satPx - wndL);
+            sample.values = decodePixel(centerIdx);
+            if (!targetLayer._pixelValuesCache) targetLayer._pixelValuesCache = new Map();
+            targetLayer._pixelValuesCache.set(pixelKey, sample.values);
+
+            // Si es punto, enriquecer con los píxeles adyacentes del parche 3x3 bajo el mismo _areaId
+            if (isPoint) {
+              const areaRec = state_sup.trainingAreas?.find(a => a.id === areaId);
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  const nx = coords.satPx + dx;
+                  const ny = coords.satPy + dy;
+                  if (nx >= wndL && nx < wndR && ny >= wndT && ny < wndB) {
+                    const nKey = nx + '_' + ny;
+                    if (!activeCls.pixelSet.has(nKey)) {
+                      const pIdx = (ny - wndT) * actW + (nx - wndL);
+                      const pVals = decodePixel(pIdx);
+                      if (pVals.some(v => v > 5)) {
+                        activeCls.pixelSet.add(nKey);
+                        targetLayer._pixelValuesCache.set(nKey, pVals);
+                        const neighborSample = {
+                          px: nx, py: ny,
+                          latlng: [latlng.lat, latlng.lng],
+                          values: pVals,
+                          _areaId: areaId
+                        };
+                        activeCls.samples.push(neighborSample);
+                        if (areaRec) areaRec.samples.push(neighborSample);
+                      }
+                    }
+                  }
+                }
               }
             }
-            sample.values = fullVals;
-            if (!targetLayer._pixelValuesCache) targetLayer._pixelValuesCache = new Map();
-            targetLayer._pixelValuesCache.set(pixelKey, fullVals);
+
             drawSupervisedSpectralChart();
             updateSupervisedLiveClassification(true);
+            updateDockSampleBadge();
+            renderSupervisedClassesList();
           }
         }).catch(() => {});
       }
@@ -24183,11 +24277,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         repSamples.forEach(sv => {
           const v0 = sv[0] || 0, v1 = sv[1] || 0, v2 = sv[2] || 0;
-          sv._sum = v0 + v1 + v2;
+          sv._sum3 = v0 + v1 + v2;
           sv._norm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
-          sv._cr = v0 / (sv._sum + 1);
-          sv._cg = v1 / (sv._sum + 1);
-          sv._cb = v2 / (sv._sum + 1);
+          sv._cr = v0 / (sv._sum3 + 1);
+          sv._cg = v1 / (sv._sum3 + 1);
+          sv._cb = v2 / (sv._sum3 + 1);
         });
 
         return {
@@ -24277,20 +24371,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let i = 0; i < pxCount; i++) {
             let allZeroOrNoData = true;
             let hasNaN = false;
-            let sumV = 0;
             for (let d = 0; d < cmpDims; d++) {
               const v = bands[d][i];
               if (isNaN(v)) { hasNaN = true; break; }
               const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
               if (v > 0 && !isNd) allZeroOrNoData = false;
-              sumV += (v * scale);
             }
             if (hasNaN || allZeroOrNoData) {
               outMap[i] = -1;
               continue;
             }
 
-            const isDarkShadow = sumV < 140;
+            const p0 = bands[0][i] * scale;
+            const p1 = cmpDims > 1 ? bands[1][i] * scale : 0;
+            const p2 = cmpDims > 2 ? bands[2][i] * scale : 0;
+            const pSum3 = p0 + p1 + p2;
+            const isDarkShadow = pSum3 < 150;
+
             let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
             for (let c = 0; c < numClasses; c++) {
               const cMean = classStats[c].mean;
@@ -24312,24 +24409,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     sd += diff * diff;
                   }
 
-                  if (isDarkShadow && (sv._sum || 0) < 180) {
-                    const pCr = (bands[0][i] * scale) / (sumV + 1);
-                    const pCg = cmpDims > 1 ? (bands[1][i] * scale) / (sumV + 1) : 0;
-                    const pCb = cmpDims > 2 ? (bands[2][i] * scale) / (sumV + 1) : 0;
+                  if (isDarkShadow && (sv._sum3 || 0) < 190) {
+                    const pCr = p0 / (pSum3 + 1);
+                    const pCg = p1 / (pSum3 + 1);
+                    const pCb = p2 / (pSum3 + 1);
                     const crDiff = pCr - (sv._cr || 0);
                     const cgDiff = pCg - (sv._cg || 0);
                     const cbDiff = pCb - (sv._cb || 0);
-                    const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
-                    sd = 0.35 * sd + 0.65 * chromaD;
+                    const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
+                    sd = 0.5 * sd + 0.5 * chromaD;
                   }
 
                   if (sd < minSampD) minSampD = sd;
                 }
               }
 
-              const wSample = Math.exp(-minSampD / 1200);
-              const affinity = (c === activeIdx) ? 0.95 : 1.0;
-              const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
+              // Nearest-Neighbor prioritario cuando hay muestras entrenadas por el usuario:
+              // Esto asegura que la firma exacta de las muestras domine y no se confunda con agua o sombras.
+              const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.90 : 1.0);
               if (d < minD) { minD = d; bestC = c; }
             }
             outMap[i] = bestC;
@@ -24732,12 +24829,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                           }
                         }
                       }
-                      if (sameCount === 0) {
+                      // Nunca sobreescribir la clase activa recién entrenada por el usuario
+                      if (sameCount === 0 && selfC !== activeIdx) {
                         let maxV = 0, majC = selfC;
                         for (let c = 0; c < numClasses; c++) {
                           if (votes[c] > maxV) { maxV = votes[c]; majC = c; }
                         }
-                        if (maxV >= 6) {
+                        if (maxV === 8) {
                           smoothed[idx] = majC;
                           continue;
                         }
@@ -25052,6 +25150,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         pts.push(currentPt);
         updateSupervisedPolygonPreview(e.latlng);
+        if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
       }
     }
 
@@ -25152,13 +25251,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         try { state.map.removeLayer(state_sup.tempPolyPreview); } catch (_) {}
         state_sup.tempPolyPreview = null;
       }
+      if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
     }
 
-    function finishSupervisedPolygon() {
+    async function finishSupervisedPolygon() {
       const state_sup = window._supervisedState;
       const pts = state_sup.polygonDrawingPoints;
       if (!pts || pts.length < 3) {
         clearSupervisedTempPolygon();
+        if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
         return;
       }
 
@@ -25166,6 +25267,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       let activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId);
       if (!targetLayer) {
         clearSupervisedTempPolygon();
+        if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
         return;
       }
       if (!activeCls) {
@@ -25174,31 +25276,51 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state_sup.activeClassId = activeCls.id;
       }
 
-      const sData = targetLayer._unsupervisedSpectralData || state._unsupervisedSpectralData;
-      const gridW = sData?.width || targetLayer._canvasWidth || 800;
-      const gridH = sData?.height || targetLayer._canvasHeight || 800;
+      const natW = targetLayer.width || targetLayer._geotiffTileLayer?.pyramid?.baseWidth || 1000;
+      const natH = targetLayer.height || targetLayer._geotiffTileLayer?.pyramid?.baseHeight || 1000;
 
-      const pixelPoly = [];
+      // 1. Convertir vértices a coordenadas satelitales nativas
+      const satPts = [];
       for (let i = 0; i < pts.length; i++) {
         const c = getRasterPixelCoords(targetLayer, L.latLng(pts[i][0], pts[i][1]));
         if (c) {
-          const px = Math.min(Math.max(Math.floor((c.baseX / c.natW) * gridW), 0), gridW - 1);
-          const py = Math.min(Math.max(Math.floor((c.baseY / c.natH) * gridH), 0), gridH - 1);
-          pixelPoly.push([px, py]);
+          satPts.push([c.satPx, c.satPy]);
         }
       }
 
-      // Desalojar muestras de otros grupos que estén dentro de este nuevo polígono
+      if (satPts.length < 3) {
+        toast('El polígono está fuera del área del satélite', 'info');
+        clearSupervisedTempPolygon();
+        if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
+        return;
+      }
+
+      const minSatX = Math.max(0, Math.min(...satPts.map(p => p[0])));
+      const maxSatX = Math.min(natW - 1, Math.max(...satPts.map(p => p[0])));
+      const minSatY = Math.max(0, Math.min(...satPts.map(p => p[1])));
+      const maxSatY = Math.min(natH - 1, Math.max(...satPts.map(p => p[1])));
+
+      const spanX = Math.max(1, maxSatX - minSatX + 1);
+      const spanY = Math.max(1, maxSatY - minSatY + 1);
+      const estArea = spanX * spanY;
+
+      // 2. Desalojar muestras previas de otros grupos dentro de este polígono (espacio Lat/Lng y Satélite)
       state_sup.classes.forEach(otherCls => {
         if (otherCls.id === activeCls.id || !otherCls.samples) return;
         otherCls.samples = otherCls.samples.filter(s => {
-          const inside = isPointInPolygon([s.px, s.py], pixelPoly);
+          let inside = false;
+          if (s.latlng && s.latlng.length >= 2) {
+            inside = isPointInPolygon([s.latlng[0], s.latlng[1]], pts);
+          } else {
+            inside = isPointInPolygon([s.px, s.py], satPts);
+          }
           if (inside && otherCls.pixelSet) {
             otherCls.pixelSet.delete(s.px + '_' + s.py);
           }
           return !inside;
         });
       });
+
       if (state_sup.sampleMarkersLayer) {
         state_sup.sampleMarkersLayer.eachLayer(layer => {
           if (layer._classId !== activeCls.id && layer.getLatLng) {
@@ -25210,69 +25332,142 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         });
       }
 
-      let sampledCount = 0;
-      if (pixelPoly.length >= 3) {
-        const minX = Math.max(0, Math.min(...pixelPoly.map(p => p[0])));
-        const maxX = Math.min(gridW - 1, Math.max(...pixelPoly.map(p => p[0])));
-        const minY = Math.max(0, Math.min(...pixelPoly.map(p => p[1])));
-        const maxY = Math.min(gridH - 1, Math.max(...pixelPoly.map(p => p[1])));
+      // 3. Lectura directa de ventana satelital si baseImg está disponible
+      const baseImg = targetLayer._geotiffTileLayer?.pyramid?.levels ? targetLayer._geotiffTileLayer.pyramid.levels[0] : null;
+      let rawWindow = null;
+      const nSamples = baseImg?.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (targetLayer.bands || 3);
+      const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
 
-        const estArea = (maxX - minX + 1) * (maxY - minY + 1);
-        const stride = Math.max(1, Math.floor(Math.sqrt(estArea) / 35));
+      if (baseImg && spanX <= 2500 && spanY <= 2500 && typeof baseImg.readRasters === 'function') {
+        try {
+          rawWindow = await baseImg.readRasters({
+            window: [minSatX, minSatY, maxSatX + 1, maxSatY + 1],
+            samples: sampleBands,
+            interleave: false
+          });
+        } catch (_) {}
+      }
 
-        for (let y = minY; y <= maxY; y += stride) {
-          for (let x = minX; x <= maxX; x += stride) {
-            if (isPointInPolygon([x, y], pixelPoly)) {
-              const pixelKey = x + '_' + y;
-              if (activeCls.pixelSet && activeCls.pixelSet.has(pixelKey)) continue;
+      const sData = targetLayer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+      const gridW = sData?.width || 800;
+      const gridH = sData?.height || 800;
 
-              let vals = null;
-              if (sData) {
-                const sIdx = y * gridW + x;
-                if (sData.bands && sData.bands.length > 0) {
-                  vals = sData.bands.map(b => b[sIdx]);
-                } else if (sData.data) {
-                  const p = sIdx * 4;
-                  vals = [sData.data[p], sData.data[p + 1], sData.data[p + 2]];
+      // Paso de muestreo adaptativo: capturar entre 30 y 250 píxeles dentro del polígono
+      const stride = (estArea < 150) ? 1 : Math.max(1, Math.floor(Math.sqrt(estArea) / 18));
+      const polyAreaId = 'sup_poly_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      const polySamples = [];
+
+      if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
+
+      const winW = spanX;
+      for (let y = minSatY; y <= maxSatY; y += stride) {
+        for (let x = minSatX; x <= maxSatX; x += stride) {
+          if (isPointInPolygon([x, y], satPts)) {
+            const pixelKey = x + '_' + y;
+            if (activeCls.pixelSet.has(pixelKey)) continue;
+
+            let vals = null;
+            // A. Desde el bloque nativo leído
+            if (rawWindow && rawWindow.length > 0) {
+              const lx = x - minSatX;
+              const ly = y - minSatY;
+              const lIdx = ly * winW + lx;
+              vals = Array.from(rawWindow).map(b => b[lIdx]);
+              if (vals.some(v => v > 0) && vals.every(v => v >= 0 && v <= 2.0)) {
+                vals = vals.map(v => Math.round(v * 255));
+              }
+              const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? targetLayer.photometric;
+              if (photo === 6 && vals.length >= 3) {
+                const yV = vals[0], cb = vals[1], cr = vals[2];
+                if (yV === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                  vals = [0, 0, 0];
+                } else {
+                  const cbS = cb - 128, crS = cr - 128;
+                  vals = [
+                    Math.max(0, Math.min(255, Math.round(yV + 1.402 * crS))),
+                    Math.max(0, Math.min(255, Math.round(yV - 0.344136 * cbS - 0.714136 * crS))),
+                    Math.max(0, Math.min(255, Math.round(yV + 1.772 * cbS)))
+                  ];
                 }
               }
+            }
 
-              if (vals && vals.length > 0) {
-                let isValid = false;
-                for (let i = 0; i < vals.length; i++) {
-                  if (vals[i] !== null && !isNaN(vals[i]) && vals[i] > 0 && vals[i] < 1e12) {
-                    isValid = true;
-                    break;
-                  }
-                }
-                if (isValid) {
-                  let scaledVals = Array.from(vals);
-                  if (scaledVals.some(v => v > 0) && scaledVals.every(v => v >= 0 && v <= 2.0)) {
-                    scaledVals = scaledVals.map(v => Math.round(v * 255));
-                  }
-                  if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
-                  activeCls.pixelSet.add(pixelKey);
-                  activeCls.samples.push({
-                    px: x, py: y,
-                    values: scaledVals
-                  });
-                  sampledCount++;
-                }
+            // B. Fallback a sData (multiespectral / canvas)
+            if (!vals && sData) {
+              const sPx = Math.min(Math.max(Math.floor((x / natW) * gridW), 0), gridW - 1);
+              const sPy = Math.min(Math.max(Math.floor((y / natH) * gridH), 0), gridH - 1);
+              const sIdx = sPy * gridW + sPx;
+              if (sData.bands && sData.bands.length > 0) {
+                vals = sData.bands.map(b => b[sIdx]);
+              } else if (sData.data) {
+                const p = sIdx * 4;
+                vals = [sData.data[p], sData.data[p + 1], sData.data[p + 2]];
+              }
+            }
+
+            // C. Fallback a extractSpectralValues
+            if (!vals && typeof extractSpectralValues === 'function') {
+              const sp = extractSpectralValues(targetLayer, { satPx: x, satPy: y, baseX: x, baseY: y, natW, natH });
+              if (sp && sp.bandValues) vals = sp.bandValues;
+            }
+
+            if (vals && vals.length > 0) {
+              const isValid = vals.some(v => v !== null && !isNaN(v) && v > 5 && v < 1e12);
+              if (isValid) {
+                activeCls.pixelSet.add(pixelKey);
+                const sampleLat = pts[0][0] + ((y - satPts[0][1]) / natH) * (pts[1]?.[0] - pts[0][0] || 0.001);
+                const sampleLng = pts[0][1] + ((x - satPts[0][0]) / natW) * (pts[1]?.[1] - pts[0][1] || 0.001);
+                const sampleObj = {
+                  px: x,
+                  py: y,
+                  latlng: [sampleLat, sampleLng],
+                  values: Array.from(vals),
+                  _areaId: polyAreaId
+                };
+                activeCls.samples.push(sampleObj);
+                polySamples.push(sampleObj);
               }
             }
           }
         }
       }
 
-      const polyAreaId = 'sup_poly_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-      let polyLayer = null;
+      // Si por alguna razón ninguna celda de cuadrícula coincidió (polígono sumamente angosto/pequeño),
+      // muestrear directamente los vértices y el centroide del polígono:
+      if (polySamples.length === 0) {
+        for (let i = 0; i < satPts.length; i++) {
+          const vx = satPts[i][0], vy = satPts[i][1];
+          const pixelKey = vx + '_' + vy;
+          let vals = null;
+          if (sData) {
+            const sPx = Math.min(Math.max(Math.floor((vx / natW) * gridW), 0), gridW - 1);
+            const sPy = Math.min(Math.max(Math.floor((vy / natH) * gridH), 0), gridH - 1);
+            const sIdx = sPy * gridW + sPx;
+            if (sData.bands) vals = sData.bands.map(b => b[sIdx]);
+            else if (sData.data) vals = [sData.data[sIdx*4], sData.data[sIdx*4+1], sData.data[sIdx*4+2]];
+          }
+          if (vals) {
+            activeCls.pixelSet.add(pixelKey);
+            const sampleObj = {
+              px: vx, py: vy,
+              latlng: [pts[i][0], pts[i][1]],
+              values: Array.from(vals),
+              _areaId: polyAreaId
+            };
+            activeCls.samples.push(sampleObj);
+            polySamples.push(sampleObj);
+          }
+        }
+      }
 
+      // 4. Dibujar polígono interactivo en el mapa
+      let polyLayer = null;
       if (state_sup.sampleMarkersLayer) {
         polyLayer = L.polygon(pts, {
           color: activeCls.color,
-          weight: 2,
+          weight: 2.5,
           fillColor: activeCls.color,
-          fillOpacity: 0.35,
+          fillOpacity: 0.38,
           interactive: true
         });
         polyLayer._areaId = polyAreaId;
@@ -25296,16 +25491,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         state_sup.sampleMarkersLayer.addLayer(polyLayer);
       }
 
-      // Asociar _areaId a las muestras de este polígono
-      const polySamples = [];
-      if (activeCls.samples) {
-        const startIdx = Math.max(0, activeCls.samples.length - sampledCount);
-        for (let idx = startIdx; idx < activeCls.samples.length; idx++) {
-          activeCls.samples[idx]._areaId = polyAreaId;
-          polySamples.push(activeCls.samples[idx]);
-        }
-      }
-
       if (!state_sup.trainingAreas) state_sup.trainingAreas = [];
       state_sup.trainingAreas.push({
         id: polyAreaId,
@@ -25316,12 +25501,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
 
       clearSupervisedTempPolygon();
+      if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
       updateDockSampleBadge();
       renderSupervisedClassesList();
       drawSupervisedSpectralChart();
       updateSupervisedLiveClassification(true);
 
-      toast('✓ Polígono ROI: ' + sampledCount + ' píxeles capturados para "' + activeCls.name + '"', 'success');
+      toast(`✓ Polígono ROI: ${polySamples.length} píxeles capturados para "${activeCls.name}"`, 'success');
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -25356,26 +25542,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           dCentroid = (v0 - m0)**2 + (v1 - m1)**2 + (v2 - m2)**2;
 
           let minSampD = dCentroid;
-          if (smps.length > 0) {
-            for (let s = 0; s < smps.length; s++) {
+          const sLen = smps.length;
+          if (sLen > 0) {
+            for (let s = 0; s < sLen; s++) {
               const sv = smps[s].values || smps[s];
               let sd = (v0 - sv[0])**2 + (v1 - (sv[1] || 0))**2 + (v2 - (sv[2] || 0))**2;
               if (isDarkShadow) {
                 const sSum = (sv[0]||0) + (sv[1]||0) + (sv[2]||0);
-                if (sSum < 180) {
-                  const crDiff = (v0 / (sumV + 1)) - (sv[0] / (sSum + 1));
-                  const cgDiff = (v1 / (sumV + 1)) - ((sv[1] || 0) / (sSum + 1));
-                  const cbDiff = (v2 / (sumV + 1)) - ((sv[2] || 0) / (sSum + 1));
-                  const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 8000;
-                  sd = 0.35 * sd + 0.65 * chromaD;
+                if (sSum < 190) {
+                  const crDiff = (v0 / (sumV + 1)) - ((sv[0]||0) / (sSum + 1));
+                  const cgDiff = (v1 / (sumV + 1)) - ((sv[1]||0) / (sSum + 1));
+                  const cbDiff = (v2 / (sumV + 1)) - ((sv[2]||0) / (sSum + 1));
+                  const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
+                  sd = 0.5 * sd + 0.5 * chromaD;
                 }
               }
               if (sd < minSampD) minSampD = sd;
             }
           }
-          const wSample = Math.exp(-minSampD / 1200);
-          const affinity = (c === activeIdx) ? 0.95 : 1.0;
-          const d = ((1 - wSample) * dCentroid + wSample * minSampD) * affinity;
+          const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.90 : 1.0);
           if (d < minD) { minD = d; bestC = c; }
         }
         return bestC;
