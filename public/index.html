@@ -13437,7 +13437,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   tileClassMap[i] = -1;
                   continue;
                 }
-                if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
+                const isFloat = (v0 > 0 && v0 <= 1.0) || (b1 && b1[i] <= 1.0);
+                const collarThreshold = isFloat ? 0.001 : 3;
+                if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
                   tileClassMap[i] = -1;
                   continue;
                 }
@@ -22348,6 +22350,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (typeof ensureLayerSpectralBands === 'function') {
         ensureLayerSpectralBands(layer);
       }
+      if (typeof ensureSupervisedSpectralData === 'function') {
+        try {
+          await ensureSupervisedSpectralData(layer);
+        } catch (e) {
+          console.warn('[Supervised] ensureSupervisedSpectralData error:', e);
+        }
+      }
       if (typeof analyzeSpectralData === 'function' && !layer._rawSpectralBands && !layer._unsupervisedSpectralData) {
         try {
           await analyzeSpectralData(layer);
@@ -22420,6 +22429,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const dock = document.getElementById('supervisedMapDock');
       if (dock) dock.style.display = 'flex';
+
+      const layer = state.layers.find(l => String(l.id) === String(state_sup.layerId));
+      if (layer && typeof ensureSupervisedSpectralData === 'function' && !layer._unsupervisedSpectralData) {
+        ensureSupervisedSpectralData(layer).catch(() => {});
+      }
       if (dock && !dock._clickPropagationDisabled) {
         dock._clickPropagationDisabled = true;
         if (typeof L !== 'undefined' && L.DomEvent) {
@@ -23296,6 +23310,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }).then(raw => {
           if (raw && raw.length > 0) {
             let fullVals = Array.from(raw).map(b => b[0]);
+            if (fullVals.every(v => v >= 0 && v <= 1.0)) {
+              fullVals = fullVals.map(v => Math.round(v * 255));
+            }
             const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? targetLayer._geotiffTileLayer?.geo?.photometric ?? targetLayer.photometric;
             if (photo === 6 && fullVals.length >= 3) {
               const y = fullVals[0], cb = fullVals[1], cr = fullVals[2];
@@ -23814,123 +23831,41 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
         }
       }
-      let parentTileLayer = layer._geotiffTileLayer || (layer.mapLayer?.geo ? layer.mapLayer : null);
-      if (!parentTileLayer && layer.parentLayerId) {
-        const parent = state.layers.find(l => l.id === layer.parentLayerId);
-        if (parent) {
-          parentTileLayer = parent._geotiffTileLayer || (parent.mapLayer?.geo ? parent.mapLayer : null);
-        }
-      }
-
-      if (parentTileLayer && parentTileLayer.geo) {
-        // Modo GeoTIFF: Reproyección exacta subpíxel por teselas (Proj4 / EPSG:9377) idéntica al satélite original
-        if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L.GeoTIFFTileLayer)) {
-          if (state._supervisedLiveLayer) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-            state._supervisedLiveLayer = null;
-          }
-          const liveClassificationConfig = {
-            isSupervised: true,
-            algorithm: state_sup.algorithm,
-            activeClassId: state_sup.activeClassId,
-            dims: dims,
-            classes: classStats.map(cs => ({
-              id: cs.id,
-              name: cs.name,
-              color: cs.color,
-              mean: Array.from(cs.mean),
-              variance: Array.from(cs.variance),
-              samples: cs.cls.samples ? cs.cls.samples.map(s => ({ values: Array.from(s.values) })) : [],
-              invNorm: cs.invNorm,
-              logDetVar: cs.logDetVar,
-              visible: cs.cls.visible !== false
-            }))
-          };
-          state_sup._liveClassificationConfig = liveClassificationConfig;
-
-          state._supervisedLiveLayer = L.geoTIFFTileLayer(parentTileLayer.geo, {
-            tileSize: 256,
-            maxNativeZoom: 24,
-            maxZoom: 28,
-            opacity: targetOpacity,
-            bounds: parentTileLayer.geo.bounds || layer.bounds,
-            classification: liveClassificationConfig,
-            classificationCanvas: canvas,
-            zIndex: 600,
-            layerUid: 'supervised_live_' + (layer.id || 'sup')
-          });
-          if (isVisible) {
-            state._supervisedLiveLayer.addTo(state.map);
-          }
-        } else {
-          const liveClassificationConfig = {
-            isSupervised: true,
-            algorithm: state_sup.algorithm,
-            dims: dims,
-            classes: classStats.map(cs => ({
-              id: cs.id,
-              name: cs.name,
-              color: cs.color,
-              mean: Array.from(cs.mean),
-              variance: Array.from(cs.variance),
-              samples: cs.cls.samples ? cs.cls.samples.map(s => ({ values: Array.from(s.values) })) : [],
-              invNorm: cs.invNorm,
-              logDetVar: cs.logDetVar,
-              visible: cs.cls.visible !== false
-            }))
-          };
-          state_sup._liveClassificationConfig = liveClassificationConfig;
-
-          state._supervisedLiveLayer.setOpacity(targetOpacity);
-          state._supervisedLiveLayer.setClassification(liveClassificationConfig, canvas);
-          if (isVisible && !state.map.hasLayer(state._supervisedLiveLayer)) {
-            state._supervisedLiveLayer.addTo(state.map);
-          } else if (!isVisible && state.map.hasLayer(state._supervisedLiveLayer)) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-          }
-        }
-      } else {
-        // Fallback estándar L.imageOverlay si no hay motor GeoTIFF TileLayer
-        const latlngBounds = getNormalizedLayerBounds(layer);
-        if (latlngBounds) {
-          const applyOverlayImage = (url) => {
-            if (!state._supervisedLiveLayer || (state._supervisedLiveLayer instanceof L.GeoTIFFTileLayer)) {
-              if (state._supervisedLiveLayer) {
-                try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-              }
-              state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
-                opacity: targetOpacity,
-                interactive: false,
-                zIndex: 600
-              }).addTo(state.map);
-              state._supervisedLiveLayer._blobUrl = url;
-            } else {
-              const oldUrl = state._supervisedLiveLayer._blobUrl;
-              state._supervisedLiveLayer.setUrl(url);
-              state._supervisedLiveLayer.setBounds(latlngBounds);
-              state._supervisedLiveLayer.setOpacity(targetOpacity);
-              state._supervisedLiveLayer._blobUrl = url;
-              if (isVisible && !state.map.hasLayer(state._supervisedLiveLayer)) {
-                state._supervisedLiveLayer.addTo(state.map);
-              } else if (!isVisible && state.map.hasLayer(state._supervisedLiveLayer)) {
-                try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-              }
-              if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
-                setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
-              }
+            // Previsualización instantánea ultra fluida a 60 FPS sin latencia de red mientras el usuario muestrea o arrastra el cursor
+      const latlngBounds = getNormalizedLayerBounds(layer) || layer.bounds;
+      if (latlngBounds && canvas) {
+        const applyOverlayImage = (url) => {
+          if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L.ImageOverlay)) {
+            if (state._supervisedLiveLayer) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
             }
-          };
-
-          if (canvas.toBlob) {
-            canvas.toBlob((blob) => {
-              if (!blob) return;
-              const objectUrl = URL.createObjectURL(blob);
-              applyOverlayImage(objectUrl);
-            }, "image/png");
+            state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
+              opacity: targetOpacity,
+              interactive: false,
+              zIndex: 650
+            });
+            state._supervisedLiveLayer._blobUrl = url;
+            if (isVisible) {
+              state._supervisedLiveLayer.addTo(state.map);
+            }
           } else {
-            applyOverlayImage(canvas.toDataURL("image/png"));
+            const oldUrl = state._supervisedLiveLayer._blobUrl;
+            state._supervisedLiveLayer.setUrl(url);
+            state._supervisedLiveLayer.setBounds(latlngBounds);
+            state._supervisedLiveLayer.setOpacity(targetOpacity);
+            state._supervisedLiveLayer._blobUrl = url;
+            if (isVisible && !state.map.hasLayer(state._supervisedLiveLayer)) {
+              state._supervisedLiveLayer.addTo(state.map);
+            } else if (!isVisible && state.map.hasLayer(state._supervisedLiveLayer)) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+            }
+            if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+              setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+            }
           }
-        }
+        };
+
+        applyOverlayImage(canvas.toDataURL("image/png"));
       }
 
       // Calcular áreas y porcentajes en vivo
@@ -35624,7 +35559,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             chunkU32[i] = 0; // Transparente
             continue;
           }
-          if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
+          const isFloat = (v0 > 0 && v0 <= 1.0) || (b1 && b1[idx] <= 1.0);
+          const collarThreshold = isFloat ? 0.001 : 3;
+          if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
             chunkU32[i] = 0; // Transparente
             continue;
           }
