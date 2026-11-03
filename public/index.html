@@ -24102,9 +24102,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       return sample;
     }
 
+    // Helper para convertir canvas a Blob URL sin bloquear el hilo principal
+    function canvasToBlobUrl(cvs) {
+      return new Promise(resolve => {
+        if (!cvs) return resolve(null);
+        if (typeof cvs.toBlob === 'function') {
+          cvs.toBlob(blob => {
+            if (blob) {
+              resolve(URL.createObjectURL(blob));
+            } else {
+              resolve(cvs.toDataURL('image/png'));
+            }
+          }, 'image/png');
+        } else {
+          resolve(cvs.toDataURL('image/png'));
+        }
+      });
+    }
+
     // ══════════════════════════════════════════════════════════════
-    //  MOTOR DE CLASIFICACIÓN EN TIEMPO REAL ("A MEDIDA QUE CLASIFICA")
+    //  MOTOR DE CLASIFICACIÓN EN TIEMPO REAL ("A MEDIDA QUE CLASIFICA") - HIPEROPTIMIZADO 60 FPS
     // ══════════════════════════════════════════════════════════════
+    let _liveClassificationRunning = false;
+    let _liveClassificationRerunRequested = false;
+
     async function updateSupervisedLiveClassification(forceImmediate = false) {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.active || !state_sup.layerId) return;
@@ -24114,7 +24135,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const sampledClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
 
-      // Si no hay muestras, retirar capa en vivo
+      // Si no hay muestras, retirar capas clasificadas
       if (sampledClasses.length === 0) {
         if (state._supervisedLiveLayer) {
           try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
@@ -24127,766 +24148,881 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return;
       }
 
-      // Throttle con requestAnimationFrame para arrastre continuo ultra fluido
-      const now = performance.now();
-      if (!forceImmediate && now - _lastLiveClassificationTime < 40) {
-        if (!_liveClassificationPending) {
-          _liveClassificationPending = true;
-          requestAnimationFrame(() => {
-            _liveClassificationPending = false;
-            updateSupervisedLiveClassification(true);
-          });
-        }
+      // Si ya hay una clasificación en ejecución asíncrona, encolar una sola actualización subsiguiente
+      if (_liveClassificationRunning) {
+        _liveClassificationRerunRequested = true;
         return;
       }
-      _lastLiveClassificationTime = now;
+      _liveClassificationRunning = true;
 
-      // Obtener datos multiespectrales de la capa ráster (para estadísticas generales del departamento)
-      let spectralData = layer._unsupervisedSpectralData || state._unsupervisedSpectralData;
-      if (!spectralData) {
-        if (layer._rawSpectralBands && layer._rawSpectralBands.length > 0) {
-          spectralData = {
-            type: "multispectral",
-            width: layer._canvasWidth || 800,
-            height: layer._canvasHeight || 800,
-            bands: layer._rawSpectralBands,
-            bandsCount: layer._rawSpectralBands.length,
-            nativeWidth: layer.width,
-            nativeHeight: layer.height
-          };
-          layer._unsupervisedSpectralData = spectralData;
+      try {
+        // Throttle suave con requestAnimationFrame para arrastre de pincel
+        const now = performance.now();
+        if (!forceImmediate && now - _lastLiveClassificationTime < 32) {
+          if (!_liveClassificationPending) {
+            _liveClassificationPending = true;
+            requestAnimationFrame(() => {
+              _liveClassificationPending = false;
+              updateSupervisedLiveClassification(true);
+            });
+          }
+          return;
         }
-      }
+        _lastLiveClassificationTime = now;
 
-      if (!spectralData) {
-        if (typeof ensureSupervisedSpectralData === "function") {
-          try {
-            spectralData = await ensureSupervisedSpectralData(layer);
-          } catch (_) {}
+        // Obtener datos multiespectrales de la capa ráster
+        let spectralData = layer._unsupervisedSpectralData || state._unsupervisedSpectralData;
+        if (!spectralData) {
+          if (layer._rawSpectralBands && layer._rawSpectralBands.length > 0) {
+            spectralData = {
+              type: "multispectral",
+              width: layer._canvasWidth || 800,
+              height: layer._canvasHeight || 800,
+              bands: layer._rawSpectralBands,
+              bandsCount: layer._rawSpectralBands.length,
+              nativeWidth: layer.width,
+              nativeHeight: layer.height
+            };
+            layer._unsupervisedSpectralData = spectralData;
+          }
         }
-      }
-      if (!spectralData) return;
 
-      const w = spectralData.width;
-      const h = spectralData.height;
-      const totalPixels = w * h;
-      const bCount = spectralData.bandsCount;
-      const dims = bCount;
-      const numClasses = sampledClasses.length;
+        if (!spectralData) {
+          if (typeof ensureSupervisedSpectralData === "function") {
+            try {
+              spectralData = await ensureSupervisedSpectralData(layer);
+            } catch (_) {}
+          }
+        }
+        if (!spectralData) return;
 
-      // Calcular centroides, muestras representativas y regularización espectral inteligente
-      const pooledVar = new Float32Array(dims);
-      let totalSamplesCount = 0;
-      sampledClasses.forEach(cls => {
-        if (cls.samples) totalSamplesCount += cls.samples.length;
-      });
-      for (let d = 0; d < dims; d++) {
-        let sumMean = 0, countM = 0;
+        const w = spectralData.width;
+        const h = spectralData.height;
+        const totalPixels = w * h;
+        const bCount = spectralData.bandsCount;
+        const dims = bCount;
+        const numClasses = sampledClasses.length;
+
+        // 1. Estadísticas y selección de prototipos diversos (Diversified Medoid Clustering)
+        const pooledVar = new Float32Array(dims);
+        let totalSamplesCount = 0;
         sampledClasses.forEach(cls => {
-          if (!cls.samples || cls.samples.length === 0) return;
-          for (let i = 0; i < cls.samples.length; i++) {
-            sumMean += (cls.samples[i].values[d] || 0);
-            countM++;
-          }
+          if (cls.samples) totalSamplesCount += cls.samples.length;
         });
-        const gMean = countM > 0 ? sumMean / countM : 128;
-        let sumSq = 0;
-        sampledClasses.forEach(cls => {
-          if (!cls.samples) return;
-          for (let i = 0; i < cls.samples.length; i++) {
-            const diff = (cls.samples[i].values[d] || 0) - gMean;
-            sumSq += diff * diff;
-          }
-        });
-        pooledVar[d] = Math.max(16.0, sumSq / Math.max(1, countM));
-      }
-
-      const classStats = sampledClasses.map((cls, idx) => {
-        const N = cls.samples.length;
-        const mean = new Float32Array(dims);
-        const variance = new Float32Array(dims);
-
-        for (let i = 0; i < N; i++) {
-          const s = cls.samples[i];
-          for (let d = 0; d < dims; d++) {
-            mean[d] += (s.values[d] || 0);
-          }
-        }
         for (let d = 0; d < dims; d++) {
-          mean[d] /= N;
-        }
-
-        for (let i = 0; i < N; i++) {
-          const s = cls.samples[i];
-          for (let d = 0; d < dims; d++) {
-            const diff = (s.values[d] || 0) - mean[d];
-            variance[d] += diff * diff;
-          }
-        }
-        const lambda = Math.max(0.25, 1.0 / Math.sqrt(Math.max(1, N)));
-        for (let d = 0; d < dims; d++) {
-          const sampleVar = variance[d] / N;
-          const regVar = (1 - lambda) * sampleVar + lambda * pooledVar[d];
-          variance[d] = Math.max(8.0, regVar);
-        }
-
-        let normSq = 0;
-        for (let d = 0; d < dims; d++) normSq += mean[d] * mean[d];
-        const norm = Math.sqrt(normSq) || 1e-4;
-
-        let logDetVar = 0;
-        for (let d = 0; d < dims; d++) logDetVar += Math.log(2 * Math.PI * variance[d]);
-
-        const hex = (cls.color || "#000000").replace("#", "");
-        const rgb = [
-          parseInt(hex.substring(0, 2), 16) || 0,
-          parseInt(hex.substring(2, 4), 16) || 0,
-          parseInt(hex.substring(4, 6), 16) || 0
-        ];
-
-        const smps = cls.samples || [];
-        const repSamples = [];
-        if (smps.length <= 64) {
-          for (let s = 0; s < smps.length; s++) {
-            const sv = smps[s]?.values || smps[s];
-            if (sv && Array.isArray(sv)) repSamples.push(sv);
-          }
-        } else {
-          // Si hay muchas muestras, garantizar que se incluyan las muestras oscuras (sombras), intermedias y brillantes
-          const sorted = [...smps].sort((a, b) => {
-            const va = (a.values || a), vb = (b.values || b);
-            const sa = (va[0]||0) + (va[1]||0) + (va[2]||0);
-            const sb = (vb[0]||0) + (vb[1]||0) + (vb[2]||0);
-            return sa - sb;
+          let sumMean = 0, countM = 0;
+          sampledClasses.forEach(cls => {
+            if (!cls.samples || cls.samples.length === 0) return;
+            for (let i = 0; i < cls.samples.length; i++) {
+              sumMean += (cls.samples[i].values[d] || 0);
+              countM++;
+            }
           });
-          // Primeras 16 (las más oscuras / sombreadas)
-          for (let s = 0; s < Math.min(16, sorted.length); s++) {
-            repSamples.push(sorted[s].values || sorted[s]);
-          }
-          // Últimas 16 (las más brillantes)
-          const startBr = Math.max(16, sorted.length - 16);
-          for (let s = startBr; s < sorted.length; s++) {
-            repSamples.push(sorted[s].values || sorted[s]);
-          }
-          // Intermedias uniformemente espaciadas
-          const stride = Math.max(1, Math.floor(smps.length / 32));
-          for (let s = 0; s < smps.length; s += stride) {
-            const sv = smps[s]?.values || smps[s];
-            if (sv && !repSamples.includes(sv)) repSamples.push(sv);
-          }
+          const gMean = countM > 0 ? sumMean / countM : 128;
+          let sumSq = 0;
+          sampledClasses.forEach(cls => {
+            if (!cls.samples) return;
+            for (let i = 0; i < cls.samples.length; i++) {
+              const diff = (cls.samples[i].values[d] || 0) - gMean;
+              sumSq += diff * diff;
+            }
+          });
+          pooledVar[d] = Math.max(16.0, sumSq / Math.max(1, countM));
         }
-        repSamples.forEach(sv => {
-          const v0 = sv[0] || 0, v1 = sv[1] || 0, v2 = sv[2] || 0;
-          sv._sum3 = v0 + v1 + v2;
-          sv._norm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
-          sv._cr = v0 / (sv._sum3 + 1);
-          sv._cg = v1 / (sv._sum3 + 1);
-          sv._cb = v2 / (sv._sum3 + 1);
+
+        const classStats = sampledClasses.map((cls, idx) => {
+          const N = cls.samples.length;
+          const mean = new Float32Array(dims);
+          const variance = new Float32Array(dims);
+
+          for (let i = 0; i < N; i++) {
+            const s = cls.samples[i];
+            for (let d = 0; d < dims; d++) {
+              mean[d] += (s.values[d] || 0);
+            }
+          }
+          for (let d = 0; d < dims; d++) {
+            mean[d] /= N;
+          }
+
+          for (let i = 0; i < N; i++) {
+            const s = cls.samples[i];
+            for (let d = 0; d < dims; d++) {
+              const diff = (s.values[d] || 0) - mean[d];
+              variance[d] += diff * diff;
+            }
+          }
+          const lambda = Math.max(0.25, 1.0 / Math.sqrt(Math.max(1, N)));
+          for (let d = 0; d < dims; d++) {
+            const sampleVar = variance[d] / N;
+            const regVar = (1 - lambda) * sampleVar + lambda * pooledVar[d];
+            variance[d] = Math.max(8.0, regVar);
+          }
+
+          let normSq = 0;
+          for (let d = 0; d < dims; d++) normSq += mean[d] * mean[d];
+          const norm = Math.sqrt(normSq) || 1e-4;
+
+          let logDetVar = 0;
+          for (let d = 0; d < dims; d++) logDetVar += Math.log(2 * Math.PI * variance[d]);
+
+          const hex = (cls.color || "#000000").replace("#", "");
+          const rgb = [
+            parseInt(hex.substring(0, 2), 16) || 0,
+            parseInt(hex.substring(2, 4), 16) || 0,
+            parseInt(hex.substring(4, 6), 16) || 0
+          ];
+
+          // Extracción de prototipos representativos (máximo 8-10 por clase)
+          // Preserva centroide, extremos de sombra/brillo y percentiles cromáticos
+          const smps = cls.samples || [];
+          const repSamples = [];
+          if (smps.length <= 8) {
+            for (let s = 0; s < smps.length; s++) {
+              const sv = smps[s]?.values || smps[s];
+              if (sv && Array.isArray(sv)) repSamples.push(sv);
+            }
+          } else {
+            // Siempre incluir el centroide medio como primer prototipo
+            const meanArr = Array.from(mean);
+            repSamples.push(meanArr);
+
+            const sorted = [...smps].sort((a, b) => {
+              const va = (a.values || a), vb = (b.values || b);
+              const sa = (va[0]||0) + (va[1]||0) + (va[2]||0);
+              const sb = (vb[0]||0) + (vb[1]||0) + (vb[2]||0);
+              return sa - sb;
+            });
+
+            // Extremo más oscuro (sombras críticas)
+            repSamples.push(sorted[0].values || sorted[0]);
+            if (sorted.length > 2) repSamples.push(sorted[1].values || sorted[1]);
+
+            // Extremo más brillante
+            repSamples.push(sorted[sorted.length - 1].values || sorted[sorted.length - 1]);
+
+            // Medoides por percentiles (25%, 50%, 75%)
+            const p25 = Math.floor(sorted.length * 0.25);
+            const p50 = Math.floor(sorted.length * 0.50);
+            const p75 = Math.floor(sorted.length * 0.75);
+            [p25, p50, p75].forEach(idxP => {
+              const sv = sorted[idxP]?.values || sorted[idxP];
+              if (sv && !repSamples.includes(sv)) repSamples.push(sv);
+            });
+          }
+
+          return {
+            id: idx,
+            cls: cls,
+            name: cls.name,
+            color: cls.color,
+            rgb: rgb,
+            mean: mean,
+            variance: variance,
+            norm: norm,
+            invNorm: 1 / norm,
+            logDetVar: logDetVar,
+            repSamples: repSamples,
+            count: 0
+          };
         });
 
-        return {
-          id: idx,
-          cls: cls,
-          name: cls.name,
-          color: cls.color,
-          rgb: rgb,
-          mean: mean,
-          variance: variance,
-          norm: norm,
-          invNorm: 1 / norm,
-          logDetVar: logDetVar,
-          repSamples: repSamples,
-          count: 0
-        };
-      });
-
-      const classColorsU32 = new Uint32Array(numClasses);
-      for (let c = 0; c < numClasses; c++) {
-        const rgb = classStats[c].rgb;
-        classColorsU32[c] = ((230 << 24) | (rgb[2] << 16) | (rgb[1] << 8) | rgb[0]) >>> 0;
-      }
-
-      const alg = state_sup.algorithm || "min_distance";
-      const activeIdx = classStats.findIndex(cs => cs.cls.id === state_sup.activeClassId);
-      const layerNoData = layer.noDataValue ?? (layer._geotiffTileLayer?.geo?.noDataValue) ?? (state._unsupervisedSpectralData?.noDataValue);
-
-      const cm0 = new Float32Array(numClasses);
-      const cm1 = new Float32Array(numClasses);
-      const cm2 = new Float32Array(numClasses);
-      const inv2Var0 = new Float32Array(numClasses);
-      const inv2Var1 = new Float32Array(numClasses);
-      const inv2Var2 = new Float32Array(numClasses);
-      const baseLL = new Float32Array(numClasses);
-      const invNorm = new Float32Array(numClasses);
-      const repSamplesList = [];
-
-      for (let c = 0; c < numClasses; c++) {
-        cm0[c] = classStats[c].mean[0];
-        cm1[c] = dims > 1 ? classStats[c].mean[1] : 0;
-        cm2[c] = dims > 2 ? classStats[c].mean[2] : 0;
-        inv2Var0[c] = 0.5 / classStats[c].variance[0];
-        inv2Var1[c] = dims > 1 ? 0.5 / classStats[c].variance[1] : 0;
-        inv2Var2[c] = dims > 2 ? 0.5 / classStats[c].variance[2] : 0;
-        baseLL[c] = -0.5 * classStats[c].logDetVar;
-        invNorm[c] = classStats[c].invNorm;
-        repSamplesList.push(classStats[c].repSamples || []);
-      }
-
-      // Función núcleo de clasificación rápida para cualquier búfer raster (overview o ventana nivel 0)
-      function classifyRasters(b0OrBands, b1OrCount, b2OrScale, pxCountOrCollar, scaleFactor, collarThreshold) {
-        let bands, pxCount, scale, collar;
-        if (Array.isArray(b0OrBands)) {
-          bands = b0OrBands;
-          pxCount = b1OrCount;
-          scale = b2OrScale != null ? b2OrScale : 1.0;
-          collar = pxCountOrCollar != null ? pxCountOrCollar : 0;
-        } else {
-          bands = [b0OrBands, b1OrCount, b2OrScale].filter(b => b != null);
-          pxCount = pxCountOrCollar;
-          scale = scaleFactor != null ? scaleFactor : 1.0;
-          collar = collarThreshold != null ? collarThreshold : 0;
+        const classColorsU32 = new Uint32Array(numClasses);
+        for (let c = 0; c < numClasses; c++) {
+          const rgb = classStats[c].rgb;
+          classColorsU32[c] = ((230 << 24) | (rgb[2] << 16) | (rgb[1] << 8) | rgb[0]) >>> 0;
         }
 
-        const cmpDims = Math.min(dims, bands.length);
-        const outMap = new Int16Array(pxCount);
+        const alg = state_sup.algorithm || "min_distance";
+        const activeIdx = classStats.findIndex(cs => cs.cls.id === state_sup.activeClassId);
+        const layerNoData = layer.noDataValue ?? (layer._geotiffTileLayer?.geo?.noDataValue) ?? (state._unsupervisedSpectralData?.noDataValue);
 
-        if (numClasses === 1) {
-          for (let i = 0; i < pxCount; i++) {
-            let allZeroOrNoData = true;
-            let hasNaN = false;
-            for (let d = 0; d < cmpDims; d++) {
-              const v = bands[d][i];
-              if (isNaN(v)) { hasNaN = true; break; }
-              const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
-              if (v > 0 && !isNd) allZeroOrNoData = false;
+        // Pre-aplanado de prototipos en búferes planos Float32Array contiguos (Cero asignaciones en bucle)
+        let totalProtos = 0;
+        for (let c = 0; c < numClasses; c++) {
+          totalProtos += Math.max(1, classStats[c].repSamples.length);
+        }
+
+        const flatProto0 = new Float32Array(totalProtos);
+        const flatProto1 = new Float32Array(totalProtos);
+        const flatProto2 = new Float32Array(totalProtos);
+        const flatProtoClass = new Uint8Array(totalProtos);
+        const flatProtoWeightSq = new Float32Array(totalProtos);
+        const flatProtoSum = new Float32Array(totalProtos);
+        const flatProtoCr = new Float32Array(totalProtos);
+        const flatProtoCg = new Float32Array(totalProtos);
+        const flatProtoCb = new Float32Array(totalProtos);
+
+        let pIdx = 0;
+        for (let c = 0; c < numClasses; c++) {
+          const smps = classStats[c].repSamples;
+          const weightSq = (c === activeIdx) ? 0.81 : 1.0; // 0.90 de distancia = 0.81 en distancia al cuadrado
+          if (!smps || smps.length === 0) {
+            flatProto0[pIdx] = classStats[c].mean[0] || 0;
+            flatProto1[pIdx] = classStats[c].mean[1] || 0;
+            flatProto2[pIdx] = classStats[c].mean[2] || 0;
+            flatProtoClass[pIdx] = c;
+            flatProtoWeightSq[pIdx] = weightSq;
+            const sum3 = flatProto0[pIdx] + flatProto1[pIdx] + flatProto2[pIdx] + 1;
+            flatProtoSum[pIdx] = sum3;
+            flatProtoCr[pIdx] = flatProto0[pIdx] / sum3;
+            flatProtoCg[pIdx] = flatProto1[pIdx] / sum3;
+            flatProtoCb[pIdx] = flatProto2[pIdx] / sum3;
+            pIdx++;
+          } else {
+            for (let s = 0; s < smps.length; s++) {
+              const sv = smps[s];
+              const v0 = sv[0] || 0;
+              const v1 = sv[1] || 0;
+              const v2 = sv[2] || 0;
+              flatProto0[pIdx] = v0;
+              flatProto1[pIdx] = v1;
+              flatProto2[pIdx] = v2;
+              flatProtoClass[pIdx] = c;
+              flatProtoWeightSq[pIdx] = weightSq;
+              const sum3 = v0 + v1 + v2 + 1;
+              flatProtoSum[pIdx] = sum3;
+              flatProtoCr[pIdx] = v0 / sum3;
+              flatProtoCg[pIdx] = v1 / sum3;
+              flatProtoCb[pIdx] = v2 / sum3;
+              pIdx++;
             }
-            if (hasNaN || allZeroOrNoData) {
-              outMap[i] = -1;
-              continue;
-            }
-            // En modo 1 clase: clasificar hasta el último píxel útil sin dejar espacios vacíos
-            outMap[i] = 0;
           }
-        } else if (alg === "min_distance") {
-          for (let i = 0; i < pxCount; i++) {
-            let allZeroOrNoData = true;
-            let hasNaN = false;
-            for (let d = 0; d < cmpDims; d++) {
-              const v = bands[d][i];
-              if (isNaN(v)) { hasNaN = true; break; }
-              const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
-              if (v > 0 && !isNd) allZeroOrNoData = false;
-            }
-            if (hasNaN || allZeroOrNoData) {
-              outMap[i] = -1;
-              continue;
-            }
+        }
 
-            const p0 = bands[0][i] * scale;
-            const p1 = cmpDims > 1 ? bands[1][i] * scale : 0;
-            const p2 = cmpDims > 2 ? bands[2][i] * scale : 0;
-            const pSum3 = p0 + p1 + p2;
-            const isDarkShadow = pSum3 < 150;
+        // Búferes para algoritmos estadísticos (Mahalanobis y SAM)
+        const cm0 = new Float32Array(numClasses);
+        const cm1 = new Float32Array(numClasses);
+        const cm2 = new Float32Array(numClasses);
+        const inv2Var0 = new Float32Array(numClasses);
+        const inv2Var1 = new Float32Array(numClasses);
+        const inv2Var2 = new Float32Array(numClasses);
+        const baseLL = new Float32Array(numClasses);
+        const invNorm = new Float32Array(numClasses);
 
-            let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
-            for (let c = 0; c < numClasses; c++) {
-              const cMean = classStats[c].mean;
-              let dCentroid = 0;
-              for (let d = 0; d < cmpDims; d++) {
-                const diff = (bands[d][i] * scale) - cMean[d];
-                dCentroid += diff * diff;
+        for (let c = 0; c < numClasses; c++) {
+          cm0[c] = classStats[c].mean[0];
+          cm1[c] = dims > 1 ? classStats[c].mean[1] : 0;
+          cm2[c] = dims > 2 ? classStats[c].mean[2] : 0;
+          inv2Var0[c] = 0.5 / classStats[c].variance[0];
+          inv2Var1[c] = dims > 1 ? 0.5 / classStats[c].variance[1] : 0;
+          inv2Var2[c] = dims > 2 ? 0.5 / classStats[c].variance[2] : 0;
+          baseLL[c] = -0.5 * classStats[c].logDetVar;
+          invNorm[c] = classStats[c].invNorm;
+        }
+
+        // Función núcleo de clasificación ultra-optimizada (SIMD / bucles contiguos sin lookups de objetos)
+        function classifyRasters(b0OrBands, b1OrCount, b2OrScale, pxCountOrCollar, scaleFactor, collarThreshold) {
+          let bands, pxCount, scale, collar;
+          if (Array.isArray(b0OrBands)) {
+            bands = b0OrBands;
+            pxCount = b1OrCount;
+            scale = b2OrScale != null ? b2OrScale : 1.0;
+            collar = pxCountOrCollar != null ? pxCountOrCollar : 0;
+          } else {
+            bands = [b0OrBands, b1OrCount, b2OrScale].filter(b => b != null);
+            pxCount = pxCountOrCollar;
+            scale = scaleFactor != null ? scaleFactor : 1.0;
+            collar = collarThreshold != null ? collarThreshold : 0;
+          }
+
+          const cmpDims = Math.min(dims, bands.length);
+          const outMap = new Int16Array(pxCount);
+
+          if (numClasses === 1) {
+            const b0 = bands[0];
+            for (let i = 0; i < pxCount; i++) {
+              const v = b0[i];
+              if (isNaN(v) || v <= collar || (layerNoData != null && Math.abs(v - layerNoData) < 1e-4)) {
+                outMap[i] = -1;
+              } else {
+                outMap[i] = 0;
               }
+            }
+            return outMap;
+          }
 
-              let minSampD = dCentroid;
-              const smps = repSamplesList[c];
-              const sLen = smps ? smps.length : 0;
-              if (sLen > 0) {
-                for (let s = 0; s < sLen; s++) {
-                  const sv = smps[s];
-                  let sd = 0;
-                  for (let d = 0; d < cmpDims; d++) {
-                    const diff = (bands[d][i] * scale) - (sv[d] || 0);
-                    sd += diff * diff;
+          const b0 = bands[0];
+          const b1 = cmpDims > 1 ? bands[1] : null;
+          const b2 = cmpDims > 2 ? bands[2] : null;
+
+          if (alg === "min_distance") {
+            if (cmpDims === 3 && b1 && b2) {
+              // Vía hiperrápida 3-bandas con desenrollado completo
+              for (let i = 0; i < pxCount; i++) {
+                const raw0 = b0[i], raw1 = b1[i], raw2 = b2[i];
+                if (isNaN(raw0) || (raw0 <= collar && raw1 <= collar && raw2 <= collar)) {
+                  outMap[i] = -1;
+                  continue;
+                }
+                if (layerNoData != null && Math.abs(raw0 - layerNoData) < 1e-4) {
+                  outMap[i] = -1;
+                  continue;
+                }
+
+                const p0 = raw0 * scale;
+                const p1 = raw1 * scale;
+                const p2 = raw2 * scale;
+                const pSum3 = p0 + p1 + p2;
+
+                if (pSum3 >= 150) {
+                  // Camino primario (85%+ de píxeles: sin coste de división cromática)
+                  let minD = 1e12, bestC = activeIdx >= 0 ? activeIdx : 0;
+                  for (let p = 0; p < totalProtos; p++) {
+                    const d0 = p0 - flatProto0[p];
+                    const d1 = p1 - flatProto1[p];
+                    const d2 = p2 - flatProto2[p];
+                    const dist = (d0 * d0 + d1 * d1 + d2 * d2) * flatProtoWeightSq[p];
+                    if (dist < minD) {
+                      minD = dist;
+                      bestC = flatProtoClass[p];
+                    }
                   }
+                  outMap[i] = bestC;
+                } else {
+                  // Camino sombreado / agua: división calculada UNA sola vez por píxel
+                  const invS = 1.0 / (pSum3 + 1);
+                  const pCr = p0 * invS;
+                  const pCg = p1 * invS;
+                  const pCb = p2 * invS;
 
-                  if (isDarkShadow && (sv._sum3 || 0) < 190) {
-                    const pCr = p0 / (pSum3 + 1);
-                    const pCg = p1 / (pSum3 + 1);
-                    const pCb = p2 / (pSum3 + 1);
-                    const crDiff = pCr - (sv._cr || 0);
-                    const cgDiff = pCg - (sv._cg || 0);
-                    const cbDiff = pCb - (sv._cb || 0);
-                    const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
-                    sd = 0.5 * sd + 0.5 * chromaD;
+                  let minD = 1e12, bestC = activeIdx >= 0 ? activeIdx : 0;
+                  for (let p = 0; p < totalProtos; p++) {
+                    const d0 = p0 - flatProto0[p];
+                    const d1 = p1 - flatProto1[p];
+                    const d2 = p2 - flatProto2[p];
+                    let dist = (d0 * d0 + d1 * d1 + d2 * d2) * flatProtoWeightSq[p];
+                    if (flatProtoSum[p] < 190) {
+                      const crDiff = pCr - flatProtoCr[p];
+                      const cgDiff = pCg - flatProtoCg[p];
+                      const cbDiff = pCb - flatProtoCb[p];
+                      const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
+                      dist = 0.5 * dist + 0.5 * chromaD * flatProtoWeightSq[p];
+                    }
+                    if (dist < minD) {
+                      minD = dist;
+                      bestC = flatProtoClass[p];
+                    }
                   }
-
-                  if (sd < minSampD) minSampD = sd;
+                  outMap[i] = bestC;
                 }
               }
+            } else {
+              // Camino genérico multibanda N-dimensiones
+              for (let i = 0; i < pxCount; i++) {
+                let allZeroOrNoData = true, hasNaN = false;
+                for (let d = 0; d < cmpDims; d++) {
+                  const v = bands[d][i];
+                  if (isNaN(v)) { hasNaN = true; break; }
+                  const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
+                  if (v > collar && !isNd) allZeroOrNoData = false;
+                }
+                if (hasNaN || allZeroOrNoData) {
+                  outMap[i] = -1;
+                  continue;
+                }
 
-              // Nearest-Neighbor prioritario cuando hay muestras entrenadas por el usuario:
-              // Esto asegura que la firma exacta de las muestras domine y no se confunda con agua o sombras.
-              const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.90 : 1.0);
-              if (d < minD) { minD = d; bestC = c; }
-            }
-            outMap[i] = bestC;
-          }
-        } else if (alg === "max_likelihood") {
-          for (let i = 0; i < pxCount; i++) {
-            let allZeroOrNoData = true;
-            let hasNaN = false;
-            let sumV = 0;
-            for (let d = 0; d < cmpDims; d++) {
-              const v = bands[d][i];
-              if (isNaN(v)) { hasNaN = true; break; }
-              const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
-              if (v > 0 && !isNd) allZeroOrNoData = false;
-              sumV += (v * scale);
-            }
-            if (hasNaN || allZeroOrNoData) {
-              outMap[i] = -1;
-              continue;
-            }
+                let minD = 1e12, bestC = activeIdx >= 0 ? activeIdx : 0;
+                for (let c = 0; c < numClasses; c++) {
+                  const cMean = classStats[c].mean;
+                  let dCentroid = 0;
+                  for (let d = 0; d < cmpDims; d++) {
+                    const diff = (bands[d][i] * scale) - cMean[d];
+                    dCentroid += diff * diff;
+                  }
 
-            const isDarkShadow = sumV < 140;
-            let maxLL = -Infinity, bestC = 0;
-            for (let c = 0; c < numClasses; c++) {
-              const cMean = classStats[c].mean;
-              const cVar = classStats[c].variance;
-              let mahalanobis = 0;
-              for (let d = 0; d < cmpDims; d++) {
-                const diff = (bands[d][i] * scale) - cMean[d];
-                mahalanobis += (diff * diff) / (2 * cVar[d]);
-              }
-              let ll = baseLL[c] - mahalanobis;
-
-              if (isDarkShadow) {
-                const smps = repSamplesList[c];
-                if (smps && smps.length > 0) {
-                  for (let s = 0; s < smps.length; s++) {
+                  let minSampD = dCentroid;
+                  const smps = classStats[c].repSamples;
+                  const sLen = smps ? smps.length : 0;
+                  for (let s = 0; s < sLen; s++) {
                     const sv = smps[s];
                     let sd = 0;
                     for (let d = 0; d < cmpDims; d++) {
                       const diff = (bands[d][i] * scale) - (sv[d] || 0);
                       sd += diff * diff;
                     }
-                    if (sd < 200) {
-                      ll += 50 * Math.exp(-sd / 100);
-                      break;
-                    }
+                    if (sd < minSampD) minSampD = sd;
                   }
+
+                  const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.81 : 1.0);
+                  if (d < minD) { minD = d; bestC = c; }
                 }
+                outMap[i] = bestC;
               }
-
-              if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
-            outMap[i] = bestC;
-          }
-        } else if (alg === "spectral_angle") {
-          for (let i = 0; i < pxCount; i++) {
-            let allZeroOrNoData = true;
-            let hasNaN = false;
-            let pNormSq = 0;
-            for (let d = 0; d < cmpDims; d++) {
-              const v = bands[d][i];
-              if (isNaN(v)) { hasNaN = true; break; }
-              const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
-              if (v > 0 && !isNd) allZeroOrNoData = false;
-              const nv = v * scale;
-              pNormSq += nv * nv;
-            }
-            if (hasNaN || allZeroOrNoData) {
-              outMap[i] = -1;
-              continue;
-            }
-
-            const pNorm = Math.sqrt(pNormSq) || 1e-4;
-            const invPNorm = 1 / pNorm;
-            let maxCos = -1, bestC = 0;
-            for (let c = 0; c < numClasses; c++) {
-              let dotCentroid = 0;
+          } else if (alg === "max_likelihood") {
+            for (let i = 0; i < pxCount; i++) {
+              let allZeroOrNoData = true, hasNaN = false, sumV = 0;
               for (let d = 0; d < cmpDims; d++) {
-                dotCentroid += (bands[d][i] * scale) * cm0[c];
+                const v = bands[d][i];
+                if (isNaN(v)) { hasNaN = true; break; }
+                const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
+                if (v > collar && !isNd) allZeroOrNoData = false;
+                sumV += (v * scale);
               }
-              let bestClassCos = (dotCentroid * invPNorm) * invNorm[c];
+              if (hasNaN || allZeroOrNoData) {
+                outMap[i] = -1;
+                continue;
+              }
 
-              const smps = repSamplesList[c];
-              if (smps && smps.length > 0) {
-                for (let s = 0; s < smps.length; s++) {
-                  const sv = smps[s];
-                  let dotS = 0;
-                  for (let d = 0; d < cmpDims; d++) {
-                    dotS += (bands[d][i] * scale) * (sv[d] || 0);
-                  }
-                  const cosS = (dotS * invPNorm) / (sv._norm || 1);
-                  if (cosS > bestClassCos) bestClassCos = cosS;
+              const isDarkShadow = sumV < 140;
+              let maxLL = -Infinity, bestC = 0;
+              for (let c = 0; c < numClasses; c++) {
+                const cMean = classStats[c].mean;
+                const cVar = classStats[c].variance;
+                let mahalanobis = 0;
+                for (let d = 0; d < cmpDims; d++) {
+                  const diff = (bands[d][i] * scale) - cMean[d];
+                  mahalanobis += (diff * diff) / (2 * cVar[d]);
                 }
+                let ll = baseLL[c] - mahalanobis;
+
+                if (isDarkShadow) {
+                  const smps = classStats[c].repSamples;
+                  if (smps && smps.length > 0) {
+                    for (let s = 0; s < smps.length; s++) {
+                      const sv = smps[s];
+                      let sd = 0;
+                      for (let d = 0; d < cmpDims; d++) {
+                        const diff = (bands[d][i] * scale) - (sv[d] || 0);
+                        sd += diff * diff;
+                      }
+                      if (sd < 200) {
+                        ll += 50 * Math.exp(-sd / 100);
+                        break;
+                      }
+                    }
+                  }
+                }
+
+                if (ll > maxLL) { maxLL = ll; bestC = c; }
+              }
+              outMap[i] = bestC;
+            }
+          } else if (alg === "spectral_angle") {
+            for (let i = 0; i < pxCount; i++) {
+              let allZeroOrNoData = true, hasNaN = false, pNormSq = 0;
+              for (let d = 0; d < cmpDims; d++) {
+                const v = bands[d][i];
+                if (isNaN(v)) { hasNaN = true; break; }
+                const isNd = (layerNoData != null && Math.abs(v - layerNoData) < 1e-4);
+                if (v > collar && !isNd) allZeroOrNoData = false;
+                const nv = v * scale;
+                pNormSq += nv * nv;
+              }
+              if (hasNaN || allZeroOrNoData) {
+                outMap[i] = -1;
+                continue;
               }
 
-              if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
-            }
-            outMap[i] = bestC;
-          }
-        }
-        return outMap;
-      }
+              const pNorm = Math.sqrt(pNormSq) || 1e-4;
+              const invPNorm = 1 / pNorm;
+              let maxCos = -1, bestC = 0;
+              for (let c = 0; c < numClasses; c++) {
+                let dotCentroid = 0;
+                for (let d = 0; d < cmpDims; d++) {
+                  dotCentroid += (bands[d][i] * scale) * cm0[c];
+                }
+                let bestClassCos = (dotCentroid * invPNorm) * invNorm[c];
 
-      // 1. CLASIFICACIÓN DEL OVERVIEW REGIONAL (para estadísticas precisas de ha y % en el dock)
-      if (!state_sup._liveCanvas || state_sup._liveCanvas.width !== w || state_sup._liveCanvas.height !== h) {
-        state_sup._liveCanvas = document.createElement("canvas");
-        state_sup._liveCanvas.width = w;
-        state_sup._liveCanvas.height = h;
-        state_sup._liveImgData = null;
-        state_sup._classificationMap = null;
-      }
-      const canvas = state_sup._liveCanvas;
-      const ctx = canvas.getContext("2d");
-      if (!state_sup._liveImgData) {
-        state_sup._liveImgData = ctx.createImageData(w, h);
-      }
-      const imgData = state_sup._liveImgData;
-      const u32 = new Uint32Array(imgData.data.buffer);
+                const smps = classStats[c].repSamples;
+                if (smps && smps.length > 0) {
+                  for (let s = 0; s < smps.length; s++) {
+                    const sv = smps[s];
+                    let dotS = 0;
+                    for (let d = 0; d < cmpDims; d++) {
+                      dotS += (bands[d][i] * scale) * (sv[d] || 0);
+                    }
+                    const cosS = (dotS * invPNorm) / (sv._norm || 1);
+                    if (cosS > bestClassCos) bestClassCos = cosS;
+                  }
+                }
 
-      let ovClassMap = null;
-      if (spectralData.type === "multispectral") {
-        const bands = spectralData.bands;
-        const b0 = bands[0], b1 = dims > 1 ? bands[1] : null, b2 = dims > 2 ? bands[2] : null;
-        const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
-        let isNormalizedFloat = false;
-        if (isFloatType) {
-          const step = Math.max(1, Math.floor(totalPixels / 300));
-          let hasValid = false, maxVal = 0;
-          for (let k = 0; k < totalPixels; k += step) {
-            const val = b0[k];
-            if (!isNaN(val) && isFinite(val) && val > 0.001) {
-              hasValid = true;
-              if (val > maxVal) maxVal = val;
-              if (val > 2.0) { hasValid = false; break; }
+                if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
+              }
+              outMap[i] = bestC;
             }
           }
-          if (hasValid && maxVal <= 2.0) isNormalizedFloat = true;
+          return outMap;
         }
-        const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
-        const collarThreshold = isNormalizedFloat ? 0.005 : 5;
-        ovClassMap = classifyRasters(bands, totalPixels, scaleFactor, collarThreshold);
-      } else {
-        const sData = spectralData.data;
-        const rB = new Uint8Array(totalPixels);
-        const gB = new Uint8Array(totalPixels);
-        const bB = new Uint8Array(totalPixels);
+
+        // 2. CLASIFICACIÓN DEL OVERVIEW REGIONAL (para estadísticas precisas de ha y % en el dock)
+        if (!state_sup._liveCanvas || state_sup._liveCanvas.width !== w || state_sup._liveCanvas.height !== h) {
+          state_sup._liveCanvas = document.createElement("canvas");
+          state_sup._liveCanvas.width = w;
+          state_sup._liveCanvas.height = h;
+          state_sup._liveImgData = null;
+          state_sup._classificationMap = null;
+        }
+        const canvas = state_sup._liveCanvas;
+        const ctx = canvas.getContext("2d");
+        if (!state_sup._liveImgData) {
+          state_sup._liveImgData = ctx.createImageData(w, h);
+        }
+        const imgData = state_sup._liveImgData;
+        const u32 = new Uint32Array(imgData.data.buffer);
+
+        let ovClassMap = null;
+        if (spectralData.type === "multispectral") {
+          const bands = spectralData.bands;
+          const b0 = bands[0];
+          const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
+          let isNormalizedFloat = false;
+          if (isFloatType) {
+            const step = Math.max(1, Math.floor(totalPixels / 300));
+            let hasValid = false, maxVal = 0;
+            for (let k = 0; k < totalPixels; k += step) {
+              const val = b0[k];
+              if (!isNaN(val) && isFinite(val) && val > 0.001) {
+                hasValid = true;
+                if (val > maxVal) maxVal = val;
+                if (val > 2.0) { hasValid = false; break; }
+              }
+            }
+            if (hasValid && maxVal <= 2.0) isNormalizedFloat = true;
+          }
+          const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
+          const collarThreshold = isNormalizedFloat ? 0.005 : 5;
+          ovClassMap = classifyRasters(bands, totalPixels, scaleFactor, collarThreshold);
+        } else {
+          const sData = spectralData.data;
+          const rB = new Uint8Array(totalPixels);
+          const gB = new Uint8Array(totalPixels);
+          const bB = new Uint8Array(totalPixels);
+          for (let i = 0; i < totalPixels; i++) {
+            const p = i * 4;
+            if (sData[p + 3] < 20) {
+              rB[i] = gB[i] = bB[i] = 0;
+            } else {
+              rB[i] = sData[p]; gB[i] = sData[p + 1]; bB[i] = sData[p + 2];
+            }
+          }
+          ovClassMap = classifyRasters(rB, gB, bB, totalPixels, 1.0, 5);
+        }
+
+        state_sup._classificationMap = ovClassMap;
+        let validCount = 0;
         for (let i = 0; i < totalPixels; i++) {
-          const p = i * 4;
-          if (sData[p + 3] < 20) {
-            rB[i] = gB[i] = bB[i] = 0;
+          const c = ovClassMap[i];
+          if (c >= 0 && c < numClasses) {
+            u32[i] = classColorsU32[c];
+            classStats[c].count++;
+            validCount++;
           } else {
-            rB[i] = sData[p]; gB[i] = sData[p + 1]; bB[i] = sData[p + 2];
+            u32[i] = 0;
           }
         }
-        ovClassMap = classifyRasters(rB, gB, bB, totalPixels, 1.0, 5);
-      }
+        ctx.putImageData(imgData, 0, 0);
 
-      state_sup._classificationMap = ovClassMap;
-      let validCount = 0;
-      for (let i = 0; i < totalPixels; i++) {
-        const c = ovClassMap[i];
-        if (c >= 0 && c < numClasses) {
-          u32[i] = classColorsU32[c];
-          classStats[c].count++;
-          validCount++;
-        } else {
-          u32[i] = 0;
-        }
-      }
-      ctx.putImageData(imgData, 0, 0);
+        // Actualizar estadísticas de hectáreas en el dock
+        const res = layer.resolution || [30, -30];
+        const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
+        const pixelAreaHa = pixelAreaM2 / 10000;
 
-      // Calcular áreas y porcentajes en vivo
-      const res = layer.resolution || [30, -30];
-      const pixelAreaM2 = Math.abs(res[0] * res[1]) || 900;
-      const pixelAreaHa = pixelAreaM2 / 10000;
+        classStats.forEach(cs => {
+          const pct = validCount > 0 ? ((cs.count / validCount) * 100).toFixed(1) : "0.0";
+          const totalHa = Math.round(cs.count * pixelAreaHa);
+          cs.cls.livePct = pct;
+          cs.cls.liveHa = totalHa;
+          cs.cls.liveAreaLabel = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + "k ha" : totalHa + " ha";
 
-      classStats.forEach(cs => {
-        const pct = validCount > 0 ? ((cs.count / validCount) * 100).toFixed(1) : "0.0";
-        const totalHa = Math.round(cs.count * pixelAreaHa);
-        cs.cls.livePct = pct;
-        cs.cls.liveHa = totalHa;
-        cs.cls.liveAreaLabel = totalHa >= 1000 ? (totalHa / 1000).toFixed(1) + "k ha" : totalHa + " ha";
-
-        const badge = document.getElementById("supClassLiveBadge-" + cs.cls.id);
-        if (badge) {
-          badge.textContent = (cs.cls.samples ? cs.cls.samples.length : 0) + " px · " + pct + "% (" + cs.cls.liveAreaLabel + ")";
-        }
-      });
-
-      state_sup._liveValidCount = validCount;
-      state_sup._liveClassStats = classStats;
-
-      // 2. PREVISUALIZACIÓN NATIVA 1:1 EN EL MAPA (Subpíxel nítido a escala real sin bloques de 300m)
-      const isVisible = state_sup.visible !== false;
-      const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
-      if (!isVisible) {
-        if (state._supervisedLiveLayer && state.map && state.map.hasLayer(state._supervisedLiveLayer)) {
-          try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-        }
-        if (state._supervisedBaseLayer && state.map && state.map.hasLayer(state._supervisedBaseLayer)) {
-          try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
-        }
-        return;
-      }
-
-      const applyOverlayImage = (url, bounds) => {
-        if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L.ImageOverlay)) {
-          if (state._supervisedLiveLayer) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-          }
-          state._supervisedLiveLayer = L.imageOverlay(url, bounds, {
-            opacity: targetOpacity,
-            interactive: false,
-            zIndex: 650,
-            className: 'classified-crisp-overlay geotiff-crisp-tile'
-          });
-          state._supervisedLiveLayer._blobUrl = url;
-          if (isVisible) {
-            state._supervisedLiveLayer.addTo(state.map);
-          }
-        } else {
-          const oldUrl = state._supervisedLiveLayer._blobUrl;
-          state._supervisedLiveLayer.setUrl(url);
-          state._supervisedLiveLayer.setBounds(bounds);
-          state._supervisedLiveLayer.setOpacity(targetOpacity);
-          state._supervisedLiveLayer._blobUrl = url;
-          if (isVisible && !state.map.hasLayer(state._supervisedLiveLayer)) {
-            state._supervisedLiveLayer.addTo(state.map);
-          } else if (!isVisible && state.map.hasLayer(state._supervisedLiveLayer)) {
-            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
-          }
-          if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
-            setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
-          }
-        }
-      };
-
-      const currentZoom = state.map ? state.map.getZoom() : 10;
-      const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
-      let renderedHighRes = false;
-      const fullLayerBounds = getNormalizedLayerBounds(layer) || layer.bounds;
-
-      // Mantener SIEMPRE la capa base departamental completa activa (cero espacios vacíos en cualquier parte del mapa)
-      if (fullLayerBounds && canvas) {
-        if (!state._supervisedBaseLayer || !(state._supervisedBaseLayer instanceof L.ImageOverlay)) {
-          if (state._supervisedBaseLayer) {
-            try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
-          }
-          state._supervisedBaseLayer = L.imageOverlay(canvas.toDataURL('image/png'), fullLayerBounds, {
-            opacity: targetOpacity,
-            interactive: false,
-            zIndex: 649,
-            className: 'classified-crisp-overlay'
-          });
-          if (isVisible) state._supervisedBaseLayer.addTo(state.map);
-        } else {
-          state._supervisedBaseLayer.setUrl(canvas.toDataURL('image/png'));
-          state._supervisedBaseLayer.setBounds(fullLayerBounds);
-          state._supervisedBaseLayer.setOpacity(targetOpacity);
-          if (isVisible && !state.map.hasLayer(state._supervisedBaseLayer)) {
-            state._supervisedBaseLayer.addTo(state.map);
-          }
-        }
-      }
-
-      // Adaptación de resolución continua mediante pirámide GeoTIFF
-      if (tileLayer && tileLayer.pyramid && tileLayer.pyramid.levels && tileLayer.pyramid.levels.length > 0) {
-        try {
-          const mapBounds = state.map.getBounds();
-          let pNW = null, pSE = null;
-          if (typeof tileLayer._geoToPixelBase === 'function') {
-            pNW = tileLayer._geoToPixelBase(mapBounds.getWest(), mapBounds.getNorth());
-            pSE = tileLayer._geoToPixelBase(mapBounds.getEast(), mapBounds.getSouth());
-          }
-          const baseW = tileLayer.pyramid.baseWidth;
-          const baseH = tileLayer.pyramid.baseHeight;
-
-          if (pNW && pSE && !isNaN(pNW[0]) && !isNaN(pNW[1]) && !isNaN(pSE[0]) && !isNaN(pSE[1])) {
-            const fullW = Math.max(1, Math.abs(pSE[0] - pNW[0]));
-            const fullH = Math.max(1, Math.abs(pSE[1] - pNW[1]));
-
-            const decimation = Math.max(1, Math.floor(Math.max(fullW / 1200, fullH / 1200)));
-            const levelInfo = (typeof tileLayer.pyramid.getLevelForDecimation === 'function')
-              ? tileLayer.pyramid.getLevelForDecimation(decimation)
-              : { image: tileLayer.pyramid.levels[0], decimation: 1 };
-            const targetImg = levelInfo.image || tileLayer.pyramid.levels[0];
-            const levelDec = levelInfo.decimation || 1;
-
-            let minLvlX = 0, maxLvlX = targetImg.getWidth();
-            let minLvlY = 0, maxLvlY = targetImg.getHeight();
-            let targetOverlayBounds = fullLayerBounds;
-
-            // Si está en zoom cercano (zoom >= 14), enfocar ventana visual con margen generoso del 50%
-            if (levelDec < 4) {
-              const rawMinX = Math.floor(Math.min(pNW[0], pSE[0]) / levelDec);
-              const rawMaxX = Math.ceil(Math.max(pNW[0], pSE[0]) / levelDec);
-              const rawMinY = Math.floor(Math.min(pNW[1], pSE[1]) / levelDec);
-              const rawMaxY = Math.ceil(Math.max(pNW[1], pSE[1]) / levelDec);
-
-              const padX = Math.max(16, Math.round((rawMaxX - rawMinX) * 0.50));
-              const padY = Math.max(16, Math.round((rawMaxY - rawMinY) * 0.50));
-              minLvlX = Math.max(0, rawMinX - padX);
-              maxLvlX = Math.min(targetImg.getWidth(), rawMaxX + padX);
-              minLvlY = Math.max(0, rawMinY - padY);
-              maxLvlY = Math.min(targetImg.getHeight(), rawMaxY + padY);
-
-              const minSatX = minLvlX * levelDec;
-              const maxSatX = maxLvlX * levelDec;
-              const minSatY = minLvlY * levelDec;
-              const maxSatY = maxLvlY * levelDec;
-
-              targetOverlayBounds = window.getSatelliteWindowLatLngBounds
-                ? window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer)
-                : fullLayerBounds;
-            }
-
-            const winW = maxLvlX - minLvlX;
-            const winH = maxLvlY - minLvlY;
-
-            if (winW > 0 && winH > 0 && winW <= 3500 && winH <= 3500) {
-              const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || dims);
-              const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
-              const raw = await targetImg.readRasters({
-                window: [minLvlX, minLvlY, maxLvlX, maxLvlY],
-                samples: sampleBands,
-                interleave: false
-              });
-
-              if (raw && raw.length > 0) {
-                const actW = raw.width || winW;
-                const actH = raw.height || winH;
-                const actTotal = actW * actH;
-
-                let classifyBands = raw;
-                const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer?.geo?.photometric ?? layer.photometric;
-                if (photo === 6 && raw.length >= 3) {
-                  const yB = raw[0], cbB = raw[1], crB = raw[2];
-                  const rB = new Uint8Array(actTotal);
-                  const gB = new Uint8Array(actTotal);
-                  const bB = new Uint8Array(actTotal);
-                  for (let i = 0; i < actTotal; i++) {
-                    const y = yB[i], cb = cbB[i], cr = crB[i];
-                    if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
-                      rB[i] = gB[i] = bB[i] = 0;
-                    } else {
-                      const cbS = cb - 128, crS = cr - 128;
-                      rB[i] = Math.max(0, Math.min(255, Math.round(y + 1.402 * crS)));
-                      gB[i] = Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS)));
-                      bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
-                    }
-                  }
-                  classifyBands = [rB, gB, bB];
-                }
-
-                const b0 = classifyBands[0];
-                const isFloat = (b0 instanceof Float32Array || b0 instanceof Float64Array);
-                let isNorm = false;
-                if (isFloat) {
-                  const step = Math.max(1, Math.floor(actTotal / 300));
-                  let hasValid = false, maxVal = 0;
-                  for (let k = 0; k < actTotal; k += step) {
-                    const val = b0[k];
-                    if (!isNaN(val) && isFinite(val) && val > 0.001) {
-                      hasValid = true;
-                      if (val > maxVal) maxVal = val;
-                      if (val > 2.0) { hasValid = false; break; }
-                    }
-                  }
-                  if (hasValid && maxVal <= 2.0) isNorm = true;
-                }
-                const scale = isNorm ? 255.0 : 1.0;
-                const collar = isNorm ? 0.005 : 0;
-
-                const winClassMap = classifyRasters(classifyBands, actTotal, scale, collar);
-
-                // Filtro modal 3x3 al observar desde lejos para límites ultra-limpios
-                if (levelDec >= 4 && actW >= 3 && actH >= 3) {
-                  const smoothed = new Int16Array(actTotal);
-                  const votes = new Uint8Array(numClasses);
-                  for (let y = 0; y < actH; y++) {
-                    const yOff = y * actW;
-                    for (let x = 0; x < actW; x++) {
-                      const idx = yOff + x;
-                      const selfC = winClassMap[idx];
-                      if (selfC < 0 || x === 0 || y === 0 || x === actW - 1 || y === actH - 1) {
-                        smoothed[idx] = selfC;
-                        continue;
-                      }
-                      votes.fill(0);
-                      let sameCount = 0;
-                      for (let dy = -1; dy <= 1; dy++) {
-                        const rowOff = (y + dy) * actW + x;
-                        for (let dx = -1; dx <= 1; dx++) {
-                          if (dx === 0 && dy === 0) continue;
-                          const nc = winClassMap[rowOff + dx];
-                          if (nc >= 0 && nc < numClasses) {
-                            votes[nc]++;
-                            if (nc === selfC) sameCount++;
-                          }
-                        }
-                      }
-                      // Nunca sobreescribir la clase activa recién entrenada por el usuario
-                      if (sameCount === 0 && selfC !== activeIdx) {
-                        let maxV = 0, majC = selfC;
-                        for (let c = 0; c < numClasses; c++) {
-                          if (votes[c] > maxV) { maxV = votes[c]; majC = c; }
-                        }
-                        if (maxV === 8) {
-                          smoothed[idx] = majC;
-                          continue;
-                        }
-                      }
-                      smoothed[idx] = selfC;
-                    }
-                  }
-                  for (let i = 0; i < actTotal; i++) winClassMap[i] = smoothed[i];
-                }
-
-                const winCanvas = document.createElement('canvas');
-                winCanvas.width = actW;
-                winCanvas.height = actH;
-                const wCtx = winCanvas.getContext('2d');
-                const wImgData = wCtx.createImageData(actW, actH);
-                const wU32 = new Uint32Array(wImgData.data.buffer);
-
-                for (let i = 0; i < actTotal; i++) {
-                  const c = winClassMap[i];
-                  wU32[i] = (c >= 0 && c < numClasses) ? classColorsU32[c] : 0;
-                }
-                wCtx.putImageData(wImgData, 0, 0);
-
-                if (targetOverlayBounds) {
-                  applyOverlayImage(winCanvas.toDataURL('image/png'), targetOverlayBounds);
-                  renderedHighRes = true;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('[Supervised] Error generando ventana visual adaptativa:', e);
-        }
-      }
-
-      if (!renderedHighRes && fullLayerBounds && canvas) {
-        applyOverlayImage(canvas.toDataURL('image/png'), fullLayerBounds);
-      }
-      // Conectar manejador de moveend para mantener la ventana de alta resolución 100% actualizada al desplazarse por el mapa
-      if (!window._supervisedMoveEndAttached && state.map) {
-        window._supervisedMoveEndAttached = true;
-        state.map.on('moveend', () => {
-          const s_sup = window._supervisedState;
-          if (s_sup && s_sup.active && s_sup.classes && s_sup.classes.some(c => c.samples && c.samples.length > 0)) {
-            updateSupervisedLiveClassification(true);
+          const badge = document.getElementById("supClassLiveBadge-" + cs.cls.id);
+          if (badge) {
+            badge.textContent = (cs.cls.samples ? cs.cls.samples.length : 0) + " px · " + pct + "% (" + cs.cls.liveAreaLabel + ")";
           }
         });
+
+        state_sup._liveValidCount = validCount;
+        state_sup._liveClassStats = classStats;
+
+        // 3. PREVISUALIZACIÓN NATIVA EN EL MAPA CON BLOB URL ASÍNCRONO
+        const isVisible = state_sup.visible !== false;
+        const targetOpacity = isVisible ? (state_sup.opacity !== undefined ? state_sup.opacity : 0.85) : 0;
+        if (!isVisible) {
+          if (state._supervisedLiveLayer && state.map && state.map.hasLayer(state._supervisedLiveLayer)) {
+            try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+          }
+          if (state._supervisedBaseLayer && state.map && state.map.hasLayer(state._supervisedBaseLayer)) {
+            try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
+          }
+          return;
+        }
+
+        const applyOverlayImage = (url, bounds) => {
+          if (!state._supervisedLiveLayer || !(state._supervisedLiveLayer instanceof L.ImageOverlay)) {
+            if (state._supervisedLiveLayer) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+            }
+            state._supervisedLiveLayer = L.imageOverlay(url, bounds, {
+              opacity: targetOpacity,
+              interactive: false,
+              zIndex: 650,
+              className: 'classified-crisp-overlay geotiff-crisp-tile'
+            });
+            state._supervisedLiveLayer._blobUrl = url;
+            if (isVisible) {
+              state._supervisedLiveLayer.addTo(state.map);
+            }
+          } else {
+            const oldUrl = state._supervisedLiveLayer._blobUrl;
+            state._supervisedLiveLayer.setUrl(url);
+            state._supervisedLiveLayer.setBounds(bounds);
+            state._supervisedLiveLayer.setOpacity(targetOpacity);
+            state._supervisedLiveLayer._blobUrl = url;
+            if (isVisible && !state.map.hasLayer(state._supervisedLiveLayer)) {
+              state._supervisedLiveLayer.addTo(state.map);
+            } else if (!isVisible && state.map.hasLayer(state._supervisedLiveLayer)) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+            }
+            if (oldUrl && oldUrl !== url && oldUrl.startsWith("blob:")) {
+              setTimeout(() => { try { URL.revokeObjectURL(oldUrl); } catch (_) {} }, 1000);
+            }
+          }
+        };
+
+        const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
+        let renderedHighRes = false;
+        const fullLayerBounds = getNormalizedLayerBounds(layer) || layer.bounds;
+
+        // Generar Blob URL del canvas overview asíncronamente
+        const baseBlobUrl = await canvasToBlobUrl(canvas);
+
+        // Mantener capa base departamental completa activa (cero espacios vacíos)
+        if (fullLayerBounds && baseBlobUrl) {
+          if (!state._supervisedBaseLayer || !(state._supervisedBaseLayer instanceof L.ImageOverlay)) {
+            if (state._supervisedBaseLayer) {
+              try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
+            }
+            state._supervisedBaseLayer = L.imageOverlay(baseBlobUrl, fullLayerBounds, {
+              opacity: targetOpacity,
+              interactive: false,
+              zIndex: 649,
+              className: 'classified-crisp-overlay'
+            });
+            state._supervisedBaseLayer._blobUrl = baseBlobUrl;
+            if (isVisible) state._supervisedBaseLayer.addTo(state.map);
+          } else {
+            const oldBaseUrl = state._supervisedBaseLayer._blobUrl;
+            state._supervisedBaseLayer.setUrl(baseBlobUrl);
+            state._supervisedBaseLayer.setBounds(fullLayerBounds);
+            state._supervisedBaseLayer.setOpacity(targetOpacity);
+            state._supervisedBaseLayer._blobUrl = baseBlobUrl;
+            if (isVisible && !state.map.hasLayer(state._supervisedBaseLayer)) {
+              state._supervisedBaseLayer.addTo(state.map);
+            }
+            if (oldBaseUrl && oldBaseUrl !== baseBlobUrl && oldBaseUrl.startsWith("blob:")) {
+              setTimeout(() => { try { URL.revokeObjectURL(oldBaseUrl); } catch (_) {} }, 1000);
+            }
+          }
+        }
+
+        // Adaptación de resolución continua mediante pirámide GeoTIFF (Ventana de alta definición)
+        if (tileLayer && tileLayer.pyramid && tileLayer.pyramid.levels && tileLayer.pyramid.levels.length > 0) {
+          try {
+            const mapBounds = state.map.getBounds();
+            let pNW = null, pSE = null;
+            if (typeof tileLayer._geoToPixelBase === 'function') {
+              pNW = tileLayer._geoToPixelBase(mapBounds.getWest(), mapBounds.getNorth());
+              pSE = tileLayer._geoToPixelBase(mapBounds.getEast(), mapBounds.getSouth());
+            }
+
+            if (pNW && pSE && !isNaN(pNW[0]) && !isNaN(pNW[1]) && !isNaN(pSE[0]) && !isNaN(pSE[1])) {
+              const fullW = Math.max(1, Math.abs(pSE[0] - pNW[0]));
+              const fullH = Math.max(1, Math.abs(pSE[1] - pNW[1]));
+
+              // Decimación acotada para no superar la resolución de pantalla (máx 1000-1200 px)
+              const maxWinDim = 1100;
+              const decimation = Math.max(1, Math.floor(Math.max(fullW / maxWinDim, fullH / maxWinDim)));
+              const levelInfo = (typeof tileLayer.pyramid.getLevelForDecimation === 'function')
+                ? tileLayer.pyramid.getLevelForDecimation(decimation)
+                : { image: tileLayer.pyramid.levels[0], decimation: 1 };
+              const targetImg = levelInfo.image || tileLayer.pyramid.levels[0];
+              const levelDec = levelInfo.decimation || 1;
+
+              let minLvlX = 0, maxLvlX = targetImg.getWidth();
+              let minLvlY = 0, maxLvlY = targetImg.getHeight();
+              let targetOverlayBounds = fullLayerBounds;
+
+              // En zoom cercano (zoom >= 14), enfocar ventana visual con margen del 40%
+              if (levelDec < 4) {
+                const rawMinX = Math.floor(Math.min(pNW[0], pSE[0]) / levelDec);
+                const rawMaxX = Math.ceil(Math.max(pNW[0], pSE[0]) / levelDec);
+                const rawMinY = Math.floor(Math.min(pNW[1], pSE[1]) / levelDec);
+                const rawMaxY = Math.ceil(Math.max(pNW[1], pSE[1]) / levelDec);
+
+                const padX = Math.max(16, Math.round((rawMaxX - rawMinX) * 0.40));
+                const padY = Math.max(16, Math.round((rawMaxY - rawMinY) * 0.40));
+                minLvlX = Math.max(0, rawMinX - padX);
+                maxLvlX = Math.min(targetImg.getWidth(), rawMaxX + padX);
+                minLvlY = Math.max(0, rawMinY - padY);
+                maxLvlY = Math.min(targetImg.getHeight(), rawMaxY + padY);
+
+                const minSatX = minLvlX * levelDec;
+                const maxSatX = maxLvlX * levelDec;
+                const minSatY = minLvlY * levelDec;
+                const maxSatY = maxLvlY * levelDec;
+
+                targetOverlayBounds = window.getSatelliteWindowLatLngBounds
+                  ? window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer)
+                  : fullLayerBounds;
+              }
+
+              const winW = maxLvlX - minLvlX;
+              const winH = maxLvlY - minLvlY;
+
+              // Proteger estrictamente contra ventanas monstruosas
+              if (winW > 0 && winH > 0 && winW <= 1200 && winH <= 1200) {
+                const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || dims);
+                const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
+                const raw = await targetImg.readRasters({
+                  window: [minLvlX, minLvlY, maxLvlX, maxLvlY],
+                  samples: sampleBands,
+                  interleave: false
+                });
+
+                if (raw && raw.length > 0) {
+                  const actW = raw.width || winW;
+                  const actH = raw.height || winH;
+                  const actTotal = actW * actH;
+
+                  let classifyBands = raw;
+                  const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer?.geo?.photometric ?? layer.photometric;
+                  if (photo === 6 && raw.length >= 3) {
+                    const yB = raw[0], cbB = raw[1], crB = raw[2];
+                    const rB = new Uint8Array(actTotal);
+                    const gB = new Uint8Array(actTotal);
+                    const bB = new Uint8Array(actTotal);
+                    for (let i = 0; i < actTotal; i++) {
+                      const y = yB[i], cb = cbB[i], cr = crB[i];
+                      if (y === 0 && (cb === 128 || cb === 0) && (cr === 128 || cr === 0)) {
+                        rB[i] = gB[i] = bB[i] = 0;
+                      } else {
+                        const cbS = cb - 128, crS = cr - 128;
+                        rB[i] = Math.max(0, Math.min(255, Math.round(y + 1.402 * crS)));
+                        gB[i] = Math.max(0, Math.min(255, Math.round(y - 0.344136 * cbS - 0.714136 * crS)));
+                        bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
+                      }
+                    }
+                    classifyBands = [rB, gB, bB];
+                  }
+
+                  const b0 = classifyBands[0];
+                  const isFloat = (b0 instanceof Float32Array || b0 instanceof Float64Array);
+                  let isNorm = false;
+                  if (isFloat) {
+                    const step = Math.max(1, Math.floor(actTotal / 300));
+                    let hasValid = false, maxVal = 0;
+                    for (let k = 0; k < actTotal; k += step) {
+                      const val = b0[k];
+                      if (!isNaN(val) && isFinite(val) && val > 0.001) {
+                        hasValid = true;
+                        if (val > maxVal) maxVal = val;
+                        if (val > 2.0) { hasValid = false; break; }
+                      }
+                    }
+                    if (hasValid && maxVal <= 2.0) isNorm = true;
+                  }
+                  const scale = isNorm ? 255.0 : 1.0;
+                  const collar = isNorm ? 0.005 : 0;
+
+                  const winClassMap = classifyRasters(classifyBands, actTotal, scale, collar);
+
+                  // Filtro modal 3x3 ligero solo en vistas lejanas
+                  if (levelDec >= 4 && actW >= 3 && actH >= 3) {
+                    const smoothed = new Int16Array(actTotal);
+                    const votes = new Uint8Array(numClasses);
+                    for (let y = 0; y < actH; y++) {
+                      const yOff = y * actW;
+                      for (let x = 0; x < actW; x++) {
+                        const idx = yOff + x;
+                        const selfC = winClassMap[idx];
+                        if (selfC < 0 || x === 0 || y === 0 || x === actW - 1 || y === actH - 1) {
+                          smoothed[idx] = selfC;
+                          continue;
+                        }
+                        votes.fill(0);
+                        let sameCount = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                          const rowOff = (y + dy) * actW + x;
+                          for (let dx = -1; dx <= 1; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const nc = winClassMap[rowOff + dx];
+                            if (nc >= 0 && nc < numClasses) {
+                              votes[nc]++;
+                              if (nc === selfC) sameCount++;
+                            }
+                          }
+                        }
+                        if (sameCount === 0 && selfC !== activeIdx) {
+                          let maxV = 0, majC = selfC;
+                          for (let c = 0; c < numClasses; c++) {
+                            if (votes[c] > maxV) { maxV = votes[c]; majC = c; }
+                          }
+                          if (maxV === 8) {
+                            smoothed[idx] = majC;
+                            continue;
+                          }
+                        }
+                        smoothed[idx] = selfC;
+                      }
+                    }
+                    for (let i = 0; i < actTotal; i++) winClassMap[i] = smoothed[i];
+                  }
+
+                  const winCanvas = document.createElement('canvas');
+                  winCanvas.width = actW;
+                  winCanvas.height = actH;
+                  const wCtx = winCanvas.getContext('2d');
+                  const wImgData = wCtx.createImageData(actW, actH);
+                  const wU32 = new Uint32Array(wImgData.data.buffer);
+
+                  for (let i = 0; i < actTotal; i++) {
+                    const c = winClassMap[i];
+                    wU32[i] = (c >= 0 && c < numClasses) ? classColorsU32[c] : 0;
+                  }
+                  wCtx.putImageData(wImgData, 0, 0);
+
+                  if (targetOverlayBounds) {
+                    const winBlobUrl = await canvasToBlobUrl(winCanvas);
+                    if (winBlobUrl) {
+                      applyOverlayImage(winBlobUrl, targetOverlayBounds);
+                      renderedHighRes = true;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[Supervised] Error generando ventana visual adaptativa:', e);
+          }
+        }
+
+        if (!renderedHighRes && fullLayerBounds && baseBlobUrl) {
+          applyOverlayImage(baseBlobUrl, fullLayerBounds);
+        }
+
+        // Conectar moveend para actualizar ventana de alta resolución al desplazarse
+        if (!window._supervisedMoveEndAttached && state.map) {
+          window._supervisedMoveEndAttached = true;
+          state.map.on('moveend', () => {
+            const s_sup = window._supervisedState;
+            if (s_sup && s_sup.active && s_sup.classes && s_sup.classes.some(c => c.samples && c.samples.length > 0)) {
+              updateSupervisedLiveClassification(true);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[Supervised] Error en updateSupervisedLiveClassification:', err);
+      } finally {
+        _liveClassificationRunning = false;
+        if (_liveClassificationRerunRequested) {
+          _liveClassificationRerunRequested = false;
+          requestAnimationFrame(() => updateSupervisedLiveClassification(true));
+        }
       }
     }
 
-    // ══════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════
     //  SELECCIÓN Y ELIMINACIÓN DE ÁREAS DE ENTRENAMIENTO (MANITA / DESHACER)
     // ══════════════════════════════════════════════════════════════
     function selectSupervisedArea(areaId, clickLatLng = null) {
