@@ -9608,7 +9608,7 @@ self.onmessage = async function(e) {
         return null;
       }
 
-      function getSatelliteWindowLatLngBounds(minPx, minPy, maxPx, maxPy, layer, tileLayer) {
+      window.getSatelliteWindowLatLngBounds = function getSatelliteWindowLatLngBounds(minPx, minPy, maxPx, maxPy, layer, tileLayer) {
         try {
           const origin = tileLayer?.origin || layer?.origin;
           const res = tileLayer?.resolution || layer?.resolution;
@@ -10067,6 +10067,7 @@ self.onmessage = async function(e) {
 
       window.getRasterPixelCoords = getRasterPixelCoords;
       window.getPixelLatLngBounds = getPixelLatLngBounds;
+      window.getSatelliteWindowLatLngBounds = getSatelliteWindowLatLngBounds;
       window.getSpectralBandMeta = getSpectralBandMeta;
       window.formatBandValue = formatBandValue;
       window.ensureLayerSpectralBands = ensureLayerSpectralBands;
@@ -23931,7 +23932,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
                 wCtx.putImageData(wImgData, 0, 0);
 
-                const winLatLngBounds = getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer);
+                const winLatLngBounds = (typeof getSatelliteWindowLatLngBounds === 'function' ? getSatelliteWindowLatLngBounds : window.getSatelliteWindowLatLngBounds)(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer);
                 if (winLatLngBounds) {
                   applyOverlayImage(winCanvas.toDataURL('image/png'), winLatLngBounds);
                   renderedHighRes = true;
