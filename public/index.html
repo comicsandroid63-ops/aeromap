@@ -14268,6 +14268,216 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
     }
 
+    // ══════════════════════════════════════════════════════════
+    //  DETECCIÓN AUTOMÁTICA DE RÁSTER DIVIDIDO / CORTE ESPACIAL
+    // ══════════════════════════════════════════════════════════
+    function detectRasterSplitOrCut(image, bounds, fileName, fileDirectory, epsg, width, height) {
+      const fn = (fileName || '').trim();
+      const fnUpper = fn.toUpperCase();
+      let isSplit = false;
+      let sectorName = '';
+      let cutEdge = ''; // 'sur' | 'norte' | 'este' | 'oeste' | 'recorte'
+      let cutEdgeDescription = '';
+      let companionFileName = '';
+      let details = '';
+      let regionName = '';
+
+      const hasCesar = fnUpper.includes('CESAR');
+      const isNorteName = /(?:^|[_\-\s])(NORTE|NORTH)(?:[_\-\s\.]|$)/i.test(fn);
+      const isSurName = /(?:^|[_\-\s])(SUR|SOUTH)(?:[_\-\s\.]|$)/i.test(fn);
+      const isEsteName = /(?:^|[_\-\s])(ESTE|ORIENTE|EAST)(?:[_\-\s\.]|$)/i.test(fn);
+      const isOesteName = /(?:^|[_\-\s])(OESTE|OCCIDENTE|WEST)(?:[_\-\s\.]|$)/i.test(fn);
+      const partMatch = fn.match(/(?:PART|PARTE|CHUNK|TILE|SECTOR|SECT)[\-_]?(\d+|[A-Z])/i);
+      const isCutExplicit = /(?:^|[_\-\s])(CORTE|DIVIDID[OA]|SPLIT|CORTADO|CLIP|FRAGMENTO)(?:[_\-\s\.]|$)/i.test(fn);
+
+      let latMin = null, latMax = null, lngMin = null, lngMax = null;
+      if (bounds) {
+        latMin = bounds.getSouth ? bounds.getSouth() : bounds._southWest?.lat;
+        latMax = bounds.getNorth ? bounds.getNorth() : bounds._northEast?.lat;
+        lngMin = bounds.getWest ? bounds.getWest() : bounds._southWest?.lng;
+        lngMax = bounds.getEast ? bounds.getEast() : bounds._northEast?.lng;
+      }
+
+      if (hasCesar) regionName = 'Departamento del Cesar';
+
+      // 1. Análisis por nombre y/o huella espacial geográfica
+      if (isNorteName || (hasCesar && latMin && latMin > 9.2 && latMax && latMax > 10.5)) {
+        isSplit = true;
+        sectorName = 'Sector Norte';
+        cutEdge = 'sur';
+        cutEdgeDescription = 'Límite Sur (corte horizontal con empalme hacia Sector Sur ~9.47°N)';
+        companionFileName = fn.replace(/NORTE/i, 'SUR').replace(/NORTH/i, 'SOUTH');
+        details = 'Ráster seccionado: corresponde al Sector Norte del área de estudio. Su borde inferior presenta un corte recto que empalma con el Sector Sur.';
+      } else if (isSurName || (hasCesar && latMin && latMin < 8.2 && latMax && latMax < 10.0)) {
+        isSplit = true;
+        sectorName = 'Sector Sur';
+        cutEdge = 'norte';
+        cutEdgeDescription = 'Límite Norte (corte horizontal con empalme hacia Sector Norte ~9.70°N)';
+        companionFileName = fn.replace(/SUR/i, 'NORTE').replace(/SOUTH/i, 'NORTH');
+        details = 'Ráster seccionado: corresponde al Sector Sur del área de estudio. Su borde superior presenta un corte recto que empalma con el Sector Norte.';
+      } else if (isEsteName) {
+        isSplit = true;
+        sectorName = 'Sector Este / Oriental';
+        cutEdge = 'oeste';
+        cutEdgeDescription = 'Límite Oeste (corte vertical con empalme hacia Sector Oeste)';
+        companionFileName = fn.replace(/ESTE|ORIENTE|EAST/i, 'OESTE');
+        details = 'Ráster particionado en sentido longitudinal (Sector Este).';
+      } else if (isOesteName) {
+        isSplit = true;
+        sectorName = 'Sector Oeste / Occidental';
+        cutEdge = 'este';
+        cutEdgeDescription = 'Límite Este (corte vertical con empalme hacia Sector Este)';
+        companionFileName = fn.replace(/OESTE|OCCIDENTE|WEST/i, 'ESTE');
+        details = 'Ráster particionado en sentido longitudinal (Sector Oeste).';
+      } else if (partMatch) {
+        isSplit = true;
+        const pVal = partMatch[1];
+        sectorName = `Parte / Bloque ${pVal}`;
+        cutEdge = 'borde';
+        cutEdgeDescription = `Fragmento ${pVal} de mosaico particionado`;
+        const nextP = !isNaN(parseInt(pVal)) ? (parseInt(pVal) === 1 ? 2 : 1) : '';
+        companionFileName = nextP ? fn.replace(partMatch[0], partMatch[0].replace(pVal, nextP)) : '';
+        details = `Ráster particionado en bloques o cuadrículas (Bloque ${pVal}).`;
+      } else if (isCutExplicit) {
+        isSplit = true;
+        sectorName = 'Ráster con Corte / Recorte';
+        cutEdge = 'recorte';
+        cutEdgeDescription = 'Subconjunto o polígono recortado';
+        details = 'El ráster ha sido recortado de una escena o territorio mayor.';
+      }
+
+      return {
+        isSplit,
+        sectorName,
+        cutEdge,
+        cutEdgeDescription,
+        companionFileName,
+        details,
+        regionName,
+        latMin,
+        latMax,
+        lngMin,
+        lngMax
+      };
+    }
+
+    function isCompanionLayer(layerA, layerB) {
+      if (!layerA || !layerB || layerA.id === layerB.id) return false;
+      if (layerA.type !== 'raster' || layerB.type !== 'raster') return false;
+
+      const nameA = (layerA.name || '').trim();
+      const nameB = (layerB.name || '').trim();
+
+      // 1. Chequeo por nombre complementario sugerido
+      if (layerA.splitInfo?.companionFileName) {
+        const compA = layerA.splitInfo.companionFileName.toLowerCase();
+        if (nameB.toLowerCase() === compA || nameB.toLowerCase().includes(compA.replace(/\.(tiff?|ztif)$/i, ''))) {
+          return true;
+        }
+      }
+      if (layerB.splitInfo?.companionFileName) {
+        const compB = layerB.splitInfo.companionFileName.toLowerCase();
+        if (nameA.toLowerCase() === compB || nameA.toLowerCase().includes(compB.replace(/\.(tiff?|ztif)$/i, ''))) {
+          return true;
+        }
+      }
+
+      // 2. Chequeo por pares NORTE / SUR en la misma serie o año
+      const isAnorte = /NORTE|NORTH/i.test(nameA);
+      const isAsur = /SUR|SOUTH/i.test(nameA);
+      const isBnorte = /NORTE|NORTH/i.test(nameB);
+      const isBsur = /SUR|SOUTH/i.test(nameB);
+
+      if ((isAnorte && isBsur) || (isAsur && isBnorte)) {
+        const baseA = nameA.replace(/NORTE|SUR|NORTH|SOUTH/gi, '');
+        const baseB = nameB.replace(/NORTE|SUR|NORTH|SOUTH/gi, '');
+        if (baseA.toLowerCase() === baseB.toLowerCase()) return true;
+      }
+
+      // 3. Chequeo por contigüidad espacial si ambos están divididos
+      if (layerA.splitInfo?.isSplit && layerB.splitInfo?.isSplit) {
+        const bA = layerA.bounds || layerA.splitInfo;
+        const bB = layerB.bounds || layerB.splitInfo;
+        if (bA && bB) {
+          const latMinA = bA.getSouth ? bA.getSouth() : (bA.latMin || bA._southWest?.lat);
+          const latMaxA = bA.getNorth ? bA.getNorth() : (bA.latMax || bA._northEast?.lat);
+          const latMinB = bB.getSouth ? bB.getSouth() : (bB.latMin || bB._southWest?.lat);
+          const latMaxB = bB.getNorth ? bB.getNorth() : (bB.latMax || bB._northEast?.lat);
+          if (latMinA && latMaxB && Math.abs(latMinA - latMaxB) < 0.35) return true;
+          if (latMinB && latMaxA && Math.abs(latMinB - latMaxA) < 0.35) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function mergeDividedLayers(layerAId, layerBId) {
+      const layerA = state.layers.find(l => l.id === layerAId);
+      const layerB = state.layers.find(l => l.id === layerBId);
+      if (!layerA || !layerB) return;
+
+      // 1. Activar visibilidad de ambos sectores
+      layerA.visible = true;
+      layerB.visible = true;
+      if (layerA.mapLayer && state.map && !state.map.hasLayer(layerA.mapLayer)) layerA.mapLayer.addTo(state.map);
+      if (layerB.mapLayer && state.map && !state.map.hasLayer(layerB.mapLayer)) layerB.mapLayer.addTo(state.map);
+
+      // 2. Marcar como mosaico unificado
+      layerA.isMergedMosaic = true;
+      layerB.isMergedMosaic = true;
+      layerA.companionLayerId = layerB.id;
+      layerB.companionLayerId = layerA.id;
+
+      // 3. Emparejar opacidades y bandas
+      if (layerA.rendererParams && layerB.rendererParams) {
+        layerB.rendererParams = JSON.parse(JSON.stringify(layerA.rendererParams));
+        layerB.renderer = layerA.renderer;
+        if (layerB._geotiffTileLayer) {
+          layerB._geotiffTileLayer.options.bands = layerA.rendererParams.bands;
+          layerB._geotiffTileLayer.options.rendererParams = layerA.rendererParams;
+          layerB._geotiffTileLayer.redraw();
+        }
+      }
+
+      // 4. Centrar y ajustar zoom a la cobertura combinada total
+      const bA = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layerA) : null) || layerA.bounds;
+      const bB = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layerB) : null) || layerB.bounds;
+
+      if (bA && bB && state.map) {
+        const latMinA = bA.getSouth ? bA.getSouth() : bA._southWest?.lat;
+        const latMaxA = bA.getNorth ? bA.getNorth() : bA._northEast?.lat;
+        const lngMinA = bA.getWest ? bA.getWest() : bA._southWest?.lng;
+        const lngMaxA = bA.getEast ? bA.getEast() : bA._northEast?.lng;
+
+        const latMinB = bB.getSouth ? bB.getSouth() : bB._southWest?.lat;
+        const latMaxB = bB.getNorth ? bB.getNorth() : bB._northEast?.lat;
+        const lngMinB = bB.getWest ? bB.getWest() : bB._southWest?.lng;
+        const lngMaxB = bB.getEast ? bB.getEast() : bB._northEast?.lng;
+
+        if (latMinA != null && latMinB != null) {
+          const combined = L.latLngBounds(
+            [Math.min(latMinA, latMinB), Math.min(lngMinA, lngMinB)],
+            [Math.max(latMaxA, latMaxB), Math.max(lngMaxA, lngMaxB)]
+          );
+          state.map.fitBounds(combined, { padding: [40, 40], maxZoom: 18, animate: true });
+        }
+      }
+
+      updateLayersSidebar();
+      toast(`✓ Sectores unidos con éxito: Visualizando cobertura completa (${layerA.name} + ${layerB.name})`, 'success', 7000);
+    }
+    window.mergeDividedLayers = mergeDividedLayers;
+
+    function promptImportCompanion(suggestedFileName) {
+      window._expectedCompanionFileName = suggestedFileName;
+      const $fi = document.getElementById('fileInput');
+      if ($fi) {
+        toast(`Por favor selecciona el archivo complementario: ${suggestedFileName || 'Sector opuesto'}`, 'info', 7000);
+        $fi.click();
+      }
+    }
+    window.promptImportCompanion = promptImportCompanion;
+
     async function showPreviewOverlay(layer, savedAs, opts = {}) {
       try {
         const maxSize = opts.maxSize || 0;
@@ -15624,6 +15834,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // 2. IMMEDIATE LAYER CREATION: Sensor inteligente basado en metadatos internos del TIFF
       const activeImg = clientImg || clientGeo?.image || null;
       const sensorInfo = detectTiffSensorMetadata(activeImg, activeImg?.fileDirectory, file.name);
+      const splitInfo = detectRasterSplitOrCut(activeImg, clientBounds, file.name, activeImg?.fileDirectory, clientEpsg, clientWidth, clientHeight);
       const numBands = sensorInfo.nBands || clientBands || 3;
       const initialRenderer = opts.renderer || sensorInfo.defaultRenderer || (numBands === 3 || numBands === 4 ? 'rgb' : numBands > 4 ? 'multiband' : 'single_gray');
       const defaultBands = opts.rendererParams?.bands || sensorInfo.defaultBands || (numBands >= 7 ? [3, 2, 1] : numBands >= 4 ? [2, 1, 0] : [0, 1, 2]);
@@ -15643,6 +15854,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         name: file.name,
         type: 'raster',
         sensor: sensorInfo,
+        splitInfo: splitInfo,
+        isDivided: splitInfo.isSplit,
         visible: (opts.isRestored && opts.visible !== undefined) ? opts.visible : (opts.visible ?? true),
         opacity: opts.opacity ?? 1,
         blendMode: opts.blendMode || 'normal',
@@ -15703,6 +15916,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       hideProgress();
       updateZtifBadgeUI(layer);
       toast(`✓ ${file.name} visualizado en alta resolución`, 'success');
+
+      if (splitInfo && splitInfo.isSplit) {
+        console.log(`[loadTiff] ⚡ Ráster dividido detectado: ${splitInfo.sectorName} (${splitInfo.cutEdgeDescription})`);
+        toast(`⚡ Ráster dividido detectado: ${splitInfo.sectorName} (${splitInfo.cutEdgeDescription})`, 'info', 7000);
+
+        const comp = state.layers.find(l => l.id !== layer.id && isCompanionLayer(l, layer));
+        if (comp) {
+          layer.companionLayerId = comp.id;
+          comp.companionLayerId = layer.id;
+          toast(`🔗 Detectada capa complementaria "${comp.name}". Puedes unirlas en el panel para visualizar completo.`, 'success', 8000);
+        }
+      }
 
       // 2. Subida en segundo plano a Cloudflare R2 para respaldo/persistencia sin interferir en la visualización
       if (!layer.storageUrl && !opts.isRestored) {
@@ -24813,6 +25038,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${isSelected ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-600 text-white shadow-2xs">Activa</span>' : ''}
               ${layer.isClassified ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600 text-white shadow-2xs">Clasificada</span>' : ''}
               ${layer._isSolo ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs">Solo</span>' : ''}
+              ${layer.isMergedMosaic ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 flex items-center gap-0.5 shadow-2xs" title="Mosaico unido y completo"><span class="material-symbols-outlined text-[10px]">join_inner</span>Mosaico</span>' : (layer.isDivided && layer.splitInfo ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 border border-amber-500/30 flex items-center gap-0.5 shadow-2xs" title="${layer.splitInfo.details}"><span class="material-symbols-outlined text-[10px]">content_cut</span>${layer.splitInfo.sectorName || 'Dividido'}</span>` : '')}
             </div>
             <div class="flex items-center gap-1.5 text-[8px] text-zinc-400 font-bold uppercase tracking-widest flex-wrap">
               <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'ZTIF ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
@@ -24894,6 +25120,47 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </button>
           </div>
         </div>
+
+        ${layer.isDivided && layer.splitInfo ? `
+        <!-- Alerta y acciones para Ráster Dividido / Corte -->
+        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-1.5 shadow-2xs mb-1">
+          <div class="flex items-center justify-between">
+            <span class="text-[8.5px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px] text-amber-600">content_cut</span>
+              Ráster Dividido (${layer.splitInfo.sectorName || 'Fragmento'})
+            </span>
+            <span class="text-[7.5px] font-bold text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+              ${layer.splitInfo.cutEdge ? 'Corte: ' + layer.splitInfo.cutEdge.toUpperCase() : 'Parcial'}
+            </span>
+          </div>
+          <p class="text-[8.5px] text-zinc-600 leading-tight">
+            ${layer.splitInfo.details}
+            ${layer.splitInfo.cutEdgeDescription ? `<br><span class="text-zinc-700 font-semibold">Línea de corte:</span> ${layer.splitInfo.cutEdgeDescription}` : ''}
+          </p>
+          <div class="flex items-center gap-1.5 pt-0.5">
+            ${(() => {
+              const comp = state.layers.find(l => l.id !== layer.id && isCompanionLayer(l, layer));
+              if (comp) {
+                return `
+                  <button onclick="event.stopPropagation(); mergeDividedLayers(${layer.id}, ${comp.id})" 
+                    class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider bg-amber-600 hover:bg-amber-700 text-white shadow-2xs flex items-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-[11px]">join_inner</span>
+                    Unir con ${comp.name} (Visualizar Completo)
+                  </button>
+                `;
+              } else {
+                return `
+                  <button onclick="event.stopPropagation(); promptImportCompanion('${layer.splitInfo.companionFileName || ''}')" 
+                    class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 shadow-2xs flex items-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-[11px]">add_photo_alternate</span>
+                    Cargar parte complementaria (${layer.splitInfo.companionFileName || 'Sector opuesto'})
+                  </button>
+                `;
+              }
+            })()}
+          </div>
+        </div>
+        ` : ''}
 
         <!-- 2. Contenido según tipo de capa: Clasificada, Ráster normal o Vectorial -->
         ${layer.isClassified ? `
@@ -25359,6 +25626,39 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   <p class="text-[10px] font-bold text-black">${layer.bands}</p>
                 </div>
               </div>`;
+            if (layer.splitInfo && layer.splitInfo.isSplit) {
+              infoHtml += `
+                <div class="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                      <span class="material-symbols-outlined text-[13px] text-amber-600">content_cut</span>
+                      Diagnóstico: Ráster Dividido / Corte
+                    </span>
+                    <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-800 border border-amber-500/30">
+                      ${layer.splitInfo.sectorName}
+                    </span>
+                  </div>
+                  <p class="text-[8.5px] text-zinc-600 leading-normal">
+                    ${layer.splitInfo.details}
+                  </p>
+                  ${layer.splitInfo.cutEdgeDescription ? `
+                    <div class="text-[8px] text-zinc-700 bg-white/80 p-1.5 rounded border border-amber-200">
+                      <strong>Línea de corte:</strong> <span>${layer.splitInfo.cutEdgeDescription}</span>
+                    </div>
+                  ` : ''}
+                  ${layer.splitInfo.companionFileName ? `
+                    <div class="flex items-center justify-between gap-1 pt-1 border-t border-amber-200/60 mt-0.5">
+                      <span class="text-[8px] text-zinc-500 truncate" title="${layer.splitInfo.companionFileName}">
+                        Contraparte: <strong class="text-zinc-700">${layer.splitInfo.companionFileName}</strong>
+                      </span>
+                      <button onclick="promptImportCompanion('${layer.splitInfo.companionFileName}')" class="px-2 py-0.5 rounded text-[7.5px] font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs shrink-0 transition-colors">
+                        Cargar
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }
           } else {
             const featureCount = layer.geoJson?.features?.length || 0;
             infoHtml = `
@@ -25770,6 +26070,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === id);
       if (!layer) return;
       layer.visible = !layer.visible;
+
+      if (layer.isMergedMosaic && layer.companionLayerId) {
+        const comp = state.layers.find(l => l.id === layer.companionLayerId);
+        if (comp) {
+          comp.visible = layer.visible;
+          if (comp.visible) {
+            if (comp.mapLayer) comp.mapLayer.addTo(state.map);
+            else if (comp._geotiffTileLayer) comp._geotiffTileLayer.addTo(state.map);
+          } else {
+            if (comp.mapLayer) { try { state.map.removeLayer(comp.mapLayer); } catch (_) {} }
+            if (comp._geotiffTileLayer) { try { state.map.removeLayer(comp._geotiffTileLayer); } catch (_) {} }
+          }
+        }
+      }
+
       updateLayersSidebar();
       if (layer.visible) {
         if (layer.mapLayer) {
@@ -26219,6 +26534,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               toast(`Archivo "${file.name}" cargado en la nube (formato no visualizable directamente)`, 'info');
           }
       }
+      // 3. Post-proceso inteligente: detección y asociación automática de mosaicos complementarios importados en lote
+      const dividedRasters = state.layers.filter(l => l.type === 'raster' && l.isDivided && !l.isMergedMosaic);
+      for (let i = 0; i < dividedRasters.length; i++) {
+        for (let j = i + 1; j < dividedRasters.length; j++) {
+          const rA = dividedRasters[i];
+          const rB = dividedRasters[j];
+          if (isCompanionLayer(rA, rB)) {
+            console.log(`[processIncomingFiles] 🔗 Vinculando automáticamente sectores complementarios: ${rA.name} + ${rB.name}`);
+            mergeDividedLayers(rA.id, rB.id);
+            break;
+          }
+        }
+      }
+
       if (window._loadedByQgisFiles) window._loadedByQgisFiles.clear();
     }
 
@@ -26976,6 +27305,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function zoomToLayer(layerId) {
       const layer = state.layers.find(l => l.id === layerId);
       if (!layer) return;
+
+      if (layer.isMergedMosaic && layer.companionLayerId) {
+        const comp = state.layers.find(l => l.id === layer.companionLayerId);
+        if (comp) {
+          const bA = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
+          const bB = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(comp) : null) || comp.bounds;
+          if (bA && bB && state.map) {
+            const latMinA = bA.getSouth ? bA.getSouth() : bA._southWest?.lat;
+            const latMaxA = bA.getNorth ? bA.getNorth() : bA._northEast?.lat;
+            const lngMinA = bA.getWest ? bA.getWest() : bA._southWest?.lng;
+            const lngMaxA = bA.getEast ? bA.getEast() : bA._northEast?.lng;
+
+            const latMinB = bB.getSouth ? bB.getSouth() : bB._southWest?.lat;
+            const latMaxB = bB.getNorth ? bB.getNorth() : bB._northEast?.lat;
+            const lngMinB = bB.getWest ? bB.getWest() : bB._southWest?.lng;
+            const lngMaxB = bB.getEast ? bB.getEast() : bB._northEast?.lng;
+
+            if (latMinA != null && latMinB != null) {
+              const combined = L.latLngBounds(
+                [Math.min(latMinA, latMinB), Math.min(lngMinA, lngMinB)],
+                [Math.max(latMaxA, latMaxB), Math.max(lngMaxA, lngMaxB)]
+              );
+              state.map.flyToBounds(combined, { padding: [40, 40], maxZoom: 18, duration: 1.2 });
+              return;
+            }
+          }
+        }
+      }
+
       if (layer.bounds && layer.bounds._southWest) {
         state.map.flyToBounds(layer.bounds, { padding: [40, 40], maxZoom: 18, duration: 1.2 });
       } else if (layer.bounds && layer.bounds.west != null) {
