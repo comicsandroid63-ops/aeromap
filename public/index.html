@@ -13423,12 +13423,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const b1 = (isArrayOfBands && dims > 1) ? raw[1] : null;
               const b2 = (isArrayOfBands && dims > 2) ? raw[2] : null;
 
+              const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
+              let isNormalizedFloat = false;
+              if (isFloatType) {
+                for (let k = 0; k < Math.min(1000, pxCount); k++) {
+                  if (b0[k] > 0 && b0[k] <= 1.0) {
+                    isNormalizedFloat = true;
+                    break;
+                  }
+                }
+              }
+              const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
+              const collarThreshold = isNormalizedFloat ? 0.005 : 5;
+
               for (let i = 0; i < pxCount; i++) {
                 const v0 = b0[i];
                 const v1 = b1 ? b1[i] : 0;
                 const v2 = b2 ? b2[i] : 0;
 
-                // Filtro riguroso: NoData, NaN, infinitos y collar exterior negro (<=3)
+                // Filtro riguroso: NoData, NaN, infinitos y collar exterior negro (<= collarThreshold)
                 if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
                   tileClassMap[i] = -1;
                   continue;
@@ -13437,18 +13450,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   tileClassMap[i] = -1;
                   continue;
                 }
-                const isFloat = (v0 > 0 && v0 <= 1.0) || (b1 && b1[i] <= 1.0);
-                const collarThreshold = isFloat ? 0.001 : 3;
                 if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
                   tileClassMap[i] = -1;
                   continue;
                 }
 
+                const normV0 = v0 * scaleFactor;
+                const normV1 = v1 * scaleFactor;
+                const normV2 = v2 * scaleFactor;
+
                 // Modo 1 sola clase (Detección por umbral)
                 if (numClasses === 1) {
-                  const d0 = v0 - flatMeans[0];
-                  const d1 = v1 - flatMeans[1];
-                  const d2 = v2 - flatMeans[2];
+                  const d0 = normV0 - flatMeans[0];
+                  const d1 = normV1 - flatMeans[1];
+                  const d2 = normV2 - flatMeans[2];
                   const dSq = d0 * d0 + d1 * d1 + d2 * d2;
                   tileClassMap[i] = (dSq <= dims * 40 * 40) ? 0 : -1;
                   continue;
@@ -13461,9 +13476,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   let minD = Infinity, bestC = activeClassIdx >= 0 ? activeClassIdx : 0;
                   for (let c = 0; c < numClasses; c++) {
                     const cOff = c * dims;
-                    const d0 = v0 - flatMeans[cOff];
-                    const d1 = v1 - flatMeans[cOff + 1];
-                    const d2 = v2 - flatMeans[cOff + 2];
+                    const d0 = normV0 - flatMeans[cOff];
+                    const d1 = normV1 - flatMeans[cOff + 1];
+                    const d2 = normV2 - flatMeans[cOff + 2];
                     const dCentroid = d0 * d0 + d1 * d1 + d2 * d2;
 
                     let minSampD = dCentroid;
@@ -13472,9 +13487,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (sLen > 0) {
                       for (let s = 0; s < sLen; s++) {
                         const sv = smps[s];
-                        const sd0 = v0 - sv[0];
-                        const sd1 = v1 - sv[1];
-                        const sd2 = v2 - sv[2];
+                        const sd0 = normV0 - sv[0];
+                        const sd1 = normV1 - (sv[1] || 0);
+                        const sd2 = normV2 - (sv[2] || 0);
                         const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
                         if (sd < minSampD) minSampD = sd;
                       }
@@ -13490,9 +13505,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   let maxLL = -Infinity, bestC = 0;
                   for (let c = 0; c < numClasses; c++) {
                     const cOff = c * dims;
-                    const d0 = v0 - flatMeans[cOff];
-                    const d1 = v1 - flatMeans[cOff + 1];
-                    const d2 = v2 - flatMeans[cOff + 2];
+                    const d0 = normV0 - flatMeans[cOff];
+                    const d1 = normV1 - flatMeans[cOff + 1];
+                    const d2 = normV2 - flatMeans[cOff + 2];
                     const ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
                     if (ll > maxLL) { maxLL = ll; bestC = c; }
                   }
@@ -13500,12 +13515,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
                 // Algoritmo: Ángulo Espectral SAM (Invariante a iluminación y sombras)
                 else if (alg === 'spectral_angle') {
-                  const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+                  const pNorm = Math.sqrt(normV0 * normV0 + normV1 * normV1 + normV2 * normV2) || 1e-4;
                   const invPNorm = 1 / pNorm;
                   let maxCos = -1, bestC = 0;
                   for (let c = 0; c < numClasses; c++) {
                     const cOff = c * dims;
-                    const dot = v0 * flatMeans[cOff] + v1 * flatMeans[cOff + 1] + v2 * flatMeans[cOff + 2];
+                    const dot = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
                     const cosA = (dot * invPNorm) * invNorm[c];
                     if (cosA > maxCos) { maxCos = cosA; bestC = c; }
                   }
@@ -23238,6 +23253,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       if (!vals || vals.length === 0) return null;
 
+      // Normalizar valores float 0.0..1.0 a escala estándar 0..255
+      if (vals.every(v => v >= 0 && v <= 1.0)) {
+        vals = vals.map(v => Math.round(v * 255));
+      }
+
+      // Evitar muestreo de collar exterior o NoData negro fuera de la capa útil
+      const isBlackCollar = vals.every(v => v <= 5);
+      if (isBlackCollar) {
+        toast('El punto seleccionado está fuera del área útil del satélite.', 'info');
+        return null;
+      }
+
       activeCls.pixelSet.add(pixelKey);
       const sample = {
         px: satPx,
@@ -23273,6 +23300,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               }
             }
             if (!nVals) nVals = vals;
+
+            if (nVals.every(v => v >= 0 && v <= 1.0)) {
+              nVals = nVals.map(v => Math.round(v * 255));
+            }
+            if (nVals.every(v => v <= 5)) continue;
 
             activeCls.pixelSet.add(nKey);
             activeCls.samples.push({
@@ -23591,6 +23623,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const bands = spectralData.bands;
         const b0 = bands[0], b1 = (dims > 1 ? bands[1] : null), b2 = (dims > 2 ? bands[2] : null);
 
+        const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
+        let isNormalizedFloat = false;
+        if (isFloatType) {
+          for (let k = 0; k < Math.min(1000, totalPixels); k++) {
+            if (b0[k] > 0 && b0[k] <= 1.0) {
+              isNormalizedFloat = true;
+              break;
+            }
+          }
+        }
+        const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
+        const collarThreshold = isNormalizedFloat ? 0.005 : 5;
+
         const cm0 = new Float32Array(numClasses);
         const cm1 = new Float32Array(numClasses);
         const cm2 = new Float32Array(numClasses);
@@ -23628,15 +23673,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               classMap[i] = -1;
               continue;
             }
-            if (v0 <= 3 && v1 <= 3 && v2 <= 3) {
+            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
               classMap[i] = -1;
               continue;
             }
+            const normV0 = v0 * scaleFactor;
+            const normV1 = v1 * scaleFactor;
+            const normV2 = v2 * scaleFactor;
+
             let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
             for (let c = 0; c < numClasses; c++) {
-              const d0 = v0 - cm0[c];
-              const d1 = v1 - cm1[c];
-              const d2 = v2 - cm2[c];
+              const d0 = normV0 - cm0[c];
+              const d1 = normV1 - cm1[c];
+              const d2 = normV2 - cm2[c];
               const dCentroid = d0 * d0 + d1 * d1 + d2 * d2;
 
               let minSampD = dCentroid;
@@ -23645,9 +23694,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               if (sLen > 0) {
                 for (let s = 0; s < sLen; s++) {
                   const sv = smps[s];
-                  const sd0 = v0 - sv[0];
-                  const sd1 = v1 - (sv[1] || 0);
-                  const sd2 = v2 - (sv[2] || 0);
+                  const sd0 = normV0 - sv[0];
+                  const sd1 = normV1 - (sv[1] || 0);
+                  const sd2 = normV2 - (sv[2] || 0);
                   const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
                   if (sd < minSampD) minSampD = sd;
                 }
@@ -23662,15 +23711,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (alg === "max_likelihood") {
           for (let i = 0; i < totalPixels; i++) {
             const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (v0 <= 0 && v1 <= 0 && v2 <= 0) {
+            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
               classMap[i] = -1;
               continue;
             }
+            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
+              classMap[i] = -1;
+              continue;
+            }
+            const normV0 = v0 * scaleFactor;
+            const normV1 = v1 * scaleFactor;
+            const normV2 = v2 * scaleFactor;
+
             let maxLL = -Infinity, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
-              const d0 = v0 - cm0[c];
-              const d1 = v1 - cm1[c];
-              const d2 = v2 - cm2[c];
+              const d0 = normV0 - cm0[c];
+              const d1 = normV1 - cm1[c];
+              const d2 = normV2 - cm2[c];
               const ll = baseLL[c] - (d0 * d0 * inv2Var0[c] + d1 * d1 * inv2Var1[c] + d2 * d2 * inv2Var2[c]);
               if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
@@ -23679,15 +23736,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (alg === "spectral_angle") {
           for (let i = 0; i < totalPixels; i++) {
             const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (v0 <= 0 && v1 <= 0 && v2 <= 0) {
+            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
               classMap[i] = -1;
               continue;
             }
-            const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
+              classMap[i] = -1;
+              continue;
+            }
+            const normV0 = v0 * scaleFactor;
+            const normV1 = v1 * scaleFactor;
+            const normV2 = v2 * scaleFactor;
+
+            const pNorm = Math.sqrt(normV0 * normV0 + normV1 * normV1 + normV2 * normV2) || 1e-4;
             const invPNorm = 1 / pNorm;
             let maxCos = -1, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
-              const dot = v0 * cm0[c] + v1 * cm1[c] + v2 * cm2[c];
+              const dot = normV0 * cm0[c] + normV1 * cm1[c] + normV2 * cm2[c];
               const cosA = (dot * invPNorm) * invNorm[c];
               if (cosA > maxCos) { maxCos = cosA; bestC = c; }
             }
@@ -23842,7 +23907,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             state._supervisedLiveLayer = L.imageOverlay(url, latlngBounds, {
               opacity: targetOpacity,
               interactive: false,
-              zIndex: 650
+              zIndex: 650,
+              className: 'classified-crisp-overlay geotiff-crisp-tile'
             });
             state._supervisedLiveLayer._blobUrl = url;
             if (isVisible) {
@@ -35542,6 +35608,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           b0 = rB; b1 = gB; b2 = bB;
         }
 
+        const isFloatType = (b0 instanceof Float32Array || b0 instanceof Float64Array);
+        let isNormalizedFloat = false;
+        if (isFloatType) {
+          for (let k = 0; k < Math.min(1000, curPxCount); k++) {
+            if (b0[k] > 0 && b0[k] <= 1.0) {
+              isNormalizedFloat = true;
+              break;
+            }
+          }
+        }
+        const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
+        const collarThreshold = isNormalizedFloat ? 0.005 : 5;
+
         const chunkImgData = outCtx.createImageData(w, curH);
         const chunkU32 = new Uint32Array(chunkImgData.data.buffer);
 
@@ -35559,24 +35638,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             chunkU32[i] = 0; // Transparente
             continue;
           }
-          const isFloat = (v0 > 0 && v0 <= 1.0) || (b1 && b1[idx] <= 1.0);
-          const collarThreshold = isFloat ? 0.001 : 3;
           if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
             chunkU32[i] = 0; // Transparente
             continue;
           }
 
+          const normV0 = v0 * scaleFactor;
+          const normV1 = v1 * scaleFactor;
+          const normV2 = v2 * scaleFactor;
+
           let bestC = activeClassIdx >= 0 ? activeClassIdx : 0;
           if (numClasses === 1) {
-            const d0 = v0 - flatMeans[0], d1 = v1 - flatMeans[1], d2 = v2 - flatMeans[2];
+            const d0 = normV0 - flatMeans[0], d1 = normV1 - flatMeans[1], d2 = normV2 - flatMeans[2];
             bestC = (d0 * d0 + d1 * d1 + d2 * d2 <= dims * 40 * 40) ? 0 : -1;
           } else if (alg === 'min_distance') {
             let minD = Infinity;
             for (let c = 0; c < numClasses; c++) {
               const cOff = c * dims;
-              const d0 = v0 - flatMeans[cOff];
-              const d1 = v1 - flatMeans[cOff + 1];
-              const d2 = v2 - flatMeans[cOff + 2];
+              const d0 = normV0 - flatMeans[cOff];
+              const d1 = normV1 - flatMeans[cOff + 1];
+              const d2 = normV2 - flatMeans[cOff + 2];
               const dCentroid = d0 * d0 + d1 * d1 + d2 * d2;
 
               let minSampD = dCentroid;
@@ -35585,9 +35666,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               if (sLen > 0) {
                 for (let s = 0; s < sLen; s++) {
                   const sv = smps[s];
-                  const sd0 = v0 - sv[0];
-                  const sd1 = v1 - sv[1];
-                  const sd2 = v2 - sv[2];
+                  const sd0 = normV0 - sv[0];
+                  const sd1 = normV1 - (sv[1] || 0);
+                  const sd2 = normV2 - (sv[2] || 0);
                   const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
                   if (sd < minSampD) minSampD = sd;
                 }
@@ -35600,18 +35681,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             let maxLL = -Infinity;
             for (let c = 0; c < numClasses; c++) {
               const cOff = c * dims;
-              const d0 = v0 - flatMeans[cOff];
-              const d1 = v1 - flatMeans[cOff + 1];
-              const d2 = v2 - flatMeans[cOff + 2];
+              const d0 = normV0 - flatMeans[cOff];
+              const d1 = normV1 - flatMeans[cOff + 1];
+              const d2 = normV2 - flatMeans[cOff + 2];
               const ll = baseLL[c] - (d0 * d0 * flatInv2Var[cOff] + d1 * d1 * flatInv2Var[cOff + 1] + d2 * d2 * flatInv2Var[cOff + 2]);
               if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
           } else if (alg === 'spectral_angle') {
-            const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
+            const pNorm = Math.sqrt(normV0 * normV0 + normV1 * normV1 + normV2 * normV2) || 1e-4;
             const invPNorm = 1 / pNorm;
             let maxCos = -1;
             for (let c = 0; c < numClasses; c++) {
-              const dot = v0 * flatMeans[cOff] + v1 * flatMeans[cOff + 1] + v2 * flatMeans[cOff + 2];
+              const cOff = c * dims;
+              const dot = normV0 * flatMeans[cOff] + normV1 * flatMeans[cOff + 1] + normV2 * flatMeans[cOff + 2];
               const cosA = (dot * invPNorm) * invNorm[c];
               if (cosA > maxCos) { maxCos = cosA; bestC = c; }
             }
@@ -36008,12 +36090,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           };
         });
 
+        const permanentConfig = {
+          isSupervised: true,
+          algorithm: state_sup.algorithm,
+          dims: (state_sup._liveClassStats && state_sup._liveClassStats[0]?.mean?.length) || (layer?.bands || 3),
+          classes: activeClasses.map((cl, idx) => {
+            const cs = state_sup._liveClassStats ? state_sup._liveClassStats[idx] : null;
+            return {
+              ...finalThematicClasses[idx],
+              mean: cs ? Array.from(cs.mean) : [],
+              variance: cs ? Array.from(cs.variance) : [],
+              samples: (cs && cs.cls && cs.cls.samples) ? cs.cls.samples.map(s => ({ values: Array.from(s.values) })) : [],
+              invNorm: cs ? cs.invNorm : 1.0,
+              logDetVar: cs ? cs.logDetVar : 0
+            };
+          })
+        };
+
         targetLayer = {
           id: 'live_supervised_' + Date.now(),
           name: 'Clasificación Supervisada - ' + (layer ? layer.name : 'Raster'),
           type: 'raster',
           isClassified: true,
           supervised: true,
+          parentLayerId: layer ? layer.id : state_sup.layerId,
           bounds: layer ? (getNormalizedLayerBounds(layer) || layer.bounds) : (state.map ? state.map.getBounds() : null),
           resolution: layer?.resolution || null,
           origin: layer?.origin || null,
@@ -36021,7 +36121,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           _classifiedCanvas: state_sup._liveCanvas,
           _classificationMap: state_sup._classificationMap,
           _pixelClusterMap: state_sup._classificationMap,
-          classes: finalThematicClasses
+          classes: finalThematicClasses,
+          _classificationConfig: permanentConfig
         };
         window._tempExportClassifiedLayer = targetLayer;
       }
