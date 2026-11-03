@@ -23034,7 +23034,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // Asegura que existan datos espectrales o de imagen para clasificación instantánea (< 20ms)
     async function ensureSupervisedSpectralData(layer) {
       if (!layer) return null;
-      if (layer._unsupervisedSpectralData && layer._unsupervisedSpectralData.width > 0) {
+      if (layer._unsupervisedSpectralData && layer._unsupervisedSpectralData.width > 0 && layer._unsupervisedSpectralData.type === 'multispectral') {
         return layer._unsupervisedSpectralData;
       }
       if (layer._rawSpectralBands && layer._rawSpectralBands.length > 0) {
@@ -23051,45 +23051,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return layer._unsupervisedSpectralData;
       }
 
-      // 1. Cargar desde overviewUrl (PNG ligero en Cloudflare R2 / local - respuesta < 25ms con colores exactos)
-      const imgUrl = layer.overviewUrl || layer._geotiffTileLayer?.options?.overviewUrl || (layer.storageUrl ? layer.storageUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png') : null);
-      if (imgUrl && typeof imgUrl === 'string') {
-        try {
-          let blob = null;
-          if (typeof ZimaTiffCache !== 'undefined' && ZimaTiffCache.getOverview) {
-            blob = await ZimaTiffCache.getOverview(imgUrl);
-          }
-          if (!blob) {
-            const resp = await fetch(imgUrl);
-            if (resp.ok) blob = await resp.blob();
-          }
-          if (blob && blob.size > 0) {
-            const bmp = await createImageBitmap(blob);
-            const c = document.createElement('canvas');
-            c.width = bmp.width;
-            c.height = bmp.height;
-            const ctx = c.getContext('2d');
-            ctx.drawImage(bmp, 0, 0);
-            const idata = ctx.getImageData(0, 0, c.width, c.height);
-            layer._unsupervisedSpectralData = {
-              type: 'canvas',
-              width: c.width,
-              height: c.height,
-              data: idata.data,
-              bandsCount: 3
-            };
-            state._unsupervisedSpectralData = layer._unsupervisedSpectralData;
-            layer._canvasWidth = c.width;
-            layer._canvasHeight = c.height;
-            bmp.close();
-            return layer._unsupervisedSpectralData;
-          }
-        } catch (e) {
-          console.warn('[Supervised] OverviewUrl fetch warning:', e);
-        }
-      }
-
-      // 2. Si tiene niveles piramidales o imagen GeoTIFF, leer nivel para análisis subpíxel
+      // 1. PRIORIDAD MÁXIMA: Pirámide multiespectral GeoTIFF con todas las bandas satelitales nativas
       const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
       if (tileLayer && tileLayer.pyramid?.levels && tileLayer.pyramid.levels.length > 0) {
         try {
@@ -23167,6 +23129,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         } catch (e) {
           console.warn('[Supervised] Pyramid read warning:', e);
+        }
+      }
+
+      // 2. Fallback a overviewUrl si no hay pirámide multiespectral
+      const imgUrl = layer.overviewUrl || layer._geotiffTileLayer?.options?.overviewUrl || (layer.storageUrl ? layer.storageUrl.replace(/\.(tiff?|ztif)$/i, '_overview.png') : null);
+      if (imgUrl && typeof imgUrl === 'string') {
+        try {
+          let blob = null;
+          if (typeof ZimaTiffCache !== 'undefined' && ZimaTiffCache.getOverview) {
+            blob = await ZimaTiffCache.getOverview(imgUrl);
+          }
+          if (!blob) {
+            const resp = await fetch(imgUrl);
+            if (resp.ok) blob = await resp.blob();
+          }
+          if (blob && blob.size > 0) {
+            const bmp = await createImageBitmap(blob);
+            const c = document.createElement('canvas');
+            c.width = bmp.width;
+            c.height = bmp.height;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(bmp, 0, 0);
+            const idata = ctx.getImageData(0, 0, c.width, c.height);
+            layer._unsupervisedSpectralData = {
+              type: 'canvas',
+              width: c.width,
+              height: c.height,
+              data: idata.data,
+              bandsCount: 3
+            };
+            state._unsupervisedSpectralData = layer._unsupervisedSpectralData;
+            layer._canvasWidth = c.width;
+            layer._canvasHeight = c.height;
+            bmp.close();
+            return layer._unsupervisedSpectralData;
+          }
+        } catch (e) {
+          console.warn('[Supervised] OverviewUrl fetch warning:', e);
         }
       }
 
@@ -23573,44 +23573,55 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
 
       // Función núcleo de clasificación rápida para cualquier búfer raster (overview o ventana nivel 0)
-      function classifyRasters(b0, b1, b2, pxCount, scaleFactor, collarThreshold) {
+      function classifyRasters(b0OrBands, b1OrCount, b2OrScale, pxCountOrCollar, scaleFactor, collarThreshold) {
+        let bands, pxCount, scale, collar;
+        if (Array.isArray(b0OrBands)) {
+          bands = b0OrBands;
+          pxCount = b1OrCount;
+          scale = b2OrScale != null ? b2OrScale : 1.0;
+          collar = pxCountOrCollar != null ? pxCountOrCollar : 5;
+        } else {
+          bands = [b0OrBands, b1OrCount, b2OrScale].filter(b => b != null);
+          pxCount = pxCountOrCollar;
+          scale = scaleFactor != null ? scaleFactor : 1.0;
+          collar = collarThreshold != null ? collarThreshold : 5;
+        }
+
+        const cmpDims = Math.min(dims, bands.length);
         const outMap = new Int16Array(pxCount);
+
         if (numClasses === 1) {
-          const m0 = cm0[0];
-          const m1 = cm1[0];
-          const m2 = cm2[0];
+          const m0 = classStats[0].mean;
           const repSamples = repSamplesList[0] || [];
-          const maxDistSq = dims * 75 * 75; // Umbral inclusivo adaptado para cubrir varianza de suelo/cultivo sin huecos
+          const maxDistSq = cmpDims * 75 * 75;
 
           for (let i = 0; i < pxCount; i++) {
-            const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+            let isCollar = true;
+            let hasInvalid = false;
+            for (let d = 0; d < cmpDims; d++) {
+              const v = bands[d][i];
+              if (isNaN(v) || !isFinite(v)) { hasInvalid = true; break; }
+              if (layerNoData != null && Math.abs(v - layerNoData) < 1e-4) { hasInvalid = true; break; }
+              if (v > collar) isCollar = false;
+            }
+            if (hasInvalid || isCollar) {
               outMap[i] = -1;
               continue;
             }
-            if (layerNoData != null && (Math.abs(v0 - layerNoData) < 1e-4 || (b1 && Math.abs(v1 - layerNoData) < 1e-4) || (b2 && Math.abs(v2 - layerNoData) < 1e-4))) {
-              outMap[i] = -1;
-              continue;
-            }
-            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
-              outMap[i] = -1;
-              continue;
-            }
-            const normV0 = v0 * scaleFactor;
-            const normV1 = v1 * scaleFactor;
-            const normV2 = v2 * scaleFactor;
 
-            const d0 = normV0 - m0;
-            const d1 = normV1 - m1;
-            const d2 = normV2 - m2;
-            let minD = d0 * d0 + d1 * d1 + d2 * d2;
+            let minD = 0;
+            for (let d = 0; d < cmpDims; d++) {
+              const diff = (bands[d][i] * scale) - m0[d];
+              minD += diff * diff;
+            }
 
             for (let s = 0; s < repSamples.length; s++) {
               const sv = repSamples[s];
-              const sd0 = normV0 - sv[0];
-              const sd1 = normV1 - (sv[1] || 0);
-              const sd2 = normV2 - (sv[2] || 0);
-              const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+              let sd = 0;
+              for (let d = 0; d < cmpDims; d++) {
+                const diff = (bands[d][i] * scale) - (sv[d] || 0);
+                sd += diff * diff;
+              }
               if (sd < minD) minD = sd;
             }
 
@@ -23618,40 +23629,39 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         } else if (alg === "min_distance") {
           for (let i = 0; i < pxCount; i++) {
-            const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+            let isCollar = true;
+            let hasInvalid = false;
+            for (let d = 0; d < cmpDims; d++) {
+              const v = bands[d][i];
+              if (isNaN(v) || !isFinite(v)) { hasInvalid = true; break; }
+              if (layerNoData != null && Math.abs(v - layerNoData) < 1e-4) { hasInvalid = true; break; }
+              if (v > collar) isCollar = false;
+            }
+            if (hasInvalid || isCollar) {
               outMap[i] = -1;
               continue;
             }
-            if (layerNoData != null && (Math.abs(v0 - layerNoData) < 1e-4 || (b1 && Math.abs(v1 - layerNoData) < 1e-4) || (b2 && Math.abs(v2 - layerNoData) < 1e-4))) {
-              outMap[i] = -1;
-              continue;
-            }
-            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
-              outMap[i] = -1;
-              continue;
-            }
-            const normV0 = v0 * scaleFactor;
-            const normV1 = v1 * scaleFactor;
-            const normV2 = v2 * scaleFactor;
 
             let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
             for (let c = 0; c < numClasses; c++) {
-              const d0 = normV0 - cm0[c];
-              const d1 = normV1 - cm1[c];
-              const d2 = normV2 - cm2[c];
-              const dCentroid = d0 * d0 + d1 * d1 + d2 * d2;
+              const cMean = classStats[c].mean;
+              let dCentroid = 0;
+              for (let d = 0; d < cmpDims; d++) {
+                const diff = (bands[d][i] * scale) - cMean[d];
+                dCentroid += diff * diff;
+              }
 
               let minSampD = dCentroid;
               const smps = repSamplesList[c];
-              const sLen = smps.length;
+              const sLen = smps ? smps.length : 0;
               if (sLen > 0) {
                 for (let s = 0; s < sLen; s++) {
                   const sv = smps[s];
-                  const sd0 = normV0 - sv[0];
-                  const sd1 = normV1 - (sv[1] || 0);
-                  const sd2 = normV2 - (sv[2] || 0);
-                  const sd = sd0 * sd0 + sd1 * sd1 + sd2 * sd2;
+                  let sd = 0;
+                  for (let d = 0; d < cmpDims; d++) {
+                    const diff = (bands[d][i] * scale) - (sv[d] || 0);
+                    sd += diff * diff;
+                  }
                   if (sd < minSampD) minSampD = sd;
                 }
               }
@@ -23663,49 +23673,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
         } else if (alg === "max_likelihood") {
           for (let i = 0; i < pxCount; i++) {
-            const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+            let isCollar = true;
+            let hasInvalid = false;
+            for (let d = 0; d < cmpDims; d++) {
+              const v = bands[d][i];
+              if (isNaN(v) || !isFinite(v)) { hasInvalid = true; break; }
+              if (layerNoData != null && Math.abs(v - layerNoData) < 1e-4) { hasInvalid = true; break; }
+              if (v > collar) isCollar = false;
+            }
+            if (hasInvalid || isCollar) {
               outMap[i] = -1;
               continue;
             }
-            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
-              outMap[i] = -1;
-              continue;
-            }
-            const normV0 = v0 * scaleFactor;
-            const normV1 = v1 * scaleFactor;
-            const normV2 = v2 * scaleFactor;
 
             let maxLL = -Infinity, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
-              const d0 = normV0 - cm0[c];
-              const d1 = normV1 - cm1[c];
-              const d2 = normV2 - cm2[c];
-              const ll = baseLL[c] - (d0 * d0 * inv2Var0[c] + d1 * d1 * inv2Var1[c] + d2 * d2 * inv2Var2[c]);
+              const cMean = classStats[c].mean;
+              const cVar = classStats[c].variance;
+              let mahalanobis = 0;
+              for (let d = 0; d < cmpDims; d++) {
+                const diff = (bands[d][i] * scale) - cMean[d];
+                mahalanobis += (diff * diff) / (2 * cVar[d]);
+              }
+              const ll = baseLL[c] - mahalanobis;
               if (ll > maxLL) { maxLL = ll; bestC = c; }
             }
             outMap[i] = bestC;
           }
         } else if (alg === "spectral_angle") {
           for (let i = 0; i < pxCount; i++) {
-            const v0 = b0[i], v1 = b1 ? b1[i] : 0, v2 = b2 ? b2[i] : 0;
-            if (isNaN(v0) || !isFinite(v0) || (b1 && !isFinite(v1)) || (b2 && !isFinite(v2))) {
+            let isCollar = true;
+            let hasInvalid = false;
+            let pNormSq = 0;
+            for (let d = 0; d < cmpDims; d++) {
+              const v = bands[d][i];
+              if (isNaN(v) || !isFinite(v)) { hasInvalid = true; break; }
+              if (layerNoData != null && Math.abs(v - layerNoData) < 1e-4) { hasInvalid = true; break; }
+              if (v > collar) isCollar = false;
+              const nv = v * scale;
+              pNormSq += nv * nv;
+            }
+            if (hasInvalid || isCollar) {
               outMap[i] = -1;
               continue;
             }
-            if (v0 <= collarThreshold && v1 <= collarThreshold && v2 <= collarThreshold) {
-              outMap[i] = -1;
-              continue;
-            }
-            const normV0 = v0 * scaleFactor;
-            const normV1 = v1 * scaleFactor;
-            const normV2 = v2 * scaleFactor;
 
-            const pNorm = Math.sqrt(normV0 * normV0 + normV1 * normV1 + normV2 * normV2) || 1e-4;
+            const pNorm = Math.sqrt(pNormSq) || 1e-4;
             const invPNorm = 1 / pNorm;
             let maxCos = -1, bestC = 0;
             for (let c = 0; c < numClasses; c++) {
-              const dot = normV0 * cm0[c] + normV1 * cm1[c] + normV2 * cm2[c];
+              const cMean = classStats[c].mean;
+              let dot = 0;
+              for (let d = 0; d < cmpDims; d++) {
+                dot += (bands[d][i] * scale) * cMean[d];
+              }
               const cosA = (dot * invPNorm) * invNorm[c];
               if (cosA > maxCos) { maxCos = cosA; bestC = c; }
             }
@@ -23744,7 +23765,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         const scaleFactor = isNormalizedFloat ? 255.0 : 1.0;
         const collarThreshold = isNormalizedFloat ? 0.005 : 5;
-        ovClassMap = classifyRasters(b0, b1, b2, totalPixels, scaleFactor, collarThreshold);
+        ovClassMap = classifyRasters(bands, totalPixels, scaleFactor, collarThreshold);
       } else {
         const sData = spectralData.data;
         const rB = new Uint8Array(totalPixels);
@@ -23840,42 +23861,53 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const currentZoom = state.map ? state.map.getZoom() : 10;
       const tileLayer = layer._geotiffTileLayer || (layer.mapLayer?.pyramid ? layer.mapLayer : null);
-      const baseImg = tileLayer?.pyramid?.levels ? tileLayer.pyramid.levels[0] : null;
       let renderedHighRes = false;
 
-      if (currentZoom >= 12 && baseImg && typeof baseImg.readRasters === 'function') {
+      // Adaptación de resolución continua mediante la pirámide GeoTIFF (funciona en TODOS los niveles de zoom sin desorganizarse)
+      if (tileLayer && tileLayer.pyramid && tileLayer.pyramid.levels && tileLayer.pyramid.levels.length > 0) {
         try {
           const mapBounds = state.map.getBounds();
           let pNW = null, pSE = null;
-          if (tileLayer && typeof tileLayer._geoToPixelBase === 'function') {
+          if (typeof tileLayer._geoToPixelBase === 'function') {
             pNW = tileLayer._geoToPixelBase(mapBounds.getWest(), mapBounds.getNorth());
             pSE = tileLayer._geoToPixelBase(mapBounds.getEast(), mapBounds.getSouth());
           }
-          const natW = baseImg.getWidth();
-          const natH = baseImg.getHeight();
+          const baseW = tileLayer.pyramid.baseWidth;
+          const baseH = tileLayer.pyramid.baseHeight;
 
           if (pNW && pSE && !isNaN(pNW[0]) && !isNaN(pNW[1]) && !isNaN(pSE[0]) && !isNaN(pSE[1])) {
-            let minSatX = Math.floor(Math.min(pNW[0], pSE[0]));
-            let maxSatX = Math.ceil(Math.max(pNW[0], pSE[0]));
-            let minSatY = Math.floor(Math.min(pNW[1], pSE[1]));
-            let maxSatY = Math.ceil(Math.max(pNW[1], pSE[1]));
+            const fullW = Math.max(1, Math.abs(pSE[0] - pNW[0]));
+            const fullH = Math.max(1, Math.abs(pSE[1] - pNW[1]));
 
-            // Margen de 25% para paneo continuo sin costuras
-            const padX = Math.max(8, Math.round((maxSatX - minSatX) * 0.25));
-            const padY = Math.max(8, Math.round((maxSatY - minSatY) * 0.25));
-            minSatX = Math.max(0, minSatX - padX);
-            maxSatX = Math.min(natW, maxSatX + padX);
-            minSatY = Math.max(0, minSatY - padY);
-            maxSatY = Math.min(natH, maxSatY + padY);
+            // Seleccionar el nivel de pirámide óptimo según el tamaño de la ventana visual
+            const decimation = Math.max(1, Math.floor(Math.max(fullW / 1200, fullH / 1200)));
+            const levelInfo = (typeof tileLayer.pyramid.getLevelForDecimation === 'function')
+              ? tileLayer.pyramid.getLevelForDecimation(decimation)
+              : { image: tileLayer.pyramid.levels[0], decimation: 1 };
+            const targetImg = levelInfo.image || tileLayer.pyramid.levels[0];
+            const levelDec = levelInfo.decimation || 1;
 
-            const winW = maxSatX - minSatX;
-            const winH = maxSatY - minSatY;
+            let minLvlX = Math.floor(Math.min(pNW[0], pSE[0]) / levelDec);
+            let maxLvlX = Math.ceil(Math.max(pNW[0], pSE[0]) / levelDec);
+            let minLvlY = Math.floor(Math.min(pNW[1], pSE[1]) / levelDec);
+            let maxLvlY = Math.ceil(Math.max(pNW[1], pSE[1]) / levelDec);
+
+            // Margen de 20% para paneo continuo suave sin saltos
+            const padX = Math.max(6, Math.round((maxLvlX - minLvlX) * 0.20));
+            const padY = Math.max(6, Math.round((maxLvlY - minLvlY) * 0.20));
+            minLvlX = Math.max(0, minLvlX - padX);
+            maxLvlX = Math.min(targetImg.getWidth(), maxLvlX + padX);
+            minLvlY = Math.max(0, minLvlY - padY);
+            maxLvlY = Math.min(targetImg.getHeight(), maxLvlY + padY);
+
+            const winW = maxLvlX - minLvlX;
+            const winH = maxLvlY - minLvlY;
 
             if (winW > 0 && winH > 0 && winW <= 2500 && winH <= 2500) {
-              const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (layer.bands || dims);
+              const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || dims);
               const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
-              const raw = await baseImg.readRasters({
-                window: [minSatX, minSatY, maxSatX, maxSatY],
+              const raw = await targetImg.readRasters({
+                window: [minLvlX, minLvlY, maxLvlX, maxLvlY],
                 samples: sampleBands,
                 interleave: false
               });
@@ -23885,9 +23917,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const actH = raw.height || winH;
                 const actTotal = actW * actH;
 
-                let b0 = raw[0], b1 = dims > 1 ? raw[1] : null, b2 = dims > 2 ? raw[2] : null;
-
-                const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? tileLayer?.geo?.photometric ?? layer.photometric;
+                let classifyBands = raw;
+                const photo = targetImg.fileDirectory?.PhotometricInterpretation ?? tileLayer?.geo?.photometric ?? layer.photometric;
                 if (photo === 6 && raw.length >= 3) {
                   const yB = raw[0], cbB = raw[1], crB = raw[2];
                   const rB = new Uint8Array(actTotal);
@@ -23904,9 +23935,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       bB[i] = Math.max(0, Math.min(255, Math.round(y + 1.772 * cbS)));
                     }
                   }
-                  b0 = rB; b1 = gB; b2 = bB;
+                  classifyBands = [rB, gB, bB];
                 }
 
+                const b0 = classifyBands[0];
                 const isFloat = (b0 instanceof Float32Array || b0 instanceof Float64Array);
                 let isNorm = false;
                 if (isFloat) {
@@ -23917,7 +23949,50 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const scale = isNorm ? 255.0 : 1.0;
                 const collar = isNorm ? 0.005 : 5;
 
-                const winClassMap = classifyRasters(b0, b1, b2, actTotal, scale, collar);
+                const winClassMap = classifyRasters(classifyBands, actTotal, scale, collar);
+
+                // Filtro modal 3x3 al observar desde lejos (decimation >= 4, ej. zoom <= 13)
+                // para evitar ruido de ajedrez / salt-and-pepper manteniendo límites netos
+                if (levelDec >= 4 && actW >= 3 && actH >= 3) {
+                  const smoothed = new Int16Array(actTotal);
+                  const votes = new Uint8Array(numClasses);
+                  for (let y = 0; y < actH; y++) {
+                    const yOff = y * actW;
+                    for (let x = 0; x < actW; x++) {
+                      const idx = yOff + x;
+                      const selfC = winClassMap[idx];
+                      if (selfC < 0 || x === 0 || y === 0 || x === actW - 1 || y === actH - 1) {
+                        smoothed[idx] = selfC;
+                        continue;
+                      }
+                      votes.fill(0);
+                      let sameCount = 0;
+                      for (let dy = -1; dy <= 1; dy++) {
+                        const rowOff = (y + dy) * actW + x;
+                        for (let dx = -1; dx <= 1; dx++) {
+                          if (dx === 0 && dy === 0) continue;
+                          const nc = winClassMap[rowOff + dx];
+                          if (nc >= 0 && nc < numClasses) {
+                            votes[nc]++;
+                            if (nc === selfC) sameCount++;
+                          }
+                        }
+                      }
+                      if (sameCount === 0) {
+                        let maxV = 0, majC = selfC;
+                        for (let c = 0; c < numClasses; c++) {
+                          if (votes[c] > maxV) { maxV = votes[c]; majC = c; }
+                        }
+                        if (maxV >= 6) {
+                          smoothed[idx] = majC;
+                          continue;
+                        }
+                      }
+                      smoothed[idx] = selfC;
+                    }
+                  }
+                  for (let i = 0; i < actTotal; i++) winClassMap[i] = smoothed[i];
+                }
 
                 const winCanvas = document.createElement('canvas');
                 winCanvas.width = actW;
@@ -23932,7 +24007,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
                 wCtx.putImageData(wImgData, 0, 0);
 
-                const winLatLngBounds = window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer);
+                const minSatX = minLvlX * levelDec;
+                const maxSatX = maxLvlX * levelDec;
+                const minSatY = minLvlY * levelDec;
+                const maxSatY = maxLvlY * levelDec;
+
+                const winLatLngBounds = window.getSatelliteWindowLatLngBounds
+                  ? window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer)
+                  : null;
+
                 if (winLatLngBounds) {
                   applyOverlayImage(winCanvas.toDataURL('image/png'), winLatLngBounds);
                   renderedHighRes = true;
@@ -23941,7 +24024,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
         } catch (e) {
-          console.warn('[Supervised] Error generando ventana de alta resolución:', e);
+          console.warn('[Supervised] Error generando ventana visual adaptativa:', e);
         }
       }
 
@@ -23951,16 +24034,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           applyOverlayImage(canvas.toDataURL('image/png'), latlngBounds);
         }
       }
-
       // Conectar manejador de moveend para mantener la ventana de alta resolución 100% actualizada al desplazarse por el mapa
       if (!window._supervisedMoveEndAttached && state.map) {
         window._supervisedMoveEndAttached = true;
         state.map.on('moveend', () => {
           const s_sup = window._supervisedState;
           if (s_sup && s_sup.active && s_sup.classes && s_sup.classes.some(c => c.samples && c.samples.length > 0)) {
-            if (state.map.getZoom() >= 12) {
-              updateSupervisedLiveClassification(true);
-            }
+            updateSupervisedLiveClassification(true);
           }
         });
       }
