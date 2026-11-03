@@ -35233,8 +35233,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       let classifiedLayers = state.layers.filter(l => l.isClassified || l.supervised);
 
-      // Si no hay capa guardada pero hay clasificación en vivo activa:
-      if (classifiedLayers.length === 0 && window._supervisedState && window._supervisedState._liveCanvas) {
+      // Si se pasa targetLayerOrId como objeto temporal o está en memoria:
+      if (targetLayerOrId && typeof targetLayerOrId === 'object') {
+        if (!classifiedLayers.some(l => String(l.id) === String(targetLayerOrId.id))) {
+          classifiedLayers = [targetLayerOrId, ...classifiedLayers];
+          window._tempExportClassifiedLayer = targetLayerOrId;
+        }
+      } else if (window._tempExportClassifiedLayer) {
+        if (!classifiedLayers.some(l => String(l.id) === String(window._tempExportClassifiedLayer.id))) {
+          classifiedLayers = [window._tempExportClassifiedLayer, ...classifiedLayers];
+        }
+      }
+
+      // Si no hay capa guardada ni temporal, pero hay clasificación en vivo activa:
+      if (classifiedLayers.length === 0 && window._supervisedState && window._supervisedState._liveCanvas && !targetLayerOrId) {
         exportSupervisedFromDock();
         return;
       }
