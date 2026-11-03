@@ -6441,7 +6441,18 @@
               <span class="material-symbols-outlined text-[15px] text-indigo-600">category</span>
               Clases de Entrenamiento y Muestras Recolectadas
             </span>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" onclick="document.getElementById('supImportJsonInput').click()" 
+                class="px-2 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shadow-2xs bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                title="Importar clases y firmas de entrenamiento desde un archivo JSON">
+                <span class="material-symbols-outlined text-[12px]">file_upload</span> Importar .json
+              </button>
+              <button type="button" onclick="exportSupervisedClassesJson()" 
+                class="px-2 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shadow-2xs bg-white text-violet-700 border-violet-200 hover:bg-violet-50"
+                title="Exportar clases y firmas de entrenamiento en archivo JSON para reusar">
+                <span class="material-symbols-outlined text-[12px]">file_download</span> Exportar .json
+              </button>
+              <input type="file" id="supImportJsonInput" accept=".json" style="display:none;" onchange="handleSupervisedJsonImport(event)">
               <button type="button" onclick="addSupervisedClass()" 
                 class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shadow-2xs"
                 style="background-color: #f8fafc; color: #047857; border-color: #a7f3d0;">
@@ -6693,10 +6704,10 @@
         <span>Panel</span>
       </button>
 
-      <button type="button" onclick="executeSupervisedClassification()" 
-        class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Guardar clasificación supervisada como capa permanente">
-        <span class="material-symbols-outlined text-[14px]">save</span>
-        <span>Guardar Capa</span>
+      <button type="button" onclick="executeSupervisedClassification()" id="supDockSaveBtn"
+        class="px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md transition-all active:scale-95 cursor-pointer" title="Guardar o actualizar clasificación supervisada">
+        <span class="material-symbols-outlined text-[14px]" id="supDockSaveIcon">save</span>
+        <span id="supDockSaveText">Guardar Capa</span>
       </button>
 
       <button type="button" onclick="exportSupervisedFromDock()" 
@@ -8221,6 +8232,9 @@
       </button>
       <button onclick="ctxOpenUnsupervisedClassification()" id="ctxUnsupervisedBtn" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors">
         <span class="material-symbols-outlined text-[16px] text-violet-600">auto_awesome</span> Clasificación no supervisada
+      </button>
+      <button onclick="ctxEditSupervisedClassification()" id="ctxSupervisedBtn" class="px-4 py-2 flex items-center gap-3 hover:bg-emerald-50 transition-colors text-emerald-800">
+        <span class="material-symbols-outlined text-[16px] text-emerald-600">edit_note</span> Editar clasificación
       </button>
       <button onclick="ctxQuickExport('shp')" class="px-4 py-2 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left group">
         <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span>
@@ -16033,10 +16047,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const isZtif = file.name.toLowerCase().endsWith('.ztif');
 
+      // Detección automática de archivo de metadatos o firmas JSON complementario al importar
+      let companionClasses = null;
+      let companionConfig = null;
+      let companionJsonName = '';
+      if (opts.allFiles && opts.allFiles.length > 1) {
+        const baseName = file.name.replace(/\.[^.]+$/, '').toLowerCase();
+        const jsonFile = opts.allFiles.find(f => {
+          const fn = f.name.toLowerCase();
+          return fn === baseName + '.json' || fn === file.name.toLowerCase() + '.json' || (fn.endsWith('.json') && (fn.includes('firmas') || fn.includes('clasif')));
+        });
+        if (jsonFile) {
+          try {
+            const jsonText = await jsonFile.text();
+            const parsed = JSON.parse(jsonText);
+            if (parsed.classes && Array.isArray(parsed.classes)) {
+              companionClasses = parsed.classes;
+              companionConfig = parsed;
+              companionJsonName = jsonFile.name;
+              console.log('[loadTiff] ✓ Metadatos de clasificación detectados en archivo JSON acompañante:', jsonFile.name);
+            }
+          } catch (_) {}
+        }
+      }
+
       let layer = {
         id: opts.dbId || ++idCounter,
         name: file.name,
         type: 'raster',
+        isClassified: companionClasses ? true : false,
+        supervised: companionClasses ? true : false,
+        classes: companionClasses || null,
+        _classificationConfig: companionConfig || null,
         sensor: sensorInfo,
         splitInfo: splitInfo,
         isDivided: splitInfo.isSplit,
@@ -16090,6 +16132,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           layer.mapLayer = clientTileLayer;
           layer.clientGeo = clientGeo;
           console.log('[loadTiff] ✓ Capa raster montada instantáneamente con el archivo del usuario:', file.name);
+          if (companionClasses && companionClasses.length > 0) {
+            toast(`✓ Clasificación supervisada detectada e importada con ${companionClasses.length} clases desde "${companionJsonName}"`, 'success', 6000);
+          }
         } catch (mountErr) {
           console.warn('[loadTiff] Error montando capa local inmediata:', mountErr);
         }
@@ -22800,6 +22845,238 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       return inside;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  EDICIÓN DE CLASIFICACIONES SUPERVISADAS EXISTENTES O IMPORTADAS
+    // ══════════════════════════════════════════════════════════════
+    async function editSupervisedClassificationForLayer(layerId) {
+      const layer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!layer) return toast('Capa no encontrada para editar', 'error');
+
+      const state_sup = window._supervisedState;
+      state_sup.active = true;
+
+      let baseSatelliteLayer = layer;
+      let targetClassifiedLayer = null;
+
+      if (layer.isClassified) {
+        targetClassifiedLayer = layer;
+        if (layer.parentLayerId) {
+          const parent = state.layers.find(l => String(l.id) === String(layer.parentLayerId));
+          if (parent) baseSatelliteLayer = parent;
+        } else {
+          // Si fue importada directamente como TIFF clasificado sin parentLayerId,
+          // buscar en el mapa si existe una capa satelital multiespectral base que coincida en coordenadas
+          const candidate = state.layers.find(l => l.id !== layer.id && l.type === 'raster' && !l.isClassified && (l.bands > 1 || l._unsupervisedSpectralData));
+          if (candidate) {
+            baseSatelliteLayer = candidate;
+            layer.parentLayerId = candidate.id;
+          }
+        }
+      } else {
+        // Es un TIFF normal: verificar si ya tiene una capa clasificada hija asociada
+        const child = state.layers.find(l => l.isClassified && String(l.parentLayerId) === String(layer.id));
+        if (child) {
+          targetClassifiedLayer = child;
+        }
+      }
+
+      state_sup._editingTargetLayerId = targetClassifiedLayer ? targetClassifiedLayer.id : null;
+      state_sup.layerId = baseSatelliteLayer.id;
+
+      // 1. Restaurar clases si la capa clasificada ya tiene clases
+      if (targetClassifiedLayer && targetClassifiedLayer.classes && targetClassifiedLayer.classes.length > 0) {
+        const configClasses = targetClassifiedLayer._classificationConfig?.classes || [];
+        state_sup.classes = targetClassifiedLayer.classes.map((cls, idx) => {
+          const confCls = configClasses[idx] || configClasses.find(c => c.name === cls.name);
+          const samples = (confCls && confCls.samples && confCls.samples.length > 0)
+            ? confCls.samples.map(s => ({
+                values: Array.from(s.values || []),
+                px: s.px,
+                py: s.py,
+                latlng: s.latlng,
+                _areaId: s._areaId
+              }))
+            : (cls.samples ? cls.samples.map(s => ({ ...s })) : []);
+
+          const pixelSet = new Set();
+          samples.forEach(s => {
+            if (s.px !== undefined && s.py !== undefined) pixelSet.add(s.px + '_' + s.py);
+          });
+
+          return {
+            id: cls.id !== undefined ? cls.id : (idx + 1),
+            name: cls.name,
+            color: cls.color || '#000000',
+            samples: samples,
+            pixelSet: pixelSet,
+            livePct: cls.percentage || '0.0',
+            liveHa: cls.areaHa || 0,
+            liveAreaLabel: cls.areaLabel || '0 ha'
+          };
+        });
+
+        if (targetClassifiedLayer._classificationConfig?.algorithm) {
+          state_sup.algorithm = targetClassifiedLayer._classificationConfig.algorithm;
+        }
+      } else if (!state_sup.classes || state_sup.classes.length === 0) {
+        loadOfficialLegendClasses(false);
+      }
+
+      // 2. Restaurar marcadores en el mapa si existen muestras guardadas
+      if (!state_sup.sampleMarkersLayer) {
+        state_sup.sampleMarkersLayer = L.layerGroup().addTo(state.map);
+      } else {
+        state_sup.sampleMarkersLayer.clearLayers();
+        if (!state.map.hasLayer(state_sup.sampleMarkersLayer)) {
+          state_sup.sampleMarkersLayer.addTo(state.map);
+        }
+      }
+
+      state_sup.classes.forEach(cls => {
+        if (!cls.samples) return;
+        cls.samples.forEach(s => {
+          if (s.latlng && Array.isArray(s.latlng)) {
+            const marker = L.circleMarker(s.latlng, {
+              radius: 4,
+              color: '#ffffff',
+              weight: 1.5,
+              fillColor: cls.color,
+              fillOpacity: 0.95,
+              interactive: true
+            });
+            marker._classId = cls.id;
+            marker._areaId = s._areaId;
+            state_sup.sampleMarkersLayer.addLayer(marker);
+          }
+        });
+      });
+
+      // 3. Asegurar datos espectrales de la capa base
+      if (typeof ensureSupervisedSpectralData === 'function') {
+        try { await ensureSupervisedSpectralData(baseSatelliteLayer); } catch (_) {}
+      }
+
+      // 4. Abrir la interfaz de clasificación supervisada (Dock en el mapa)
+      minimizeSupervisedToMap();
+      updateDockSampleBadge();
+      renderSupervisedClassesList();
+      drawSupervisedSpectralChart();
+      updateSupervisedDockClassSelect();
+
+      // Actualizar texto del botón de guardar en el dock para indicar edición
+      const dockSaveBtnText = document.getElementById('supDockSaveText');
+      if (dockSaveBtnText) {
+        dockSaveBtnText.textContent = targetClassifiedLayer ? 'Actualizar' : 'Guardar Capa';
+      }
+      const modalRunBtn = document.getElementById('btnRunSupervised');
+      if (modalRunBtn) {
+        modalRunBtn.innerHTML = targetClassifiedLayer
+          ? '<span class="material-symbols-outlined text-[18px]">check_circle</span> <span>ACTUALIZAR CLASIFICACIÓN</span>'
+          : '<span class="material-symbols-outlined text-[18px]">play_circle</span> <span>CLASIFICAR SUPERVISADA</span>';
+      }
+
+      // Ejecutar clasificación en vivo inicial
+      if (state_sup.classes.some(c => c.samples && c.samples.length > 0)) {
+        updateSupervisedLiveClassification(true);
+      }
+
+      const layerTitle = targetClassifiedLayer ? targetClassifiedLayer.name : baseSatelliteLayer.name;
+      toast(`✓ Modo Edición activo para "${layerTitle}". Muestrea con punto, pincel o polígono para modificar.`, 'success', 5000);
+    }
+    window.editSupervisedClassificationForLayer = editSupervisedClassificationForLayer;
+
+    // Helper para importar firmas espectrales y clases desde archivo JSON
+    function handleSupervisedJsonImport(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          const rawClasses = data.classes || (Array.isArray(data) ? data : null);
+          if (!rawClasses || rawClasses.length === 0) throw new Error('El archivo no contiene un arreglo de clases válido.');
+          
+          const state_sup = window._supervisedState;
+          state_sup.classes = rawClasses.map((c, idx) => {
+            const samples = (c.samples || []).map(s => ({
+              values: Array.from(s.values || s),
+              px: s.px,
+              py: s.py,
+              latlng: s.latlng,
+              _areaId: s._areaId
+            }));
+            const pixelSet = new Set();
+            samples.forEach(s => {
+              if (s.px !== undefined && s.py !== undefined) pixelSet.add(s.px + '_' + s.py);
+            });
+            return {
+              id: c.id !== undefined ? c.id : (idx + 1),
+              name: c.name || `Clase ${idx + 1}`,
+              color: c.color || '#059669',
+              samples: samples,
+              pixelSet: pixelSet,
+              livePct: c.percentage || '0.0',
+              liveHa: c.areaHa || 0,
+              liveAreaLabel: c.areaLabel || '0 ha'
+            };
+          });
+
+          renderSupervisedClassesList();
+          updateDockSampleBadge();
+          updateSupervisedDockClassSelect();
+          drawSupervisedSpectralChart();
+          updateSupervisedLiveClassification(true);
+          toast(`✓ Se importaron ${state_sup.classes.length} clases y firmas espectrales con éxito`, 'success');
+        } catch (err) {
+          toast('Error al importar firmas: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+    window.handleSupervisedJsonImport = handleSupervisedJsonImport;
+
+    // Helper para exportar firmas espectrales y clases en archivo JSON
+    function exportSupervisedClassesJson() {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.classes || state_sup.classes.length === 0) {
+        return toast('No hay clases para exportar', 'warning');
+      }
+
+      const exportObj = {
+        type: 'AeroMapSupervisedSignatures',
+        version: '1.0',
+        algorithm: state_sup.algorithm || 'min_distance',
+        layerName: (state.layers.find(l => l.id === state_sup.layerId)?.name) || 'Raster',
+        exportedAt: new Date().toISOString(),
+        classes: state_sup.classes.map(c => ({
+          id: c.id,
+          name: c.name,
+          color: c.color,
+          samplesCount: c.samples ? c.samples.length : 0,
+          samples: (c.samples || []).map(s => ({
+            values: Array.from(s.values || []),
+            px: s.px,
+            py: s.py,
+            latlng: s.latlng,
+            _areaId: s._areaId
+          }))
+        }))
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(jsonBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `firmas_clasificacion_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast('✓ Archivo JSON con clases y firmas exportado con éxito', 'success');
+    }
+    window.exportSupervisedClassesJson = exportSupervisedClassesJson;
+
     async function openSupervisedClassificationModal(layerId) {
       const state_sup = window._supervisedState;
 
@@ -26272,7 +26549,49 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } catch (_) {}
           }
 
-          // 6. Retirar capa en vivo temporal
+          // 6. Si estamos modificando una clasificación previa, actualizarla en sitio sin duplicarla
+          let existingLayer = null;
+          if (state_sup._editingTargetLayerId) {
+            existingLayer = state.layers.find(l => String(l.id) === String(state_sup._editingTargetLayerId));
+          }
+
+          if (existingLayer) {
+            existingLayer.classes = finalThematicClasses;
+            existingLayer._classifiedCanvas = savedCanvas;
+            existingLayer._classificationMap = savedClassMap;
+            existingLayer._pixelClusterMap = savedClassMap;
+            existingLayer._totalValidPixels = validCount;
+            existingLayer._classificationConfig = permanentClassificationConfig;
+            existingLayer.imageUrl = thumbUrl || savedCanvas.toDataURL('image/png');
+
+            if (classifiedTileLayer) {
+              if (existingLayer.mapLayer && state.map.hasLayer(existingLayer.mapLayer)) {
+                try { state.map.removeLayer(existingLayer.mapLayer); } catch (_) {}
+              }
+              existingLayer.mapLayer = classifiedTileLayer;
+              existingLayer._geotiffTileLayer = classifiedTileLayer;
+              if (existingLayer.visible) classifiedTileLayer.addTo(state.map);
+            } else if (existingLayer.mapLayer && typeof existingLayer.mapLayer.setUrl === 'function') {
+              existingLayer.mapLayer.setUrl(existingLayer.imageUrl);
+              existingLayer.mapLayer.setBounds(normBounds);
+            }
+
+            if (state._supervisedLiveLayer) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+              state._supervisedLiveLayer = null;
+            }
+
+            state.selectedLayerId = existingLayer.id;
+            renderLayersOnMap();
+            updateLayersSidebar();
+
+            closeSupervisedClassificationModal();
+            hideProgress();
+            toast('✓ Clasificación "' + existingLayer.name + '" actualizada con éxito (' + activeClasses.length + ' grupos)', 'success');
+            return;
+          }
+
+          // 7. Retirar capa en vivo temporal y añadir nueva capa
           if (state._supervisedLiveLayer) {
             try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
             state._supervisedLiveLayer = null;
@@ -26303,7 +26622,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
           if (dockBtn) {
             dockBtn.disabled = false;
-            dockBtn.innerHTML = '<span class="material-symbols-outlined text-[14px]">save</span> <span>Guardar Capa</span>';
+            const isEditing = !!state_sup._editingTargetLayerId;
+            dockBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">${isEditing ? 'check_circle' : 'save'}</span> <span id="supDockSaveText">${isEditing ? 'Actualizar' : 'Guardar Capa'}</span>`;
           }
         }
       }, 40);
@@ -26487,10 +26807,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             onclick="event.stopPropagation(); openExportVectorModal(state.layers.find(l => String(l.id) === '${layer.id}'))" title="Exportar Capa Vectorial">
             <span class="material-symbols-outlined text-xs">download</span>
           </button>` : (layer.isClassified ? `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-emerald-50 text-zinc-400 hover:text-emerald-700 transition-colors"
+            onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')" title="Editar Clasificación Supervisada">
+            <span class="material-symbols-outlined text-xs text-emerald-600">edit_note</span>
+          </button>
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-violet-50 text-zinc-400 hover:text-violet-600 transition-colors"
             onclick="event.stopPropagation(); openExportClassifiedModal(${layer.id})" title="Exportar Clasificación (GeoTIFF, GeoPNG, GeoJSON, CSV)">
             <span class="material-symbols-outlined text-xs">download</span>
-          </button>` : '')}
+          </button>` : `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-emerald-50 text-zinc-400 hover:text-emerald-700 transition-colors"
+            onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')" title="Editar / Realizar Clasificación Supervisada de este TIFF">
+            <span class="material-symbols-outlined text-xs text-emerald-600">edit_note</span>
+          </button>`)}
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
             onclick="event.stopPropagation(); openLayerContextMenu(event, ${layer.id})" title="Más opciones">
             <span class="material-symbols-outlined text-xs">more_vert</span>
@@ -26621,12 +26949,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </button>
             <div class="flex items-center gap-1.5">
             ${layer.supervised ? `
-            <button onclick="event.stopPropagation(); openSupervisedClassificationModal('${layer.parentLayerId || layer.id}')"
-              class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
-              style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;">
-              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">gesture</span> Re-entrenar
+            <button onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')"
+              class="px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+              style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;"
+              title="Editar clases, muestras y modificar la clasificación supervisada">
+              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">edit_note</span> Editar clasificación
             </button>
             ` : `
+            <button onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')"
+              class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+              style="background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;"
+              title="Editar como clasificación supervisada">
+              <span class="material-symbols-outlined text-[11px]" style="color: #047857 !important;">edit_note</span> Editar clasificación
+            </button>
             <button onclick="event.stopPropagation(); openUnsupervisedClassificationModal('${layer.parentLayerId || layer.id}')"
               class="px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
               style="background-color: #f5f3ff !important; color: #6d28d9 !important; border: 1px solid #ddd6fe !important;">
@@ -26638,6 +26973,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         </div>
         ` : (!isVector ? `
         <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
+          <!-- Opción directa: Editar clasificación para cualquier TIFF -->
+          <div class="flex items-center gap-1.5 pb-2 border-b border-zinc-200/80">
+            <button onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')"
+              class="w-full py-1.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs transition-all cursor-pointer hover:scale-[1.01] active:scale-95"
+              title="Abrir o editar clasificación supervisada para este archivo TIFF">
+              <span class="material-symbols-outlined text-[15px] text-emerald-600">edit_note</span>
+              <span>Editar Clasificación</span>
+            </button>
+          </div>
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-black uppercase tracking-wider text-indigo-700 flex items-center gap-1">
               <span class="material-symbols-outlined text-[13px]">palette</span>
@@ -27933,7 +28277,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               await loadGenericVector(file, currentOpts);
           }
           else if (/\.(tiff?|ztif|img|vrt)$/i.test(name)) {
-              await loadTiff(file, currentOpts);
+              await loadTiff(file, { ...currentOpts, allFiles: files });
           }
           else if (/\.(xlsx|xls|csv)$/i.test(name)) {
               await loadExcel(file, currentOpts);
@@ -28679,6 +29023,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         btnUnsupervised.style.display = (layer && layer.type === 'raster' && !layer.isClassified) ? 'flex' : 'none';
       }
 
+      // Mostrar Editar clasificación para cualquier capa ráster / TIFF o clasificada
+      const btnSupervised = document.getElementById('ctxSupervisedBtn');
+      if (btnSupervised) {
+        btnSupervised.style.display = (layer && (layer.type === 'raster' || layer.isClassified)) ? 'flex' : 'none';
+      }
+
       // Show attribute table only for vector/excel layers
       const btnAttr = document.getElementById('ctxAttrBtn');
       if (btnAttr) {
@@ -28706,6 +29056,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // Stop body clicks from closing immediately
       e.stopPropagation();
     }
+
+    function ctxEditSupervisedClassification() {
+      hideContextMenu();
+      if (state.ctxLayerId != null) {
+        editSupervisedClassificationForLayer(state.ctxLayerId);
+      }
+    }
+    window.ctxEditSupervisedClassification = ctxEditSupervisedClassification;
 
     function hideContextMenu() {
       document.getElementById('layerContextMenu').style.display = 'none';
