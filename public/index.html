@@ -23932,7 +23932,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 }
                 wCtx.putImageData(wImgData, 0, 0);
 
-                const winLatLngBounds = (typeof getSatelliteWindowLatLngBounds === 'function' ? getSatelliteWindowLatLngBounds : window.getSatelliteWindowLatLngBounds)(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer);
+                const winLatLngBounds = window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer);
                 if (winLatLngBounds) {
                   applyOverlayImage(winCanvas.toDataURL('image/png'), winLatLngBounds);
                   renderedHighRes = true;
