@@ -22608,9 +22608,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function addSupervisedClass(customName = null) {
       const state_sup = window._supervisedState;
-      const differentialColors = generateDifferentialRandomColors(16);
+      const palette = [
+        '#22c55e', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444',
+        '#2563eb', '#ec4899', '#84cc16', '#ea580c', '#6366f1',
+        '#14b8a6', '#d946ef', '#f97316', '#0284c7', '#a855f7',
+        '#e11d48', '#ca8a04', '#64748b', '#0d9488', '#3b82f6'
+      ];
       const nextId = (state_sup.classes.reduce((m, c) => Math.max(m, c.id), -1) + 1);
-      const color = differentialColors[nextId % differentialColors.length];
+      const color = palette[nextId % palette.length];
       const name = customName || ('Grupo ' + (nextId + 1));
 
       const newCls = {
