@@ -24240,7 +24240,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const pxX = mX + dx, pxY = mY + dy;
             if (pxX >= 0 && pxX < cW && pxY >= 0 && pxY < cH) {
               const idx = pxY * cW + pxX;
-              state_sup._classificationMap[idx] = activeCls.id;
+              const _sampledCls = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+              let _activeClsIdx = _sampledCls.findIndex(c => String(c.id) === String(activeCls.id));
+              if (_activeClsIdx < 0) _activeClsIdx = state_sup.classes.findIndex(c => String(c.id) === String(activeCls.id));
+              state_sup._classificationMap[idx] = _activeClsIdx >= 0 ? _activeClsIdx : 0;
               u32[idx] = u32Color;
             }
           }
@@ -24331,10 +24334,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // 1. REASIGNACIÓN Y DESALOJO ESPECTRAL/ESPACIAL:
       // Si el usuario entrena una muestra para activeCls (ej. Suelo Descubierto) en una zona que otro grupo
       // (ej. Agua) reclamaba, se eliminan las muestras conflictivas del otro grupo para que la clase activa tome control total.
-      const conflictRadius = (state_sup.samplingTool === 'point') ? 12 : 6;
+      const conflictRadius = 2;
       let removedFromOther = false;
       state_sup.classes.forEach(otherCls => {
-        if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples) return;
+        if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples || otherCls.samples.length <= 1) return;
         const initLen = otherCls.samples.length;
         otherCls.samples = otherCls.samples.filter(s => {
           const dx = s.px - satPx;
@@ -24364,7 +24367,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
 
-          const isConflict = isSpatialConflict || isSpectralConflict;
+          const isConflict = isSpatialConflict;
           if (isConflict && otherCls.pixelSet) {
             otherCls.pixelSet.delete(s.px + '_' + s.py);
           }
@@ -24771,18 +24774,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return sa - sb;
             });
 
-            // Extremo más oscuro (sombras críticas y agua)
-            if (!repSamples.includes(sorted[0]?.values || sorted[0])) repSamples.push(sorted[0]?.values || sorted[0]);
-            if (sorted.length > 2 && !repSamples.includes(sorted[1]?.values || sorted[1])) repSamples.push(sorted[1]?.values || sorted[1]);
-
-            // Extremo más brillante
-            if (!repSamples.includes(sorted[sorted.length - 1]?.values || sorted[sorted.length - 1])) repSamples.push(sorted[sorted.length - 1]?.values || sorted[sorted.length - 1]);
-
-            // Medoides por percentiles (25%, 50%, 75%)
-            const p25 = Math.floor(sorted.length * 0.25);
+            // Medoides robustos por percentiles (15%, 35%, 50%, 65%, 85%) sin outliers extremos
+            const p15 = Math.floor(sorted.length * 0.15);
+            const p35 = Math.floor(sorted.length * 0.35);
             const p50 = Math.floor(sorted.length * 0.50);
-            const p75 = Math.floor(sorted.length * 0.75);
-            [p25, p50, p75].forEach(idxP => {
+            const p65 = Math.floor(sorted.length * 0.65);
+            const p85 = Math.floor(sorted.length * 0.85);
+            [p15, p35, p50, p65, p85].forEach(idxP => {
               const sv = sorted[idxP]?.values || sorted[idxP];
               if (sv && !repSamples.includes(sv)) repSamples.push(sv);
             });
@@ -24833,7 +24831,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let pIdx = 0;
         for (let c = 0; c < numClasses; c++) {
           const smps = classStats[c].repSamples;
-          const weightSq = (c === activeIdx) ? 0.64 : 1.0; // Prioridad decidida al entrenar clase activa (0.80 distancia = 0.64 distancia al cuadrado)
+          const weightSq = 1.0;
           if (!smps || smps.length === 0) {
             flatProto0[pIdx] = classStats[c].mean[0] || 0;
             flatProto1[pIdx] = classStats[c].mean[1] || 0;
@@ -24944,14 +24942,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
                 if (pSum3 >= 150) {
                   // Camino primario (85%+ de píxeles: sin coste de división cromática)
-                  let minD = 1e12, bestC = activeIdx >= 0 ? activeIdx : 0;
+                  let minD = 1e12, bestC = 0;
                   for (let p = 0; p < totalProtos; p++) {
                     const d0 = p0 - flatProto0[p];
                     const d1 = p1 - flatProto1[p];
                     const d2 = p2 - flatProto2[p];
-                    const dist = (d0 * d0 + d1 * d1 + d2 * d2) * flatProtoWeightSq[p];
-                    const isTie = Math.abs(dist - minD) < 1e-4;
-                    if (dist < minD || (isTie && flatProtoClass[p] === activeIdx)) {
+                    const dist = d0 * d0 + d1 * d1 + d2 * d2;
+                    if (dist < minD) {
                       minD = dist;
                       bestC = flatProtoClass[p];
                     }
@@ -24964,21 +24961,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   const pCg = p1 * invS;
                   const pCb = p2 * invS;
 
-                  let minD = 1e12, bestC = activeIdx >= 0 ? activeIdx : 0;
+                  let minD = 1e12, bestC = 0;
                   for (let p = 0; p < totalProtos; p++) {
                     const d0 = p0 - flatProto0[p];
                     const d1 = p1 - flatProto1[p];
                     const d2 = p2 - flatProto2[p];
-                    let dist = (d0 * d0 + d1 * d1 + d2 * d2) * flatProtoWeightSq[p];
-                    if (flatProtoSum[p] < 190) {
-                      const crDiff = pCr - flatProtoCr[p];
-                      const cgDiff = pCg - flatProtoCg[p];
-                      const cbDiff = pCb - flatProtoCb[p];
-                      const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
-                      dist = 0.5 * dist + 0.5 * chromaD * flatProtoWeightSq[p];
-                    }
-                    const isTie = Math.abs(dist - minD) < 1e-4;
-                    if (dist < minD || (isTie && flatProtoClass[p] === activeIdx)) {
+                    let dist = d0 * d0 + d1 * d1 + d2 * d2;
+                    const crDiff = pCr - flatProtoCr[p];
+                    const cgDiff = pCg - flatProtoCg[p];
+                    const cbDiff = pCb - flatProtoCb[p];
+                    const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 2000;
+                    dist = dist + chromaD;
+                    if (dist < minD) {
                       minD = dist;
                       bestC = flatProtoClass[p];
                     }
@@ -25023,7 +25017,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (sd < minSampD) minSampD = sd;
                   }
 
-                  const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.81 : 1.0);
+                  const d = (sLen > 0 ? minSampD : dCentroid);
                   if (d < minD) { minD = d; bestC = c; }
                 }
                 outMap[i] = bestC;
@@ -26021,21 +26015,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const spanY = Math.max(1, maxSatY - minSatY + 1);
       const estArea = spanX * spanY;
 
-      // 2. Desalojar muestras previas de otros grupos dentro de este polígono (espacio Lat/Lng y Satélite)
+      // 2. Desalojar muestras previas dentro de este polígono protegiendo la existencia de cada clase
       state_sup.classes.forEach(otherCls => {
-        if (otherCls.id === activeCls.id || !otherCls.samples) return;
-        otherCls.samples = otherCls.samples.filter(s => {
+        if (otherCls.id === activeCls.id || !otherCls.samples || otherCls.samples.length <= 1) return;
+        const kept = [];
+        for (let s of otherCls.samples) {
           let inside = false;
-          if (s.latlng && s.latlng.length >= 2) {
-            inside = isPointInPolygon([s.latlng[0], s.latlng[1]], pts);
-          } else {
-            inside = isPointInPolygon([s.px, s.py], satPts);
-          }
-          if (inside && otherCls.pixelSet) {
+          if (s.latlng && s.latlng.length >= 2) inside = isPointInPolygon([s.latlng[0], s.latlng[1]], pts);
+          else inside = isPointInPolygon([s.px, s.py], satPts);
+          if (!inside) {
+            kept.push(s);
+          } else if (otherCls.pixelSet) {
             otherCls.pixelSet.delete(s.px + '_' + s.py);
           }
-          return !inside;
-        });
+        }
+        if (kept.length === 0 && otherCls.samples.length > 0) {
+          kept.push(otherCls.samples[0]);
+        }
+        otherCls.samples = kept;
       });
 
       if (state_sup.sampleMarkersLayer) {
@@ -26219,62 +26216,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layers: polyLayer ? [polyLayer] : []
       });
 
-      // Desalojo espectral masivo de otras clases para que este polígono domine totalmente su espectro
-      if (polySamples.length > 0) {
-        state_sup.classes.forEach(otherCls => {
-          if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples) return;
-          const initLen = otherCls.samples.length;
-          otherCls.samples = otherCls.samples.filter(os => {
-            const ov = os.values;
-            if (!ov) return true;
-            for (let i = 0; i < polySamples.length; i += Math.max(1, Math.floor(polySamples.length / 20))) {
-              const pv = polySamples[i].values;
-              if (!pv) continue;
-              let dSq = 0, dot = 0, nO = 0, nP = 0;
-              const dLen = Math.min(ov.length, pv.length);
-              for (let b = 0; b < dLen; b++) {
-                const vo = ov[b] || 0;
-                const vp = pv[b] || 0;
-                dot += vo * vp;
-                nO += vo * vo;
-                nP += vp * vp;
-                const diff = vo - vp;
-                dSq += diff * diff;
-              }
-              const normO = Math.sqrt(nO) || 1e-4;
-              const normP = Math.sqrt(nP) || 1e-4;
-              const cosSim = dot / (normO * normP);
-              const normDiff = Math.sqrt(dSq) / (normO + normP);
-
-              if (dSq < 550 || (cosSim > 0.96 && normDiff < 0.22)) {
-                if (otherCls.pixelSet && os.px !== undefined) otherCls.pixelSet.delete(os.px + '_' + os.py);
-                return false;
-              }
-            }
-            return true;
-          });
-          if (otherCls.samples.length < initLen) {
-            if (state_sup.trainingAreas) {
-              state_sup.trainingAreas.forEach(a => {
-                if (String(a.classId) === String(otherCls.id) && a.samples) {
-                  a.samples = a.samples.filter(as => otherCls.samples.includes(as));
-                }
-              });
-              state_sup.trainingAreas = state_sup.trainingAreas.filter(a => String(a.classId) !== String(otherCls.id) || (a.samples && a.samples.length > 0));
-            }
-            if (state_sup.sampleMarkersLayer) {
-              state_sup.sampleMarkersLayer.eachLayer(layer => {
-                if (layer._classId === otherCls.id && layer.getLatLng) {
-                  if (isPointInPolygon([layer.getLatLng().lat, layer.getLatLng().lng], pts)) {
-                    state_sup.sampleMarkersLayer.removeLayer(layer);
-                  }
-                }
-              });
-            }
-          }
-        });
-      }
-
       // Reclasificar todos los píxeles dentro del polígono directamente en _classificationMap y _liveCanvas
       if (state_sup._liveCanvas && state_sup._classificationMap && satPts.length >= 3) {
         const cW = state_sup._liveCanvas.width;
@@ -26303,7 +26244,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let px = pMinX; px <= pMaxX; px++) {
             if (isPointInPolygon([px, py], polyCanvasPts)) {
               const idx = py * cW + px;
-              state_sup._classificationMap[idx] = activeCls.id;
+              const _sampledCls = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
+              let _activeClsIdx = _sampledCls.findIndex(c => String(c.id) === String(activeCls.id));
+              if (_activeClsIdx < 0) _activeClsIdx = state_sup.classes.findIndex(c => String(c.id) === String(activeCls.id));
+              state_sup._classificationMap[idx] = _activeClsIdx >= 0 ? _activeClsIdx : 0;
               u32[idx] = u32Color;
             }
           }
@@ -26373,20 +26317,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               let sd = (v0 - sv[0])**2 + (v1 - (sv[1] || 0))**2 + (v2 - (sv[2] || 0))**2;
               if (isDarkShadow) {
                 const sSum = (sv[0]||0) + (sv[1]||0) + (sv[2]||0);
-                if (sSum < 190) {
-                  const crDiff = (v0 / (sumV + 1)) - ((sv[0]||0) / (sSum + 1));
-                  const cgDiff = (v1 / (sumV + 1)) - ((sv[1]||0) / (sSum + 1));
-                  const cbDiff = (v2 / (sumV + 1)) - ((sv[2]||0) / (sSum + 1));
-                  const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
-                  sd = 0.5 * sd + 0.5 * chromaD;
-                }
+                const crDiff = (v0 / (sumV + 1)) - ((sv[0]||0) / (sSum + 1));
+                const cgDiff = (v1 / (sumV + 1)) - ((sv[1]||0) / (sSum + 1));
+                const cbDiff = (v2 / (sumV + 1)) - ((sv[2]||0) / (sSum + 1));
+                const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 2000;
+                sd = sd + chromaD;
               }
               if (sd < minSampD) minSampD = sd;
             }
           }
-          const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.81 : 1.0);
-          const isTie = Math.abs(d - minD) < 1e-4;
-          if (d < minD || (isTie && c === activeIdx)) { minD = d; bestC = c; }
+          const d = (sLen > 0 ? minSampD : dCentroid);
+          if (d < minD) { minD = d; bestC = c; }
         }
         return bestC;
       }
@@ -26409,8 +26350,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const cosS = (dotS * invPNorm) / sNorm;
             if (cosS > bestClassCos) bestClassCos = cosS;
           }
-          const isTie = Math.abs(bestClassCos - maxCos) < 1e-4;
-          if (bestClassCos > maxCos || (isTie && c === activeIdx)) { maxCos = bestClassCos; bestC = c; }
+          if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
         }
         return bestC;
       }
