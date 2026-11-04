@@ -24247,7 +24247,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         ctx.putImageData(state_sup._liveImgData, 0, 0);
 
-        if (typeof canvasToBlobUrl === 'function') {
+        if (state_sup._editingTargetLayerId && typeof canvasToBlobUrl === 'function') {
           canvasToBlobUrl(state_sup._liveCanvas).then(bUrl => {
             if (bUrl && state._supervisedLiveLayer) {
               state._supervisedLiveLayer.setUrl(bUrl);
@@ -24331,7 +24331,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // 1. REASIGNACIÓN Y DESALOJO ESPECTRAL/ESPACIAL:
       // Si el usuario entrena una muestra para activeCls (ej. Suelo Descubierto) en una zona que otro grupo
       // (ej. Agua) reclamaba, se eliminan las muestras conflictivas del otro grupo para que la clase activa tome control total.
-      const conflictRadius = state_sup.samplingTool === 'point' ? 5 : 2.5;
+      const conflictRadius = (state_sup.samplingTool === 'point') ? 12 : 6;
       let removedFromOther = false;
       state_sup.classes.forEach(otherCls => {
         if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples) return;
@@ -24343,13 +24343,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           let isSpectralConflict = false;
           if (s.values && vals && s.values.length > 0) {
-            let sqD = 0;
             const dLen = Math.min(s.values.length, vals.length);
+            let dot = 0, nA = 0, nB = 0, sqD = 0;
             for (let b = 0; b < dLen; b++) {
-              const diff = (s.values[b] || 0) - (vals[b] || 0);
+              const va = s.values[b] || 0;
+              const vb = vals[b] || 0;
+              dot += va * vb;
+              nA += va * va;
+              nB += vb * vb;
+              const diff = va - vb;
               sqD += diff * diff;
             }
-            if (sqD < 500) { // espectro idéntico o muy cercano en la misma escena
+            const normA = Math.sqrt(nA) || 1e-4;
+            const normB = Math.sqrt(nB) || 1e-4;
+            const cosSim = dot / (normA * normB);
+            const normDiff = Math.sqrt(sqD) / (normA + normB);
+
+            if ((cosSim > 0.96 && normDiff < 0.22) || sqD < 500) {
               isSpectralConflict = true;
             }
           }
@@ -24363,11 +24373,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (otherCls.samples.length < initLen) {
           removedFromOther = true;
+          if (state_sup.trainingAreas) {
+            state_sup.trainingAreas.forEach(a => {
+              if (String(a.classId) === String(otherCls.id) && a.samples) {
+                a.samples = a.samples.filter(as => otherCls.samples.includes(as));
+              }
+            });
+            state_sup.trainingAreas = state_sup.trainingAreas.filter(a => String(a.classId) !== String(otherCls.id) || (a.samples && a.samples.length > 0));
+          }
           if (state_sup.sampleMarkersLayer) {
             state_sup.sampleMarkersLayer.eachLayer(layer => {
               if (layer._classId === otherCls.id && layer.getLatLng) {
                 const distM = layer.getLatLng().distanceTo(latlng);
-                if (distM < 45) {
+                if (distM < 65) {
                   state_sup.sampleMarkersLayer.removeLayer(layer);
                 }
               }
@@ -24435,6 +24453,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: areaId,
             type: 'point',
             classId: activeCls.id,
+            satPx: satPx,
+            satPy: satPy,
             samples: [sample],
             layers: [marker]
           });
@@ -24714,20 +24734,36 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             parseInt(hex.substring(4, 6), 16) || 0
           ];
 
-          // Extracción de prototipos representativos (máximo 8-10 por clase)
-          // Preserva centroide, extremos de sombra/brillo y percentiles cromáticos
+          // Extracción de prototipos representativos (multimodales y diversas áreas de entrenamiento)
           const smps = cls.samples || [];
           const repSamples = [];
+
+          // Incluir siempre el centroide medio
+          const meanArr = Array.from(mean);
+          repSamples.push(meanArr);
+
+          // Incluir explícitamente muestras de cada área entrenada por el usuario (puntos, polígonos, trazos)
+          if (state_sup.trainingAreas) {
+            state_sup.trainingAreas.forEach(area => {
+              if (String(area.classId) === String(cls.id) && area.samples && area.samples.length > 0) {
+                const midS = area.samples[Math.floor(area.samples.length / 2)]?.values;
+                if (midS && !repSamples.includes(midS)) repSamples.push(midS);
+                if (area.samples.length > 4) {
+                  const firstS = area.samples[0]?.values;
+                  const lastS = area.samples[area.samples.length - 1]?.values;
+                  if (firstS && !repSamples.includes(firstS)) repSamples.push(firstS);
+                  if (lastS && !repSamples.includes(lastS)) repSamples.push(lastS);
+                }
+              }
+            });
+          }
+
           if (smps.length <= 8) {
             for (let s = 0; s < smps.length; s++) {
               const sv = smps[s]?.values || smps[s];
-              if (sv && Array.isArray(sv)) repSamples.push(sv);
+              if (sv && Array.isArray(sv) && !repSamples.includes(sv)) repSamples.push(sv);
             }
           } else {
-            // Siempre incluir el centroide medio como primer prototipo
-            const meanArr = Array.from(mean);
-            repSamples.push(meanArr);
-
             const sorted = [...smps].sort((a, b) => {
               const va = (a.values || a), vb = (b.values || b);
               const sa = (va[0]||0) + (va[1]||0) + (va[2]||0);
@@ -24735,12 +24771,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return sa - sb;
             });
 
-            // Extremo más oscuro (sombras críticas)
-            repSamples.push(sorted[0].values || sorted[0]);
-            if (sorted.length > 2) repSamples.push(sorted[1].values || sorted[1]);
+            // Extremo más oscuro (sombras críticas y agua)
+            if (!repSamples.includes(sorted[0]?.values || sorted[0])) repSamples.push(sorted[0]?.values || sorted[0]);
+            if (sorted.length > 2 && !repSamples.includes(sorted[1]?.values || sorted[1])) repSamples.push(sorted[1]?.values || sorted[1]);
 
             // Extremo más brillante
-            repSamples.push(sorted[sorted.length - 1].values || sorted[sorted.length - 1]);
+            if (!repSamples.includes(sorted[sorted.length - 1]?.values || sorted[sorted.length - 1])) repSamples.push(sorted[sorted.length - 1]?.values || sorted[sorted.length - 1]);
 
             // Medoides por percentiles (25%, 50%, 75%)
             const p25 = Math.floor(sorted.length * 0.25);
@@ -24797,7 +24833,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let pIdx = 0;
         for (let c = 0; c < numClasses; c++) {
           const smps = classStats[c].repSamples;
-          const weightSq = (c === activeIdx) ? 0.81 : 1.0; // 0.90 de distancia = 0.81 en distancia al cuadrado
+          const weightSq = (c === activeIdx) ? 0.64 : 1.0; // Prioridad decidida al entrenar clase activa (0.80 distancia = 0.64 distancia al cuadrado)
           if (!smps || smps.length === 0) {
             flatProto0[pIdx] = classStats[c].mean[0] || 0;
             flatProto1[pIdx] = classStats[c].mean[1] || 0;
@@ -25145,19 +25181,43 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         state_sup._classificationMap = ovClassMap;
 
-        // Garantizar que las áreas y polígonos entrenados por el usuario se respeten al 100% sobre el mapa
+        // Garantizar que TODAS las áreas, puntos y polígonos entrenados por el usuario se respeten al 100% sobre el mapa overview
         if (state_sup.trainingAreas && state_sup.trainingAreas.length > 0) {
           const natW = spectralData.nativeWidth || layer.width || w;
           const natH = spectralData.nativeHeight || layer.height || h;
           state_sup.trainingAreas.forEach(area => {
             const clsIdx = sampledClasses.findIndex(c => String(c.id) === String(area.classId));
-            if (clsIdx >= 0 && area.samples && area.samples.length > 0) {
+            if (clsIdx < 0) return;
+
+            if (area.type === 'polygon' && area.satPts && area.satPts.length >= 3) {
+              const ovPolyPts = area.satPts.map(pt => [
+                Math.min(Math.max((pt[0] / natW) * w, 0), w - 1),
+                Math.min(Math.max((pt[1] / natH) * h, 0), h - 1)
+              ]);
+              const pMinX = Math.max(0, Math.floor(Math.min(...ovPolyPts.map(p => p[0]))));
+              const pMaxX = Math.min(w - 1, Math.ceil(Math.max(...ovPolyPts.map(p => p[0]))));
+              const pMinY = Math.max(0, Math.floor(Math.min(...ovPolyPts.map(p => p[1]))));
+              const pMaxY = Math.min(h - 1, Math.ceil(Math.max(...ovPolyPts.map(p => p[1]))));
+
+              for (let py = pMinY; py <= pMaxY; py++) {
+                for (let px = pMinX; px <= pMaxX; px++) {
+                  if (isPointInPolygon([px, py], ovPolyPts)) {
+                    ovClassMap[py * w + px] = clsIdx;
+                  }
+                }
+              }
+            } else if (area.samples && area.samples.length > 0) {
               area.samples.forEach(s => {
                 const sPx = Math.min(Math.max(Math.floor((s.px / natW) * w), 0), w - 1);
                 const sPy = Math.min(Math.max(Math.floor((s.py / natH) * h), 0), h - 1);
-                const mapIdx = sPy * w + sPx;
-                if (mapIdx >= 0 && mapIdx < totalPixels) {
-                  ovClassMap[mapIdx] = clsIdx;
+                const pRad = (area.type === 'point') ? 1 : 0;
+                for (let dy = -pRad; dy <= pRad; dy++) {
+                  for (let dx = -pRad; dx <= pRad; dx++) {
+                    const rx = sPx + dx, ry = sPy + dy;
+                    if (rx >= 0 && rx < w && ry >= 0 && ry < h) {
+                      ovClassMap[ry * w + rx] = clsIdx;
+                    }
+                  }
                 }
               });
             }
@@ -25431,6 +25491,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                     for (let i = 0; i < actTotal; i++) winClassMap[i] = smoothed[i];
                   }
+
+                  // Garantizar que TODAS las áreas, puntos y polígonos entrenados se impongan al 100% sobre la ventana visual de alta resolución
+                  if (state_sup.trainingAreas && state_sup.trainingAreas.length > 0) {
+                    state_sup.trainingAreas.forEach(area => {
+                      const clsIdx = sampledClasses.findIndex(c => String(c.id) === String(area.classId));
+                      if (clsIdx < 0) return;
+
+                      if (area.type === 'polygon' && area.satPts && area.satPts.length >= 3) {
+                        const winPolyPts = area.satPts.map(pt => [
+                          (pt[0] - minSatX) / levelDec,
+                          (pt[1] - minSatY) / levelDec
+                        ]);
+                        const pMinX = Math.max(0, Math.floor(Math.min(...winPolyPts.map(p => p[0]))));
+                        const pMaxX = Math.min(actW - 1, Math.ceil(Math.max(...winPolyPts.map(p => p[0]))));
+                        const pMinY = Math.max(0, Math.floor(Math.min(...winPolyPts.map(p => p[1]))));
+                        const pMaxY = Math.min(actH - 1, Math.ceil(Math.max(...winPolyPts.map(p => p[1]))));
+
+                        for (let wy = pMinY; wy <= pMaxY; wy++) {
+                          for (let wx = pMinX; wx <= pMaxX; wx++) {
+                            if (isPointInPolygon([wx, wy], winPolyPts)) {
+                              winClassMap[wy * actW + wx] = clsIdx;
+                            }
+                          }
+                        }
+                      } else if (area.samples && area.samples.length > 0) {
+                        area.samples.forEach(s => {
+                          const wx = Math.round((s.px - minSatX) / levelDec);
+                          const wy = Math.round((s.py - minSatY) / levelDec);
+                          const pRad = (area.type === 'drag') ? 1 : Math.max(1, Math.round(2 / levelDec));
+                          for (let dy = -pRad; dy <= pRad; dy++) {
+                            for (let dx = -pRad; dx <= pRad; dx++) {
+                              const rx = wx + dx, ry = wy + dy;
+                              if (rx >= 0 && rx < actW && ry >= 0 && ry < actH) {
+                                winClassMap[ry * actW + rx] = clsIdx;
+                              }
+                            }
+                          }
+                        });
+                      }
+                    });
+                  }
+
+                  // Fallback directo para cada muestra de cada clase activa
+                  sampledClasses.forEach((sc, cIdx) => {
+                    if (sc.samples) {
+                      sc.samples.forEach(s => {
+                        const wx = Math.round((s.px - minSatX) / levelDec);
+                        const wy = Math.round((s.py - minSatY) / levelDec);
+                        if (wx >= 0 && wx < actW && wy >= 0 && wy < actH) {
+                          winClassMap[wy * actW + wx] = cIdx;
+                        }
+                      });
+                    }
+                  });
 
                   const winCanvas = document.createElement('canvas');
                   winCanvas.width = actW;
@@ -26099,6 +26213,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         id: polyAreaId,
         type: 'polygon',
         classId: activeCls.id,
+        pts: pts,
+        satPts: satPts,
         samples: polySamples,
         layers: polyLayer ? [polyLayer] : []
       });
@@ -26114,27 +26230,47 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             for (let i = 0; i < polySamples.length; i += Math.max(1, Math.floor(polySamples.length / 20))) {
               const pv = polySamples[i].values;
               if (!pv) continue;
-              let dSq = 0;
+              let dSq = 0, dot = 0, nO = 0, nP = 0;
               const dLen = Math.min(ov.length, pv.length);
               for (let b = 0; b < dLen; b++) {
-                const diff = (ov[b] || 0) - (pv[b] || 0);
+                const vo = ov[b] || 0;
+                const vp = pv[b] || 0;
+                dot += vo * vp;
+                nO += vo * vo;
+                nP += vp * vp;
+                const diff = vo - vp;
                 dSq += diff * diff;
               }
-              if (dSq < 550) {
+              const normO = Math.sqrt(nO) || 1e-4;
+              const normP = Math.sqrt(nP) || 1e-4;
+              const cosSim = dot / (normO * normP);
+              const normDiff = Math.sqrt(dSq) / (normO + normP);
+
+              if (dSq < 550 || (cosSim > 0.96 && normDiff < 0.22)) {
                 if (otherCls.pixelSet && os.px !== undefined) otherCls.pixelSet.delete(os.px + '_' + os.py);
                 return false;
               }
             }
             return true;
           });
-          if (otherCls.samples.length < initLen && state_sup.sampleMarkersLayer) {
-            state_sup.sampleMarkersLayer.eachLayer(layer => {
-              if (layer._classId === otherCls.id && layer.getLatLng) {
-                if (isPointInPolygon([layer.getLatLng().lat, layer.getLatLng().lng], pts)) {
-                  state_sup.sampleMarkersLayer.removeLayer(layer);
+          if (otherCls.samples.length < initLen) {
+            if (state_sup.trainingAreas) {
+              state_sup.trainingAreas.forEach(a => {
+                if (String(a.classId) === String(otherCls.id) && a.samples) {
+                  a.samples = a.samples.filter(as => otherCls.samples.includes(as));
                 }
-              }
-            });
+              });
+              state_sup.trainingAreas = state_sup.trainingAreas.filter(a => String(a.classId) !== String(otherCls.id) || (a.samples && a.samples.length > 0));
+            }
+            if (state_sup.sampleMarkersLayer) {
+              state_sup.sampleMarkersLayer.eachLayer(layer => {
+                if (layer._classId === otherCls.id && layer.getLatLng) {
+                  if (isPointInPolygon([layer.getLatLng().lat, layer.getLatLng().lng], pts)) {
+                    state_sup.sampleMarkersLayer.removeLayer(layer);
+                  }
+                }
+              });
+            }
           }
         });
       }
