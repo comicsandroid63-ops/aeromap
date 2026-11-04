@@ -21566,7 +21566,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           let targetH = h;
           const readOpts = { samples: sampleBands, interleave: false };
           if (w > 1200 || h > 1200) {
-            const maxDim = 800;
+            const maxDim = 1200;
             const aspect = w / h;
             targetW = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
             targetH = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
@@ -24070,7 +24070,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           let readOpts = { samples: sampleBands, interleave: false };
           let rw = w, rh = h;
           if (w > 1200 || h > 1200) {
-            const maxDim = 800;
+            const maxDim = 1200;
             const aspect = w / h;
             rw = aspect >= 1 ? maxDim : Math.max(64, Math.round(maxDim * aspect));
             rh = aspect >= 1 ? Math.max(64, Math.round(maxDim / aspect)) : maxDim;
@@ -24472,12 +24472,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const sampleBands = Array.from({ length: nSamples }, (_, i) => i);
         const natW = targetLayer.width || coords.natW || 1000;
         const natH = targetLayer.height || coords.natH || 1000;
-        const isPoint = (!explicitAreaId && state_sup.samplingTool === 'point');
-        const rRad = isPoint ? 1 : 0;
-        const wndL = Math.max(0, coords.satPx - rRad);
-        const wndT = Math.max(0, coords.satPy - rRad);
-        const wndR = Math.min(natW, coords.satPx + rRad + 1);
-        const wndB = Math.min(natH, coords.satPy + rRad + 1);
+        const wndL = Math.max(0, coords.satPx);
+        const wndT = Math.max(0, coords.satPy);
+        const wndR = Math.min(natW, coords.satPx + 1);
+        const wndB = Math.min(natH, coords.satPy + 1);
 
         baseImg.readRasters({
           window: [wndL, wndT, wndR, wndB],
@@ -24485,7 +24483,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           interleave: false
         }).then(raw => {
           if (raw && raw.length > 0) {
-            const actW = wndR - wndL;
             const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? targetLayer._geotiffTileLayer?.geo?.photometric ?? targetLayer.photometric;
             const decodePixel = (idx) => {
               let fv = Array.from(raw).map(b => b[idx]);
@@ -24508,41 +24505,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               return fv;
             };
 
-            const centerIdx = (coords.satPy - wndT) * actW + (coords.satPx - wndL);
-            sample.values = decodePixel(centerIdx);
+            sample.values = decodePixel(0);
             if (!targetLayer._pixelValuesCache) targetLayer._pixelValuesCache = new Map();
             targetLayer._pixelValuesCache.set(pixelKey, sample.values);
-
-            // Si es punto, enriquecer con los píxeles adyacentes del parche 3x3 bajo el mismo _areaId
-            if (isPoint) {
-              const areaRec = state_sup.trainingAreas?.find(a => a.id === areaId);
-              for (let dy = -1; dy <= 1; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                  if (dx === 0 && dy === 0) continue;
-                  const nx = coords.satPx + dx;
-                  const ny = coords.satPy + dy;
-                  if (nx >= wndL && nx < wndR && ny >= wndT && ny < wndB) {
-                    const nKey = nx + '_' + ny;
-                    if (!activeCls.pixelSet.has(nKey)) {
-                      const pIdx = (ny - wndT) * actW + (nx - wndL);
-                      const pVals = decodePixel(pIdx);
-                      if (pVals.some(v => v > 5)) {
-                        activeCls.pixelSet.add(nKey);
-                        targetLayer._pixelValuesCache.set(nKey, pVals);
-                        const neighborSample = {
-                          px: nx, py: ny,
-                          latlng: [latlng.lat, latlng.lng],
-                          values: pVals,
-                          _areaId: areaId
-                        };
-                        activeCls.samples.push(neighborSample);
-                        if (areaRec) areaRec.samples.push(neighborSample);
-                      }
-                    }
-                  }
-                }
-              }
-            }
 
             drawSupervisedSpectralChart();
             updateSupervisedLiveClassification(true);
@@ -25204,7 +25169,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               area.samples.forEach(s => {
                 const sPx = Math.min(Math.max(Math.floor((s.px / natW) * w), 0), w - 1);
                 const sPy = Math.min(Math.max(Math.floor((s.py / natH) * h), 0), h - 1);
-                const pRad = (area.type === 'point') ? 1 : 0;
+                const pRad = (area.type === 'drag') ? 1 : 0;
                 for (let dy = -pRad; dy <= pRad; dy++) {
                   for (let dx = -pRad; dx <= pRad; dx++) {
                     const rx = sPx + dx, ry = sPy + dy;
@@ -25344,51 +25309,63 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             if (pNW && pSE && !isNaN(pNW[0]) && !isNaN(pNW[1]) && !isNaN(pSE[0]) && !isNaN(pSE[1])) {
-              const fullW = Math.max(1, Math.abs(pSE[0] - pNW[0]));
-              const fullH = Math.max(1, Math.abs(pSE[1] - pNW[1]));
+              const baseImg = tileLayer.pyramid.levels[0];
+              const baseW = tileLayer.pyramid.baseWidth || (baseImg.getWidth ? baseImg.getWidth() : (layer.width || 4000));
+              const baseH = tileLayer.pyramid.baseHeight || (baseImg.getHeight ? baseImg.getHeight() : (layer.height || 4000));
 
-              // Decimación acotada para no superar la resolución de pantalla (máx 1000-1200 px)
-              const maxWinDim = 1100;
-              const decimation = Math.max(1, Math.floor(Math.max(fullW / maxWinDim, fullH / maxWinDim)));
-              const levelInfo = (typeof tileLayer.pyramid.getLevelForDecimation === 'function')
-                ? tileLayer.pyramid.getLevelForDecimation(decimation)
-                : { image: tileLayer.pyramid.levels[0], decimation: 1 };
-              const targetImg = levelInfo.image || tileLayer.pyramid.levels[0];
-              const levelDec = levelInfo.decimation || 1;
+              const satViewMinX = Math.min(pNW[0], pSE[0]);
+              const satViewMaxX = Math.max(pNW[0], pSE[0]);
+              const satViewMinY = Math.min(pNW[1], pSE[1]);
+              const satViewMaxY = Math.max(pNW[1], pSE[1]);
 
-              let minLvlX = 0, maxLvlX = targetImg.getWidth();
-              let minLvlY = 0, maxLvlY = targetImg.getHeight();
-              let targetOverlayBounds = fullLayerBounds;
+              const rawMinX = Math.max(0, Math.floor(satViewMinX));
+              const rawMaxX = Math.min(baseW, Math.ceil(satViewMaxX));
+              const rawMinY = Math.max(0, Math.floor(satViewMinY));
+              const rawMaxY = Math.min(baseH, Math.ceil(satViewMaxY));
 
-              // En zoom cercano (zoom >= 14), enfocar ventana visual con margen del 40%
-              if (levelDec < 4) {
-                const rawMinX = Math.floor(Math.min(pNW[0], pSE[0]) / levelDec);
-                const rawMaxX = Math.ceil(Math.max(pNW[0], pSE[0]) / levelDec);
-                const rawMinY = Math.floor(Math.min(pNW[1], pSE[1]) / levelDec);
-                const rawMaxY = Math.ceil(Math.max(pNW[1], pSE[1]) / levelDec);
+              const fullW = Math.max(1, rawMaxX - rawMinX);
+              const fullH = Math.max(1, rawMaxY - rawMinY);
 
-                const padX = Math.max(16, Math.round((rawMaxX - rawMinX) * 0.40));
-                const padY = Math.max(16, Math.round((rawMaxY - rawMinY) * 0.40));
-                minLvlX = Math.max(0, rawMinX - padX);
-                maxLvlX = Math.min(targetImg.getWidth(), rawMaxX + padX);
-                minLvlY = Math.max(0, rawMinY - padY);
-                maxLvlY = Math.min(targetImg.getHeight(), rawMaxY + padY);
+              // 1:1 RESOLUCIÓN NATIVA HASTA EL ÚLTIMO PÍXEL:
+              // Cuando el usuario visualiza o edita a escala de trabajo/inspección (hasta 2800 px visibles),
+              // se fuerza ESTRICTAMENTE decimation = 1 (nivel 0 de la pirámide satelital nativa).
+              // Cero decimación, cero agrandamiento de píxeles: 1 píxel satelital = 1 píxel clasificado.
+              let targetImg = baseImg;
+              let levelDec = 1;
 
-                const minSatX = minLvlX * levelDec;
-                const maxSatX = maxLvlX * levelDec;
-                const minSatY = minLvlY * levelDec;
-                const maxSatY = maxLvlY * levelDec;
-
-                targetOverlayBounds = window.getSatelliteWindowLatLngBounds
-                  ? window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer)
-                  : fullLayerBounds;
+              if (fullW > 2800 || fullH > 2800) {
+                const maxWinDim = 2400;
+                const decimation = Math.max(1, Math.floor(Math.max(fullW / maxWinDim, fullH / maxWinDim)));
+                const levelInfo = (typeof tileLayer.pyramid.getLevelForDecimation === 'function')
+                  ? tileLayer.pyramid.getLevelForDecimation(decimation)
+                  : { image: baseImg, decimation: 1 };
+                targetImg = levelInfo.image || baseImg;
+                levelDec = levelInfo.decimation || 1;
               }
+
+              // Margen del 15% para navegación suave al desplazar el mapa
+              const padX = Math.max(16, Math.round(fullW * 0.15));
+              const padY = Math.max(16, Math.round(fullH * 0.15));
+
+              const minSatX = Math.max(0, rawMinX - padX);
+              const maxSatX = Math.min(baseW, rawMaxX + padX);
+              const minSatY = Math.max(0, rawMinY - padY);
+              const maxSatY = Math.min(baseH, rawMaxY + padY);
+
+              const minLvlX = Math.max(0, Math.floor(minSatX / levelDec));
+              const maxLvlX = Math.min(targetImg.getWidth(), Math.ceil(maxSatX / levelDec));
+              const minLvlY = Math.max(0, Math.floor(minSatY / levelDec));
+              const maxLvlY = Math.min(targetImg.getHeight(), Math.ceil(maxSatY / levelDec));
+
+              const targetOverlayBounds = window.getSatelliteWindowLatLngBounds
+                ? window.getSatelliteWindowLatLngBounds(minSatX, minSatY, maxSatX, maxSatY, layer, tileLayer)
+                : fullLayerBounds;
 
               const winW = maxLvlX - minLvlX;
               const winH = maxLvlY - minLvlY;
 
-              // Proteger estrictamente contra ventanas monstruosas
-              if (winW > 0 && winH > 0 && winW <= 1200 && winH <= 1200) {
+              // Proteger estrictamente contra ventanas monstruosas (>3500)
+              if (winW > 0 && winH > 0 && winW <= 3500 && winH <= 3500) {
                 const nSamples = targetImg.getSamplesPerPixel ? targetImg.getSamplesPerPixel() : (layer.bands || dims);
                 const sampleBands = Array.from({ length: Math.min(dims, nSamples) }, (_, i) => i);
                 const raw = await targetImg.readRasters({
@@ -25513,7 +25490,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         area.samples.forEach(s => {
                           const wx = Math.round((s.px - minSatX) / levelDec);
                           const wy = Math.round((s.py - minSatY) / levelDec);
-                          const pRad = (area.type === 'drag') ? 1 : Math.max(1, Math.round(2 / levelDec));
+                          const pRad = (area.type === 'drag') ? 1 : 0;
                           for (let dy = -pRad; dy <= pRad; dy++) {
                             for (let dx = -pRad; dx <= pRad; dx++) {
                               const rx = wx + dx, ry = wy + dy;
@@ -25572,15 +25549,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           applyOverlayImage(baseBlobUrl, fullLayerBounds);
         }
 
-        // Conectar moveend para actualizar ventana de alta resolución al desplazarse
+        // Conectar moveend y zoomend para actualizar ventana de alta resolución al desplazarse o hacer zoom
         if (!window._supervisedMoveEndAttached && state.map) {
           window._supervisedMoveEndAttached = true;
-          state.map.on('moveend', () => {
+          const _triggerLiveUpdate = () => {
             const s_sup = window._supervisedState;
             if (s_sup && s_sup.active && s_sup.classes && s_sup.classes.some(c => c.samples && c.samples.length > 0)) {
               updateSupervisedLiveClassification(true);
             }
-          });
+          };
+          state.map.on('moveend', _triggerLiveUpdate);
+          state.map.on('zoomend', _triggerLiveUpdate);
         }
 
         if (typeof renderSupervisedConfusionMatrix === 'function') {
