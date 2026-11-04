@@ -22883,6 +22883,74 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       state_sup._editingTargetLayerId = targetClassifiedLayer ? targetClassifiedLayer.id : null;
       state_sup.layerId = baseSatelliteLayer.id;
 
+      // 1. INICIALIZAR LIENZO Y MAPA EDITABLE DIRECTO (Cero píxeles bloqueados)
+      if (targetClassifiedLayer) {
+        if (targetClassifiedLayer.mapLayer && state.map && state.map.hasLayer(targetClassifiedLayer.mapLayer)) {
+          targetClassifiedLayer._prevOpacityBeforeEdit = targetClassifiedLayer.mapLayer.options?.opacity !== undefined ? targetClassifiedLayer.mapLayer.options.opacity : (targetClassifiedLayer.opacity || 0.9);
+          targetClassifiedLayer.mapLayer.setOpacity(0);
+        }
+
+        const cW = targetClassifiedLayer._canvasWidth || (targetClassifiedLayer._classifiedCanvas ? targetClassifiedLayer._classifiedCanvas.width : (targetClassifiedLayer.width || 1000));
+        const cH = targetClassifiedLayer._canvasHeight || (targetClassifiedLayer._classifiedCanvas ? targetClassifiedLayer._classifiedCanvas.height : (targetClassifiedLayer.height || 1000));
+
+        const editCanvas = document.createElement('canvas');
+        editCanvas.width = cW;
+        editCanvas.height = cH;
+        const eCtx = editCanvas.getContext('2d');
+        eCtx.imageSmoothingEnabled = false;
+
+        if (targetClassifiedLayer._classifiedCanvas) {
+          eCtx.drawImage(targetClassifiedLayer._classifiedCanvas, 0, 0, cW, cH);
+        }
+
+        if (targetClassifiedLayer._pixelClusterMap || targetClassifiedLayer._classificationMap) {
+          state_sup._classificationMap = new Int16Array(targetClassifiedLayer._pixelClusterMap || targetClassifiedLayer._classificationMap);
+        } else {
+          const imgData = eCtx.getImageData(0, 0, cW, cH);
+          const u32 = new Uint32Array(imgData.data.buffer);
+          state_sup._classificationMap = new Int16Array(cW * cH).fill(-1);
+          const tClasses = targetClassifiedLayer.classes || [];
+          for (let i = 0; i < cW * cH; i++) {
+            const col = u32[i];
+            if ((col >>> 24) > 20) {
+              const r = col & 0xFF, g = (col >> 8) & 0xFF, b = (col >> 16) & 0xFF;
+              let bestC = 0, minCd = Infinity;
+              tClasses.forEach((cls, idx) => {
+                const hex = (cls.color || '#000').replace('#', '');
+                const cr = parseInt(hex.substring(0, 2), 16) || 0;
+                const cg = parseInt(hex.substring(2, 4), 16) || 0;
+                const cb = parseInt(hex.substring(4, 6), 16) || 0;
+                const cd = (r - cr)**2 + (g - cg)**2 + (b - cb)**2;
+                if (cd < minCd) { minCd = cd; bestC = idx; }
+              });
+              state_sup._classificationMap[i] = bestC;
+            }
+          }
+        }
+
+        state_sup._liveCanvas = editCanvas;
+        state_sup._liveImgData = eCtx.getImageData(0, 0, cW, cH);
+
+        const normBounds = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(targetClassifiedLayer) : null) || targetClassifiedLayer.bounds;
+        if (normBounds && typeof canvasToBlobUrl === 'function') {
+          canvasToBlobUrl(editCanvas).then(bUrl => {
+            if (bUrl && state.map) {
+              if (state._supervisedLiveLayer) {
+                try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+              }
+              state._supervisedLiveLayer = L.imageOverlay(bUrl, normBounds, {
+                opacity: targetClassifiedLayer._prevOpacityBeforeEdit || 0.9,
+                interactive: false,
+                zIndex: 650,
+                className: 'classified-crisp-overlay geotiff-crisp-tile'
+              });
+              state._supervisedLiveLayer._blobUrl = bUrl;
+              state._supervisedLiveLayer.addTo(state.map);
+            }
+          });
+        }
+      }
+
       // 1. Restaurar clases si la capa clasificada ya tiene clases
       if (targetClassifiedLayer && targetClassifiedLayer.classes && targetClassifiedLayer.classes.length > 0) {
         const configClasses = targetClassifiedLayer._classificationConfig?.classes || [];
@@ -23161,6 +23229,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function closeSupervisedClassificationModal() {
       const state_sup = window._supervisedState;
       state_sup.active = false;
+
+      // Restaurar opacidad de la capa que se estaba editando si no fue guardada
+      if (state_sup._editingTargetLayerId) {
+        const targetClsLayer = state.layers.find(l => String(l.id) === String(state_sup._editingTargetLayerId));
+        if (targetClsLayer && targetClsLayer.mapLayer) {
+          targetClsLayer.mapLayer.setOpacity(targetClsLayer._prevOpacityBeforeEdit || targetClsLayer.opacity || 0.9);
+        }
+        state_sup._editingTargetLayerId = null;
+      }
       state_sup.isMouseDown = false;
 
       if (typeof deselectSupervisedArea === 'function') {
@@ -24133,6 +24210,51 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const satPx = coords.satPx;
       const satPy = coords.satPy;
       const pixelKey = satPx + '_' + satPy;
+
+      // RECLASIFICACIÓN DIRECTA INMEDIATA EN SITIO (CERO PÍXELES BLOQUEADOS)
+      // Si el lienzo o mapa de clasificación existe (modo edición o clasificación activa),
+      // reasignar el píxel de inmediato para que el cambio de clase se vea en tiempo real sin bloqueo:
+      if (state_sup._liveCanvas && state_sup._classificationMap) {
+        const cW = state_sup._liveCanvas.width;
+        const cH = state_sup._liveCanvas.height;
+        const natW = targetLayer.width || coords.natW || cW;
+        const natH = targetLayer.height || coords.natH || cH;
+        const mX = Math.min(Math.max(Math.floor((satPx / natW) * cW), 0), cW - 1);
+        const mY = Math.min(Math.max(Math.floor((satPy / natH) * cH), 0), cH - 1);
+
+        const hex = (activeCls.color || '#000000').replace('#', '');
+        const cr = parseInt(hex.substring(0, 2), 16) || 0;
+        const cg = parseInt(hex.substring(2, 4), 16) || 0;
+        const cb = parseInt(hex.substring(4, 6), 16) || 0;
+        const u32Color = ((230 << 24) | (cb << 16) | (cg << 8) | cr) >>> 0;
+
+        const ctx = state_sup._liveCanvas.getContext('2d');
+        if (!state_sup._liveImgData || state_sup._liveImgData.width !== cW || state_sup._liveImgData.height !== cH) {
+          state_sup._liveImgData = ctx.getImageData(0, 0, cW, cH);
+        }
+        const u32 = new Uint32Array(state_sup._liveImgData.data.buffer);
+
+        const pRad = (state_sup.samplingTool === 'drag') ? 1 : 0;
+        for (let dy = -pRad; dy <= pRad; dy++) {
+          for (let dx = -pRad; dx <= pRad; dx++) {
+            const pxX = mX + dx, pxY = mY + dy;
+            if (pxX >= 0 && pxX < cW && pxY >= 0 && pxY < cH) {
+              const idx = pxY * cW + pxX;
+              state_sup._classificationMap[idx] = activeCls.id;
+              u32[idx] = u32Color;
+            }
+          }
+        }
+        ctx.putImageData(state_sup._liveImgData, 0, 0);
+
+        if (typeof canvasToBlobUrl === 'function') {
+          canvasToBlobUrl(state_sup._liveCanvas).then(bUrl => {
+            if (bUrl && state._supervisedLiveLayer) {
+              state._supervisedLiveLayer.setUrl(bUrl);
+            }
+          });
+        }
+      }
       if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
       if (activeCls.pixelSet.has(pixelKey)) return null;
 
@@ -24176,6 +24298,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (renderedRgb) {
           vals = renderedRgb;
         }
+      }
+
+      // 5. Prioridad para capas temáticas clasificadas o editadas (sin bandas satelitales crudas)
+      if (!vals && state_sup._liveCanvas) {
+        const cW = state_sup._liveCanvas.width;
+        const cH = state_sup._liveCanvas.height;
+        const natW = targetLayer.width || coords.natW || cW;
+        const natH = targetLayer.height || coords.natH || cH;
+        const mX = Math.min(Math.max(Math.floor((satPx / natW) * cW), 0), cW - 1);
+        const mY = Math.min(Math.max(Math.floor((satPy / natH) * cH), 0), cH - 1);
+
+        const ctx = state_sup._liveCanvas.getContext('2d');
+        const pData = ctx.getImageData(mX, mY, 1, 1).data;
+        vals = [pData[0], pData[1], pData[2]];
       }
 
       if (!vals || vals.length === 0) return null;
@@ -24489,7 +24625,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } catch (_) {}
           }
         }
-        if (!spectralData) return;
+        if (!spectralData) {
+          if (state_sup._liveCanvas && isVisible) {
+            const fullLayerBounds = (typeof getNormalizedLayerBounds === 'function' ? getNormalizedLayerBounds(layer) : null) || layer.bounds;
+            if (fullLayerBounds && typeof canvasToBlobUrl === 'function') {
+              const bUrl = await canvasToBlobUrl(state_sup._liveCanvas);
+              if (bUrl) applyOverlayImage(bUrl, fullLayerBounds);
+            }
+          }
+          if (typeof renderSupervisedConfusionMatrix === 'function') renderSupervisedConfusionMatrix();
+          return;
+        }
 
         const w = spectralData.width;
         const h = spectralData.height;
@@ -25993,6 +26139,50 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         });
       }
 
+      // Reclasificar todos los píxeles dentro del polígono directamente en _classificationMap y _liveCanvas
+      if (state_sup._liveCanvas && state_sup._classificationMap && satPts.length >= 3) {
+        const cW = state_sup._liveCanvas.width;
+        const cH = state_sup._liveCanvas.height;
+        const ctx = state_sup._liveCanvas.getContext('2d');
+        if (!state_sup._liveImgData || state_sup._liveImgData.width !== cW || state_sup._liveImgData.height !== cH) {
+          state_sup._liveImgData = ctx.getImageData(0, 0, cW, cH);
+        }
+        const u32 = new Uint32Array(state_sup._liveImgData.data.buffer);
+        const hex = (activeCls.color || '#000000').replace('#', '');
+        const cr = parseInt(hex.substring(0, 2), 16) || 0;
+        const cg = parseInt(hex.substring(2, 4), 16) || 0;
+        const cb = parseInt(hex.substring(4, 6), 16) || 0;
+        const u32Color = ((230 << 24) | (cb << 16) | (cg << 8) | cr) >>> 0;
+
+        const polyCanvasPts = satPts.map(pt => [
+          Math.min(Math.max(Math.floor((pt[0] / natW) * cW), 0), cW - 1),
+          Math.min(Math.max(Math.floor((pt[1] / natH) * cH), 0), cH - 1)
+        ]);
+        const pMinX = Math.min(...polyCanvasPts.map(p => p[0]));
+        const pMaxX = Math.max(...polyCanvasPts.map(p => p[0]));
+        const pMinY = Math.min(...polyCanvasPts.map(p => p[1]));
+        const pMaxY = Math.max(...polyCanvasPts.map(p => p[1]));
+
+        for (let py = pMinY; py <= pMaxY; py++) {
+          for (let px = pMinX; px <= pMaxX; px++) {
+            if (isPointInPolygon([px, py], polyCanvasPts)) {
+              const idx = py * cW + px;
+              state_sup._classificationMap[idx] = activeCls.id;
+              u32[idx] = u32Color;
+            }
+          }
+        }
+        ctx.putImageData(state_sup._liveImgData, 0, 0);
+
+        if (typeof canvasToBlobUrl === 'function') {
+          canvasToBlobUrl(state_sup._liveCanvas).then(bUrl => {
+            if (bUrl && state._supervisedLiveLayer) {
+              state._supervisedLiveLayer.setUrl(bUrl);
+            }
+          });
+        }
+      }
+
       clearSupervisedTempPolygon();
       if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
       updateDockSampleBadge();
@@ -26754,6 +26944,58 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             existingLayer._pixelClusterMap = savedClassMap;
             existingLayer._totalValidPixels = validCount;
             existingLayer._classificationConfig = permanentClassificationConfig;
+
+            if (savedClassMap) {
+              const cCounts = {};
+              let tValid = 0;
+              for (let i = 0; i < savedClassMap.length; i++) {
+                const c = savedClassMap[i];
+                if (c >= 0) {
+                  cCounts[c] = (cCounts[c] || 0) + 1;
+                  tValid++;
+                }
+              }
+              existingLayer.classes.forEach(cls => {
+                const count = cCounts[cls.id] || 0;
+                cls.count = count;
+                cls.percentage = tValid > 0 ? ((count / tValid) * 100).toFixed(1) : '0.0';
+                cls.areaHa = Math.round(count * pixelAreaHa);
+                cls.areaLabel = cls.areaHa >= 1000 ? (cls.areaHa / 1000).toFixed(1) + 'k ha' : cls.areaHa + ' ha';
+              });
+              existingLayer._totalValidPixels = tValid;
+            }
+
+            if (existingLayer.mapLayer) {
+              if (existingLayer.mapLayer.options) {
+                existingLayer.mapLayer.options.classificationCanvas = savedCanvas;
+                existingLayer.mapLayer.options.classification = permanentClassificationConfig;
+                if (typeof existingLayer.mapLayer.redraw === 'function') existingLayer.mapLayer.redraw();
+              }
+              const newUrl = await canvasToBlobUrl(savedCanvas);
+              if (newUrl && typeof existingLayer.mapLayer.setUrl === 'function') {
+                existingLayer.mapLayer.setUrl(newUrl);
+              }
+              if (typeof existingLayer.mapLayer.setOpacity === 'function') {
+                existingLayer.mapLayer.setOpacity(existingLayer._prevOpacityBeforeEdit || existingLayer.opacity || 0.9);
+              }
+            }
+
+            if (existingLayer.mapLayer) {
+              const newUrl = await canvasToBlobUrl(savedCanvas);
+              if (newUrl && typeof existingLayer.mapLayer.setUrl === 'function') {
+                existingLayer.mapLayer.setUrl(newUrl);
+                existingLayer.mapLayer.setOpacity(existingLayer._prevOpacityBeforeEdit || existingLayer.opacity || 0.9);
+              }
+            }
+
+            if (state._supervisedLiveLayer) {
+              try { state.map.removeLayer(state._supervisedLiveLayer); } catch (_) {}
+              state._supervisedLiveLayer = null;
+            }
+            if (state._supervisedBaseLayer) {
+              try { state.map.removeLayer(state._supervisedBaseLayer); } catch (_) {}
+              state._supervisedBaseLayer = null;
+            }
             existingLayer.imageUrl = thumbUrl || savedCanvas.toDataURL('image/png');
 
             if (classifiedTileLayer) {
