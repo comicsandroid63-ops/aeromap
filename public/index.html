@@ -24132,42 +24132,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       const satPx = coords.satPx;
       const satPy = coords.satPy;
-
-      // 1. REASIGNACIÓN Y DESALOJO: Si el usuario entrena sobre una zona previamente clasificada por otro grupo,
-      // se retiran las muestras anteriores de ese grupo en este radio para que la nueva clase tome el control total.
-      const conflictRadius = state_sup.samplingTool === 'point' ? 4 : 2;
-      let removedFromOther = false;
-      state_sup.classes.forEach(otherCls => {
-        if (otherCls.id === activeCls.id || !otherCls.samples) return;
-        const initLen = otherCls.samples.length;
-        otherCls.samples = otherCls.samples.filter(s => {
-          const dx = s.px - satPx;
-          const dy = s.py - satPy;
-          const isConflict = (dx * dx + dy * dy) <= (conflictRadius * conflictRadius);
-          if (isConflict && otherCls.pixelSet) {
-            otherCls.pixelSet.delete(s.px + '_' + s.py);
-          }
-          return !isConflict;
-        });
-        if (otherCls.samples.length < initLen) {
-          removedFromOther = true;
-          if (state_sup.sampleMarkersLayer) {
-            state_sup.sampleMarkersLayer.eachLayer(layer => {
-              if (layer._classId === otherCls.id && layer.getLatLng) {
-                const distM = layer.getLatLng().distanceTo(latlng);
-                if (distM < 35) {
-                  state_sup.sampleMarkersLayer.removeLayer(layer);
-                }
-              }
-            });
-          }
-        }
-      });
-      if (removedFromOther) {
-        renderSupervisedClassesList();
-        updateDockSampleBadge();
-      }
-
       const pixelKey = satPx + '_' + satPy;
       if (!activeCls.pixelSet) activeCls.pixelSet = new Set();
       if (activeCls.pixelSet.has(pixelKey)) return null;
@@ -24226,6 +24190,59 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (isBlackCollar) {
         toast('El punto seleccionado está fuera del área útil del satélite.', 'info');
         return null;
+      }
+
+      // 1. REASIGNACIÓN Y DESALOJO ESPECTRAL/ESPACIAL:
+      // Si el usuario entrena una muestra para activeCls (ej. Suelo Descubierto) en una zona que otro grupo
+      // (ej. Agua) reclamaba, se eliminan las muestras conflictivas del otro grupo para que la clase activa tome control total.
+      const conflictRadius = state_sup.samplingTool === 'point' ? 5 : 2.5;
+      let removedFromOther = false;
+      state_sup.classes.forEach(otherCls => {
+        if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples) return;
+        const initLen = otherCls.samples.length;
+        otherCls.samples = otherCls.samples.filter(s => {
+          const dx = s.px - satPx;
+          const dy = s.py - satPy;
+          const isSpatialConflict = (dx * dx + dy * dy) <= (conflictRadius * conflictRadius);
+
+          let isSpectralConflict = false;
+          if (s.values && vals && s.values.length > 0) {
+            let sqD = 0;
+            const dLen = Math.min(s.values.length, vals.length);
+            for (let b = 0; b < dLen; b++) {
+              const diff = (s.values[b] || 0) - (vals[b] || 0);
+              sqD += diff * diff;
+            }
+            if (sqD < 500) { // espectro idéntico o muy cercano en la misma escena
+              isSpectralConflict = true;
+            }
+          }
+
+          const isConflict = isSpatialConflict || isSpectralConflict;
+          if (isConflict && otherCls.pixelSet) {
+            otherCls.pixelSet.delete(s.px + '_' + s.py);
+          }
+          return !isConflict;
+        });
+
+        if (otherCls.samples.length < initLen) {
+          removedFromOther = true;
+          if (state_sup.sampleMarkersLayer) {
+            state_sup.sampleMarkersLayer.eachLayer(layer => {
+              if (layer._classId === otherCls.id && layer.getLatLng) {
+                const distM = layer.getLatLng().distanceTo(latlng);
+                if (distM < 45) {
+                  state_sup.sampleMarkersLayer.removeLayer(layer);
+                }
+              }
+            });
+          }
+        }
+      });
+      if (removedFromOther) {
+        renderSupervisedClassesList();
+        updateDockSampleBadge();
+        if (typeof renderSupervisedConfusionMatrix === 'function') renderSupervisedConfusionMatrix();
       }
 
       activeCls.pixelSet.add(pixelKey);
@@ -24372,6 +24389,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             updateSupervisedLiveClassification(true);
             updateDockSampleBadge();
             renderSupervisedClassesList();
+            if (typeof renderSupervisedConfusionMatrix === 'function') renderSupervisedConfusionMatrix();
           }
         }).catch(() => {});
       }
@@ -24611,7 +24629,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
 
         const alg = state_sup.algorithm || "min_distance";
-        const activeIdx = classStats.findIndex(cs => cs.cls.id === state_sup.activeClassId);
+        const activeIdx = classStats.findIndex(cs => String(cs.cls.id) === String(state_sup.activeClassId));
         const layerNoData = layer.noDataValue ?? (layer._geotiffTileLayer?.geo?.noDataValue) ?? (state._unsupervisedSpectralData?.noDataValue);
 
         // Pre-aplanado de prototipos en búferes planos Float32Array contiguos (Cero asignaciones en bucle)
@@ -24750,7 +24768,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const d1 = p1 - flatProto1[p];
                     const d2 = p2 - flatProto2[p];
                     const dist = (d0 * d0 + d1 * d1 + d2 * d2) * flatProtoWeightSq[p];
-                    if (dist < minD) {
+                    const isTie = Math.abs(dist - minD) < 1e-4;
+                    if (dist < minD || (isTie && flatProtoClass[p] === activeIdx)) {
                       minD = dist;
                       bestC = flatProtoClass[p];
                     }
@@ -24776,7 +24795,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       const chromaD = (crDiff * crDiff + cgDiff * cgDiff + cbDiff * cbDiff) * 3000;
                       dist = 0.5 * dist + 0.5 * chromaD * flatProtoWeightSq[p];
                     }
-                    if (dist < minD) {
+                    const isTie = Math.abs(dist - minD) < 1e-4;
+                    if (dist < minD || (isTie && flatProtoClass[p] === activeIdx)) {
                       minD = dist;
                       bestC = flatProtoClass[p];
                     }
@@ -24978,6 +24998,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
 
         state_sup._classificationMap = ovClassMap;
+
+        // Garantizar que las áreas y polígonos entrenados por el usuario se respeten al 100% sobre el mapa
+        if (state_sup.trainingAreas && state_sup.trainingAreas.length > 0) {
+          const natW = spectralData.nativeWidth || layer.width || w;
+          const natH = spectralData.nativeHeight || layer.height || h;
+          state_sup.trainingAreas.forEach(area => {
+            const clsIdx = sampledClasses.findIndex(c => String(c.id) === String(area.classId));
+            if (clsIdx >= 0 && area.samples && area.samples.length > 0) {
+              area.samples.forEach(s => {
+                const sPx = Math.min(Math.max(Math.floor((s.px / natW) * w), 0), w - 1);
+                const sPy = Math.min(Math.max(Math.floor((s.py / natH) * h), 0), h - 1);
+                const mapIdx = sPy * w + sPx;
+                if (mapIdx >= 0 && mapIdx < totalPixels) {
+                  ovClassMap[mapIdx] = clsIdx;
+                }
+              });
+            }
+          });
+        }
+
         let validCount = 0;
         for (let i = 0; i < totalPixels; i++) {
           const c = ovClassMap[i];
@@ -25287,6 +25327,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               updateSupervisedLiveClassification(true);
             }
           });
+        }
+
+        if (typeof renderSupervisedConfusionMatrix === 'function') {
+          renderSupervisedConfusionMatrix();
         }
       } catch (err) {
         console.warn('[Supervised] Error en updateSupervisedLiveClassification:', err);
@@ -25913,20 +25957,57 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layers: polyLayer ? [polyLayer] : []
       });
 
+      // Desalojo espectral masivo de otras clases para que este polígono domine totalmente su espectro
+      if (polySamples.length > 0) {
+        state_sup.classes.forEach(otherCls => {
+          if (String(otherCls.id) === String(activeCls.id) || !otherCls.samples) return;
+          const initLen = otherCls.samples.length;
+          otherCls.samples = otherCls.samples.filter(os => {
+            const ov = os.values;
+            if (!ov) return true;
+            for (let i = 0; i < polySamples.length; i += Math.max(1, Math.floor(polySamples.length / 20))) {
+              const pv = polySamples[i].values;
+              if (!pv) continue;
+              let dSq = 0;
+              const dLen = Math.min(ov.length, pv.length);
+              for (let b = 0; b < dLen; b++) {
+                const diff = (ov[b] || 0) - (pv[b] || 0);
+                dSq += diff * diff;
+              }
+              if (dSq < 550) {
+                if (otherCls.pixelSet && os.px !== undefined) otherCls.pixelSet.delete(os.px + '_' + os.py);
+                return false;
+              }
+            }
+            return true;
+          });
+          if (otherCls.samples.length < initLen && state_sup.sampleMarkersLayer) {
+            state_sup.sampleMarkersLayer.eachLayer(layer => {
+              if (layer._classId === otherCls.id && layer.getLatLng) {
+                if (isPointInPolygon([layer.getLatLng().lat, layer.getLatLng().lng], pts)) {
+                  state_sup.sampleMarkersLayer.removeLayer(layer);
+                }
+              }
+            });
+          }
+        });
+      }
+
       clearSupervisedTempPolygon();
       if (typeof updateSupervisedPolygonDockButtons === 'function') updateSupervisedPolygonDockButtons();
       updateDockSampleBadge();
       renderSupervisedClassesList();
       drawSupervisedSpectralChart();
       updateSupervisedLiveClassification(true);
+      if (typeof renderSupervisedConfusionMatrix === 'function') renderSupervisedConfusionMatrix();
 
-      toast(`✓ Polígono ROI: ${polySamples.length} píxeles capturados para "${activeCls.name}"`, 'success');
+      toast(`✓ Polígono ROI: ${polySamples.length} píxeles capturados y reasignados a "${activeCls.name}"`, 'success');
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  MOTOR DE MATRIZ DE CONFUSIÓN Y VALIDACIÓN DE EXACTITUD
+    //  MOTOR DE MATRIZ DE CONFUSIÓN, LOOCV Y RESOLUCIÓN DE CONFLICTOS
     // ══════════════════════════════════════════════════════════════
-    function predictSupervisedPixel(vals, sampledClasses, algorithm, activeClassId) {
+    function predictSupervisedPixel(vals, sampledClasses, algorithm, activeClassId, excludeSampleIdx = -1, excludeClassIdx = -1) {
       if (!vals || vals.length === 0 || !sampledClasses || sampledClasses.length === 0) return 0;
       const numClasses = sampledClasses.length;
       const dims = Math.min(3, vals.length);
@@ -25934,7 +26015,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const sumV = v0 + v1 + v2;
       const isDarkShadow = sumV < 140;
       const alg = algorithm || 'min_distance';
-      const activeIdx = sampledClasses.findIndex(c => c.id === activeClassId);
+      const activeIdx = sampledClasses.findIndex(c => String(c.id) === String(activeClassId));
 
       if (numClasses === 1) return 0;
 
@@ -25942,20 +26023,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         let minD = Infinity, bestC = activeIdx >= 0 ? activeIdx : 0;
         for (let c = 0; c < numClasses; c++) {
           const cls = sampledClasses[c];
-          const smps = cls.samples || [];
+          let smps = cls.samples || [];
+          if (c === excludeClassIdx && excludeSampleIdx >= 0 && smps.length > 1) {
+            smps = smps.filter((_, idx) => idx !== excludeSampleIdx);
+          }
+
           let dCentroid = 0;
           let m0 = 0, m1 = 0, m2 = 0;
-          if (smps.length > 0) {
-            for (let s = 0; s < smps.length; s++) {
+          const sLen = smps.length;
+          if (sLen > 0) {
+            for (let s = 0; s < sLen; s++) {
               const sv = smps[s].values || smps[s];
               m0 += (sv[0] || 0); m1 += (sv[1] || 0); m2 += (sv[2] || 0);
             }
-            m0 /= smps.length; m1 /= smps.length; m2 /= smps.length;
+            m0 /= sLen; m1 /= sLen; m2 /= sLen;
           }
           dCentroid = (v0 - m0)**2 + (v1 - m1)**2 + (v2 - m2)**2;
 
           let minSampD = dCentroid;
-          const sLen = smps.length;
           if (sLen > 0) {
             for (let s = 0; s < sLen; s++) {
               const sv = smps[s].values || smps[s];
@@ -25973,18 +26058,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               if (sd < minSampD) minSampD = sd;
             }
           }
-          const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.90 : 1.0);
-          if (d < minD) { minD = d; bestC = c; }
+          const d = (sLen > 0 ? minSampD : dCentroid) * ((c === activeIdx) ? 0.81 : 1.0);
+          const isTie = Math.abs(d - minD) < 1e-4;
+          if (d < minD || (isTie && c === activeIdx)) { minD = d; bestC = c; }
         }
         return bestC;
       }
       else if (alg === 'spectral_angle') {
         const pNorm = Math.sqrt(v0 * v0 + v1 * v1 + v2 * v2) || 1e-4;
         const invPNorm = 1 / pNorm;
-        let maxCos = -1, bestC = 0;
+        let maxCos = -1, bestC = activeIdx >= 0 ? activeIdx : 0;
         for (let c = 0; c < numClasses; c++) {
           const cls = sampledClasses[c];
-          const smps = cls.samples || [];
+          let smps = cls.samples || [];
+          if (c === excludeClassIdx && excludeSampleIdx >= 0 && smps.length > 1) {
+            smps = smps.filter((_, idx) => idx !== excludeSampleIdx);
+          }
+
           let bestClassCos = -1;
           for (let s = 0; s < smps.length; s++) {
             const sv = smps[s].values || smps[s];
@@ -25993,16 +26083,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const cosS = (dotS * invPNorm) / sNorm;
             if (cosS > bestClassCos) bestClassCos = cosS;
           }
-          if (bestClassCos > maxCos) { maxCos = bestClassCos; bestC = c; }
+          const isTie = Math.abs(bestClassCos - maxCos) < 1e-4;
+          if (bestClassCos > maxCos || (isTie && c === activeIdx)) { maxCos = bestClassCos; bestC = c; }
         }
         return bestC;
       }
       else {
-        // max_likelihood fallback to min_distance
-        return predictSupervisedPixel(vals, sampledClasses, 'min_distance', activeClassId);
+        return predictSupervisedPixel(vals, sampledClasses, 'min_distance', activeClassId, excludeSampleIdx, excludeClassIdx);
       }
     }
 
+    // Cálculo riguroso mediante Validación Cruzada Leave-One-Out (LOOCV)
     function calculateSupervisedConfusionMatrix() {
       const state_sup = window._supervisedState;
       if (!state_sup || !state_sup.classes) return null;
@@ -26025,20 +26116,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const vals = s.values;
           if (!vals || vals.length === 0) continue;
 
-          const predIdx = predictSupervisedPixel(vals, sampledClasses, state_sup.algorithm, state_sup.activeClassId);
+          // LOOCV: Excluir la muestra k de trueCls para medir generalización real
+          const predIdx = predictSupervisedPixel(vals, sampledClasses, state_sup.algorithm, state_sup.activeClassId, k, i);
           if (predIdx >= 0 && predIdx < numClasses) {
             matrix[i][predIdx]++;
             totalSamples++;
             if (predIdx === i) {
               totalCorrect++;
             } else {
-              const sumV = (vals[0] || 0) + (vals[1] || 0) + (vals[2] || 0);
-              if (sumV < 150) {
+              const existingConf = shadowConfusions.find(sc => sc.trueClassId === trueCls.id && sc.predClassId === sampledClasses[predIdx].id);
+              if (existingConf) {
+                existingConf.count++;
+              } else {
                 shadowConfusions.push({
                   trueClass: trueCls.name,
+                  trueClassId: trueCls.id,
                   predClass: sampledClasses[predIdx].name,
+                  predClassId: sampledClasses[predIdx].id,
                   trueColor: trueCls.color,
-                  predColor: sampledClasses[predIdx].color
+                  predColor: sampledClasses[predIdx].color,
+                  count: 1
                 });
               }
             }
@@ -26090,6 +26187,80 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  RESOLUCIÓN AUTOMÁTICA Y MANUAL DE CONFUSIONES ENTRE CLASES
+    // ══════════════════════════════════════════════════════════════
+    function resolveConfusionBetweenClasses(targetClassId, conflictingClassId) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.classes) return;
+
+      const targetCls = state_sup.classes.find(c => String(c.id) === String(targetClassId));
+      const conflictCls = state_sup.classes.find(c => String(c.id) === String(conflictingClassId));
+      if (!targetCls || !conflictCls) return;
+
+      const targetSamples = targetCls.samples || [];
+      if (targetSamples.length === 0) {
+        toast(`Toma primero al menos una muestra de "${targetCls.name}" en el mapa.`, 'info');
+        return;
+      }
+
+      let prunedCount = 0;
+      if (conflictCls.samples && conflictCls.samples.length > 0) {
+        const initLen = conflictCls.samples.length;
+        conflictCls.samples = conflictCls.samples.filter(cs => {
+          const cv = cs.values;
+          if (!cv) return true;
+          for (let i = 0; i < targetSamples.length; i++) {
+            const tv = targetSamples[i].values;
+            if (!tv) continue;
+            let dSq = 0;
+            const dims = Math.min(cv.length, tv.length);
+            for (let d = 0; d < dims; d++) {
+              const diff = (cv[d] || 0) - (tv[d] || 0);
+              dSq += diff * diff;
+            }
+            if (dSq < 650) {
+              if (conflictCls.pixelSet && cs.px !== undefined) {
+                conflictCls.pixelSet.delete(cs.px + '_' + cs.py);
+              }
+              prunedCount++;
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (conflictCls.samples.length < initLen && state_sup.sampleMarkersLayer) {
+          state_sup.sampleMarkersLayer.eachLayer(layer => {
+            if (layer._classId === conflictCls.id) {
+              state_sup.sampleMarkersLayer.removeLayer(layer);
+            }
+          });
+          conflictCls.samples.forEach(s => {
+            if (s.latlng && Array.isArray(s.latlng)) {
+              const m = L.circleMarker(s.latlng, {
+                radius: 5, color: '#ffffff', weight: 2, fillColor: conflictCls.color, fillOpacity: 0.95
+              });
+              m._classId = conflictCls.id;
+              state_sup.sampleMarkersLayer.addLayer(m);
+            }
+          });
+        }
+      }
+
+      // Asignar clase activa a targetCls para que tenga prioridad inmediata
+      state_sup.activeClassId = targetCls.id;
+
+      renderSupervisedClassesList();
+      updateDockSampleBadge();
+      updateSupervisedDockClassSelect();
+      updateSupervisedLiveClassification(true);
+      renderSupervisedConfusionMatrix();
+
+      toast(`✓ Confusión resuelta: Zona reclasificada a "${targetCls.name}" (${prunedCount} muestras en conflicto depuradas de "${conflictCls.name}").`, 'success');
+    }
+    window.resolveConfusionBetweenClasses = resolveConfusionBetweenClasses;
+
     function renderSupervisedConfusionMatrix() {
       const stats = calculateSupervisedConfusionMatrix();
       const wrap = document.getElementById('supConfusionTableWrap');
@@ -26135,20 +26306,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         dockAccText.textContent = `${stats.overallAccuracy}% Acc`;
       }
 
-      // Diagnóstico de sombras
+      // Diagnóstico interactivo de confusiones y sombras con botón de acción directa
       if (alertBox && alertText && alertIcon) {
         alertBox.style.display = 'flex';
         if (stats.shadowConfusions.length > 0) {
           const c0 = stats.shadowConfusions[0];
-          alertBox.className = 'p-2.5 rounded-xl text-[9px] flex items-center gap-2 transition-all bg-amber-50 border border-amber-200 text-amber-900';
-          alertIcon.className = 'material-symbols-outlined text-[16px] text-amber-600 shrink-0';
+          alertBox.className = 'p-3 rounded-xl text-[9px] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all bg-amber-50 border border-amber-200 text-amber-900 shadow-2xs';
+          alertIcon.className = 'material-symbols-outlined text-[18px] text-amber-600 shrink-0';
           alertIcon.textContent = 'warning';
-          alertText.innerHTML = `<strong>Aviso de Sombras:</strong> Hay muestras oscuras de <strong style="color:${c0.trueColor}">${c0.trueClass}</strong> que se confunden con <strong style="color:${c0.predColor}">${c0.predClass}</strong>. <em>Solución:</em> Usa el Pincel para añadir más muestras en esa zona sombreada o activa <strong>Ángulo Espectral SAM</strong>.`;
+          alertText.innerHTML = `
+            <div class="flex-1">
+              <strong>Confusión Detectada:</strong> Hay ${c0.count} muestras de <strong style="color:${c0.trueColor}">${c0.trueClass}</strong> que se confunden con <strong style="color:${c0.predColor}">${c0.predClass}</strong>.
+              <span class="block text-[8px] text-amber-700/80 mt-0.5">Haz clic en el botón o en la celda roja de la matriz para forzar que predomine "${c0.trueClass}".</span>
+            </div>
+            <button type="button" onclick="resolveConfusionBetweenClasses('${c0.trueClassId}', '${c0.predClassId}')"
+              class="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] shadow-xs transition-all flex items-center gap-1 cursor-pointer">
+              <span class="material-symbols-outlined text-[13px]">auto_fix_high</span>
+              <span>Reclasificar a ${c0.trueClass}</span>
+            </button>
+          `;
         } else {
           alertBox.className = 'p-2 rounded-xl text-[9px] flex items-center gap-2 transition-all bg-emerald-50 border border-emerald-200 text-emerald-900';
           alertIcon.className = 'material-symbols-outlined text-[16px] text-emerald-600 shrink-0';
           alertIcon.textContent = 'verified';
-          alertText.innerHTML = `<strong>Detección de Sombras Óptima:</strong> Todas las áreas en sombra y coberturas están correctamente discriminadas sin confusión.`;
+          alertText.innerHTML = `<strong>Detección Óptima:</strong> Todas las áreas en sombra y coberturas están correctamente discriminadas sin confusión.`;
         }
       }
 
@@ -26192,13 +26373,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           for (let j = 0; j < stats.numClasses; j++) {
             const count = stats.matrix[i][j];
             const isDiag = (i === j);
-            let cellStyle = 'p-1.5 text-center border-r border-zinc-200 font-mono font-bold ';
             if (isDiag) {
-              cellStyle += (count > 0) ? 'bg-emerald-50 text-emerald-800 font-black' : 'text-zinc-400';
+              const cellStyle = 'p-1.5 text-center border-r border-zinc-200 font-mono font-bold ' + ((count > 0) ? 'bg-emerald-50 text-emerald-800 font-black' : 'text-zinc-400');
+              html += `<td class="${cellStyle}">${count}</td>`;
             } else {
-              cellStyle += (count > 0) ? 'bg-red-50 text-red-700 font-black' : 'text-zinc-300';
+              if (count > 0) {
+                html += `
+                  <td class="p-1 text-center border-r border-zinc-200 bg-red-50/80">
+                    <button type="button" onclick="resolveConfusionBetweenClasses('${rowCls.id}', '${sc[j].id}')"
+                      title="Resolver Confusión: Forzar que estas ${count} muestras se clasifiquen como '${rowCls.name}' y eliminar conflicto con '${sc[j].name}'"
+                      class="px-2 py-0.5 rounded-lg bg-red-100 hover:bg-emerald-600 hover:text-white text-red-800 font-black text-[9px] shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto">
+                      <span>${count}</span>
+                      <span class="material-symbols-outlined text-[10px]">auto_fix_high</span>
+                    </button>
+                  </td>
+                `;
+              } else {
+                html += `<td class="p-1.5 text-center border-r border-zinc-200 font-mono text-zinc-300">0</td>`;
+              }
             }
-            html += `<td class="${cellStyle}">${count}</td>`;
           }
 
           html += `
@@ -26229,8 +26422,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         wrap.innerHTML = html;
       }
     }
-
-    // 4. Dibujo de Firma Espectral Comparativa en Canvas
+// 4. Dibujo de Firma Espectral Comparativa en Canvas
     function drawSupervisedSpectralChart() {
       const canvas = document.getElementById('supervisedSpectralCanvas');
       const emptyMsg = document.getElementById('supervisedChartEmptyMsg');
