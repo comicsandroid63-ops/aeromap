@@ -4039,12 +4039,60 @@
           </button>
         </div>
       </div>
-      <button onclick="setMode('line')" id="btn-mode-line" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Dibujar Línea">
-        <span class="material-symbols-outlined">polyline</span>
-      </button>
-      <button onclick="setMode('polygon')" id="btn-mode-polygon" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Dibujar Polígono">
-        <span class="material-symbols-outlined">pentagon</span>
-      </button>
+      <!-- Herramienta Líneas con Despliegue en Hover -->
+      <div class="relative group" id="lineToolContainer">
+        <button onclick="setMode('line')" id="btn-mode-line" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Dibujar Línea (Pasa el ratón para desplegar)">
+          <span class="material-symbols-outlined">polyline</span>
+        </button>
+        <!-- Flyout Submenú desplegable en hover -->
+        <div id="lineToolsSubmenu" class="absolute left-12 top-0 hidden group-hover:flex flex-col gap-1.5 bg-zinc-900/95 backdrop-blur-md text-white p-2.5 rounded-2xl shadow-2xl border border-white/20 min-w-[210px] z-[100] animate-in slide-in-from-left-2 duration-200 before:absolute before:-left-3 before:top-0 before:w-3 before:h-full before:content-['']">
+          <div class="text-[9px] font-black uppercase tracking-widest text-zinc-400 px-2 py-0.5 border-b border-white/10 flex items-center justify-between">
+            <span>Herramienta Líneas</span>
+            <span class="material-symbols-outlined text-[13px] text-indigo-400">polyline</span>
+          </div>
+          <button onclick="setMode('line'); hideLineSubmenu()" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left">
+            <span class="material-symbols-outlined text-[16px] text-indigo-400">edit_road</span>
+            <span>Dibujar Línea</span>
+          </button>
+          <div class="h-[1px] bg-white/10 my-0.5"></div>
+          <button onclick="openCreateLineGroupModal(); hideLineSubmenu()" id="btnCreateLineGroup" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-emerald-300 hover:text-emerald-200">
+            <span class="material-symbols-outlined text-[16px] text-emerald-400">library_add</span>
+            <span>Crear Grupo de Líneas</span>
+          </button>
+          <div class="h-[1px] bg-white/10 my-0.5"></div>
+          <button onclick="openExportVectorModal(); hideLineSubmenu()" id="btnExportLineGroups" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-amber-300 hover:text-amber-200">
+            <span class="material-symbols-outlined text-[16px] text-amber-400">file_download</span>
+            <span>Exportar Grupos de Líneas</span>
+          </button>
+        </div>
+      </div>
+      <!-- Herramienta Polígonos con Despliegue en Hover -->
+      <div class="relative group" id="polygonToolContainer">
+        <button onclick="setMode('polygon')" id="btn-mode-polygon" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Dibujar Polígono (Pasa el ratón para desplegar)">
+          <span class="material-symbols-outlined">pentagon</span>
+        </button>
+        <!-- Flyout Submenú desplegable en hover -->
+        <div id="polygonToolsSubmenu" class="absolute left-12 top-0 hidden group-hover:flex flex-col gap-1.5 bg-zinc-900/95 backdrop-blur-md text-white p-2.5 rounded-2xl shadow-2xl border border-white/20 min-w-[210px] z-[100] animate-in slide-in-from-left-2 duration-200 before:absolute before:-left-3 before:top-0 before:w-3 before:h-full before:content-['']">
+          <div class="text-[9px] font-black uppercase tracking-widest text-zinc-400 px-2 py-0.5 border-b border-white/10 flex items-center justify-between">
+            <span>Herramienta Polígonos</span>
+            <span class="material-symbols-outlined text-[13px] text-emerald-400">pentagon</span>
+          </div>
+          <button onclick="setMode('polygon'); hidePolygonSubmenu()" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left">
+            <span class="material-symbols-outlined text-[16px] text-emerald-400">draw</span>
+            <span>Dibujar Polígono</span>
+          </button>
+          <div class="h-[1px] bg-white/10 my-0.5"></div>
+          <button onclick="openCreatePolygonGroupModal(); hidePolygonSubmenu()" id="btnCreatePolygonGroup" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-emerald-300 hover:text-emerald-200">
+            <span class="material-symbols-outlined text-[16px] text-emerald-400">library_add</span>
+            <span>Crear Grupo de Polígonos</span>
+          </button>
+          <div class="h-[1px] bg-white/10 my-0.5"></div>
+          <button onclick="openExportVectorModal(); hidePolygonSubmenu()" id="btnExportPolygonGroups" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-amber-300 hover:text-amber-200">
+            <span class="material-symbols-outlined text-[16px] text-amber-400">file_download</span>
+            <span>Exportar Grupos de Polígonos</span>
+          </button>
+        </div>
+      </div>
       <div class="relative group">
         <button onclick="toggleEditSubmenu()" id="btn-mode-edit" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Herramientas de Edición">
           <span class="material-symbols-outlined">edit_square</span>
@@ -5186,7 +5234,7 @@
           </select>
         </div>
 
-        <!-- Panel Dinámico: Grupos y Clases de Puntos Detectados -->
+        <!-- Panel Dinámico: Grupos y Clases Vectoriales Detectados -->
         <div id="exportPointGroupsPanel" class="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 space-y-3" style="display: none;">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -5195,10 +5243,10 @@
               </div>
               <div>
                 <h4 class="text-xs font-black text-zinc-900 tracking-tight flex items-center gap-1.5">
-                  <span>Grupos de Puntos Detectados</span>
+                  <span>Grupos Vectoriales Detectados</span>
                   <span id="exportPointGroupsCountBadge" class="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-100 text-indigo-700">0 grupos</span>
                 </h4>
-                <p class="text-[9px] text-zinc-500 font-medium">Lectura en tiempo real de capas, grupos y clases</p>
+                <p class="text-[9px] text-zinc-500 font-medium">Lectura en tiempo real de puntos, polígonos, grupos y clases</p>
               </div>
             </div>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[9px] font-black uppercase tracking-wider">
@@ -5216,24 +5264,24 @@
             <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1.5">Organización de la Exportación:</label>
             <div class="grid grid-cols-3 gap-2">
               <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
-                <input type="radio" name="exportGroupMode" value="single" checked class="w-3.5 h-3.5 text-indigo-600">
+                <input type="radio" name="exportGroupMode" value="split_group" checked class="w-3.5 h-3.5 text-indigo-600">
                 <div class="leading-tight">
-                  <div class="text-[11px] font-black">📁 Unificado</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">1 archivo con campos grupo/clase</div>
-                </div>
-              </label>
-              <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
-                <input type="radio" name="exportGroupMode" value="split_group" class="w-3.5 h-3.5 text-indigo-600">
-                <div class="leading-tight">
-                  <div class="text-[11px] font-black">🗂️ Por Grupos</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">Archivos por grupo (.zip)</div>
+                  <div class="text-[11px] font-black">🗂️ Por Grupos (.zip)</div>
+                  <div class="text-[8px] text-zinc-500 font-normal">1 archivo por cada grupo/número</div>
                 </div>
               </label>
               <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
                 <input type="radio" name="exportGroupMode" value="split_class" class="w-3.5 h-3.5 text-indigo-600">
                 <div class="leading-tight">
-                  <div class="text-[11px] font-black">🏷️ Por Clases</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">Archivos por clase (.zip)</div>
+                  <div class="text-[11px] font-black">🏷️ Por Clases (.zip)</div>
+                  <div class="text-[8px] text-zinc-500 font-normal">1 archivo por cada clase</div>
+                </div>
+              </label>
+              <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
+                <input type="radio" name="exportGroupMode" value="single" class="w-3.5 h-3.5 text-indigo-600">
+                <div class="leading-tight">
+                  <div class="text-[11px] font-black">📁 Unificado</div>
+                  <div class="text-[8px] text-zinc-500 font-normal">Todo en 1 solo archivo</div>
                 </div>
               </label>
             </div>
@@ -5394,7 +5442,133 @@
     </div>
   </div>
 
-  <!-- Modal Crear Nueva Clase de Puntos -->
+  <!-- Modal Crear Grupo de Polígonos -->
+  <div id="createPolygonGroupModal" style="display:none;" class="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100 flex flex-col">
+      <!-- Header -->
+      <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-gradient-to-r from-teal-50 to-emerald-50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md">
+            <span class="material-symbols-outlined text-[22px]">pentagon</span>
+          </div>
+          <div>
+            <h3 class="font-black text-base text-zinc-900 tracking-tight">Crear Grupo de Polígonos</h3>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-teal-700">Nueva capa vectorial de polígonos</p>
+          </div>
+        </div>
+        <button onclick="closeCreatePolygonGroupModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
+          <span class="material-symbols-outlined text-zinc-500 text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nombre o Número del Grupo:</label>
+          <input type="text" id="newPolygonGroupName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-teal-500/30" placeholder="Ej: 1, 2, 3, Grupo 1, Bosque, Lotes" value="Grupo de Polígonos 1">
+        </div>
+
+        <div class="border-t border-zinc-100 pt-3">
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nombre de la Primera Clase:</label>
+          <input type="text" id="newPolygonGroupClassName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-teal-500/30" placeholder="Ej: Clase 1, Agrícola, Urbano, etc." value="Clase 1">
+        </div>
+
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Color de la Clase:</label>
+          <div class="flex items-center gap-3 mb-2">
+            <input type="color" id="newPolygonGroupClassColor" value="#10b981" oninput="document.getElementById('newPolygonGroupClassColorHex').textContent = this.value" class="w-10 h-10 rounded-xl border border-zinc-200 cursor-pointer bg-white p-0.5">
+            <span id="newPolygonGroupClassColorHex" class="font-mono text-xs font-bold text-zinc-600">#10b981</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[8px] font-bold uppercase text-zinc-400 mr-1">Paleta:</span>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#10b981', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#10b981;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#3b82f6', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#3b82f6;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#ef4444', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ef4444;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#f59e0b', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#f59e0b;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#8b5cf6', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#8b5cf6;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#ec4899', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ec4899;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#06b6d4', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#06b6d4;"></button>
+            <button type="button" onclick="selectQuickColor('newPolygonGroupClassColor', '#84cc16', 'newPolygonGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#84cc16;"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-zinc-100 flex items-center justify-end gap-2 bg-zinc-50">
+        <button onclick="closeCreatePolygonGroupModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200 transition-colors uppercase tracking-wider">
+          Cancelar
+        </button>
+        <button onclick="submitCreatePolygonGroup()" class="px-5 py-2.5 rounded-xl text-xs font-black bg-teal-600 hover:bg-teal-700 text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-md uppercase tracking-wider">
+          <span class="material-symbols-outlined text-[16px]">check</span>
+          Crear y Dibujar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Crear Grupo de Líneas -->
+  <div id="createLineGroupModal" style="display:none;" class="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100 flex flex-col">
+      <!-- Header -->
+      <div class="p-6 border-b border-zinc-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+            <span class="material-symbols-outlined text-[22px]">polyline</span>
+          </div>
+          <div>
+            <h3 class="font-black text-base text-zinc-900 tracking-tight">Crear Grupo de Líneas</h3>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-blue-700">Nueva capa vectorial de líneas</p>
+          </div>
+        </div>
+        <button onclick="closeCreateLineGroupModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
+          <span class="material-symbols-outlined text-zinc-500 text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nombre o Número del Grupo:</label>
+          <input type="text" id="newLineGroupName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="Ej: 1, 2, Vías, Trazados" value="Grupo de Líneas 1">
+        </div>
+
+        <div class="border-t border-zinc-100 pt-3">
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nombre de la Primera Clase:</label>
+          <input type="text" id="newLineGroupClassName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-blue-500/30" placeholder="Ej: Vía Principal, Camino, etc." value="Clase 1">
+        </div>
+
+        <div>
+          <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Color de la Clase:</label>
+          <div class="flex items-center gap-3 mb-2">
+            <input type="color" id="newLineGroupClassColor" value="#3b82f6" oninput="document.getElementById('newLineGroupClassColorHex').textContent = this.value" class="w-10 h-10 rounded-xl border border-zinc-200 cursor-pointer bg-white p-0.5">
+            <span id="newLineGroupClassColorHex" class="font-mono text-xs font-bold text-zinc-600">#3b82f6</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[8px] font-bold uppercase text-zinc-400 mr-1">Paleta:</span>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#3b82f6', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#3b82f6;"></button>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#ef4444', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ef4444;"></button>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#10b981', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#10b981;"></button>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#f59e0b', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#f59e0b;"></button>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#8b5cf6', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#8b5cf6;"></button>
+            <button type="button" onclick="selectQuickColor('newLineGroupClassColor', '#ec4899', 'newLineGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ec4899;"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-zinc-100 flex items-center justify-end gap-2 bg-zinc-50">
+        <button onclick="closeCreateLineGroupModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200 transition-colors uppercase tracking-wider">
+          Cancelar
+        </button>
+        <button onclick="submitCreateLineGroup()" class="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-md uppercase tracking-wider">
+          <span class="material-symbols-outlined text-[16px]">check</span>
+          Crear y Dibujar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Crear Nueva Clase (Puntos, Polígonos, Líneas) -->
   <div id="addPointClassModal" style="display:none;" class="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100 flex flex-col">
       <!-- Header -->
@@ -5404,8 +5578,8 @@
             <span class="material-symbols-outlined text-[22px]">category</span>
           </div>
           <div>
-            <h3 class="font-black text-base text-zinc-900 tracking-tight">Nueva Clase de Puntos</h3>
-            <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-700" id="addPointClassModalTargetLayer">Capa de Puntos</p>
+            <h3 class="font-black text-base text-zinc-900 tracking-tight" id="addClassModalTitle">Nueva Clase Vectorial</h3>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-700" id="addPointClassModalTargetLayer">Capa de Destino</p>
           </div>
         </div>
         <button onclick="closeAddPointClassModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 transition-colors">
@@ -5419,7 +5593,7 @@
         
         <div>
           <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1">Nombre de la Nueva Clase:</label>
-          <input type="text" id="newPointClassName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Ej: Clase 2, Postes, Luminarias, Árboles">
+          <input type="text" id="newPointClassName" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Ej: Clase 2, Bosque, Urbano, etc.">
         </div>
 
         <div>
@@ -5433,7 +5607,7 @@
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#ef4444', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ef4444;"></button>
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#10b981', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#10b981;"></button>
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#f59e0b', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#f59e0b;"></button>
-            <button type="button" onclick="selectQuickColor('newPointClassColor', '#3b82f6', 'newPointGroupClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#3b82f6;"></button>
+            <button type="button" onclick="selectQuickColor('newPointClassColor', '#3b82f6', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#3b82f6;"></button>
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#8b5cf6', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#8b5cf6;"></button>
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#ec4899', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#ec4899;"></button>
             <button type="button" onclick="selectQuickColor('newPointClassColor', '#06b6d4', 'newPointClassColorHex')" class="w-5 h-5 rounded-full border border-black/10 transition-transform hover:scale-110" style="background:#06b6d4;"></button>
@@ -9036,36 +9210,31 @@ self.onmessage = async function(e) {
         const groupSelect = document.getElementById('attrTableGroupFilter');
         if (!groupWrapper || !groupSelect) return;
 
-        const pointLayers = getPointLayers();
-        if (pointLayers.length > 0) {
+        const vectorLayers = state.layers.filter(l => (l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function')));
+        if (vectorLayers.length > 0) {
             groupWrapper.style.display = 'flex';
-            let totalPoints = 0;
-            pointLayers.forEach(pl => {
-                const count = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features.length : 0;
-                totalPoints += count;
+            let totalEntities = 0;
+            vectorLayers.forEach(vl => {
+                const count = (vl.geoJson && vl.geoJson.features) ? vl.geoJson.features.length : 0;
+                totalEntities += count;
             });
 
             let opts = '';
-            if (pointLayers.length > 1) {
-                opts += `<option value="__ALL_POINT_GROUPS__">🌟 Todos los Grupos (${totalPoints} pts)</option>`;
+            if (vectorLayers.length > 1) {
+                opts += `<option value="__ALL_GROUPS__">🌟 Todos los Grupos (${totalEntities} entidades)</option>`;
             }
-            pointLayers.forEach(pl => {
-                const count = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features.length : 0;
-                opts += `<option value="${pl.id}">📂 ${pl.name} (${count} pts)</option>`;
+            vectorLayers.forEach(vl => {
+                const count = (vl.geoJson && vl.geoJson.features) ? vl.geoJson.features.length : 0;
+                const isPoint = vl.isPoints || vl.isPointGroup || (vl.geoJson?.features?.[0]?.geometry?.type === 'Point');
+                const isPoly = vl.isPolygonGroup || vl.isPolygons || (vl.geoJson?.features?.[0]?.geometry?.type === 'Polygon');
+                const icon = isPoint ? '📍' : (isPoly ? '🔷' : '📏');
+                opts += `<option value="${vl.id}">${icon} Grupo: ${vl.name} (${count})</option>`;
             });
 
-            const otherLayers = state.layers.filter(l => l.type === 'vector' && !pointLayers.includes(l));
-            if (otherLayers.length > 0) {
-                opts += `<optgroup label="Otras Capas">`;
-                otherLayers.forEach(ol => {
-                    opts += `<option value="${ol.id}">📄 ${ol.name}</option>`;
-                });
-                opts += `</optgroup>`;
-            }
             groupSelect.innerHTML = opts;
 
-            if (state.attrTable.layerId === '__ALL_POINT_GROUPS__') {
-                groupSelect.value = '__ALL_POINT_GROUPS__';
+            if (state.attrTable.layerId === '__ALL_GROUPS__' || state.attrTable.layerId === '__ALL_POINT_GROUPS__') {
+                groupSelect.value = '__ALL_GROUPS__';
             } else if (state.attrTable.layerId) {
                 groupSelect.value = state.attrTable.layerId;
             }
@@ -9075,9 +9244,9 @@ self.onmessage = async function(e) {
     }
 
     function onAttrTableGroupChange(val) {
-        if (val === '__ALL_POINT_GROUPS__') {
-            state.attrTable.layerId = '__ALL_POINT_GROUPS__';
-            document.getElementById('attrTableTitle').textContent = 'Tabla de Atributos: Todos los Grupos de Puntos';
+        if (val === '__ALL_GROUPS__' || val === '__ALL_POINT_GROUPS__') {
+            state.attrTable.layerId = '__ALL_GROUPS__';
+            document.getElementById('attrTableTitle').textContent = 'Tabla de Atributos: Todos los Grupos';
         } else {
             state.attrTable.layerId = val;
             const layer = state.layers.find(l => String(l.id) === String(val));
@@ -9147,22 +9316,29 @@ self.onmessage = async function(e) {
 
         updateAttrTableGroupFilter();
 
-        const pointLayers = getPointLayers();
+        const vectorLayers = state.layers.filter(l => (l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function')));
         let targetLayers = [];
-        let isAllPointGroups = (state.attrTable.layerId === '__ALL_POINT_GROUPS__');
+        let isAllGroups = (state.attrTable.layerId === '__ALL_GROUPS__' || state.attrTable.layerId === '__ALL_POINT_GROUPS__');
 
-        if (isAllPointGroups) {
-            targetLayers = pointLayers;
+        if (isAllGroups) {
+            targetLayers = vectorLayers;
         } else {
             const singleLayer = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
-            if (!singleLayer) return;
-            targetLayers = [singleLayer];
+            if (!singleLayer) {
+                if (vectorLayers.length > 0) {
+                    targetLayers = [vectorLayers[0]];
+                    state.attrTable.layerId = vectorLayers[0].id;
+                } else {
+                    return;
+                }
+            } else {
+                targetLayers = [singleLayer];
+            }
         }
 
         try {
             let data = [];
             targetLayers.forEach(layer => {
-                const isPointLayer = isLayerPointRelated(layer);
                 let feats = [];
                 if (layer.geoJson && Array.isArray(layer.geoJson.features)) {
                     feats = layer.geoJson.features;
@@ -9172,9 +9348,16 @@ self.onmessage = async function(e) {
 
                 feats.forEach((f, i) => {
                     const props = f.properties || {};
-                    if (isPointLayer) {
-                        if (!props.grupo) props.grupo = layer.name;
-                        if (!props.grupoId) props.grupoId = layer.id;
+                    const gName = props.grupo || props.group || props.Grupo || layer.name || 'Grupo 1';
+                    if (!props.grupo) props.grupo = gName;
+                    if (!props.grupoId) props.grupoId = layer.id;
+                    if (!props.clase) {
+                        props.clase = props.class || props.Clase || (layer.pointClasses && layer.pointClasses[0]?.name) || (layer.classes && layer.classes[0]?.name) || 'Clase 1';
+                    }
+                    if (!props.color) {
+                        const clList = layer.pointClasses || layer.classes || [];
+                        const foundCl = clList.find(c => c.name === props.clase || String(c.id) === String(props.claseId));
+                        props.color = foundCl ? foundCl.color : (layer.color || '#3b82f6');
                     }
                     data.push({
                         ...props,
@@ -9232,7 +9415,7 @@ self.onmessage = async function(e) {
                 });
             });
 
-            // Priority ordering for point attributes: grupo, clase, name, lat, lng, color, timestamp, then others
+            // Priority ordering for attributes: grupo, clase, name, lat, lng, color, timestamp, then others
             const priorityOrder = ['grupo', 'clase', 'name', 'nombre', 'lat', 'lng', 'color', 'timestamp'];
             const sortedKeys = Array.from(rawKeys).sort((a, b) => {
                 const idxA = priorityOrder.indexOf(a);
@@ -9299,63 +9482,60 @@ self.onmessage = async function(e) {
                 `).join('')}
             `;
 
-            // Check if we should organize by groups:
-            const hasPointGroups = targetLayers.some(l => isLayerPointRelated(l));
+            // Always organize rows cleanly by their group!
+            const groupMap = new Map();
+            data.forEach(row => {
+                const gName = String(row.grupo || row._layerName || 'Grupo 1').trim();
+                if (!groupMap.has(gName)) groupMap.set(gName, []);
+                groupMap.get(gName).push(row);
+            });
 
             let bodyHtml = '';
-            if (hasPointGroups) {
-                // Group data by group name
-                const groupMap = new Map();
-                data.forEach(row => {
-                    const gName = row.grupo || row._layerName || 'Grupo de Puntos';
-                    if (!groupMap.has(gName)) groupMap.set(gName, []);
-                    groupMap.get(gName).push(row);
+            let overallIdx = 0;
+            groupMap.forEach((rowsInGroup, gName) => {
+                // Summarize classes in this group
+                const classSummary = {};
+                rowsInGroup.forEach(r => {
+                    const cName = r.clase || 'Sin Clase';
+                    if (!classSummary[cName]) classSummary[cName] = { count: 0, color: r.color || '#3b82f6' };
+                    classSummary[cName].count++;
                 });
+                const badges = Object.entries(classSummary).map(([cName, info]) => `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs" style="background-color: ${info.color}">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                        <span>${cName}</span>
+                        <span class="bg-black/20 px-1 rounded text-[9px]">${info.count}</span>
+                    </span>
+                `).join('');
 
-                let overallIdx = 0;
-                groupMap.forEach((rowsInGroup, gName) => {
-                    // Summarize classes in this group
-                    const classSummary = {};
-                    rowsInGroup.forEach(r => {
-                        const cName = r.clase || 'Sin Clase';
-                        if (!classSummary[cName]) classSummary[cName] = { count: 0, color: r.color || '#3b82f6' };
-                        classSummary[cName].count++;
-                    });
-                    const badges = Object.entries(classSummary).map(([cName, info]) => `
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs" style="background-color: ${info.color}">
-                            <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
-                            <span>${cName}</span>
-                            <span class="bg-black/20 px-1 rounded text-[9px]">${info.count}</span>
-                        </span>
-                    `).join('');
+                const firstRow = rowsInGroup[0];
+                const geomType = (firstRow._featureRef && firstRow._featureRef.geometry) ? firstRow._featureRef.geometry.type : '';
+                const geomLabel = /point/i.test(geomType) ? 'puntos' : (/polygon/i.test(geomType) ? 'polígonos' : (/line/i.test(geomType) ? 'líneas' : 'entidades'));
 
-                    // Group Section Divider Row
-                    bodyHtml += `
-                        <tr class="bg-indigo-50/90 border-y-2 border-indigo-200">
-                            <td colspan="100%" class="py-2.5 px-4 shadow-xs">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2.5 text-xs font-black text-indigo-950">
-                                        <span class="material-symbols-outlined text-[18px] text-indigo-600">folder_open</span>
-                                        <span>Grupo: <strong class="text-indigo-800 uppercase tracking-wider">${gName}</strong></span>
-                                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInGroup.length} ${rowsInGroup.length === 1 ? 'punto' : 'puntos'}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        ${badges}
-                                    </div>
+                // Group Section Divider Row
+                bodyHtml += `
+                    <tr class="bg-indigo-50/90 border-y-2 border-indigo-200">
+                        <td colspan="100%" class="py-2.5 px-4 shadow-xs">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5 text-xs font-black text-indigo-950">
+                                    <span class="material-symbols-outlined text-[18px] text-indigo-600">folder_open</span>
+                                    <span>Grupo: <strong class="text-indigo-800 uppercase tracking-wider">${gName}</strong></span>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInGroup.length} ${geomLabel}</span>
                                 </div>
-                            </td>
-                        </tr>
-                    `;
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    ${badges}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
 
-                    // Rows for this group
-                    rowsInGroup.forEach(row => {
-                        overallIdx++;
-                        bodyHtml += renderRowHtml(row, overallIdx, sortedKeys);
-                    });
+                // Rows for this group
+                rowsInGroup.forEach(row => {
+                    overallIdx++;
+                    bodyHtml += renderRowHtml(row, overallIdx, sortedKeys);
                 });
-            } else {
-                bodyHtml = data.slice(0, 500).map((row, idx) => renderRowHtml(row, idx + 1, sortedKeys)).join('');
-            }
+            });
 
             $body.innerHTML = bodyHtml;
 
@@ -28118,82 +28298,95 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </div>
         </div>
         ` : `
-        <!-- Sección de Clases de Puntos si la capa es de tipo puntos -->
-        ${((layer.isPoints || layer.isPointGroup) || (layer.pointClasses && layer.pointClasses.length > 0)) ? `
-        <div class="flex flex-col gap-2.5 pt-2 border-t border-zinc-200/80">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[16px] text-indigo-600">category</span>
-              <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Clases de Puntos (${layer.pointClasses?.length || 1})</span>
+        <!-- Sección de Clases si la capa es vectorial / grupo de puntos / polígonos / líneas -->
+        ${(isVector || (layer.isPoints || layer.isPointGroup || layer.isPolygonGroup || layer.isPolygons || layer.isLineGroup || (layer.pointClasses && layer.pointClasses.length > 0) || (layer.classes && layer.classes.length > 0))) ? (() => {
+          const isPt = layer.isPoints || layer.isPointGroup || (layer.geoJson?.features?.[0]?.geometry?.type === 'Point');
+          const isPoly = layer.isPolygonGroup || layer.isPolygons || (layer.geoJson?.features?.[0]?.geometry?.type === 'Polygon');
+          const isLn = layer.isLineGroup || layer.isLines || (layer.geoJson?.features?.[0]?.geometry?.type === 'LineString');
+          const typeWord = isPoly ? 'Polígonos' : (isLn ? 'Líneas' : 'Puntos');
+          const typeIcon = isPoly ? 'pentagon' : (isLn ? 'polyline' : 'location_on');
+          const countSuffix = isPoly ? 'pol' : (isLn ? 'lín' : 'pts');
+          const classList = layer.pointClasses || layer.classes || [{ id: 1, name: 'Clase 1', color: layer.color || '#3b82f6', count: 0, visible: true }];
+          const drawModeForLayer = isPoly ? 'polygon' : (isLn ? 'line' : 'point');
+          const drawBtnIcon = isPoly ? 'draw' : (isLn ? 'edit_road' : 'add_location_alt');
+          const drawBtnLabel = isPoly ? 'Empezar a Dibujar Polígonos' : (isLn ? 'Empezar a Dibujar Líneas' : 'Empezar a Dibujar Puntos');
+
+          return `
+          <div class="flex flex-col gap-2.5 pt-2 border-t border-zinc-200/80">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-indigo-600">${typeIcon}</span>
+                <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Clases de ${typeWord} (${classList.length})</span>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); openAddPointClassModal(${layer.id})"
+                class="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                title="Crear nueva clase para este grupo">
+                <span class="material-symbols-outlined text-[12px]">add</span>
+                Nueva Clase
+              </button>
             </div>
-            <button type="button" onclick="event.stopPropagation(); openAddPointClassModal(${layer.id})"
-              class="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all active:scale-95"
-              title="Crear nueva clase de puntos para esta capa">
-              <span class="material-symbols-outlined text-[12px]">add</span>
-              Nueva Clase
-            </button>
-          </div>
 
-          <!-- Lista de Clases de Puntos -->
-          <div class="flex flex-col gap-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-0.5">
-            ${(layer.pointClasses || [{ id: 1, name: 'Clase 1', color: layer.color || '#3b82f6', count: 0, visible: true }]).map(cls => {
-              const isDrawingActive = layer.activeClassId === cls.id && state.drawMode === 'point';
-              const isClassSelected = layer.activeClassId === cls.id;
-              const ptCount = layer.geoJson?.features ? layer.geoJson.features.filter(f => {
-                const p = f.properties || {};
-                return (p.claseId !== undefined && String(p.claseId) === String(cls.id)) || (p.clase && String(p.clase).toLowerCase() === String(cls.name).toLowerCase());
-              }).length : (cls.count || 0);
+            <!-- Lista de Clases -->
+            <div class="flex flex-col gap-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-0.5">
+              ${classList.map(cls => {
+                const isDrawingActive = layer.activeClassId === cls.id && state.drawMode === drawModeForLayer;
+                const isClassSelected = layer.activeClassId === cls.id;
+                const ptCount = layer.geoJson?.features ? layer.geoJson.features.filter(f => {
+                  const p = f.properties || {};
+                  return (p.claseId !== undefined && String(p.claseId) === String(cls.id)) || (p.clase && String(p.clase).toLowerCase() === String(cls.name).toLowerCase());
+                }).length : (cls.count || 0);
 
-              return `
-              <div class="flex items-center justify-between p-2 rounded-xl border ${isClassSelected ? 'border-indigo-500/50 bg-indigo-50/40 shadow-xs' : 'border-zinc-200/70 bg-white'} transition-all gap-2">
-                <div class="flex items-center gap-2 overflow-hidden flex-1">
-                  <!-- Color picker de la clase -->
-                  <input type="color" value="${cls.color || '#3b82f6'}"
-                    onchange="event.stopPropagation(); updatePointClassColor(${layer.id}, ${cls.id}, this.value)"
-                    class="w-6 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0"
-                    title="Cambiar color de la clase">
-                  
-                  <div class="flex flex-col truncate flex-1">
-                    <span class="text-[10px] font-bold text-zinc-800 truncate" title="${cls.name}">${cls.name}</span>
-                    <span class="text-[7.5px] font-mono text-zinc-400 font-semibold">${cls.color}</span>
+                return `
+                <div class="flex items-center justify-between p-2 rounded-xl border ${isClassSelected ? 'border-indigo-500/50 bg-indigo-50/40 shadow-xs' : 'border-zinc-200/70 bg-white'} transition-all gap-2">
+                  <div class="flex items-center gap-2 overflow-hidden flex-1">
+                    <!-- Color picker de la clase -->
+                    <input type="color" value="${cls.color || '#3b82f6'}"
+                      onchange="event.stopPropagation(); updatePointClassColor(${layer.id}, ${cls.id}, this.value)"
+                      class="w-6 h-6 rounded-lg border border-zinc-200 cursor-pointer p-0 bg-transparent shrink-0"
+                      title="Cambiar color de la clase">
+                    
+                    <div class="flex flex-col truncate flex-1">
+                      <span class="text-[10px] font-bold text-zinc-800 truncate" title="${cls.name}">${cls.name}</span>
+                      <span class="text-[7.5px] font-mono text-zinc-400 font-semibold">${cls.color}</span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <!-- Contador de entidades -->
+                    <span class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-zinc-100 text-zinc-600 border border-zinc-200/50" title="Número de entidades en esta clase">
+                      ${ptCount} ${countSuffix}
+                    </span>
+
+                    <!-- Visibilidad de clase -->
+                    <button type="button" onclick="event.stopPropagation(); togglePointClassVisibility(${layer.id}, ${cls.id})"
+                      class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
+                      title="${cls.visible !== false ? 'Ocultar esta clase' : 'Mostrar esta clase'}">
+                      <span class="material-symbols-outlined text-[15px]">${cls.visible !== false ? 'visibility' : 'visibility_off'}</span>
+                    </button>
+
+                    <!-- Botón Seleccionar / Dibujar con esta clase -->
+                    <button type="button" onclick="event.stopPropagation(); selectPointClassToDraw(${layer.id}, ${cls.id})"
+                      class="px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all ${isDrawingActive ? 'bg-emerald-600 text-white shadow-xs' : (isClassSelected ? 'bg-indigo-600 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700')}"
+                      title="Activar esta clase para dibujar">
+                      <span class="material-symbols-outlined text-[11px]">${isDrawingActive ? 'draw' : 'near_me'}</span>
+                      ${isDrawingActive ? 'Dibujando' : (isClassSelected ? 'Activa' : 'Elegir')}
+                    </button>
                   </div>
                 </div>
+                `;
+              }).join('')}
+            </div>
 
-                <div class="flex items-center gap-1.5 shrink-0">
-                  <!-- Contador de puntos -->
-                  <span class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-zinc-100 text-zinc-600 border border-zinc-200/50" title="Número de puntos en esta clase">
-                    ${ptCount} pts
-                  </span>
-
-                  <!-- Visibilidad de clase -->
-                  <button type="button" onclick="event.stopPropagation(); togglePointClassVisibility(${layer.id}, ${cls.id})"
-                    class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
-                    title="${cls.visible !== false ? 'Ocultar esta clase' : 'Mostrar esta clase'}">
-                    <span class="material-symbols-outlined text-[15px]">${cls.visible !== false ? 'visibility' : 'visibility_off'}</span>
-                  </button>
-
-                  <!-- Botón Seleccionar / Dibujar con esta clase -->
-                  <button type="button" onclick="event.stopPropagation(); selectPointClassToDraw(${layer.id}, ${cls.id})"
-                    class="px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider flex items-center gap-1 transition-all ${isDrawingActive ? 'bg-emerald-600 text-white shadow-xs' : (isClassSelected ? 'bg-indigo-600 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700')}"
-                    title="Activar esta clase para dibujar puntos">
-                    <span class="material-symbols-outlined text-[11px]">${isDrawingActive ? 'edit_location' : 'near_me'}</span>
-                    ${isDrawingActive ? 'Dibujando' : (isClassSelected ? 'Activa' : 'Elegir')}
-                  </button>
-                </div>
-              </div>
-              `;
-            }).join('')}
+            <!-- Botón Acción Directa Dibujar -->
+            <button type="button" onclick="event.stopPropagation(); startDrawingPointsWithLayer(${layer.id})"
+              class="w-full py-2 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer text-white"
+              style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;">
+              <span class="material-symbols-outlined text-[15px]">${drawBtnIcon}</span>
+              <span>${drawBtnLabel}</span>
+            </button>
           </div>
-
-          <!-- Botón Acción Directa Dibujar -->
-          <button type="button" onclick="event.stopPropagation(); startDrawingPointsWithLayer(${layer.id})"
-            class="w-full py-2 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer text-white"
-            style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;">
-            <span class="material-symbols-outlined text-[15px]">add_location_alt</span>
-            <span>Empezar a Dibujar Puntos</span>
-          </button>
-        </div>
-        ` : ''}
+          `;
+        })() : ''}
 
         <!-- Estilo Vectorial inline: Borde y Relleno -->
         <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
@@ -30906,6 +31099,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       layer.isPointGroup = true;
       layer.isPoints = true;
       layer.pointClasses = [initialClass];
+      layer.classes = [initialClass];
       layer.activeClassId = initialClass.id;
       state.selectedLayerId = layer.id;
 
@@ -30949,17 +31143,174 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       await createPointGroup(groupName, className, classColor, true);
     }
 
+    // ══════════════════════════════════════════
+    //  POLYGON GROUPS & LINE GROUPS
+    // ══════════════════════════════════════════
+    async function createPolygonGroup(groupName, className, classColor, activateDrawing = true) {
+      const cName = (className && className.trim()) ? className.trim() : 'Clase 1';
+      const cColor = classColor || '#10b981';
+      const gName = (groupName && groupName.trim()) ? groupName.trim() : 'Grupo de Polígonos ' + (state.layers.length + 1);
+
+      const initialClass = {
+        id: 1,
+        name: cName,
+        color: cColor,
+        count: 0,
+        visible: true
+      };
+
+      const geoJson = {
+        type: 'FeatureCollection',
+        features: []
+      };
+
+      const layer = await addVectorLayer(geoJson, gName, {
+        isPolygons: true,
+        isPolygonGroup: true,
+        color: cColor,
+        strokeColor: cColor,
+        strokeWidth: 2,
+        fillColor: cColor,
+        fillOpacity: 0.35,
+        silent: true
+      });
+
+      layer.isPolygonGroup = true;
+      layer.isPolygons = true;
+      layer.classes = [initialClass];
+      layer.pointClasses = [initialClass];
+      layer.activeClassId = initialClass.id;
+      state.selectedLayerId = layer.id;
+
+      updateLayersSidebar();
+
+      if (activateDrawing) {
+        setMode('polygon');
+      }
+
+      toast(`Grupo de polígonos "${gName}" creado con clase "${cName}".`, 'success');
+      return layer;
+    }
+
+    function openCreatePolygonGroupModal() {
+      const count = state.layers.filter(l => l.isPolygonGroup || l.isPolygons).length + 1;
+      const groupInput = document.getElementById('newPolygonGroupName');
+      if (groupInput) groupInput.value = `Grupo de Polígonos ${count}`;
+      const classInput = document.getElementById('newPolygonGroupClassName');
+      if (classInput) classInput.value = `Clase 1`;
+      const colorInput = document.getElementById('newPolygonGroupClassColor');
+      if (colorInput) colorInput.value = '#10b981';
+      const hexLabel = document.getElementById('newPolygonGroupClassColorHex');
+      if (hexLabel) hexLabel.textContent = '#10b981';
+
+      const modal = document.getElementById('createPolygonGroupModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeCreatePolygonGroupModal() {
+      const modal = document.getElementById('createPolygonGroupModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function submitCreatePolygonGroup() {
+      const groupName = document.getElementById('newPolygonGroupName')?.value || 'Grupo de Polígonos';
+      const className = document.getElementById('newPolygonGroupClassName')?.value || 'Clase 1';
+      const classColor = document.getElementById('newPolygonGroupClassColor')?.value || '#10b981';
+
+      closeCreatePolygonGroupModal();
+      await createPolygonGroup(groupName, className, classColor, true);
+    }
+
+    async function createLineGroup(groupName, className, classColor, activateDrawing = true) {
+      const cName = (className && className.trim()) ? className.trim() : 'Clase 1';
+      const cColor = classColor || '#3b82f6';
+      const gName = (groupName && groupName.trim()) ? groupName.trim() : 'Grupo de Líneas ' + (state.layers.length + 1);
+
+      const initialClass = {
+        id: 1,
+        name: cName,
+        color: cColor,
+        count: 0,
+        visible: true
+      };
+
+      const geoJson = {
+        type: 'FeatureCollection',
+        features: []
+      };
+
+      const layer = await addVectorLayer(geoJson, gName, {
+        isLines: true,
+        isLineGroup: true,
+        color: cColor,
+        strokeColor: cColor,
+        strokeWidth: 3,
+        silent: true
+      });
+
+      layer.isLineGroup = true;
+      layer.isLines = true;
+      layer.classes = [initialClass];
+      layer.pointClasses = [initialClass];
+      layer.activeClassId = initialClass.id;
+      state.selectedLayerId = layer.id;
+
+      updateLayersSidebar();
+
+      if (activateDrawing) {
+        setMode('line');
+      }
+
+      toast(`Grupo de líneas "${gName}" creado con clase "${cName}".`, 'success');
+      return layer;
+    }
+
+    function openCreateLineGroupModal() {
+      const count = state.layers.filter(l => l.isLineGroup || l.isLines).length + 1;
+      const groupInput = document.getElementById('newLineGroupName');
+      if (groupInput) groupInput.value = `Grupo de Líneas ${count}`;
+      const classInput = document.getElementById('newLineGroupClassName');
+      if (classInput) classInput.value = `Clase 1`;
+      const colorInput = document.getElementById('newLineGroupClassColor');
+      if (colorInput) colorInput.value = '#3b82f6';
+      const hexLabel = document.getElementById('newLineGroupClassColorHex');
+      if (hexLabel) hexLabel.textContent = '#3b82f6';
+
+      const modal = document.getElementById('createLineGroupModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeCreateLineGroupModal() {
+      const modal = document.getElementById('createLineGroupModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function submitCreateLineGroup() {
+      const groupName = document.getElementById('newLineGroupName')?.value || 'Grupo de Líneas';
+      const className = document.getElementById('newLineGroupClassName')?.value || 'Clase 1';
+      const classColor = document.getElementById('newLineGroupClassColor')?.value || '#3b82f6';
+
+      closeCreateLineGroupModal();
+      await createLineGroup(groupName, className, classColor, true);
+    }
+
     function openAddPointClassModal(layerId) {
-      const layer = state.layers.find(l => l.id === layerId) || state.layers.find(l => l.isPoints || l.isPointGroup || l.pointClasses);
+      const layer = state.layers.find(l => l.id === layerId) || state.layers.find(l => l.isPoints || l.isPointGroup || l.isPolygonGroup || l.isPolygons || l.pointClasses || l.classes);
       if (!layer) {
-        toast('No hay capa de puntos seleccionada', 'warning');
+        toast('No hay capa vectorial seleccionada', 'warning');
         return;
       }
       document.getElementById('addPointClassLayerId').value = layer.id;
       const targetLabel = document.getElementById('addPointClassModalTargetLayer');
       if (targetLabel) targetLabel.textContent = `Capa: ${layer.name}`;
       
-      const classNum = (layer.pointClasses?.length || 0) + 1;
+      const titleLabel = document.getElementById('addClassModalTitle');
+      if (titleLabel) {
+        titleLabel.textContent = layer.isPolygonGroup || layer.isPolygons ? 'Nueva Clase de Polígonos' : (layer.isLineGroup || layer.isLines ? 'Nueva Clase de Líneas' : 'Nueva Clase de Puntos');
+      }
+
+      const classList = layer.pointClasses || layer.classes || [];
+      const classNum = classList.length + 1;
       const PALETTE = ['#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#3b82f6'];
       const nextColor = PALETTE[(classNum - 1) % PALETTE.length];
       
@@ -30991,6 +31342,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         return;
       }
       if (!layer.pointClasses) layer.pointClasses = [];
+      if (!layer.classes) layer.classes = layer.pointClasses;
 
       const rawName = document.getElementById('newPointClassName')?.value || '';
       const className = rawName.trim() || `Clase ${layer.pointClasses.length + 1}`;
@@ -31006,16 +31358,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
 
       layer.pointClasses.push(newClass);
+      layer.classes = layer.pointClasses;
       layer.activeClassId = newClass.id;
-      layer.isPoints = true;
-      layer.isPointGroup = true;
 
       closeAddPointClassModal();
       updateLayersSidebar();
-      updatePointHUD();
-
-      if (state.drawMode !== 'point') {
-        setMode('point');
+      if (layer.isPoints || layer.isPointGroup) {
+        updatePointHUD();
+        if (state.drawMode !== 'point') setMode('point');
+      } else if (layer.isPolygons || layer.isPolygonGroup) {
+        if (state.drawMode !== 'polygon') setMode('polygon');
+      } else if (layer.isLines || layer.isLineGroup) {
+        if (state.drawMode !== 'line') setMode('line');
       }
 
       toast(`Nueva clase "${className}" creada exitosamente.`, 'success');
@@ -31032,8 +31386,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function updatePointClassColor(layerId, classId, newColor) {
       const layer = state.layers.find(l => l.id === layerId);
-      if (!layer || !layer.pointClasses) return;
-      const cls = layer.pointClasses.find(c => c.id === classId);
+      if (!layer) return;
+      const classList = layer.pointClasses || layer.classes;
+      if (!classList) return;
+      const cls = classList.find(c => c.id === classId);
       if (!cls) return;
       cls.color = newColor;
 
@@ -31051,7 +31407,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           if (l.feature && l.setStyle) {
             const p = l.feature.properties || {};
             if (String(p.claseId) === String(classId) || (p.clase && String(p.clase).toLowerCase() === String(cls.name).toLowerCase())) {
-              l.setStyle({ fillColor: newColor });
+              l.setStyle({ fillColor: newColor, color: newColor });
             }
           }
         });
@@ -31063,8 +31419,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function togglePointClassVisibility(layerId, classId) {
       const layer = state.layers.find(l => l.id === layerId);
-      if (!layer || !layer.pointClasses) return;
-      const cls = layer.pointClasses.find(c => c.id === classId);
+      if (!layer) return;
+      const classList = layer.pointClasses || layer.classes;
+      if (!classList) return;
+      const cls = classList.find(c => c.id === classId);
       if (!cls) return;
       cls.visible = !(cls.visible !== false);
 
@@ -31074,7 +31432,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const p = l.feature.properties || {};
             if (String(p.claseId) === String(classId) || (p.clase && String(p.clase).toLowerCase() === String(cls.name).toLowerCase())) {
               if (cls.visible) {
-                l.setStyle({ opacity: 1, fillOpacity: 0.9 });
+                l.setStyle({ opacity: 1, fillOpacity: layer.fillOpacity || 0.6 });
               } else {
                 l.setStyle({ opacity: 0, fillOpacity: 0 });
               }
@@ -31089,21 +31447,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function selectPointClassToDraw(layerId, classId) {
       const layer = state.layers.find(l => l.id === layerId);
-      if (!layer || !layer.pointClasses) return;
+      if (!layer) return;
+      const classList = layer.pointClasses || layer.classes;
+      if (!classList) return;
       layer.activeClassId = classId;
       state.selectedLayerId = layerId;
-      if (state.drawMode !== 'point') {
-        setMode('point');
+      if (layer.isPolygonGroup || layer.isPolygons) {
+        if (state.drawMode !== 'polygon') setMode('polygon');
+      } else if (layer.isLineGroup || layer.isLines) {
+        if (state.drawMode !== 'line') setMode('line');
+      } else {
+        if (state.drawMode !== 'point') setMode('point');
       }
       updatePointHUD();
       updateLayersSidebar();
-      const cls = layer.pointClasses.find(c => c.id === classId);
+      const cls = classList.find(c => c.id === classId);
       if (cls) toast(`Clase activa: ${cls.name}`, 'info');
     }
 
     function startDrawingPointsWithLayer(layerId) {
       state.selectedLayerId = layerId;
-      setMode('point');
+      const layer = state.layers.find(l => l.id === layerId);
+      if (layer && (layer.isPolygonGroup || layer.isPolygons)) {
+        setMode('polygon');
+      } else if (layer && (layer.isLineGroup || layer.isLines)) {
+        setMode('line');
+      } else {
+        setMode('point');
+      }
     }
 
     function handlePointMapClick(latlng) {
@@ -31299,6 +31670,76 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function hidePointSubmenu() {
       const submenu = document.getElementById('pointToolsSubmenu');
+      if (submenu) {
+        submenu.classList.add('hidden');
+        submenu.classList.remove('flex');
+        submenu.style.display = 'none';
+      }
+    }
+
+    function setupPolygonSubmenuHover() {
+      const container = document.getElementById('polygonToolContainer');
+      const submenu = document.getElementById('polygonToolsSubmenu');
+      if (!container || !submenu) return;
+
+      let closeTimer = null;
+      const show = () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        submenu.classList.remove('hidden');
+        submenu.classList.add('flex');
+        submenu.style.display = 'flex';
+      };
+      const hide = () => {
+        closeTimer = setTimeout(() => {
+          submenu.classList.add('hidden');
+          submenu.classList.remove('flex');
+          submenu.style.display = 'none';
+        }, 250);
+      };
+
+      container.addEventListener('mouseenter', show);
+      container.addEventListener('mouseleave', hide);
+      submenu.addEventListener('mouseenter', show);
+      submenu.addEventListener('mouseleave', hide);
+    }
+
+    function hidePolygonSubmenu() {
+      const submenu = document.getElementById('polygonToolsSubmenu');
+      if (submenu) {
+        submenu.classList.add('hidden');
+        submenu.classList.remove('flex');
+        submenu.style.display = 'none';
+      }
+    }
+
+    function setupLineSubmenuHover() {
+      const container = document.getElementById('lineToolContainer');
+      const submenu = document.getElementById('lineToolsSubmenu');
+      if (!container || !submenu) return;
+
+      let closeTimer = null;
+      const show = () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        submenu.classList.remove('hidden');
+        submenu.classList.add('flex');
+        submenu.style.display = 'flex';
+      };
+      const hide = () => {
+        closeTimer = setTimeout(() => {
+          submenu.classList.add('hidden');
+          submenu.classList.remove('flex');
+          submenu.style.display = 'none';
+        }, 250);
+      };
+
+      container.addEventListener('mouseenter', show);
+      container.addEventListener('mouseleave', hide);
+      submenu.addEventListener('mouseenter', show);
+      submenu.addEventListener('mouseleave', hide);
+    }
+
+    function hideLineSubmenu() {
+      const submenu = document.getElementById('lineToolsSubmenu');
       if (submenu) {
         submenu.classList.add('hidden');
         submenu.classList.remove('flex');
@@ -31646,6 +32087,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
 
       setupPointSubmenuHover();
+      setupPolygonSubmenuHover();
+      setupLineSubmenuHover();
       state.map.on('mousemove', e => {
           if (state.drawMode === 'select') return;
           
@@ -31697,22 +32140,145 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           setMode('select');
           return;
       }
-      
+
+      const isLine = state.drawMode === 'line';
+      const isPoly = state.drawMode === 'polygon';
+
+      // 1. Try to find an active group for this geometry type
+      let targetLayer = null;
+      if (state.selectedLayerId) {
+          targetLayer = state.layers.find(l => l.id === state.selectedLayerId && (isPoly ? (l.isPolygonGroup || l.isPolygons) : (l.isLineGroup || l.isLines)));
+      }
+      if (!targetLayer) {
+          targetLayer = state.layers.find(l => isPoly ? (l.isPolygonGroup || l.isPolygons) : (l.isLineGroup || l.isLines));
+      }
+
+      if (targetLayer) {
+          // Ensure layer has classes
+          if (!targetLayer.classes && !targetLayer.pointClasses) {
+              const initCls = { id: 1, name: 'Clase 1', color: targetLayer.color || (isPoly ? '#10b981' : '#3b82f6'), count: 0, visible: true };
+              targetLayer.classes = [initCls];
+              targetLayer.pointClasses = targetLayer.classes;
+              targetLayer.activeClassId = initCls.id;
+          }
+          const classList = targetLayer.classes || targetLayer.pointClasses;
+          let activeCls = classList.find(c => c.id === targetLayer.activeClassId) || classList[0];
+          if (!activeCls) {
+              activeCls = { id: 1, name: 'Clase 1', color: targetLayer.color || (isPoly ? '#10b981' : '#3b82f6'), count: 0, visible: true };
+              classList.push(activeCls);
+              targetLayer.activeClassId = activeCls.id;
+          }
+          activeCls.count = (activeCls.count || 0) + 1;
+
+          const featId = (isLine ? 'line_' : 'poly_') + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+          const coords = isLine
+            ? state.drawPoints.map(p => [Number(p[1].toFixed(6)), Number(p[0].toFixed(6))])
+            : [state.drawPoints.map(p => [Number(p[1].toFixed(6)), Number(p[0].toFixed(6))]).concat([[Number(state.drawPoints[0][1].toFixed(6)), Number(state.drawPoints[0][0].toFixed(6))]])];
+
+          const feat = {
+              type: "Feature",
+              id: featId,
+              properties: {
+                  id: featId,
+                  name: `${isLine ? 'Línea' : 'Polígono'} ${activeCls.name} #${activeCls.count}`,
+                  grupo: targetLayer.name,
+                  grupoId: targetLayer.id,
+                  claseId: activeCls.id,
+                  clase: activeCls.name,
+                  color: activeCls.color,
+                  timestamp: new Date().toISOString()
+              },
+              geometry: {
+                  type: isLine ? "LineString" : "Polygon",
+                  coordinates: coords
+              }
+          };
+
+          if (!targetLayer.geoJson) targetLayer.geoJson = { type: 'FeatureCollection', features: [] };
+          if (!targetLayer.geoJson.features) targetLayer.geoJson.features = [];
+          targetLayer.geoJson.features.push(feat);
+
+          if (targetLayer.mapLayer && typeof targetLayer.mapLayer.addData === 'function') {
+              targetLayer.mapLayer.addData(feat);
+          } else {
+              createVectorLeafletLayer(targetLayer).then(ml => {
+                  targetLayer.mapLayer = ml;
+                  if (targetLayer.visible) ml.addTo(state.map);
+              });
+          }
+
+          state.drawPoints = [];
+          if (state.tempLayer) { try { state.map.removeLayer(state.tempLayer); } catch(e){} state.tempLayer = null; }
+          cleanupSnap();
+          updateLayersSidebar();
+          toast(`${isLine ? 'Línea' : 'Polígono'} agregado a grupo "${targetLayer.name}" (${activeCls.name})`, 'success');
+          return;
+      }
+
+      // 2. No existing group: create new vector group layer with grupo & clase!
+      const gName = `${isLine ? 'Grupo de Líneas' : 'Grupo de Polígonos'} ${state.layers.length + 1}`;
+      const cName = 'Clase 1';
+      const cColor = isPoly ? '#10b981' : '#3b82f6';
+      const featId = (isLine ? 'line_' : 'poly_') + Date.now();
+
+      const coords = isLine 
+        ? state.drawPoints.map(p => [Number(p[1].toFixed(6)), Number(p[0].toFixed(6))])
+        : [state.drawPoints.map(p => [Number(p[1].toFixed(6)), Number(p[0].toFixed(6))]).concat([[Number(state.drawPoints[0][1].toFixed(6)), Number(state.drawPoints[0][0].toFixed(6))]])];
+
+      const initialClass = {
+          id: 1,
+          name: cName,
+          color: cColor,
+          count: 1,
+          visible: true
+      };
+
       const geoJson = {
         type: "FeatureCollection",
         features: [{
           type: "Feature",
-          properties: { name: `Dibujo ${state.layers.length + 1}` },
+          id: featId,
+          properties: {
+            id: featId,
+            name: `${isLine ? 'Línea' : 'Polígono'} 1`,
+            grupo: gName,
+            clase: cName,
+            color: cColor,
+            timestamp: new Date().toISOString()
+          },
           geometry: {
-            type: state.drawMode === 'line' ? "LineString" : "Polygon",
-            coordinates: state.drawMode === 'line' 
-              ? state.drawPoints.map(p => [p[1], p[0]])
-              : [state.drawPoints.map(p => [p[1], p[0]]).concat([[state.drawPoints[0][1], state.drawPoints[0][0]]])]
+            type: isLine ? "LineString" : "Polygon",
+            coordinates: coords
           }
         }]
       };
 
-      addVectorLayer(geoJson, `${state.drawMode === 'line' ? 'Línea' : 'Polígono'} ${state.layers.length + 1}`);
+      addVectorLayer(geoJson, gName, {
+          isPolygons: isPoly,
+          isPolygonGroup: isPoly,
+          isLines: isLine,
+          isLineGroup: isLine,
+          color: cColor,
+          fillColor: cColor,
+          fillOpacity: 0.35,
+          strokeColor: cColor,
+          strokeWidth: 2
+      }).then(l => {
+          if (l) {
+              l.isPolygonGroup = isPoly;
+              l.isPolygons = isPoly;
+              l.isLineGroup = isLine;
+              l.isLines = isLine;
+              l.classes = [initialClass];
+              l.pointClasses = l.classes;
+              l.activeClassId = initialClass.id;
+              state.selectedLayerId = l.id;
+              updateLayersSidebar();
+          }
+      });
+
+      state.drawPoints = [];
+      if (state.tempLayer) { try { state.map.removeLayer(state.tempLayer); } catch(e){} state.tempLayer = null; }
       cleanupSnap();
       setMode('select');
     }
@@ -39087,36 +39653,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return toast('No hay capas vectoriales cargadas en el mapa.', 'warning');
         }
 
-        const pointLayers = getPointLayers();
-
         let opts = '';
-        if (pointLayers.length > 0) {
-            opts += `<optgroup label="🌟 Grupos de Puntos">`;
-            opts += `<option value="__ALL_POINT_GROUPS__">🌟 Todos los Grupos de Puntos (${pointLayers.length} grupo${pointLayers.length > 1 ? 's' : ''})</option>`;
-            pointLayers.forEach(pl => {
-                const feats = (pl.geoJson && Array.isArray(pl.geoJson.features)) ? pl.geoJson.features : ((pl.mapLayer && typeof pl.mapLayer.toGeoJSON === 'function') ? (pl.mapLayer.toGeoJSON().features || []) : []);
-                opts += `<option value="${pl.id}">📂 Grupo: ${pl.name || 'Grupo ' + pl.id} (${feats.length} pts)</option>`;
-            });
-            opts += `</optgroup>`;
+        if (vectorLayers.length > 1) {
+            opts += `<option value="__ALL_GROUPS__">🌟 Todos los Grupos (${vectorLayers.length} grupos / capas)</option>`;
         }
-
-        const otherLayers = vectorLayers.filter(l => !pointLayers.includes(l));
-        if (otherLayers.length > 0) {
-            if (pointLayers.length > 0) opts += `<optgroup label="Otras Capas Vectoriales">`;
-            otherLayers.forEach(ol => {
-                opts += `<option value="${ol.id}">📄 ${ol.name || 'Capa ' + ol.id}</option>`;
-            });
-            if (pointLayers.length > 0) opts += `</optgroup>`;
-        }
+        vectorLayers.forEach(vl => {
+            const feats = (vl.geoJson && Array.isArray(vl.geoJson.features)) ? vl.geoJson.features : ((vl.mapLayer && typeof vl.mapLayer.toGeoJSON === 'function') ? (vl.mapLayer.toGeoJSON().features || []) : []);
+            const isPoint = vl.isPoints || vl.isPointGroup || (feats[0]?.geometry?.type === 'Point');
+            const isPoly = vl.isPolygonGroup || vl.isPolygons || (feats[0]?.geometry?.type === 'Polygon');
+            const icon = isPoint ? '📍' : (isPoly ? '🔷' : '📏');
+            opts += `<option value="${vl.id}">${icon} Grupo: ${vl.name || 'Grupo ' + vl.id} (${feats.length})</option>`;
+        });
 
         sel.innerHTML = opts;
 
-        if (targetLayer && String(targetLayer.id) === '__ALL_POINT_GROUPS__') {
-            sel.value = '__ALL_POINT_GROUPS__';
+        if (targetLayer && (String(targetLayer.id) === '__ALL_POINT_GROUPS__' || String(targetLayer.id) === '__ALL_GROUPS__')) {
+            sel.value = vectorLayers.length > 1 ? '__ALL_GROUPS__' : String(vectorLayers[0].id);
         } else if (targetLayer && sel.querySelector(`option[value="${targetLayer.id}"]`)) {
             sel.value = String(targetLayer.id);
-        } else if (pointLayers.length > 0) {
-            sel.value = '__ALL_POINT_GROUPS__';
+        } else if (vectorLayers.length > 1) {
+            sel.value = '__ALL_GROUPS__';
         } else if (vectorLayers[0]) {
             sel.value = String(vectorLayers[0].id);
         }
@@ -39132,32 +39688,31 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const listEl = document.getElementById('exportPointGroupsList');
         if (!panel || !listEl) return;
 
-        const pointLayers = getPointLayers();
-        if (pointLayers.length === 0) {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function'));
+        if (vectorLayers.length === 0) {
             panel.style.display = 'none';
             return;
         }
 
         panel.style.display = 'block';
 
-        let totalPoints = 0;
-        const cardsHtml = pointLayers.map(pl => {
-            const feats = (pl.geoJson && Array.isArray(pl.geoJson.features)) 
-                ? pl.geoJson.features 
-                : ((pl.mapLayer && typeof pl.mapLayer.toGeoJSON === 'function') ? (pl.mapLayer.toGeoJSON().features || []) : []);
+        let totalEntities = 0;
+        const cardsHtml = vectorLayers.map((l, lIdx) => {
+            const feats = (l.geoJson && Array.isArray(l.geoJson.features)) 
+                ? l.geoJson.features 
+                : ((l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function') ? (l.mapLayer.toGeoJSON().features || []) : []);
             
-            totalPoints += feats.length;
+            totalEntities += feats.length;
 
             const classesMap = new Map();
-            if (Array.isArray(pl.pointClasses) && pl.pointClasses.length > 0) {
-                pl.pointClasses.forEach(c => {
-                    classesMap.set(c.name, { count: 0, color: c.color || '#10b981' });
-                });
-            }
+            const classList = l.pointClasses || l.classes || [];
+            classList.forEach(c => {
+                classesMap.set(c.name, { count: 0, color: c.color || '#10b981' });
+            });
 
             feats.forEach(f => {
-                const cName = (f.properties && (f.properties.clase || f.properties.class)) || 'General';
-                const cColor = (f.properties && (f.properties.claseColor || f.properties.color)) || '#10b981';
+                const cName = (f.properties && (f.properties.clase || f.properties.class || f.properties.Clase)) || 'Clase 1';
+                const cColor = (f.properties && (f.properties.claseColor || f.properties.color)) || (classList[0]?.color || '#10b981');
                 if (!classesMap.has(cName)) {
                     classesMap.set(cName, { count: 0, color: cColor });
                 }
@@ -39169,12 +39724,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 badgesHtml += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold text-white shadow-2xs" style="background-color: ${info.color};"><span>${cName}</span><span class="bg-black/25 px-1 rounded-sm text-[8px]">${info.count}</span></span> `;
             });
 
+            const isPoint = l.isPoints || l.isPointGroup || feats.some(f => f.geometry && /point/i.test(f.geometry.type));
+            const isPoly = l.isPolygonGroup || l.isPolygons || feats.some(f => f.geometry && /polygon/i.test(f.geometry.type));
+            const typeIcon = isPoint ? 'location_on' : (isPoly ? 'pentagon' : 'polyline');
+            const typeLabel = isPoint ? 'pts' : (isPoly ? 'polígonos' : 'líneas');
+            const colorDot = l.color || (classList[0]?.color || '#6366f1');
+
             return `<div class="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
-                  <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
+                  <div class="w-3 h-3 rounded-full shrink-0 flex items-center justify-center text-[10px]" style="background-color: ${colorDot}"></div>
                   <div>
-                    <div class="text-xs font-black text-zinc-900">${pl.name || 'Grupo de Puntos'}</div>
-                    <div class="text-[9px] text-zinc-500 font-semibold">${feats.length} punto${feats.length === 1 ? '' : 's'}</div>
+                    <div class="text-xs font-black text-zinc-900 flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-[14px] text-indigo-600">${typeIcon}</span>
+                      <span>${l.name || 'Grupo ' + (lIdx + 1)}</span>
+                    </div>
+                    <div class="text-[9px] text-zinc-500 font-semibold">${feats.length} ${typeLabel}</div>
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -39185,14 +39749,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         listEl.innerHTML = cardsHtml;
         if (badge) {
-            badge.textContent = `${pointLayers.length} grupo${pointLayers.length === 1 ? '' : 's'} (${totalPoints} pts)`;
+            badge.textContent = `${vectorLayers.length} grupo${vectorLayers.length === 1 ? '' : 's'} (${totalEntities} entidades)`;
         }
     }
 
     function openExportVectorModalFromAttrTable(onlySelected = false) {
         let layer = null;
-        if (state.attrTable.layerId === '__ALL_POINT_GROUPS__') {
-            layer = { id: '__ALL_POINT_GROUPS__', name: 'Todos los Grupos de Puntos' };
+        if (state.attrTable.layerId === '__ALL_POINT_GROUPS__' || state.attrTable.layerId === '__ALL_GROUPS__') {
+            layer = { id: '__ALL_GROUPS__', name: 'Todos los Grupos Vectoriales' };
         } else {
             layer = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
         }
@@ -40216,140 +40780,199 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function executeExportVector() {
         const sel = document.getElementById('exportVectorLayerSel');
-        const isAllPoints = (sel && sel.value === '__ALL_POINT_GROUPS__');
-        const pointLayers = getPointLayers();
+        const isAll = (sel && (sel.value === '__ALL_GROUPS__' || sel.value === '__ALL_POINT_GROUPS__'));
 
         const groupModeRadio = document.querySelector('input[name="exportGroupMode"]:checked');
-        const groupMode = groupModeRadio ? groupModeRadio.value : 'single'; // 'single', 'split_group', 'split_class'
+        const groupMode = groupModeRadio ? groupModeRadio.value : 'split_group'; // Default is split_group!
 
-        let layersToExport = [];
-        if (isAllPoints) {
-            layersToExport = pointLayers;
-            if (layersToExport.length === 0) {
-                return toast('No hay grupos de puntos para exportar.', 'error');
+        let targetLayers = [];
+        if (isAll) {
+            targetLayers = state.layers.filter(l => l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function'));
+            if (targetLayers.length === 0) {
+                return toast('No hay capas vectoriales para exportar.', 'error');
             }
         } else {
             const singleLayer = state.layers.find(l => String(l.id) === String(sel.value));
             if (!singleLayer) return toast('Selecciona una capa válida para exportar.', 'error');
-            layersToExport = [singleLayer];
+            targetLayers = [singleLayer];
         }
 
-        const onlySelected = document.getElementById('exportOnlySelectedChk').checked;
+        const onlySelected = document.getElementById('exportOnlySelectedChk')?.checked || false;
         const formatRadio = document.querySelector('input[name="exportFormat"]:checked');
         const format = formatRadio ? formatRadio.value : 'shp';
-        const crs = document.getElementById('exportCrsSel').value || 'EPSG:4326';
-        const filenameInput = document.getElementById('exportFilenameInput').value.trim();
-        const baseFilename = filenameInput || (isAllPoints ? 'grupos_de_puntos' : (layersToExport[0].name || 'capa'));
+        const crs = document.getElementById('exportCrsSel')?.value || 'EPSG:4326';
+        const filenameInput = document.getElementById('exportFilenameInput')?.value.trim() || '';
+        const baseFilename = filenameInput || (isAll ? 'grupos_vectoriales' : (targetLayers[0].name || 'capa'));
         const safeBase = baseFilename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
         const btn = document.getElementById('btnStartExport');
         if (btn) btn.disabled = true;
 
         try {
-            // Case 1: Separar por Grupos (Archivo .zip con un archivo o carpeta por grupo)
-            if (groupMode === 'split_group' || (isAllPoints && layersToExport.length > 1 && groupMode === 'split_group')) {
-                showProgress(`Empaquetando ${layersToExport.length} grupos en archivo .zip...`, 30, 'Exportador');
+            // Recolectar todas las entidades de las capas seleccionadas
+            const allFeats = [];
+            targetLayers.forEach(l => {
+                const c = getCleanLayerGeoJson(l, onlySelected);
+                if (c && Array.isArray(c.features)) {
+                    c.features.forEach(f => {
+                        if (!f.properties) f.properties = {};
+                        // Asegurar que grupo y clase existan en las propiedades de la entidad
+                        const grp = f.properties.grupo || f.properties.group || f.properties.Grupo || l.name || 'Grupo_1';
+                        f.properties.grupo = grp;
+                        const cls = f.properties.clase || f.properties.class || f.properties.Clase || 'Clase_1';
+                        f.properties.clase = cls;
+                        f._layerName = l.name;
+                        allFeats.push(f);
+                    });
+                }
+            });
+
+            if (allFeats.length === 0) {
+                if (btn) btn.disabled = false;
+                return toast('No hay entidades válidas para exportar.', 'error');
+            }
+
+            // Caso 1: Dividir por Grupos (Archivo .zip con archivos individuales por grupo en la raíz del zip)
+            if (groupMode === 'split_group') {
+                const groupMap = new Map();
+                allFeats.forEach(f => {
+                    let g = String(f.properties.grupo || f._layerName || 'Grupo_1').trim();
+                    if (!groupMap.has(g)) groupMap.set(g, []);
+                    groupMap.get(g).push(f);
+                });
+
+                showProgress(`Empaquetando ${groupMap.size} grupos en archivo .zip...`, 30, 'Exportador');
                 const zipMap = {};
 
-                for (let idx = 0; idx < layersToExport.length; idx++) {
-                    const l = layersToExport[idx];
-                    const grpGeoJson = getCleanLayerGeoJson(l, onlySelected);
-                    if (!grpGeoJson || !grpGeoJson.features || grpGeoJson.features.length === 0) continue;
+                let gIdx = 1;
+                for (const [grpName, feats] of groupMap.entries()) {
+                    // Nombre limpio y seguro para este grupo (e.g., "1", "2", "3" o "Bosque")
+                    const safeGroupName = grpName.replace(/[\\/:*?"<>|]/g, '_').trim() || `grupo_${gIdx++}`;
 
-                    const safeGroupName = (l.name || `grupo_${idx+1}`).replace(/[^a-zA-Z0-9_\-]/g, '_') || `grupo_${idx+1}`;
-                    const grpReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(grpGeoJson, crs) : grpGeoJson;
+                    // Separar geometrías homogéneas para que el Shapefile no se corrompa
+                    const ptFeats = [];
+                    const polyFeats = [];
+                    const lineFeats = [];
+                    feats.forEach(f => {
+                        const gt = (f.geometry && f.geometry.type) ? f.geometry.type.replace('Multi', '') : 'Unknown';
+                        if (gt === 'Point') ptFeats.push(f);
+                        else if (gt === 'Polygon') polyFeats.push(f);
+                        else if (gt === 'LineString') lineFeats.push(f);
+                        else polyFeats.push(f);
+                    });
 
-                    if (format === 'geojson') {
-                        zipMap[`${safeGroupName}.geojson`] = fflate.strToU8(JSON.stringify(grpReprojected, null, 2));
-                    } else if (format === 'kml') {
-                        zipMap[`${safeGroupName}.kml`] = fflate.strToU8(buildClientKml(grpGeoJson, l.name));
-                    } else if (format === 'shp' || format === 'gpkg') {
-                        const shpFiles = buildClientShapefileFiles(grpReprojected, safeGroupName, crs);
-                        for (const [fName, fBytes] of Object.entries(shpFiles)) {
-                            zipMap[`${safeGroupName}/${fName}`] = fBytes;
+                    const exportSubCollection = (subFeats, filePrefix) => {
+                        if (subFeats.length === 0) return;
+                        const subGeoJson = { type: 'FeatureCollection', features: subFeats };
+                        const subReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(subGeoJson, crs) : subGeoJson;
+
+                        if (format === 'geojson') {
+                            zipMap[`${filePrefix}.geojson`] = fflate.strToU8(JSON.stringify(subReprojected, null, 2));
+                        } else if (format === 'kml') {
+                            zipMap[`${filePrefix}.kml`] = fflate.strToU8(buildClientKml(subGeoJson, filePrefix));
+                        } else if (format === 'shp') {
+                            const shpFiles = buildClientShapefileFiles(subReprojected, filePrefix, crs);
+                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
+                                // Directamente en la raíz del .zip: e.g. "1.shp", "1.dbf", "1.prj", etc.
+                                zipMap[fName] = fBytes;
+                            }
+                        } else if (format === 'gpkg') {
+                            const shpFiles = buildClientShapefileFiles(subReprojected, filePrefix, crs);
+                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
+                                zipMap[fName] = fBytes;
+                            }
                         }
+                    };
+
+                    const numTypes = (ptFeats.length > 0 ? 1 : 0) + (polyFeats.length > 0 ? 1 : 0) + (lineFeats.length > 0 ? 1 : 0);
+                    if (numTypes <= 1) {
+                        exportSubCollection(feats, safeGroupName);
+                    } else {
+                        if (ptFeats.length > 0) exportSubCollection(ptFeats, `${safeGroupName}_puntos`);
+                        if (polyFeats.length > 0) exportSubCollection(polyFeats, `${safeGroupName}_poligonos`);
+                        if (lineFeats.length > 0) exportSubCollection(lineFeats, `${safeGroupName}_lineas`);
                     }
                 }
 
                 if (Object.keys(zipMap).length === 0) {
+                    if (btn) btn.disabled = false;
                     return toast('Ningún grupo contiene geometrías válidas para exportar.', 'warning');
                 }
 
                 const masterZipData = fflate.zipSync(zipMap);
                 const blob = new Blob([masterZipData], { type: 'application/zip' });
-                triggerFileDownload(blob, `${safeBase}_por_grupos.zip`);
+                triggerFileDownload(blob, `${safeBase}_dividido_por_grupos.zip`);
                 closeExportVectorModal();
-                toast(`¡${Object.keys(zipMap).length > 0 ? layersToExport.length : 0} grupos de puntos exportados en .zip individual!`, 'success');
+                toast(`¡${groupMap.size} grupos exportados en archivo .zip individual!`, 'success');
+                if (btn) btn.disabled = false;
                 return;
             }
 
-            // Case 2: Separar por Clases (Archivo .zip con un archivo por clase)
+            // Caso 2: Dividir por Clases (Archivo .zip con archivos individuales por clase)
             if (groupMode === 'split_class') {
-                showProgress('Agrupando puntos por clases...', 30, 'Exportador');
-                const allFeats = [];
-                layersToExport.forEach(l => {
-                    const c = getCleanLayerGeoJson(l, onlySelected);
-                    if (c && c.features) allFeats.push(...c.features);
-                });
-
-                if (allFeats.length === 0) {
-                    return toast('No hay geometrías válidas para exportar por clases.', 'error');
-                }
-
                 const classMap = new Map();
                 allFeats.forEach(f => {
-                    const clsName = (f.properties && (f.properties.clase || f.properties.class)) || 'Clase_General';
-                    if (!classMap.has(clsName)) classMap.set(clsName, []);
-                    classMap.get(clsName).push(f);
+                    let c = String(f.properties.clase || f.properties.class || 'Clase_General').trim();
+                    if (!classMap.has(c)) classMap.set(c, []);
+                    classMap.get(c).push(f);
                 });
 
-                showProgress(`Empaquetando ${classMap.size} clases en archivo .zip...`, 50, 'Exportador');
+                showProgress(`Empaquetando ${classMap.size} clases en archivo .zip...`, 30, 'Exportador');
                 const zipMap = {};
 
                 let cIdx = 1;
                 for (const [clsName, feats] of classMap.entries()) {
-                    const safeClsName = clsName.replace(/[^a-zA-Z0-9_\-]/g, '_') || `clase_${cIdx++}`;
-                    const clsGeoJson = { type: 'FeatureCollection', features: feats };
-                    const clsReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(clsGeoJson, crs) : clsGeoJson;
+                    const safeClsName = clsName.replace(/[\\/:*?"<>|]/g, '_').trim() || `clase_${cIdx++}`;
 
-                    if (format === 'geojson') {
-                        zipMap[`${safeClsName}.geojson`] = fflate.strToU8(JSON.stringify(clsReprojected, null, 2));
-                    } else if (format === 'kml') {
-                        zipMap[`${safeClsName}.kml`] = fflate.strToU8(buildClientKml(clsGeoJson, clsName));
-                    } else if (format === 'shp' || format === 'gpkg') {
-                        const shpFiles = buildClientShapefileFiles(clsReprojected, safeClsName, crs);
-                        for (const [fName, fBytes] of Object.entries(shpFiles)) {
-                            zipMap[`${safeClsName}/${fName}`] = fBytes;
+                    const ptFeats = [];
+                    const polyFeats = [];
+                    const lineFeats = [];
+                    feats.forEach(f => {
+                        const gt = (f.geometry && f.geometry.type) ? f.geometry.type.replace('Multi', '') : 'Unknown';
+                        if (gt === 'Point') ptFeats.push(f);
+                        else if (gt === 'Polygon') polyFeats.push(f);
+                        else if (gt === 'LineString') lineFeats.push(f);
+                        else polyFeats.push(f);
+                    });
+
+                    const exportSubCollection = (subFeats, filePrefix) => {
+                        if (subFeats.length === 0) return;
+                        const clsGeoJson = { type: 'FeatureCollection', features: subFeats };
+                        const clsReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(clsGeoJson, crs) : clsGeoJson;
+
+                        if (format === 'geojson') {
+                            zipMap[`${filePrefix}.geojson`] = fflate.strToU8(JSON.stringify(clsReprojected, null, 2));
+                        } else if (format === 'kml') {
+                            zipMap[`${filePrefix}.kml`] = fflate.strToU8(buildClientKml(clsGeoJson, filePrefix));
+                        } else if (format === 'shp' || format === 'gpkg') {
+                            const shpFiles = buildClientShapefileFiles(clsReprojected, filePrefix, crs);
+                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
+                                zipMap[fName] = fBytes;
+                            }
                         }
+                    };
+
+                    const numTypes = (ptFeats.length > 0 ? 1 : 0) + (polyFeats.length > 0 ? 1 : 0) + (lineFeats.length > 0 ? 1 : 0);
+                    if (numTypes <= 1) {
+                        exportSubCollection(feats, safeClsName);
+                    } else {
+                        if (ptFeats.length > 0) exportSubCollection(ptFeats, `${safeClsName}_puntos`);
+                        if (polyFeats.length > 0) exportSubCollection(polyFeats, `${safeClsName}_poligonos`);
+                        if (lineFeats.length > 0) exportSubCollection(lineFeats, `${safeClsName}_lineas`);
                     }
                 }
 
                 const masterZipData = fflate.zipSync(zipMap);
                 const blob = new Blob([masterZipData], { type: 'application/zip' });
-                triggerFileDownload(blob, `${safeBase}_por_clases.zip`);
+                triggerFileDownload(blob, `${safeBase}_dividido_por_clases.zip`);
                 closeExportVectorModal();
-                toast(`¡${classMap.size} clases de puntos exportadas en .zip individual!`, 'success');
+                toast(`¡${classMap.size} clases exportadas en archivo .zip individual!`, 'success');
+                if (btn) btn.disabled = false;
                 return;
             }
 
-            // Case 3: Unified export (all point groups combined or single layer)
-            let combinedGeoJson = null;
-            if (isAllPoints) {
-                const allFeats = [];
-                layersToExport.forEach(l => {
-                    const c = getCleanLayerGeoJson(l, onlySelected);
-                    if (c && c.features) allFeats.push(...c.features);
-                });
-                if (allFeats.length === 0) return toast('No hay geometrías válidas en los grupos de puntos.', 'error');
-                combinedGeoJson = { type: 'FeatureCollection', features: allFeats };
-            } else {
-                combinedGeoJson = getCleanLayerGeoJson(layersToExport[0], onlySelected);
-            }
-
-            if (!combinedGeoJson || !combinedGeoJson.features || combinedGeoJson.features.length === 0) {
-                return toast('La capa no contiene geometrías válidas para exportar.', 'error');
-            }
-
+            // Caso 3: Unificado (un único archivo combinado con todas las entidades)
+            const combinedGeoJson = { type: 'FeatureCollection', features: allFeats };
             showProgress('Generando ' + format.toUpperCase() + ' (' + combinedGeoJson.features.length + ' entidades)...', 50, 'Exportador');
             const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(combinedGeoJson, crs) : combinedGeoJson;
 
@@ -40358,20 +40981,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 triggerFileDownload(blob, safeBase + '.geojson');
                 closeExportVectorModal();
                 toast('¡' + safeBase + '.geojson descargado con éxito!', 'success');
-
             } else if (format === 'kml') {
                 const kmlStr = buildClientKml(combinedGeoJson, safeBase);
                 const blob = new Blob([kmlStr], { type: 'application/vnd.google-earth.kml+xml' });
                 triggerFileDownload(blob, safeBase + '.kml');
                 closeExportVectorModal();
                 toast('¡' + safeBase + '.kml descargado con éxito!', 'success');
-
             } else if (format === 'shp') {
                 const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
                 triggerFileDownload(zipBlob, safeBase + '.zip');
                 closeExportVectorModal();
                 toast('¡' + safeBase + '.zip (Shapefile) exportado con éxito!', 'success');
-
             } else if (format === 'gpkg') {
                 let gpkgDone = false;
                 try {
