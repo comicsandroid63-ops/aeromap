@@ -5259,32 +5259,16 @@
             <!-- Inyectado dinámicamente -->
           </div>
 
-          <!-- Modo de Organización al Exportar -->
-          <div class="pt-2 border-t border-indigo-100/80">
-            <label class="text-[9px] font-black uppercase tracking-widest text-zinc-600 block mb-1.5">Organización de la Exportación:</label>
-            <div class="grid grid-cols-3 gap-2">
-              <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
-                <input type="radio" name="exportGroupMode" value="split_group" checked class="w-3.5 h-3.5 text-indigo-600">
-                <div class="leading-tight">
-                  <div class="text-[11px] font-black">🗂️ Por Grupos (.zip)</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">1 archivo por cada grupo/número</div>
-                </div>
-              </label>
-              <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
-                <input type="radio" name="exportGroupMode" value="split_class" class="w-3.5 h-3.5 text-indigo-600">
-                <div class="leading-tight">
-                  <div class="text-[11px] font-black">🏷️ Por Clases (.zip)</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">1 archivo por cada clase</div>
-                </div>
-              </label>
-              <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-indigo-400 cursor-pointer transition-all text-xs font-bold text-zinc-800 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 has-[:checked]:text-indigo-900 shadow-2xs">
-                <input type="radio" name="exportGroupMode" value="single" class="w-3.5 h-3.5 text-indigo-600">
-                <div class="leading-tight">
-                  <div class="text-[11px] font-black">📁 Unificado</div>
-                  <div class="text-[8px] text-zinc-500 font-normal">Todo en 1 solo archivo</div>
-                </div>
-              </label>
+          <!-- Modo Automático de Exportación -->
+          <div class="pt-2 border-t border-indigo-100/80 flex items-center justify-between text-xs font-bold text-zinc-700 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-indigo-600 text-[18px]">verified</span>
+              <div>
+                <span class="text-[11px] font-black text-indigo-950">Exportación en Una Sola Capa</span>
+                <p class="text-[9px] text-zinc-500 font-normal">Todas las clases y sus colores se guardan en la tabla de atributos</p>
+              </div>
             </div>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-black uppercase">Automático</span>
           </div>
         </div>
 
@@ -9348,15 +9332,20 @@ self.onmessage = async function(e) {
 
                 feats.forEach((f, i) => {
                     const props = f.properties || {};
-                    const gName = props.grupo || props.group || props.Grupo || layer.name || 'Grupo 1';
-                    if (!props.grupo) props.grupo = gName;
+                    // Normalizar búsqueda de clase (incluyendo mayúsculas de DBF: CLASE, CLASS, etc.)
+                    const cName = props.clase || props.CLASE || props.class || props.CLASS || props.Clase || props.claseNombre || (layer.pointClasses && layer.pointClasses[0]?.name) || (layer.classes && layer.classes[0]?.name) || 'Clase 1';
+                    props.clase = String(cName).trim();
+
+                    const gName = props.grupo || props.GRUPO || props.group || props.GROUP || props.Grupo || layer.name || 'Grupo 1';
+                    props.grupo = String(gName).trim();
                     if (!props.grupoId) props.grupoId = layer.id;
-                    if (!props.clase) {
-                        props.clase = props.class || props.Clase || (layer.pointClasses && layer.pointClasses[0]?.name) || (layer.classes && layer.classes[0]?.name) || 'Clase 1';
-                    }
-                    if (!props.color) {
+
+                    const colVal = props.color || props.COLOR || props.Color;
+                    if (colVal) {
+                        props.color = String(colVal).trim();
+                    } else {
                         const clList = layer.pointClasses || layer.classes || [];
-                        const foundCl = clList.find(c => c.name === props.clase || String(c.id) === String(props.claseId));
+                        const foundCl = clList.find(c => String(c.name).toLowerCase() === String(props.clase).toLowerCase() || String(c.id) === String(props.claseId));
                         props.color = foundCl ? foundCl.color : (layer.color || '#3b82f6');
                     }
                     data.push({
@@ -9482,56 +9471,48 @@ self.onmessage = async function(e) {
                 `).join('')}
             `;
 
-            // Always organize rows cleanly by their group!
-            const groupMap = new Map();
+            // Organizar las filas de la tabla de atributos limpiamente divididas por CLASE
+            const classMap = new Map();
             data.forEach(row => {
-                const gName = String(row.grupo || row._layerName || 'Grupo 1').trim();
-                if (!groupMap.has(gName)) groupMap.set(gName, []);
-                groupMap.get(gName).push(row);
+                const cName = String(row.clase || 'Clase 1').trim();
+                if (!classMap.has(cName)) classMap.set(cName, []);
+                classMap.get(cName).push(row);
             });
 
             let bodyHtml = '';
             let overallIdx = 0;
-            groupMap.forEach((rowsInGroup, gName) => {
-                // Summarize classes in this group
-                const classSummary = {};
-                rowsInGroup.forEach(r => {
-                    const cName = r.clase || 'Sin Clase';
-                    if (!classSummary[cName]) classSummary[cName] = { count: 0, color: r.color || '#3b82f6' };
-                    classSummary[cName].count++;
-                });
-                const badges = Object.entries(classSummary).map(([cName, info]) => `
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs" style="background-color: ${info.color}">
-                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
-                        <span>${cName}</span>
-                        <span class="bg-black/20 px-1 rounded text-[9px]">${info.count}</span>
-                    </span>
-                `).join('');
-
-                const firstRow = rowsInGroup[0];
+            classMap.forEach((rowsInClass, cName) => {
+                const firstRow = rowsInClass[0];
+                const classColor = firstRow.color || '#3b82f6';
                 const geomType = (firstRow._featureRef && firstRow._featureRef.geometry) ? firstRow._featureRef.geometry.type : '';
                 const geomLabel = /point/i.test(geomType) ? 'puntos' : (/polygon/i.test(geomType) ? 'polígonos' : (/line/i.test(geomType) ? 'líneas' : 'entidades'));
+                const grp = firstRow.grupo || firstRow._layerName || '';
 
-                // Group Section Divider Row
+                // Divider de sección de la Clase
                 bodyHtml += `
                     <tr class="bg-indigo-50/90 border-y-2 border-indigo-200">
                         <td colspan="100%" class="py-2.5 px-4 shadow-xs">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2.5 text-xs font-black text-indigo-950">
-                                    <span class="material-symbols-outlined text-[18px] text-indigo-600">folder_open</span>
-                                    <span>Grupo: <strong class="text-indigo-800 uppercase tracking-wider">${gName}</strong></span>
-                                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInGroup.length} ${geomLabel}</span>
+                                    <span class="w-4 h-4 rounded-full border-2 border-white shadow-xs inline-block shrink-0" style="background-color: ${classColor};"></span>
+                                    <span>Clase: <strong class="text-indigo-800 uppercase tracking-wider">${cName}</strong></span>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInClass.length} ${geomLabel}</span>
+                                    ${grp ? `<span class="px-2 py-0.5 rounded-md bg-white/90 text-zinc-600 text-[9px] font-semibold border border-zinc-200 shadow-2xs"><span class="text-zinc-400 font-normal">Capa:</span> ${grp}</span>` : ''}
                                 </div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    ${badges}
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black text-white shadow-xs" style="background-color: ${classColor}">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                                        <span>${cName}</span>
+                                        <span class="bg-black/25 px-1.5 py-0.2 rounded-full text-[9px]">${rowsInClass.length}</span>
+                                    </span>
                                 </div>
                             </div>
                         </td>
                     </tr>
                 `;
 
-                // Rows for this group
-                rowsInGroup.forEach(row => {
+                // Filas de esta clase
+                rowsInClass.forEach(row => {
                     overallIdx++;
                     bodyHtml += renderRowHtml(row, overallIdx, sortedKeys);
                 });
@@ -20249,6 +20230,95 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       };
 
 
+      // Auto-detect and normalize properties and classes from imported vector features
+      if (layer.geoJson && Array.isArray(layer.geoJson.features) && layer.geoJson.features.length > 0) {
+        const detectedClassesMap = new Map();
+        let hasPointGeom = false;
+        let hasPolyGeom = false;
+        let hasLineGeom = false;
+
+        layer.geoJson.features.forEach((f) => {
+          if (!f.properties) f.properties = {};
+          const p = f.properties;
+
+          // Normalizar campos que provienen de DBF / Shapefiles (suelen ser mayúsculas)
+          const cVal = p.clase || p.CLASE || p.class || p.CLASS || p.Clase || p.claseNombre;
+          if (cVal !== undefined && String(cVal).trim() !== '') {
+            p.clase = String(cVal).trim();
+          }
+
+          const colVal = p.color || p.COLOR || p.Color;
+          if (colVal !== undefined && String(colVal).trim() !== '') {
+            p.color = String(colVal).trim();
+          }
+
+          const grpVal = p.grupo || p.GRUPO || p.Grupo || p.group || p.GROUP;
+          if (grpVal !== undefined && String(grpVal).trim() !== '') {
+            p.grupo = String(grpVal).trim();
+          }
+
+          const nomVal = p.nombre || p.NOMBRE || p.name || p.NAME || p.identificador || p.id;
+          if (nomVal !== undefined && !p.nombre) {
+            p.nombre = String(nomVal).trim();
+          }
+
+          const gt = f.geometry ? f.geometry.type : '';
+          if (/point/i.test(gt)) hasPointGeom = true;
+          else if (/polygon/i.test(gt)) hasPolyGeom = true;
+          else if (/line/i.test(gt)) hasLineGeom = true;
+
+          if (p.clase) {
+            const cName = p.clase;
+            if (!detectedClassesMap.has(cName)) {
+              const cColor = p.color || VECTOR_PALETTE[detectedClassesMap.size % VECTOR_PALETTE.length];
+              p.color = cColor;
+              detectedClassesMap.set(cName, {
+                id: detectedClassesMap.size + 1,
+                name: cName,
+                color: cColor,
+                count: 1,
+                visible: true
+              });
+            } else {
+              if (!p.color) p.color = detectedClassesMap.get(cName).color;
+              detectedClassesMap.get(cName).count++;
+            }
+          }
+        });
+
+        if (hasPointGeom) layer.isPoints = true;
+        if (hasPolyGeom) layer.isPolygons = true;
+        if (hasLineGeom) layer.isLines = true;
+
+        if (detectedClassesMap.size > 0) {
+          const classArr = Array.from(detectedClassesMap.values());
+          if (layer.isPoints) {
+            layer.isPointGroup = true;
+            layer.pointClasses = classArr;
+            layer.classes = classArr;
+            layer.activeClassId = classArr[0].id;
+          } else if (layer.isPolygons) {
+            layer.isPolygonGroup = true;
+            layer.classes = classArr;
+            layer.pointClasses = classArr;
+            layer.activeClassId = classArr[0].id;
+          } else if (layer.isLines) {
+            layer.isLineGroup = true;
+            layer.classes = classArr;
+            layer.pointClasses = classArr;
+            layer.activeClassId = classArr[0].id;
+          } else {
+            layer.classes = classArr;
+            layer.pointClasses = classArr;
+            layer.activeClassId = classArr[0].id;
+          }
+          layer.symbologyType = 'categorized';
+          layer.symbologyField = 'clase';
+          layer.symbologyMap = {};
+          classArr.forEach(c => { layer.symbologyMap[c.name] = c.color; });
+        }
+      }
+
       // Efficiently create the Leaflet layer once
       layer.mapLayer = await createVectorLeafletLayer(layer);
       
@@ -20622,15 +20692,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (p.claseId !== undefined) {
                 cls = layer.pointClasses.find(c => String(c.id) === String(p.claseId));
             }
-            if (!cls && (p.clase || p.claseNombre || p.className || p.class)) {
-                const cname = p.clase || p.claseNombre || p.className || p.class;
+            const cname = p.clase || p.CLASE || p.class || p.CLASS || p.Clase || p.claseNombre || p.className;
+            if (!cls && cname) {
                 cls = layer.pointClasses.find(c => String(c.name).toLowerCase() === String(cname).toLowerCase());
             }
             if (!cls) {
                 cls = layer.pointClasses[0];
             }
             if (cls) {
-                fillColor = cls.color || '#3b82f6';
+                fillColor = cls.color || p.color || p.COLOR || '#3b82f6';
                 if (cls.visible === false) {
                     featureVisible = false;
                 }
@@ -20643,6 +20713,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 opacity: featureVisible ? 1.0 : 0,
                 radius: 7
             };
+        }
+
+        // Polygon or Line Classes Styling
+        if (layer.classes && layer.classes.length > 0) {
+            const cname = p.clase || p.CLASE || p.class || p.CLASS || p.Clase || p.claseNombre || p.className;
+            if (cname) {
+                const cls = layer.classes.find(c => String(c.name).toLowerCase() === String(cname).toLowerCase());
+                if (cls) {
+                    fillColor = cls.color || fillColor;
+                    strokeColor = cls.color || strokeColor;
+                    if (cls.visible === false) featureVisible = false;
+                }
+            }
         }
 
         // Custom Heatmap Coloring
@@ -40782,9 +40865,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const sel = document.getElementById('exportVectorLayerSel');
         const isAll = (sel && (sel.value === '__ALL_GROUPS__' || sel.value === '__ALL_POINT_GROUPS__'));
 
-        const groupModeRadio = document.querySelector('input[name="exportGroupMode"]:checked');
-        const groupMode = groupModeRadio ? groupModeRadio.value : 'split_group'; // Default is split_group!
-
         let targetLayers = [];
         if (isAll) {
             targetLayers = state.layers.filter(l => l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function'));
@@ -40802,25 +40882,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const format = formatRadio ? formatRadio.value : 'shp';
         const crs = document.getElementById('exportCrsSel')?.value || 'EPSG:4326';
         const filenameInput = document.getElementById('exportFilenameInput')?.value.trim() || '';
-        const baseFilename = filenameInput || (isAll ? 'grupos_vectoriales' : (targetLayers[0].name || 'capa'));
+        const baseFilename = filenameInput || (isAll ? 'capa_vectorial' : (targetLayers[0].name || 'capa'));
         const safeBase = baseFilename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
         const btn = document.getElementById('btnStartExport');
         if (btn) btn.disabled = true;
 
         try {
-            // Recolectar todas las entidades de las capas seleccionadas
+            // Recolectar todas las entidades de las capas seleccionadas preservando clases y colores
             const allFeats = [];
             targetLayers.forEach(l => {
                 const c = getCleanLayerGeoJson(l, onlySelected);
                 if (c && Array.isArray(c.features)) {
                     c.features.forEach(f => {
                         if (!f.properties) f.properties = {};
-                        // Asegurar que grupo y clase existan en las propiedades de la entidad
-                        const grp = f.properties.grupo || f.properties.group || f.properties.Grupo || l.name || 'Grupo_1';
-                        f.properties.grupo = grp;
-                        const cls = f.properties.clase || f.properties.class || f.properties.Clase || 'Clase_1';
-                        f.properties.clase = cls;
+                        // Asegurar clase y color de forma robusta
+                        const cls = f.properties.clase || f.properties.CLASE || f.properties.class || f.properties.CLASS || f.properties.Clase || f.properties.claseNombre || (l.pointClasses && l.pointClasses[0]?.name) || (l.classes && l.classes[0]?.name) || 'Clase 1';
+                        f.properties.clase = String(cls).trim();
+
+                        const col = f.properties.color || f.properties.COLOR || f.properties.Color || (l.pointClasses && l.pointClasses.find(cl => String(cl.name).toLowerCase() === String(f.properties.clase).toLowerCase())?.color) || l.color || '#3b82f6';
+                        f.properties.color = String(col).trim();
+
+                        const grp = f.properties.grupo || f.properties.GRUPO || f.properties.group || f.properties.GROUP || f.properties.Grupo || l.name || 'Grupo 1';
+                        f.properties.grupo = String(grp).trim();
+
+                        const nom = f.properties.nombre || f.properties.NOMBRE || f.properties.name || f.properties.NAME || f.properties.id || '';
+                        if (nom && !f.properties.nombre) f.properties.nombre = String(nom).trim();
+
                         f._layerName = l.name;
                         allFeats.push(f);
                     });
@@ -40832,146 +40920,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 return toast('No hay entidades válidas para exportar.', 'error');
             }
 
-            // Caso 1: Dividir por Grupos (Archivo .zip con archivos individuales por grupo en la raíz del zip)
-            if (groupMode === 'split_group') {
-                const groupMap = new Map();
-                allFeats.forEach(f => {
-                    let g = String(f.properties.grupo || f._layerName || 'Grupo_1').trim();
-                    if (!groupMap.has(g)) groupMap.set(g, []);
-                    groupMap.get(g).push(f);
-                });
-
-                showProgress(`Empaquetando ${groupMap.size} grupos en archivo .zip...`, 30, 'Exportador');
-                const zipMap = {};
-
-                let gIdx = 1;
-                for (const [grpName, feats] of groupMap.entries()) {
-                    // Nombre limpio y seguro para este grupo (e.g., "1", "2", "3" o "Bosque")
-                    const safeGroupName = grpName.replace(/[\\/:*?"<>|]/g, '_').trim() || `grupo_${gIdx++}`;
-
-                    // Separar geometrías homogéneas para que el Shapefile no se corrompa
-                    const ptFeats = [];
-                    const polyFeats = [];
-                    const lineFeats = [];
-                    feats.forEach(f => {
-                        const gt = (f.geometry && f.geometry.type) ? f.geometry.type.replace('Multi', '') : 'Unknown';
-                        if (gt === 'Point') ptFeats.push(f);
-                        else if (gt === 'Polygon') polyFeats.push(f);
-                        else if (gt === 'LineString') lineFeats.push(f);
-                        else polyFeats.push(f);
-                    });
-
-                    const exportSubCollection = (subFeats, filePrefix) => {
-                        if (subFeats.length === 0) return;
-                        const subGeoJson = { type: 'FeatureCollection', features: subFeats };
-                        const subReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(subGeoJson, crs) : subGeoJson;
-
-                        if (format === 'geojson') {
-                            zipMap[`${filePrefix}.geojson`] = fflate.strToU8(JSON.stringify(subReprojected, null, 2));
-                        } else if (format === 'kml') {
-                            zipMap[`${filePrefix}.kml`] = fflate.strToU8(buildClientKml(subGeoJson, filePrefix));
-                        } else if (format === 'shp') {
-                            const shpFiles = buildClientShapefileFiles(subReprojected, filePrefix, crs);
-                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
-                                // Directamente en la raíz del .zip: e.g. "1.shp", "1.dbf", "1.prj", etc.
-                                zipMap[fName] = fBytes;
-                            }
-                        } else if (format === 'gpkg') {
-                            const shpFiles = buildClientShapefileFiles(subReprojected, filePrefix, crs);
-                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
-                                zipMap[fName] = fBytes;
-                            }
-                        }
-                    };
-
-                    const numTypes = (ptFeats.length > 0 ? 1 : 0) + (polyFeats.length > 0 ? 1 : 0) + (lineFeats.length > 0 ? 1 : 0);
-                    if (numTypes <= 1) {
-                        exportSubCollection(feats, safeGroupName);
-                    } else {
-                        if (ptFeats.length > 0) exportSubCollection(ptFeats, `${safeGroupName}_puntos`);
-                        if (polyFeats.length > 0) exportSubCollection(polyFeats, `${safeGroupName}_poligonos`);
-                        if (lineFeats.length > 0) exportSubCollection(lineFeats, `${safeGroupName}_lineas`);
-                    }
-                }
-
-                if (Object.keys(zipMap).length === 0) {
-                    if (btn) btn.disabled = false;
-                    return toast('Ningún grupo contiene geometrías válidas para exportar.', 'warning');
-                }
-
-                const masterZipData = fflate.zipSync(zipMap);
-                const blob = new Blob([masterZipData], { type: 'application/zip' });
-                triggerFileDownload(blob, `${safeBase}_dividido_por_grupos.zip`);
-                closeExportVectorModal();
-                toast(`¡${groupMap.size} grupos exportados en archivo .zip individual!`, 'success');
-                if (btn) btn.disabled = false;
-                return;
-            }
-
-            // Caso 2: Dividir por Clases (Archivo .zip con archivos individuales por clase)
-            if (groupMode === 'split_class') {
-                const classMap = new Map();
-                allFeats.forEach(f => {
-                    let c = String(f.properties.clase || f.properties.class || 'Clase_General').trim();
-                    if (!classMap.has(c)) classMap.set(c, []);
-                    classMap.get(c).push(f);
-                });
-
-                showProgress(`Empaquetando ${classMap.size} clases en archivo .zip...`, 30, 'Exportador');
-                const zipMap = {};
-
-                let cIdx = 1;
-                for (const [clsName, feats] of classMap.entries()) {
-                    const safeClsName = clsName.replace(/[\\/:*?"<>|]/g, '_').trim() || `clase_${cIdx++}`;
-
-                    const ptFeats = [];
-                    const polyFeats = [];
-                    const lineFeats = [];
-                    feats.forEach(f => {
-                        const gt = (f.geometry && f.geometry.type) ? f.geometry.type.replace('Multi', '') : 'Unknown';
-                        if (gt === 'Point') ptFeats.push(f);
-                        else if (gt === 'Polygon') polyFeats.push(f);
-                        else if (gt === 'LineString') lineFeats.push(f);
-                        else polyFeats.push(f);
-                    });
-
-                    const exportSubCollection = (subFeats, filePrefix) => {
-                        if (subFeats.length === 0) return;
-                        const clsGeoJson = { type: 'FeatureCollection', features: subFeats };
-                        const clsReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(clsGeoJson, crs) : clsGeoJson;
-
-                        if (format === 'geojson') {
-                            zipMap[`${filePrefix}.geojson`] = fflate.strToU8(JSON.stringify(clsReprojected, null, 2));
-                        } else if (format === 'kml') {
-                            zipMap[`${filePrefix}.kml`] = fflate.strToU8(buildClientKml(clsGeoJson, filePrefix));
-                        } else if (format === 'shp' || format === 'gpkg') {
-                            const shpFiles = buildClientShapefileFiles(clsReprojected, filePrefix, crs);
-                            for (const [fName, fBytes] of Object.entries(shpFiles)) {
-                                zipMap[fName] = fBytes;
-                            }
-                        }
-                    };
-
-                    const numTypes = (ptFeats.length > 0 ? 1 : 0) + (polyFeats.length > 0 ? 1 : 0) + (lineFeats.length > 0 ? 1 : 0);
-                    if (numTypes <= 1) {
-                        exportSubCollection(feats, safeClsName);
-                    } else {
-                        if (ptFeats.length > 0) exportSubCollection(ptFeats, `${safeClsName}_puntos`);
-                        if (polyFeats.length > 0) exportSubCollection(polyFeats, `${safeClsName}_poligonos`);
-                        if (lineFeats.length > 0) exportSubCollection(lineFeats, `${safeClsName}_lineas`);
-                    }
-                }
-
-                const masterZipData = fflate.zipSync(zipMap);
-                const blob = new Blob([masterZipData], { type: 'application/zip' });
-                triggerFileDownload(blob, `${safeBase}_dividido_por_clases.zip`);
-                closeExportVectorModal();
-                toast(`¡${classMap.size} clases exportadas en archivo .zip individual!`, 'success');
-                if (btn) btn.disabled = false;
-                return;
-            }
-
-            // Caso 3: Unificado (un único archivo combinado con todas las entidades)
+            // Exportación automática en UNA SOLA CAPA con todas sus clases y atributos
             const combinedGeoJson = { type: 'FeatureCollection', features: allFeats };
             showProgress('Generando ' + format.toUpperCase() + ' (' + combinedGeoJson.features.length + ' entidades)...', 50, 'Exportador');
             const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(combinedGeoJson, crs) : combinedGeoJson;
@@ -40980,18 +40929,53 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const blob = new Blob([JSON.stringify(reprojected, null, 2)], { type: 'application/geo+json' });
                 triggerFileDownload(blob, safeBase + '.geojson');
                 closeExportVectorModal();
-                toast('¡' + safeBase + '.geojson descargado con éxito!', 'success');
+                toast('¡' + safeBase + '.geojson exportado con éxito!', 'success');
             } else if (format === 'kml') {
                 const kmlStr = buildClientKml(combinedGeoJson, safeBase);
                 const blob = new Blob([kmlStr], { type: 'application/vnd.google-earth.kml+xml' });
                 triggerFileDownload(blob, safeBase + '.kml');
                 closeExportVectorModal();
-                toast('¡' + safeBase + '.kml descargado con éxito!', 'success');
+                toast('¡' + safeBase + '.kml exportado con éxito!', 'success');
             } else if (format === 'shp') {
-                const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
-                triggerFileDownload(zipBlob, safeBase + '.zip');
+                // Separar solo si hay tipos geométricos incompatibles para cumplir la especificación ESRI
+                const ptFeats = [];
+                const polyFeats = [];
+                const lineFeats = [];
+                allFeats.forEach(f => {
+                    const gt = (f.geometry && f.geometry.type) ? f.geometry.type.replace('Multi', '') : 'Unknown';
+                    if (gt === 'Point') ptFeats.push(f);
+                    else if (gt === 'Polygon') polyFeats.push(f);
+                    else if (gt === 'LineString') lineFeats.push(f);
+                    else polyFeats.push(f);
+                });
+
+                const numTypes = (ptFeats.length > 0 ? 1 : 0) + (polyFeats.length > 0 ? 1 : 0) + (lineFeats.length > 0 ? 1 : 0);
+                if (numTypes <= 1) {
+                    const zipBlob = buildClientShapefileZip(reprojected, safeBase, crs);
+                    triggerFileDownload(zipBlob, safeBase + '.zip');
+                } else {
+                    const zipMap = {};
+                    if (ptFeats.length > 0) {
+                        const ptGeoJson = { type: 'FeatureCollection', features: ptFeats };
+                        const ptReproj = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(ptGeoJson, crs) : ptGeoJson;
+                        Object.assign(zipMap, buildClientShapefileFiles(ptReproj, `${safeBase}_puntos`, crs));
+                    }
+                    if (polyFeats.length > 0) {
+                        const polyGeoJson = { type: 'FeatureCollection', features: polyFeats };
+                        const polyReproj = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(polyGeoJson, crs) : polyGeoJson;
+                        Object.assign(zipMap, buildClientShapefileFiles(polyReproj, `${safeBase}_poligonos`, crs));
+                    }
+                    if (lineFeats.length > 0) {
+                        const lineGeoJson = { type: 'FeatureCollection', features: lineFeats };
+                        const lineReproj = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(lineGeoJson, crs) : lineGeoJson;
+                        Object.assign(zipMap, buildClientShapefileFiles(lineReproj, `${safeBase}_lineas`, crs));
+                    }
+                    const masterZipData = fflate.zipSync(zipMap);
+                    const blob = new Blob([masterZipData], { type: 'application/zip' });
+                    triggerFileDownload(blob, safeBase + '.zip');
+                }
                 closeExportVectorModal();
-                toast('¡' + safeBase + '.zip (Shapefile) exportado con éxito!', 'success');
+                toast('¡' + safeBase + '.zip (Shapefile) exportado con éxito en una sola capa!', 'success');
             } else if (format === 'gpkg') {
                 let gpkgDone = false;
                 try {
