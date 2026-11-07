@@ -4056,8 +4056,12 @@
         </div>
       </div>
       <div class="h-[1px] bg-zinc-100 mx-2"></div>
-      <button onclick="toggleSnapping()" id="btnSnapping" class="w-10 h-10 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shadow-sm border border-emerald-200 transition-all" title="Ajuste de Nodos (Snap)">
-        <span class="material-symbols-outlined text-[18px]">magnet</span>
+      <button onclick="toggleSnapping()" id="btnSnapping" class="w-10 h-10 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shadow-sm border border-emerald-200 transition-all overflow-hidden shrink-0" title="Ajuste de Nodos (Snap / Imán)">
+        <svg class="w-5 h-5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h4v7a4 4 0 0 0 8 0V4h4v7a8 8 0 0 1-16 0V4Z"/>
+          <line x1="4" y1="8" x2="8" y2="8"/>
+          <line x1="16" y1="8" x2="20" y2="8"/>
+        </svg>
       </button>
       <button onclick="toggleMeasureMode()" id="btnMeasure" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 transition-colors" title="Medir Distancia/Área">
         <span class="material-symbols-outlined text-[18px]">square_foot</span>
@@ -4242,6 +4246,11 @@
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-zinc-400 text-lg">list_alt</span>
                 <h3 class="text-[11px] font-black uppercase tracking-widest text-zinc-900" id="attrTableTitle">Tabla de Atributos</h3>
+            </div>
+            <div id="attrTableGroupSelectWrapper" style="display: none;" class="flex items-center gap-1.5 bg-white border border-zinc-200 rounded-lg px-2.5 py-1 shadow-xs">
+                <span class="material-symbols-outlined text-indigo-500 text-sm">folder</span>
+                <select id="attrTableGroupFilter" onchange="onAttrTableGroupChange(this.value)" class="text-[10px] font-black uppercase text-zinc-700 bg-transparent border-none outline-none cursor-pointer focus:ring-0 pr-1">
+                </select>
             </div>
             <div class="h-4 w-[1px] bg-zinc-200"></div>
             <div class="flex items-center gap-2 px-3 py-1 bg-white border border-zinc-200 rounded-lg">
@@ -5245,6 +5254,18 @@
             <span class="text-[9px] text-zinc-500" id="exportSelectionStatusText">0 entidades seleccionadas</span>
           </div>
           <input type="checkbox" id="exportOnlySelectedChk" class="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-indigo-500 cursor-pointer">
+        </div>
+
+        <!-- Opción Separar por Grupos (para capas de puntos) -->
+        <div id="exportSplitByGroupContainer" style="display: none;" class="flex items-center justify-between p-3 rounded-xl bg-indigo-50/70 border border-indigo-200">
+          <div class="flex flex-col">
+            <span class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-indigo-600">folder_zip</span>
+              Separar por Grupos (Archivo .zip)
+            </span>
+            <span class="text-[9px] text-indigo-600 font-medium">Exporta cada grupo de puntos en su propio archivo individual dentro de un archivo .zip</span>
+          </div>
+          <input type="checkbox" id="exportSplitByGroupChk" class="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-indigo-500 cursor-pointer">
         </div>
 
         <!-- Botones de Acción -->
@@ -8937,100 +8958,188 @@ self.onmessage = async function(e) {
     // ══════════════════════════════════════════
     //  ATTRIBUTE TABLE
     // ══════════════════════════════════════════
+    function updateAttrTableGroupFilter() {
+        const groupWrapper = document.getElementById('attrTableGroupSelectWrapper');
+        const groupSelect = document.getElementById('attrTableGroupFilter');
+        if (!groupWrapper || !groupSelect) return;
+
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
+        if (pointLayers.length > 0) {
+            groupWrapper.style.display = 'flex';
+            let totalPoints = 0;
+            pointLayers.forEach(pl => {
+                const count = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features.length : 0;
+                totalPoints += count;
+            });
+
+            let opts = '';
+            if (pointLayers.length > 1) {
+                opts += `<option value="__ALL_POINT_GROUPS__">🌟 Todos los Grupos (${totalPoints} pts)</option>`;
+            }
+            pointLayers.forEach(pl => {
+                const count = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features.length : 0;
+                opts += `<option value="${pl.id}">📂 ${pl.name} (${count} pts)</option>`;
+            });
+
+            const otherLayers = state.layers.filter(l => l.type === 'vector' && !pointLayers.includes(l));
+            if (otherLayers.length > 0) {
+                opts += `<optgroup label="Otras Capas">`;
+                otherLayers.forEach(ol => {
+                    opts += `<option value="${ol.id}">📄 ${ol.name}</option>`;
+                });
+                opts += `</optgroup>`;
+            }
+            groupSelect.innerHTML = opts;
+
+            if (state.attrTable.layerId === '__ALL_POINT_GROUPS__') {
+                groupSelect.value = '__ALL_POINT_GROUPS__';
+            } else if (state.attrTable.layerId) {
+                groupSelect.value = state.attrTable.layerId;
+            }
+        } else {
+            groupWrapper.style.display = 'none';
+        }
+    }
+
+    function onAttrTableGroupChange(val) {
+        if (val === '__ALL_POINT_GROUPS__') {
+            state.attrTable.layerId = '__ALL_POINT_GROUPS__';
+            document.getElementById('attrTableTitle').textContent = 'Tabla de Atributos: Todos los Grupos de Puntos';
+        } else {
+            state.attrTable.layerId = val;
+            const layer = state.layers.find(l => String(l.id) === String(val));
+            if (layer) {
+                state.selectedAttrTableLayer = layer;
+                document.getElementById('attrTableTitle').textContent = `Tabla de Atributos: ${layer.name}`;
+            }
+        }
+        renderAttributeTable();
+    }
+
     function ctxOpenAttrTable() {
         const layer = state.layers.find(l => l.id === state.ctxLayerId);
         if (!layer) return;
         state.attrTable.layerId = layer.id;
-        state.selectedAttrTableLayer = layer; // Synchronize with calculator
+        state.selectedAttrTableLayer = layer;
         
         document.getElementById('attributeTablePanel').style.display = 'flex';
         document.getElementById('attrTableTitle').textContent = `Tabla de Atributos: ${layer.name}`;
+        updateAttrTableGroupFilter();
         renderAttributeTable();
         hideContextMenu();
     }
 
-    function renderAttributeTable() {
-        const layer = state.layers.find(l => l.id === state.attrTable.layerId);
-        if (!layer) return;
+    function renderRowHtml(row, displayNum, sortedKeys) {
+        return `
+            <tr class="${row._selected ? 'bg-blue-50/50' : 'hover:bg-blue-50/30 transition-colors'} cursor-pointer border-b border-zinc-100 group" 
+                onmouseenter="highlightAttrFeature(${row._originalIndex}, '${row._layerId}')" 
+                onmouseleave="clearAttrHighlight()" 
+                onclick="if(event.ctrlKey){event.preventDefault(); toggleAttrRowSelection(${row._originalIndex}, '${row._layerId}')}else{zoomToAttrFeature(${row._originalIndex}, '${row._layerId}')}">
+                <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-100 border-blue-200/50' : 'bg-white'} text-center sticky left-[-1px] z-20 cursor-pointer shadow-[2px_0_5px_rgba(0,0,0,0.05)]" 
+                    onclick="event.stopPropagation(); toggleAttrRowSelection(${row._originalIndex}, '${row._layerId}')">
+                    <input type="checkbox" ${row._selected ? 'checked' : ''} class="w-3.5 h-3.5 rounded text-blue-600 border-zinc-300 focus:ring-blue-500 cursor-pointer pointer-events-none">
+                </td>
+                <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-50/80 font-black text-blue-700 hover:bg-blue-100' : 'bg-zinc-50/50 text-zinc-400 group-hover:bg-blue-50'} text-center sticky left-[47px] z-20 font-bold shadow-[2px_0_5px_rgba(0,0,0,0.05)]">${displayNum}</td>
+                <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-50 group-hover:bg-blue-100/60' : 'bg-white group-hover:bg-blue-50'} text-center sticky left-[111px] z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                    <button onclick="event.stopPropagation(); extractFeatureToLayer('${row._layerId}', ${row._originalIndex})" 
+                            class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center mx-auto" 
+                            title="Extraer como nueva capa (Cortar)">
+                        <span class="material-symbols-outlined text-[16px]">content_cut</span>
+                    </button>
+                </td>
+                ${sortedKeys.map(k => {
+                    const val = row[k];
+                    let cellInner = '';
+                    if (k === 'grupo') {
+                        cellInner = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100 text-[10px]"><span class="material-symbols-outlined text-[13px]">folder</span>${val || ''}</span>`;
+                    } else if (k === 'clase') {
+                        cellInner = `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-white shadow-xs text-[10px]" style="background-color: ${row.color || '#3b82f6'}"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>${val || ''}</span>`;
+                    } else if (k === 'color') {
+                        cellInner = `<div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs inline-block" style="background-color: ${val}"></span><span class="text-[10px] font-mono text-zinc-500">${val}</span></div>`;
+                    } else {
+                        const displayVal = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === undefined || val === null ? '-' : val);
+                        cellInner = `<span class="truncate block max-w-[300px]" title="${displayVal}">${displayVal}</span>`;
+                    }
+                    return `<td class="px-4 py-2 border-r border-zinc-100 whitespace-nowrap min-w-[120px] max-w-[400px] text-[11px] font-medium text-zinc-700">${cellInner}</td>`;
+                }).join('')}
+            </tr>
+        `;
+    }
 
+    function renderAttributeTable() {
         const $head = document.getElementById('attrTablePanelHeader');
         const $body = document.getElementById('attrTablePanelBody');
         const $count = document.getElementById('attrTableCount');
+        if (!$head || !$body || !$count) return;
+
+        updateAttrTableGroupFilter();
+
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
+        let targetLayers = [];
+        let isAllPointGroups = (state.attrTable.layerId === '__ALL_POINT_GROUPS__');
+
+        if (isAllPointGroups) {
+            targetLayers = pointLayers;
+        } else {
+            const singleLayer = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
+            if (!singleLayer) return;
+            targetLayers = [singleLayer];
+        }
 
         try {
             let data = [];
-            if (layer.geoJson && layer.geoJson.features) {
-                data = layer.geoJson.features.map((f, i) => {
+            targetLayers.forEach(layer => {
+                const isPointLayer = layer.isPoints || layer.isPointGroup || layer.pointClasses;
+                let feats = [];
+                if (layer.geoJson && Array.isArray(layer.geoJson.features)) {
+                    feats = layer.geoJson.features;
+                } else if (layer.mapLayer && typeof layer.mapLayer.toGeoJSON === 'function') {
+                    try { feats = layer.mapLayer.toGeoJSON().features || []; } catch(_) {}
+                }
+
+                feats.forEach((f, i) => {
                     const props = f.properties || {};
-                    // Ensure _originalIndex is preserved for mapping back to features
-                    return { ...props, _originalIndex: i };
+                    if (isPointLayer) {
+                        if (!props.grupo) props.grupo = layer.name;
+                        if (!props.grupoId) props.grupoId = layer.id;
+                    }
+                    data.push({
+                        ...props,
+                        _layerId: layer.id,
+                        _layerName: layer.name,
+                        _originalIndex: i,
+                        _featureRef: f
+                    });
                 });
-            } else if (layer.geoJson && Array.isArray(layer.geoJson.features)) {
-                // Fallback for different FC structures if any
-                 data = layer.geoJson.features.map((f, i) => ({ ...f.properties, _originalIndex: i }));
-            }
+            });
 
             const filterText = document.getElementById('attrTableFilter').value.trim().toLowerCase();
             const shouldSyncMap = document.getElementById('syncFilterToMap').checked;
-            
-            let filteredIndices = new Set();
-            
+
             if (filterText) {
                 data = data.filter(row => {
-                    const match = Object.values(row).some(val => 
-                        val !== null && typeof val !== 'object' && String(val).toLowerCase().includes(filterText)
-                    );
-                    if (match) filteredIndices.add(row._originalIndex);
-                    return match;
-                });
-            } else {
-                // If no filter, all original indices are valid
-                layer.geoJson.features.forEach((_, i) => filteredIndices.add(i));
-            }
-
-            // 1. SORTING LOGIC
-            const sortCol = state.attrTable.sortCol;
-            const sortDir = state.attrTable.sortDir;
-            if (sortCol) {
-                data.sort((a, b) => {
-                    let vA = a[sortCol];
-                    let vB = b[sortCol];
-                    
-                    // Auto-detect numbers for numeric sorting
-                    const nA = parseFloat(vA);
-                    const nB = parseFloat(vB);
-                    if (!isNaN(nA) && !isNaN(nB)) {
-                        vA = nA; vB = nB;
-                    } else {
-                        vA = String(vA || '').toLowerCase();
-                        vB = String(vB || '').toLowerCase();
-                    }
-
-                    if (vA < vB) return sortDir === 'asc' ? -1 : 1;
-                    if (vA > vB) return sortDir === 'asc' ? 1 : -1;
-                    return 0;
+                    return Object.entries(row).some(([k, val]) => {
+                        if (k.startsWith('_')) return false;
+                        if (val !== null && typeof val !== 'object') {
+                            return String(val).toLowerCase().includes(filterText);
+                        }
+                        return false;
+                    });
                 });
             }
 
-            // Sync with Map if requested
-            if (shouldSyncMap && layer.mapLayer) {
-                layer.mapLayer.eachLayer(l => {
-                    const fIdx = l.feature?._originalIndex ?? -1;
-                    // Note: Leaflet doesn't have a simple hide/show per feature in L.geoJSON
-                    // We use opacity as a trick or remove/add
-                    if (filteredIndices.has(fIdx) || fIdx === -1) {
-                        if (l.setStyle) l.setStyle({ opacity: layer.opacity || 1, fillOpacity: layer.fillOpacity || 0.6 });
-                        else if (l.setOpacity) l.setOpacity(layer.opacity || 1);
-                    } else {
-                        if (l.setStyle) l.setStyle({ opacity: 0, fillOpacity: 0 });
-                        else if (l.setOpacity) l.setOpacity(0);
+            // Sync with map if requested
+            if (shouldSyncMap) {
+                targetLayers.forEach(layer => {
+                    if (layer.mapLayer) {
+                        const visibleIndices = new Set(data.filter(r => r._layerId === layer.id).map(r => r._originalIndex));
+                        layer.mapLayer.eachLayer(l => {
+                            const fIdx = l.feature?._originalIndex ?? -1;
+                            const isVis = visibleIndices.has(fIdx) || fIdx === -1;
+                            if (l.setStyle) l.setStyle({ opacity: isVis ? (layer.opacity || 1) : 0, fillOpacity: isVis ? (layer.fillOpacity || 0.6) : 0 });
+                            else if (l.setOpacity) l.setOpacity(isVis ? (layer.opacity || 1) : 0);
+                        });
                     }
-                });
-            } else if (layer.mapLayer) {
-                // Restore all if sync is off or cleared
-                layer.mapLayer.eachLayer(l => {
-                    if (l.setStyle) l.setStyle({ opacity: layer.opacity || 1, fillOpacity: layer.fillOpacity || 0.6 });
-                    else if (l.setOpacity) l.setOpacity(layer.opacity || 1);
                 });
             }
 
@@ -9042,32 +9151,56 @@ self.onmessage = async function(e) {
                 return;
             }
 
-            // Render Header
-            const keysSet = new Set();
-            // Scan up to 1000 rows to find all keys (improves discovery for subset calculations)
+            // Collect keys
+            const rawKeys = new Set();
             data.slice(0, 1000).forEach(row => {
                 Object.keys(row).forEach(k => {
-                    if (k !== 'geometry' && k !== '_style' && k !== '_originalIndex' && typeof row[k] !== 'function') keysSet.add(k);
+                    if (!k.startsWith('_') && k !== 'geometry') rawKeys.add(k);
                 });
             });
-            const keys = Array.from(keysSet);
 
-            if (keys.length === 0 && data.length > 0) {
-                $head.innerHTML = '<th class="px-4 py-3 text-center text-zinc-400">#</th><th class="px-4 py-3 text-zinc-400">Detalles</th>';
-                $body.innerHTML = data.slice(0, 500).map((row, i) => `<tr><td class="px-4 py-2 text-center">${i+1}</td><td class="px-4 py-2 text-zinc-500 italic font-mono text-[9px]">${JSON.stringify(row).substring(0, 150)}...</td></tr>`).join('');
-                return;
+            // Priority ordering for point attributes: grupo, clase, name, lat, lng, color, timestamp, then others
+            const priorityOrder = ['grupo', 'clase', 'name', 'nombre', 'lat', 'lng', 'color', 'timestamp'];
+            const sortedKeys = Array.from(rawKeys).sort((a, b) => {
+                const idxA = priorityOrder.indexOf(a);
+                const idxB = priorityOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            // Sorting logic
+            const sortCol = state.attrTable.sortCol;
+            const sortDir = state.attrTable.sortDir;
+            if (sortCol) {
+                data.sort((a, b) => {
+                    let vA = a[sortCol];
+                    let vB = b[sortCol];
+                    const nA = parseFloat(vA);
+                    const nB = parseFloat(vB);
+                    if (!isNaN(nA) && !isNaN(nB)) {
+                        vA = nA; vB = nB;
+                    } else {
+                        vA = String(vA || '').toLowerCase();
+                        vB = String(vB || '').toLowerCase();
+                    }
+                    if (vA < vB) return sortDir === 'asc' ? -1 : 1;
+                    if (vA > vB) return sortDir === 'asc' ? 1 : -1;
+                    return 0;
+                });
             }
 
-            // Selection logic setup
-            const selectedFeatures = layer.geoJson.features.filter(f => f.properties._selected);
-            const anySelected = selectedFeatures.length > 0;
-            const allSelected = selectedFeatures.length === data.length && data.length > 0;
-            
+            // Selection calculation
+            let totalSelected = 0;
+            data.forEach(r => { if (r._selected) totalSelected++; });
+            const allSelected = totalSelected === data.length && data.length > 0;
+
             const $selectionBar = document.getElementById('attrSelectionBar');
             if ($selectionBar) {
-                if (anySelected) {
+                if (totalSelected > 0) {
                     $selectionBar.classList.remove('hidden');
-                    document.getElementById('attrSelectionCount').textContent = `${selectedFeatures.length} Registros Seleccionados`;
+                    document.getElementById('attrSelectionCount').textContent = `${totalSelected} Registros Seleccionados`;
                 } else {
                     $selectionBar.classList.add('hidden');
                 }
@@ -9080,12 +9213,12 @@ self.onmessage = async function(e) {
                 </th>
                 <th class="px-4 py-3 text-[10px] font-black uppercase text-zinc-400 border-r border-zinc-100 bg-white sticky left-[47px] z-30 w-16 text-center shadow-[2px_0_5px_rgba(0,0,0,0.05)]">#</th>
                 <th class="px-4 py-3 text-[10px] font-black uppercase text-zinc-400 border-r border-zinc-100 bg-white sticky left-[111px] z-30 w-24 text-center shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Acciones</th>
-                ${keys.map(k => `
+                ${sortedKeys.map(k => `
                     <th class="px-4 py-3 text-[10px] font-black uppercase text-zinc-500 border-r border-zinc-100 bg-zinc-50 min-w-[120px] whitespace-nowrap cursor-pointer hover:bg-zinc-200 transition-colors group/header" 
                         onclick="sortAttributeTable('${k}')">
                         <div class="flex items-center justify-between gap-2">
-                            <span class="${state.attrTable.sortCol === k ? 'text-emerald-600' : ''}">${k}</span>
-                            <span class="material-symbols-outlined text-[14px] ${state.attrTable.sortCol === k ? 'text-emerald-500 opacity-100' : 'opacity-20 group-hover/header:opacity-50'}">
+                            <span class="${state.attrTable.sortCol === k ? 'text-indigo-600 font-black' : ''}">${k === 'grupo' ? '📂 Grupo' : (k === 'clase' ? '🏷️ Clase' : k)}</span>
+                            <span class="material-symbols-outlined text-[14px] ${state.attrTable.sortCol === k ? 'text-indigo-500 opacity-100' : 'opacity-20 group-hover/header:opacity-50'}">
                                 ${state.attrTable.sortCol === k ? (state.attrTable.sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
                             </span>
                         </div>
@@ -9093,27 +9226,65 @@ self.onmessage = async function(e) {
                 `).join('')}
             `;
 
-            // Render Body - SLICE to prevent browser death
-            $body.innerHTML = data.slice(0, 500).map((row, idx) => `
-                <tr class="${row._selected ? 'bg-blue-50/50' : 'hover:bg-blue-50/30 transition-colors'} cursor-pointer border-b border-zinc-100 group" onmouseenter="highlightAttrFeature(${row._originalIndex})" onmouseleave="clearAttrHighlight()" onclick="if(event.ctrlKey){event.preventDefault(); toggleAttrRowSelection(${row._originalIndex})}else{zoomToAttrFeature(${row._originalIndex})}">
-                    <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-100 border-blue-200/50' : 'bg-white'} text-center sticky left-[-1px] z-20 cursor-pointer shadow-[2px_0_5px_rgba(0,0,0,0.05)]" onclick="event.stopPropagation(); toggleAttrRowSelection(${row._originalIndex})">
-                        <input type="checkbox" ${row._selected ? 'checked' : ''} onclick="event.stopPropagation(); toggleAttrRowSelection(${row._originalIndex})" class="w-3.5 h-3.5 rounded text-blue-600 border-zinc-300 focus:ring-blue-500 cursor-pointer pointer-events-none">
-                    </td>
-                    <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-50/80 font-black text-blue-700 hover:bg-blue-100' : 'bg-zinc-50/50 text-zinc-400 group-hover:bg-blue-50'} text-center sticky left-[47px] z-20 font-bold shadow-[2px_0_5px_rgba(0,0,0,0.05)]">${row._originalIndex + 1}</td>
-                    <td class="px-4 py-2 border-r border-zinc-100 ${row._selected ? 'bg-blue-50 group-hover:bg-blue-100/60' : 'bg-white group-hover:bg-blue-50'} text-center sticky left-[111px] z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
-                        <button onclick="event.stopPropagation(); extractFeatureToLayer(${state.attrTable.layerId}, ${row._originalIndex})" 
-                                class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center mx-auto" 
-                                title="Extraer como nueva capa (Cortar)">
-                            <span class="material-symbols-outlined text-[16px]">content_cut</span>
-                        </button>
-                    </td>
-                    ${keys.map(k => {
-                        const val = row[k];
-                        const displayVal = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === undefined || val === null ? '-' : val);
-                        return `<td class="px-4 py-2 border-r border-zinc-100 whitespace-nowrap min-w-[120px] max-w-[400px] truncate text-[11px] font-medium text-zinc-700" title="${displayVal}">${displayVal}</td>`;
-                    }).join('')}
-                </tr>
-            `).join('');
+            // Check if we should organize by groups:
+            const hasPointGroups = targetLayers.some(l => l.isPoints || l.isPointGroup || l.pointClasses);
+
+            let bodyHtml = '';
+            if (hasPointGroups) {
+                // Group data by group name
+                const groupMap = new Map();
+                data.forEach(row => {
+                    const gName = row.grupo || row._layerName || 'Grupo de Puntos';
+                    if (!groupMap.has(gName)) groupMap.set(gName, []);
+                    groupMap.get(gName).push(row);
+                });
+
+                let overallIdx = 0;
+                groupMap.forEach((rowsInGroup, gName) => {
+                    // Summarize classes in this group
+                    const classSummary = {};
+                    rowsInGroup.forEach(r => {
+                        const cName = r.clase || 'Sin Clase';
+                        if (!classSummary[cName]) classSummary[cName] = { count: 0, color: r.color || '#3b82f6' };
+                        classSummary[cName].count++;
+                    });
+                    const badges = Object.entries(classSummary).map(([cName, info]) => `
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs" style="background-color: ${info.color}">
+                            <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                            <span>${cName}</span>
+                            <span class="bg-black/20 px-1 rounded text-[9px]">${info.count}</span>
+                        </span>
+                    `).join('');
+
+                    // Group Section Divider Row
+                    bodyHtml += `
+                        <tr class="bg-indigo-50/90 border-y-2 border-indigo-200">
+                            <td colspan="100%" class="py-2.5 px-4 shadow-xs">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5 text-xs font-black text-indigo-950">
+                                        <span class="material-symbols-outlined text-[18px] text-indigo-600">folder_open</span>
+                                        <span>Grupo: <strong class="text-indigo-800 uppercase tracking-wider">${gName}</strong></span>
+                                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInGroup.length} ${rowsInGroup.length === 1 ? 'punto' : 'puntos'}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        ${badges}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+
+                    // Rows for this group
+                    rowsInGroup.forEach(row => {
+                        overallIdx++;
+                        bodyHtml += renderRowHtml(row, overallIdx, sortedKeys);
+                    });
+                });
+            } else {
+                bodyHtml = data.slice(0, 500).map((row, idx) => renderRowHtml(row, idx + 1, sortedKeys)).join('');
+            }
+
+            $body.innerHTML = bodyHtml;
 
         } catch (err) {
             console.error("AttrTable Error:", err);
@@ -9619,8 +9790,9 @@ self.onmessage = async function(e) {
         }
     }
 
-    function zoomToAttrFeature(originalIdx) {
-        const layer = state.layers.find(l => l.id === state.attrTable.layerId);
+    function zoomToAttrFeature(originalIdx, layerId = null) {
+        const lid = layerId || state.attrTable.layerId;
+        const layer = state.layers.find(l => String(l.id) === String(lid));
         if (!layer || !layer.geoJson) return;
 
         const feature = layer.geoJson.features[originalIdx];
@@ -9695,24 +9867,65 @@ self.onmessage = async function(e) {
     }
 
     function exportAttrTableCSV() {
-        const layer = state.layers.find(l => l.id === state.attrTable.layerId);
-        if (!layer || !layer.geoJson) return;
+        const isAllPoints = (state.attrTable.layerId === '__ALL_POINT_GROUPS__');
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
 
-        const data = layer.geoJson.features.map(f => f.properties);
-        if (data.length === 0) return;
+        let targetLayers = [];
+        let exportName = 'atributos';
+        if (isAllPoints) {
+            targetLayers = pointLayers;
+            exportName = 'atributos_todos_los_grupos';
+        } else {
+            const single = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
+            if (!single) return toast('No hay capa activa para exportar CSV', 'warning');
+            targetLayers = [single];
+            exportName = `atributos_${single.name || single.id}`;
+        }
 
-        const keys = Object.keys(data[0]);
-        const csvContent = [
-            keys.join(','),
-            ...data.map(row => keys.map(k => `"${String(row[k]).replace(/"/g, '""')}"`).join(','))
-        ].join('\n');
+        let allRows = [];
+        targetLayers.forEach(layer => {
+            const isPointLayer = layer.isPoints || layer.isPointGroup || layer.pointClasses;
+            let feats = (layer.geoJson && layer.geoJson.features) ? layer.geoJson.features : [];
+            feats.forEach(f => {
+                const props = { ...(f.properties || {}) };
+                if (isPointLayer) {
+                    props.grupo = props.grupo || layer.name;
+                    props.grupoId = props.grupoId || layer.id;
+                }
+                allRows.push(props);
+            });
+        });
 
+        if (allRows.length === 0) return toast('No hay datos para exportar a CSV', 'warning');
+
+        const keysSet = new Set();
+        allRows.forEach(r => Object.keys(r).forEach(k => { if (!k.startsWith('_')) keysSet.add(k); }));
+        const keys = Array.from(keysSet);
+
+        const priorityOrder = ['grupo', 'clase', 'name', 'nombre', 'lat', 'lng', 'color', 'timestamp'];
+        keys.sort((a, b) => {
+            const idxA = priorityOrder.indexOf(a);
+            const idxB = priorityOrder.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        const csvRows = [keys.map(k => `"${k}"`).join(',')];
+        allRows.forEach(row => {
+            const rVals = keys.map(k => {
+                const v = row[k];
+                if (v === null || v === undefined) return '""';
+                return `"${String(v).replace(/"/g, '""')}"`;
+            });
+            csvRows.push(rVals.join(','));
+        });
+
+        const csvContent = "\uFEFF" + csvRows.join('\r\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${layer.name}_atributos.csv`);
-        link.click();
+        triggerFileDownload(blob, `${exportName.replace(/[^a-zA-Z0-9_\-]/g, '_')}.csv`);
+        toast('CSV exportado con éxito', 'success');
     }
 
     async function extractFeatureToLayer(layerId, originalIdx) {
@@ -28559,17 +28772,28 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function openAttributeTable(layer) {
+      if (!layer) return;
+      state.attrTable.layerId = layer.id;
+      state.selectedAttrTableLayer = layer;
+      const panel = document.getElementById('attributeTablePanel');
+      if (panel) {
+        panel.style.display = 'flex';
+        document.getElementById('attrTableTitle').textContent = `Tabla de Atributos: ${layer.name}`;
+        updateAttrTableGroupFilter();
+        renderAttributeTable();
+        return;
+      }
+
       if (layer.isMassive) {
         toast('Capa de alta densidad. Mostrando solo los primeros 1000 registros para evitar bloqueos.', 'info');
         if (!layer.geoJson.features || layer.geoJson.features.length === 0) {
-          // Attempt to extract some data from leaflet internal features for massive mode
           const sample = [];
           layer.mapLayer.eachLayer(l => { if (sample.length < 1000) sample.push(l.feature); });
           layer.geoJson.features = sample;
         }
       }
 
-      state.selectedAttrTableLayer = layer; // Ensure calculator knows which layer is active
+      state.selectedAttrTableLayer = layer;
       $attrModal.classList.remove('opacity-0', 'pointer-events-none');
       document.getElementById('attrModalTitle').textContent = `Atributos: ${layer.name}`;
 
@@ -30844,6 +31068,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         id: featId,
         properties: {
           id: featId,
+          grupo: layer.name,
+          grupoId: layer.id,
           claseId: cls.id,
           clase: cls.name,
           color: cls.color,
@@ -37678,7 +37904,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         };
     }
 
-    function buildClientShapefileZip(geojson, filename, crs) {
+    function buildClientShapefileFiles(geojson, filename, crs) {
         if (typeof fflate === 'undefined') throw new Error('Librería fflate no disponible para empaquetar ZIP');
         const features = geojson.features || [];
         if (features.length === 0) throw new Error('Capa sin entidades para exportar a Shapefile');
@@ -37894,14 +38120,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const prjWkt = CRS_PRJ_WKT_MAP[crs] || CRS_PRJ_WKT_MAP['EPSG:4326'];
         const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
-        const zipData = fflate.zipSync({
+        return {
             [`${safeBase}.shp`]: shpBytes,
             [`${safeBase}.shx`]: shxBytes,
             [`${safeBase}.dbf`]: dbfBytes,
             [`${safeBase}.prj`]: fflate.strToU8(prjWkt),
             [`${safeBase}.cpg`]: fflate.strToU8('UTF-8')
-        });
+        };
+    }
 
+    function buildClientShapefileZip(geojson, filename, crs) {
+        const files = buildClientShapefileFiles(geojson, filename, crs);
+        const zipData = fflate.zipSync(files);
         return new Blob([zipData], { type: 'application/zip' });
     }
 
@@ -37984,6 +38214,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         cleanProps[k] = v;
                     }
                 }
+            }
+
+            if (layer.isPoints || layer.isPointGroup || layer.pointClasses) {
+                if (!cleanProps.grupo) cleanProps.grupo = layer.name;
+                if (!cleanProps.grupoId) cleanProps.grupoId = layer.id;
             }
 
             cleanFeats.push({
@@ -38777,11 +39012,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return toast('No hay capas vectoriales cargadas en el mapa.', 'warning');
         }
 
-        sel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name || 'Capa ' + l.id}</option>`).join('');
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
 
-        const targetId = targetLayer ? targetLayer.id : (state.selectedLayerId || (vectorLayers[0] ? vectorLayers[0].id : null));
-        if (targetId !== null && vectorLayers.some(l => String(l.id) === String(targetId))) {
-            sel.value = targetId;
+        let opts = '';
+        if (pointLayers.length > 1) {
+            opts += `<optgroup label="Grupos de Puntos">`;
+            opts += `<option value="__ALL_POINT_GROUPS__">🌟 Todos los Grupos de Puntos (${pointLayers.length} grupos)</option>`;
+            pointLayers.forEach(pl => {
+                opts += `<option value="${pl.id}">📂 Grupo: ${pl.name}</option>`;
+            });
+            opts += `</optgroup>`;
+        } else if (pointLayers.length === 1) {
+            opts += `<optgroup label="Grupos de Puntos">`;
+            opts += `<option value="${pointLayers[0].id}">📂 Grupo: ${pointLayers[0].name}</option>`;
+            opts += `</optgroup>`;
+        }
+
+        const otherLayers = vectorLayers.filter(l => !pointLayers.includes(l));
+        if (otherLayers.length > 0) {
+            if (pointLayers.length > 0) opts += `<optgroup label="Otras Capas Vectoriales">`;
+            otherLayers.forEach(ol => {
+                opts += `<option value="${ol.id}">📄 ${ol.name || 'Capa ' + ol.id}</option>`;
+            });
+            if (pointLayers.length > 0) opts += `</optgroup>`;
+        }
+
+        sel.innerHTML = opts;
+
+        if (targetLayer && String(targetLayer.id) === '__ALL_POINT_GROUPS__') {
+            sel.value = '__ALL_POINT_GROUPS__';
+        } else {
+            const targetId = targetLayer ? targetLayer.id : (state.selectedLayerId || (pointLayers[0] ? pointLayers[0].id : (vectorLayers[0] ? vectorLayers[0].id : null)));
+            if (targetId !== null) {
+                sel.value = String(targetId);
+            }
         }
 
         onExportLayerChange(onlySelected);
@@ -38789,7 +39053,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function openExportVectorModalFromAttrTable(onlySelected = false) {
-        const layer = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
+        let layer = null;
+        if (state.attrTable.layerId === '__ALL_POINT_GROUPS__') {
+            layer = { id: '__ALL_POINT_GROUPS__', name: 'Todos los Grupos de Puntos' };
+        } else {
+            layer = state.layers.find(l => String(l.id) === String(state.attrTable.layerId));
+        }
         openExportVectorModal(layer, onlySelected);
     }
 
@@ -39761,17 +40030,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function onExportLayerChange(preferredOnlySelected = false) {
         const sel = document.getElementById('exportVectorLayerSel');
         if (!sel) return;
-        const layer = state.layers.find(l => String(l.id) === String(sel.value));
-        if (!layer) return;
-
-        const safeName = (layer.name || 'capa').replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
-        document.getElementById('exportFilenameInput').value = safeName;
-        document.getElementById('exportModalLayerName').textContent = `Capa: ${layer.name}`;
-
-        const rawFeats = (layer.geoJson && layer.geoJson.features) 
-            ? layer.geoJson.features 
-            : ((layer.mapLayer && typeof layer.mapLayer.toGeoJSON === 'function') ? (layer.mapLayer.toGeoJSON().features || []) : []);
+        const splitContainer = document.getElementById('exportSplitByGroupContainer');
+        const splitChk = document.getElementById('exportSplitByGroupChk');
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
         
+        const isAllPoints = (sel.value === '__ALL_POINT_GROUPS__');
+        const selectedLayer = (!isAllPoints) ? state.layers.find(l => String(l.id) === String(sel.value)) : null;
+        const isPointLayer = selectedLayer ? (selectedLayer.isPoints || selectedLayer.isPointGroup || selectedLayer.pointClasses) : false;
+
+        if (splitContainer) {
+            if (isAllPoints || isPointLayer || pointLayers.length > 0) {
+                splitContainer.style.display = 'flex';
+                if (isAllPoints && splitChk && !splitChk.dataset.userChanged) {
+                    splitChk.checked = true;
+                }
+            } else {
+                splitContainer.style.display = 'none';
+            }
+        }
+
+        const filenameInput = document.getElementById('exportFilenameInput');
+        if (filenameInput) {
+            if (isAllPoints) {
+                filenameInput.value = 'todos_los_grupos_de_puntos';
+                document.getElementById('exportModalLayerName').textContent = 'Todos los Grupos de Puntos';
+            } else if (selectedLayer && selectedLayer.name) {
+                filenameInput.value = selectedLayer.name.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
+                document.getElementById('exportModalLayerName').textContent = `Capa: ${selectedLayer.name}`;
+            }
+        }
+
+        let rawFeats = [];
+        if (isAllPoints) {
+            pointLayers.forEach(pl => {
+                const f = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features : [];
+                rawFeats.push(...f);
+            });
+        } else if (selectedLayer) {
+            rawFeats = (selectedLayer.geoJson && selectedLayer.geoJson.features) 
+                ? selectedLayer.geoJson.features 
+                : ((selectedLayer.mapLayer && typeof selectedLayer.mapLayer.toGeoJSON === 'function') ? (selectedLayer.mapLayer.toGeoJSON().features || []) : []);
+        }
+
         const selectedCount = rawFeats.filter(f => f && f.properties && (f.properties._selected || f.properties.__selected)).length;
         const statusText = document.getElementById('exportSelectionStatusText');
         const chk = document.getElementById('exportOnlySelectedChk');
@@ -39789,31 +40089,98 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function executeExportVector() {
         const sel = document.getElementById('exportVectorLayerSel');
-        const layer = state.layers.find(l => String(l.id) === String(sel.value));
+        const splitByGroupChk = document.getElementById('exportSplitByGroupChk');
+        const shouldSplitByGroup = splitByGroupChk ? splitByGroupChk.checked : false;
 
-        if (!layer) {
-            return toast('Selecciona una capa válida para exportar.', 'error');
+        const isAllPoints = (sel.value === '__ALL_POINT_GROUPS__');
+        const pointLayers = state.layers.filter(l => l.type === 'vector' && (l.isPoints || l.isPointGroup || l.pointClasses));
+
+        let layersToExport = [];
+        if (isAllPoints) {
+            layersToExport = pointLayers;
+            if (layersToExport.length === 0) {
+                return toast('No hay grupos de puntos para exportar.', 'error');
+            }
+        } else {
+            const singleLayer = state.layers.find(l => String(l.id) === String(sel.value));
+            if (!singleLayer) return toast('Selecciona una capa válida para exportar.', 'error');
+            layersToExport = [singleLayer];
         }
 
         const onlySelected = document.getElementById('exportOnlySelectedChk').checked;
-        const cleanGeoJson = getCleanLayerGeoJson(layer, onlySelected);
-
-        if (!cleanGeoJson || !cleanGeoJson.features || cleanGeoJson.features.length === 0) {
-            return toast('La capa no contiene geometrías válidas para exportar.', 'error');
-        }
-
         const formatRadio = document.querySelector('input[name="exportFormat"]:checked');
         const format = formatRadio ? formatRadio.value : 'shp';
         const crs = document.getElementById('exportCrsSel').value || 'EPSG:4326';
-        const filename = (document.getElementById('exportFilenameInput').value.trim()) || layer.name || 'capa';
-        const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
+        const filenameInput = document.getElementById('exportFilenameInput').value.trim();
+        const baseFilename = filenameInput || (isAllPoints ? 'puntos_grupos' : (layersToExport[0].name || 'capa'));
+        const safeBase = baseFilename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
 
-        showProgress('Generando ' + format.toUpperCase() + ' (' + cleanGeoJson.features.length + ' entidades)...', 50, 'Exportador');
         const btn = document.getElementById('btnStartExport');
         if (btn) btn.disabled = true;
 
         try {
-            const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(cleanGeoJson, crs) : cleanGeoJson;
+            // Case 1: Separar por Grupos (Archivo .zip con un archivo o carpeta por grupo)
+            if (shouldSplitByGroup || (isAllPoints && layersToExport.length > 1 && shouldSplitByGroup)) {
+                showProgress(`Empaquetando ${layersToExport.length} grupos en archivo .zip...`, 30, 'Exportador');
+                const zipMap = {};
+
+                for (let idx = 0; idx < layersToExport.length; idx++) {
+                    const l = layersToExport[idx];
+                    const grpGeoJson = getCleanLayerGeoJson(l, onlySelected);
+                    if (!grpGeoJson || !grpGeoJson.features || grpGeoJson.features.length === 0) continue;
+
+                    const safeGroupName = (l.name || `grupo_${idx+1}`).replace(/[^a-zA-Z0-9_\-]/g, '_') || `grupo_${idx+1}`;
+                    const grpReprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(grpGeoJson, crs) : grpGeoJson;
+
+                    if (format === 'geojson') {
+                        zipMap[`${safeGroupName}.geojson`] = fflate.strToU8(JSON.stringify(grpReprojected, null, 2));
+                    } else if (format === 'kml') {
+                        zipMap[`${safeGroupName}.kml`] = fflate.strToU8(buildClientKml(grpGeoJson, l.name));
+                    } else if (format === 'shp') {
+                        const shpFiles = buildClientShapefileFiles(grpReprojected, safeGroupName, crs);
+                        for (const [fName, fBytes] of Object.entries(shpFiles)) {
+                            zipMap[`${safeGroupName}/${fName}`] = fBytes;
+                        }
+                    } else if (format === 'gpkg') {
+                        const shpFiles = buildClientShapefileFiles(grpReprojected, safeGroupName, crs);
+                        for (const [fName, fBytes] of Object.entries(shpFiles)) {
+                            zipMap[`${safeGroupName}/${fName}`] = fBytes;
+                        }
+                    }
+                }
+
+                if (Object.keys(zipMap).length === 0) {
+                    return toast('Ningún grupo contiene geometrías válidas para exportar.', 'warning');
+                }
+
+                const masterZipData = fflate.zipSync(zipMap);
+                const blob = new Blob([masterZipData], { type: 'application/zip' });
+                triggerFileDownload(blob, `${safeBase}_por_grupos.zip`);
+                closeExportVectorModal();
+                toast(`¡${layersToExport.length} grupos de puntos exportados en .zip individual!`, 'success');
+                return;
+            }
+
+            // Case 2: Unified export (all point groups combined or single layer)
+            let combinedGeoJson = null;
+            if (isAllPoints) {
+                const allFeats = [];
+                layersToExport.forEach(l => {
+                    const c = getCleanLayerGeoJson(l, onlySelected);
+                    if (c && c.features) allFeats.push(...c.features);
+                });
+                if (allFeats.length === 0) return toast('No hay geometrías válidas en los grupos de puntos.', 'error');
+                combinedGeoJson = { type: 'FeatureCollection', features: allFeats };
+            } else {
+                combinedGeoJson = getCleanLayerGeoJson(layersToExport[0], onlySelected);
+            }
+
+            if (!combinedGeoJson || !combinedGeoJson.features || combinedGeoJson.features.length === 0) {
+                return toast('La capa no contiene geometrías válidas para exportar.', 'error');
+            }
+
+            showProgress('Generando ' + format.toUpperCase() + ' (' + combinedGeoJson.features.length + ' entidades)...', 50, 'Exportador');
+            const reprojected = (crs !== 'EPSG:4326') ? reprojectGeoJsonCoords(combinedGeoJson, crs) : combinedGeoJson;
 
             if (format === 'geojson') {
                 const blob = new Blob([JSON.stringify(reprojected, null, 2)], { type: 'application/geo+json' });
@@ -39822,7 +40189,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 toast('¡' + safeBase + '.geojson descargado con éxito!', 'success');
 
             } else if (format === 'kml') {
-                const kmlStr = buildClientKml(cleanGeoJson, safeBase);
+                const kmlStr = buildClientKml(combinedGeoJson, safeBase);
                 const blob = new Blob([kmlStr], { type: 'application/vnd.google-earth.kml+xml' });
                 triggerFileDownload(blob, safeBase + '.kml');
                 closeExportVectorModal();
@@ -39842,12 +40209,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         showProgress('Construyendo base SQLite OGC GeoPackage...', 75, 'Exportador');
                         const gpkg = await GP.create();
                         const tableName = safeBase.substring(0, 32);
-                        const firstProps = (cleanGeoJson.features[0] && cleanGeoJson.features[0].properties) || {};
+                        const firstProps = (combinedGeoJson.features[0] && combinedGeoJson.features[0].properties) || {};
                         if (gpkg.createFeatureTableFromProperties) {
                             await gpkg.createFeatureTableFromProperties(tableName, firstProps);
                         }
                         if (gpkg.addGeoJSONFeaturesToGeoPackage) {
-                            await gpkg.addGeoJSONFeaturesToGeoPackage(cleanGeoJson.features, tableName);
+                            await gpkg.addGeoJSONFeaturesToGeoPackage(combinedGeoJson.features, tableName);
                         }
                         const u8 = await gpkg.export();
                         if (u8 && u8.length > 0) {
