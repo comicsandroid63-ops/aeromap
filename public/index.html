@@ -5277,22 +5277,22 @@
           <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Formato de Salida:</label>
           <div class="grid grid-cols-2 gap-2.5">
             <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
-              <input type="radio" name="exportFormat" value="gpkg" checked class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
+              <input type="radio" name="exportFormat" value="shp" checked class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span> Shapefile (.zip)
+                </span>
+                <span class="text-[9px] text-zinc-500">SHP, DBF, SHX, PRJ (Capa Única)</span>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
+              <input type="radio" name="exportFormat" value="gpkg" class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
               <div class="flex flex-col">
                 <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
                   <span class="material-symbols-outlined text-[16px] text-indigo-600">layers</span> GeoPackage (.gpkg)
                 </span>
                 <span class="text-[9px] text-zinc-500">Estándar OGC SQLite moderno</span>
-              </div>
-            </label>
-
-            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
-              <input type="radio" name="exportFormat" value="shp" class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
-              <div class="flex flex-col">
-                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span> Shapefile (.zip)
-                </span>
-                <span class="text-[9px] text-zinc-500">SHP, DBF, SHX, PRJ (Zip)</span>
               </div>
             </label>
 
@@ -8858,8 +8858,9 @@ self.onmessage = async function(e) {
                                 const extMatch = fileName.match(/\.(shp|dbf|shx|prj|json)$/i);
                                 if (extMatch) {
                                     const ext = extMatch[1].toLowerCase();
-                                    const base = path.substring(0, path.length - ext.length - 1);
-                                    if (!layersMap[base]) layersMap[base] = { name: fileName.replace(/\.[^/.]+$/, ""), path: base, files: {} };
+                                    let base = path.substring(0, path.length - ext.length - 1);
+                                    if (ext === 'json') base = base.replace(/\.classes$/i, '');
+                                    if (!layersMap[base]) layersMap[base] = { name: fileName.replace(/\.[^/.]+$/, "").replace(/\.classes$/i, ""), path: base, files: {} };
                                     layersMap[base].files[ext] = true;
                                 }
                                 f.ondata = () => {};
@@ -8905,9 +8906,10 @@ self.onmessage = async function(e) {
                             
                             unzipper2.onfile = (f) => {
                                 const normF = normalizeP(f.name);
-                                const fBase = normF.substring(0, normF.length - (normF.match(/\.[^/.]+$/)?.[0].length || 0));
+                                let fBase = normF.substring(0, normF.length - (normF.match(/\.[^/.]+$/)?.[0].length || 0));
+                                fBase = fBase.replace(/\.classes$/i, '');
                                 const matched = selectedLayers.find(sl => {
-                                    const slBase = normalizeP(sl.path);
+                                    let slBase = normalizeP(sl.path).replace(/\.classes$/i, '');
                                     return slBase === fBase || slBase.endsWith('/' + fBase) || fBase.endsWith('/' + slBase) || sl.path === f.name.substring(0, f.name.length - (f.name.match(/\.[^/.]+$/)?.[0].length || 0));
                                 });
                                 if (matched) {
@@ -9333,12 +9335,28 @@ self.onmessage = async function(e) {
                     if (k === 'grupo') {
                         cellInner = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100 text-[10px]"><span class="material-symbols-outlined text-[13px]">folder</span>${val || ''}</span>`;
                     } else if (k === 'clase') {
-                        const targetL = state.layers.find(l => String(l.id) === String(row._layerId));
-                        const classList = (targetL && (targetL.pointClasses || targetL.classes)) ? (targetL.pointClasses || targetL.classes) : [];
-                        if (classList.length > 1) {
-                            const optHtml = classList.map(c => `
-                                <option value="${c.name}" ${String(c.name).toLowerCase() === String(val || '').toLowerCase() ? 'selected' : ''}>
-                                    ${c.name}
+                        // Recolectar todas las clases disponibles en el proyecto / capas
+                        const allProjectClasses = new Map();
+                        state.layers.filter(l => l.type === 'vector' || l.geoJson).forEach(vl => {
+                            (vl.pointClasses || vl.classes || []).forEach(c => {
+                                if (c && c.name && !allProjectClasses.has(c.name)) {
+                                    allProjectClasses.set(c.name, c.color || vl.color || '#3b82f6');
+                                }
+                            });
+                            // Si la capa es un grupo independiente, su nombre también es una opción de clase
+                            if (vl.name && !allProjectClasses.has(vl.name) && !/^capa\s*vectorial$/i.test(vl.name)) {
+                                allProjectClasses.set(vl.name, vl.color || '#3b82f6');
+                            }
+                        });
+                        // Asegurar la clase actual de la fila
+                        if (val && !allProjectClasses.has(val)) {
+                            allProjectClasses.set(val, row.color || '#3b82f6');
+                        }
+
+                        if (allProjectClasses.size > 1) {
+                            const optHtml = Array.from(allProjectClasses.entries()).map(([cName, cCol]) => `
+                                <option value="${cName}" ${String(cName).toLowerCase() === String(val || '').toLowerCase() ? 'selected' : ''}>
+                                    ${cName}
                                 </option>
                             `).join('');
                             cellInner = `
@@ -9406,7 +9424,12 @@ self.onmessage = async function(e) {
                 feats.forEach((f, i) => {
                     const props = f.properties || {};
                     // Normalizar búsqueda de clase (incluyendo mayúsculas de DBF: CLASE, CLASS, etc.)
-                    const cName = props.clase || props.CLASE || props.class || props.CLASS || props.Clase || props.claseNombre || (layer.pointClasses && layer.pointClasses[0]?.name) || (layer.classes && layer.classes[0]?.name) || 'Clase 1';
+                    let cName = props.clase || props.CLASE || props.class || props.CLASS || props.Clase || props.claseNombre;
+                    const layerClasses = layer.pointClasses || layer.classes || [];
+                    if (layerClasses.length <= 1 && String(cName || '').trim() === 'Clase 1' && vectorLayers.length > 1 && layer.name && !/^capa\s*vectorial$/i.test(layer.name)) {
+                        cName = layer.name;
+                    }
+                    if (!cName) cName = (layerClasses[0]?.name) || 'Clase 1';
                     props.clase = String(cName).trim();
 
                     const gName = props.grupo || props.GRUPO || props.group || props.GROUP || props.Grupo || layer.name || 'Grupo 1';
@@ -20434,7 +20457,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           layer.symbologyType = 'categorized';
           layer.symbologyField = 'clase';
           layer.symbologyMap = {};
-          classArr.forEach(c => { layer.symbologyMap[c.name] = c.color; });
+          classArr.forEach(c => { layer.symbologyMap[c.name] = { color: c.color, visible: true }; });
         }
       }
 
@@ -20905,7 +20928,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                 }
                 if (cat) {
-                    fillColor = cat.color || fillColor;
+                    fillColor = (typeof cat === 'string') ? cat : (cat.color || fillColor);
                     if (cat.strokeColor) strokeColor = cat.strokeColor;
                     if (cat.strokeWidth) strokeWidth = cat.strokeWidth;
                     if (cat.fillOpacity !== undefined) fillOpacity = cat.fillOpacity;
@@ -31271,12 +31294,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function createPointGroup(groupName, className, classColor, activateDrawing = true) {
-      const cName = (className && className.trim()) ? className.trim() : 'Clase 1';
-      const cColor = classColor || '#3b82f6';
-      const gName = (groupName && groupName.trim()) ? groupName.trim() : 'Grupo de Puntos ' + (state.layers.length + 1);
+      const count = state.layers.filter(l => l.isPointGroup || l.isPoints).length + 1;
+      const PALETTE = ['#38bdf8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+      const cColor = classColor || PALETTE[(count - 1) % PALETTE.length];
+      const gName = (groupName && groupName.trim()) ? groupName.trim() : `Grupo de Puntos ${count}`;
+      
+      let cName = (className && className.trim()) ? className.trim() : '';
+      if (!cName || (cName === 'Clase 1' && count > 1)) {
+        cName = (gName && !/^grupo\s*de\s*puntos\s*\d*$/i.test(gName)) ? gName : `Clase ${count}`;
+      } else if (!cName) {
+        cName = 'Clase 1';
+      }
 
       const initialClass = {
-        id: 1,
+        id: count,
         name: cName,
         color: cColor,
         count: 0,
@@ -31318,14 +31349,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function openCreatePointGroupModal() {
       const count = state.layers.filter(l => l.isPointGroup || l.isPoints).length + 1;
+      const PALETTE = ['#38bdf8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+      const nextColor = PALETTE[(count - 1) % PALETTE.length];
       const groupInput = document.getElementById('newPointGroupName');
-      if (groupInput) groupInput.value = `Grupo de Puntos ${count}`;
+      if (groupInput) groupInput.value = `Grupo ${count}`;
       const classInput = document.getElementById('newPointGroupClassName');
-      if (classInput) classInput.value = `Clase 1`;
+      if (classInput) classInput.value = `Clase ${count}`;
       const colorInput = document.getElementById('newPointGroupClassColor');
-      if (colorInput) colorInput.value = '#3b82f6';
+      if (colorInput) colorInput.value = nextColor;
       const hexLabel = document.getElementById('newPointGroupClassColorHex');
-      if (hexLabel) hexLabel.textContent = '#3b82f6';
+      if (hexLabel) hexLabel.textContent = nextColor;
 
       const modal = document.getElementById('createPointGroupModal');
       if (modal) modal.style.display = 'flex';
@@ -31349,12 +31382,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     //  POLYGON GROUPS & LINE GROUPS
     // ══════════════════════════════════════════
     async function createPolygonGroup(groupName, className, classColor, activateDrawing = true) {
-      const cName = (className && className.trim()) ? className.trim() : 'Clase 1';
-      const cColor = classColor || '#10b981';
-      const gName = (groupName && groupName.trim()) ? groupName.trim() : 'Grupo de Polígonos ' + (state.layers.length + 1);
+      const count = state.layers.filter(l => l.isPolygonGroup || l.isPolygons).length + 1;
+      const PALETTE = ['#10b981', '#ef4444', '#38bdf8', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+      const cColor = classColor || PALETTE[(count - 1) % PALETTE.length];
+      const gName = (groupName && groupName.trim()) ? groupName.trim() : `Grupo de Polígonos ${count}`;
+
+      let cName = (className && className.trim()) ? className.trim() : '';
+      if (!cName || (cName === 'Clase 1' && count > 1)) {
+        cName = (gName && !/^grupo\s*de\s*pol[íi]gonos\s*\d*$/i.test(gName)) ? gName : `Clase ${count}`;
+      } else if (!cName) {
+        cName = 'Clase 1';
+      }
 
       const initialClass = {
-        id: 1,
+        id: count,
         name: cName,
         color: cColor,
         count: 0,
@@ -31396,14 +31437,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function openCreatePolygonGroupModal() {
       const count = state.layers.filter(l => l.isPolygonGroup || l.isPolygons).length + 1;
+      const PALETTE = ['#10b981', '#ef4444', '#38bdf8', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+      const nextColor = PALETTE[(count - 1) % PALETTE.length];
       const groupInput = document.getElementById('newPolygonGroupName');
-      if (groupInput) groupInput.value = `Grupo de Polígonos ${count}`;
+      if (groupInput) groupInput.value = `Grupo ${count}`;
       const classInput = document.getElementById('newPolygonGroupClassName');
-      if (classInput) classInput.value = `Clase 1`;
+      if (classInput) classInput.value = `Clase ${count}`;
       const colorInput = document.getElementById('newPolygonGroupClassColor');
-      if (colorInput) colorInput.value = '#10b981';
+      if (colorInput) colorInput.value = nextColor;
       const hexLabel = document.getElementById('newPolygonGroupClassColorHex');
-      if (hexLabel) hexLabel.textContent = '#10b981';
+      if (hexLabel) hexLabel.textContent = nextColor;
 
       const modal = document.getElementById('createPolygonGroupModal');
       if (modal) modal.style.display = 'flex';
@@ -39073,7 +39116,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
         }
         if (exportedClasses.length > 0) {
-            outFiles[`${safeBase}.classes.json`] = fflate.strToU8(JSON.stringify({ classes: exportedClasses }, null, 2));
+            const classJsonBytes = fflate.strToU8(JSON.stringify({ classes: exportedClasses }, null, 2));
+            outFiles[`${safeBase}.classes.json`] = classJsonBytes;
+            outFiles[`${safeBase}.json`] = classJsonBytes;
         }
 
         return outFiles;
@@ -39182,7 +39227,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         return {
             type: 'FeatureCollection',
-            features: cleanFeats
+            features: cleanFeats,
+            classes: (layer.pointClasses || layer.classes || [])
         };
     }
 
@@ -39978,15 +40024,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         sel.innerHTML = opts;
 
-        if (targetLayer && (String(targetLayer.id) === '__ALL_POINT_GROUPS__' || String(targetLayer.id) === '__ALL_GROUPS__')) {
-            sel.value = vectorLayers.length > 1 ? '__ALL_GROUPS__' : String(vectorLayers[0].id);
+        // Si hay múltiples grupos o capas vectoriales, siempre predeterminar Capa Unificada
+        if (vectorLayers.length > 1) {
+            sel.value = '__ALL_GROUPS__';
         } else if (targetLayer && sel.querySelector(`option[value="${targetLayer.id}"]`)) {
             sel.value = String(targetLayer.id);
-        } else if (vectorLayers.length > 1) {
-            sel.value = '__ALL_GROUPS__';
         } else if (vectorLayers[0]) {
             sel.value = String(vectorLayers[0].id);
         }
+
+        // Predeterminar formato Shapefile (.zip) como estándar principal
+        const shpRadio = modal.querySelector('input[name="exportFormat"][value="shp"]');
+        if (shpRadio) shpRadio.checked = true;
 
         updateExportPointGroupsPreview();
         onExportLayerChange(onlySelected);
@@ -41045,16 +41094,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         updateExportPointGroupsPreview();
 
-        const pointLayers = getPointLayers();
-        const isAllPoints = (sel.value === '__ALL_POINT_GROUPS__');
-        const selectedLayer = (!isAllPoints) ? state.layers.find(l => String(l.id) === String(sel.value)) : null;
+        const isAll = (sel.value === '__ALL_GROUPS__' || sel.value === '__ALL_POINT_GROUPS__');
+        const selectedLayer = (!isAll) ? state.layers.find(l => String(l.id) === String(sel.value)) : null;
 
         const filenameInput = document.getElementById('exportFilenameInput');
         if (filenameInput) {
-            if (isAllPoints) {
-                filenameInput.value = 'todos_los_grupos_de_puntos';
+            if (isAll) {
+                filenameInput.value = 'capa_vectorial';
                 const lbl = document.getElementById('exportModalLayerName');
-                if (lbl) lbl.textContent = 'Todos los Grupos de Puntos';
+                if (lbl) lbl.textContent = '🌟 Todos los Grupos y Clases (Capa Unificada)';
             } else if (selectedLayer && selectedLayer.name) {
                 filenameInput.value = selectedLayer.name.replace(/[^a-zA-Z0-9_\-]/g, '_').toLowerCase();
                 const lbl = document.getElementById('exportModalLayerName');
@@ -41063,9 +41111,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
 
         let rawFeats = [];
-        if (isAllPoints) {
-            pointLayers.forEach(pl => {
-                const f = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features : [];
+        if (isAll) {
+            const vLayers = state.layers.filter(l => l.type === 'vector' || l.geoJson || (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function'));
+            vLayers.forEach(pl => {
+                const f = (pl.geoJson && pl.geoJson.features) ? pl.geoJson.features : ((pl.mapLayer && typeof pl.mapLayer.toGeoJSON === 'function') ? (pl.mapLayer.toGeoJSON().features || []) : []);
                 rawFeats.push(...f);
             });
         } else if (selectedLayer) {
@@ -41119,30 +41168,66 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         try {
             // Recolectar todas las entidades de las capas seleccionadas preservando clases y colores
             const allFeats = [];
-            targetLayers.forEach(l => {
+            const allTargetClasses = [];
+            const seenClassNames = new Set();
+            const PALETTE = ['#38bdf8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+            targetLayers.forEach((l, lIdx) => {
                 const c = getCleanLayerGeoJson(l, onlySelected);
                 if (c && Array.isArray(c.features)) {
-                    c.features.forEach(f => {
+                    const layerClasses = (l.pointClasses || l.classes || []);
+                    c.features.forEach((f, fIdx) => {
                         if (!f.properties) f.properties = {};
+
                         // Asegurar clase y color de forma robusta
-                        const cls = f.properties.clase || f.properties.CLASE || f.properties.class || f.properties.CLASS || f.properties.Clase || f.properties.claseNombre || (l.pointClasses && l.pointClasses[0]?.name) || (l.classes && l.classes[0]?.name) || 'Clase 1';
+                        let cls = f.properties.clase || f.properties.CLASE || f.properties.class || f.properties.CLASS || f.properties.Clase || f.properties.claseNombre;
+
+                        // Si hay múltiples capas y esta capa tiene el nombre genérico 'Clase 1'
+                        // (o no tiene clase), asignar el nombre de la capa para que sea una clase distinta
+                        if (!cls || (String(cls).trim().toLowerCase() === 'clase 1' && targetLayers.length > 1)) {
+                            if (layerClasses.length > 1) {
+                                cls = layerClasses[0].name;
+                            } else if (l.name && !/^capa\s*vectorial$/i.test(l.name)) {
+                                cls = l.name;
+                            } else {
+                                cls = `Clase ${lIdx + 1}`;
+                            }
+                        }
+                        if (!cls) cls = `Clase ${lIdx + 1}`;
+
                         f.properties.clase = String(cls).trim();
                         f.properties.CLASE = f.properties.clase;
 
-                        const col = f.properties.color || f.properties.COLOR || f.properties.Color || (l.pointClasses && l.pointClasses.find(cl => String(cl.name).toLowerCase() === String(f.properties.clase).toLowerCase())?.color) || l.color || '#3b82f6';
+                        // Color correspondiente a la clase
+                        let col = f.properties.color || f.properties.COLOR || f.properties.Color;
+                        if (!col || col === '#3b82f6') {
+                            const foundCl = layerClasses.find(cl => String(cl.name).toLowerCase() === String(f.properties.clase).toLowerCase());
+                            if (foundCl && foundCl.color) col = foundCl.color;
+                            else if (l.color && l.color !== '#3b82f6') col = l.color;
+                            else col = PALETTE[lIdx % PALETTE.length];
+                        }
                         f.properties.color = String(col).trim();
                         f.properties.COLOR = f.properties.color;
 
-                        const grp = f.properties.grupo || f.properties.GRUPO || f.properties.group || f.properties.GROUP || f.properties.Grupo || l.name || 'Grupo 1';
+                        const grp = f.properties.grupo || f.properties.GRUPO || f.properties.group || f.properties.GROUP || f.properties.Grupo || l.name || `Grupo ${lIdx + 1}`;
                         f.properties.grupo = String(grp).trim();
                         f.properties.GRUPO = f.properties.grupo;
 
-                        const nom = f.properties.nombre || f.properties.NOMBRE || f.properties.name || f.properties.NAME || f.properties.id || '';
-                        if (nom && !f.properties.nombre) f.properties.nombre = String(nom).trim();
-                        if (f.properties.nombre) f.properties.NOMBRE = f.properties.nombre;
+                        const nom = f.properties.nombre || f.properties.NOMBRE || f.properties.name || f.properties.NAME || f.properties.id || `Entidad ${fIdx + 1}`;
+                        f.properties.nombre = String(nom).trim();
+                        f.properties.NOMBRE = f.properties.nombre;
 
                         f._layerName = l.name;
                         allFeats.push(f);
+
+                        if (!seenClassNames.has(f.properties.clase)) {
+                            seenClassNames.add(f.properties.clase);
+                            allTargetClasses.push({
+                                id: allTargetClasses.length + 1,
+                                name: f.properties.clase,
+                                color: f.properties.color
+                            });
+                        }
                     });
                 }
             });
@@ -41152,13 +41237,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 return toast('No hay entidades válidas para exportar.', 'error');
             }
 
-            // Recolectar metadatos de clases para acompañar el archivo
-            const allTargetClasses = [];
+            // Recolectar metadatos de clases adicionales para acompañar el archivo
             targetLayers.forEach(l => {
                 const cList = l.pointClasses || l.classes || [];
                 cList.forEach(c => {
-                    if (c && c.name && !allTargetClasses.some(tc => tc.name === c.name)) {
-                        allTargetClasses.push({ id: c.id, name: c.name, color: c.color });
+                    if (c && c.name && !seenClassNames.has(c.name)) {
+                        seenClassNames.add(c.name);
+                        allTargetClasses.push({ id: allTargetClasses.length + 1, name: c.name, color: c.color || '#3b82f6' });
                     }
                 });
             });
