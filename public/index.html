@@ -9575,6 +9575,38 @@ self.onmessage = async function(e) {
                 classMap.get(cName).push(row);
             });
 
+            // Si todas las filas cayeron en una sola clase (ej: "Clase 1"), verificar si provienen de grupos o colores distintos
+            if (classMap.size === 1) {
+                const distinctGroups = new Set();
+                data.forEach(r => {
+                    const g = String(r.grupo || '').trim();
+                    if (g && !/^capa\s*vectorial$/i.test(g) && !/^\w+\.shp$/i.test(g)) distinctGroups.add(g);
+                });
+                if (distinctGroups.size > 1) {
+                    classMap.clear();
+                    data.forEach(row => {
+                        const gName = String(row.grupo || 'Grupo 1').trim();
+                        row.clase = gName;
+                        if (!classMap.has(gName)) classMap.set(gName, []);
+                        classMap.get(gName).push(row);
+                    });
+                } else {
+                    const distinctColors = new Set(data.map(r => String(r.color || '').trim().toLowerCase()).filter(Boolean));
+                    if (distinctColors.size > 1) {
+                        classMap.clear();
+                        const colorClassMap = new Map();
+                        data.forEach(row => {
+                            const cHex = String(row.color || '').trim().toLowerCase();
+                            if (!colorClassMap.has(cHex)) colorClassMap.set(cHex, `Clase ${colorClassMap.size + 1}`);
+                            const cName = colorClassMap.get(cHex);
+                            row.clase = cName;
+                            if (!classMap.has(cName)) classMap.set(cName, []);
+                            classMap.get(cName).push(row);
+                        });
+                    }
+                }
+            }
+
             let bodyHtml = '';
             let overallIdx = 0;
             classMap.forEach((rowsInClass, cName) => {
@@ -20372,7 +20404,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const strV = String(v).trim();
             if (strV === '') continue;
 
-            if (!foundClase && (lk === 'clase' || lk === 'class' || lk === 'clasenombre' || lk === 'clase_id' || lk === 'clasificacion')) {
+            if (!foundClase && (lk === 'clase' || lk === 'class' || lk === 'clasenombre' || lk === 'clase_nombre' || lk === 'clase_id' || lk === 'clasificacion' || lk === 'categoria' || lk === 'category' || lk === 'tipo' || lk === 'type' || lk === 'label' || lk === 'cobertura' || lk === 'uso_suelo')) {
               foundClase = strV;
             }
             if (!foundColor && (lk === 'color' || lk === 'colour' || lk === 'color_hex' || lk === 'clasecolor')) {
@@ -20427,6 +20459,71 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
           }
         });
+
+        // Heurística de recuperación: si solo se detectó 1 clase (ej: "Clase 1") o ninguna, pero las entidades
+        // contienen múltiples grupos o colores distintos en sus atributos DBF, organizar por esos grupos/colores
+        if (detectedClassesMap.size <= 1) {
+          const distinctGroups = new Set();
+          const distinctColors = new Set();
+          layer.geoJson.features.forEach(f => {
+            const p = f.properties || {};
+            const g = (p.grupo || p.GRUPO || '').trim();
+            const c = (p.color || p.COLOR || '').trim();
+            if (g && !/^capa\s*vectorial$/i.test(g) && !/^\w+\.shp$/i.test(g)) distinctGroups.add(g);
+            if (c) distinctColors.add(c.toLowerCase());
+          });
+
+          if (distinctGroups.size > 1) {
+            detectedClassesMap.clear();
+            layer.geoJson.features.forEach(f => {
+              const p = f.properties || {};
+              const gName = (p.grupo || p.GRUPO || 'Grupo 1').trim();
+              p.clase = gName;
+              p.CLASE = gName;
+              if (!detectedClassesMap.has(gName)) {
+                const cColor = p.color || VECTOR_PALETTE[detectedClassesMap.size % VECTOR_PALETTE.length];
+                p.color = cColor;
+                detectedClassesMap.set(gName, {
+                  id: detectedClassesMap.size + 1,
+                  name: gName,
+                  color: cColor,
+                  count: 1,
+                  visible: true
+                });
+              } else {
+                const ex = detectedClassesMap.get(gName);
+                if (!p.color) p.color = ex.color;
+                ex.count++;
+              }
+            });
+          } else if (distinctColors.size > 1) {
+            detectedClassesMap.clear();
+            const colorToClassName = new Map();
+            layer.geoJson.features.forEach(f => {
+              const p = f.properties || {};
+              const cHex = (p.color || p.COLOR || '').trim().toLowerCase();
+              if (!colorToClassName.has(cHex)) {
+                const cIdx = colorToClassName.size + 1;
+                const cName = `Clase ${cIdx}`;
+                colorToClassName.set(cHex, cName);
+                detectedClassesMap.set(cName, {
+                  id: cIdx,
+                  name: cName,
+                  color: cHex,
+                  count: 1,
+                  visible: true
+                });
+                p.clase = cName;
+                p.CLASE = cName;
+              } else {
+                const cName = colorToClassName.get(cHex);
+                p.clase = cName;
+                p.CLASE = cName;
+                detectedClassesMap.get(cName).count++;
+              }
+            });
+          }
+        }
 
         if (hasPointGeom) layer.isPoints = true;
         if (hasPolyGeom) layer.isPolygons = true;
@@ -31370,8 +31467,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function submitCreatePointGroup() {
-      const groupName = document.getElementById('newPointGroupName')?.value || 'Grupo de Puntos';
-      const className = document.getElementById('newPointGroupClassName')?.value || 'Clase 1';
+      const count = state.layers.filter(l => l.isPointGroup || l.isPoints).length + 1;
+      const groupName = document.getElementById('newPointGroupName')?.value || `Grupo ${count}`;
+      let className = document.getElementById('newPointGroupClassName')?.value || '';
+      if (!className.trim() || (className.trim() === 'Clase 1' && count > 1)) {
+        className = `Clase ${count}`;
+      }
       const classColor = document.getElementById('newPointGroupClassColor')?.value || '#3b82f6';
 
       closeCreatePointGroupModal();
@@ -38819,14 +38920,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (v === undefined || v === null) continue;
                 const lk = k.toLowerCase().trim();
                 const strV = String(v).trim();
-                if (!cVal && (lk === 'clase' || lk === 'class' || lk === 'clasenombre')) cVal = strV;
-                if (!colVal && (lk === 'color' || lk === 'colour' || lk === 'color_hex')) colVal = strV;
+                if (strV === '') continue;
+                if (!cVal && (lk === 'clase' || lk === 'class' || lk === 'clasenombre' || lk === 'clase_nombre' || lk === 'clase_id' || lk === 'categoria' || lk === 'category' || lk === 'tipo' || lk === 'type' || lk === 'label' || lk === 'cobertura' || lk === 'clasificacion')) cVal = strV;
+                if (!colVal && (lk === 'color' || lk === 'colour' || lk === 'color_hex' || lk === 'clasecolor')) colVal = strV;
                 if (!grpVal && (lk === 'grupo' || lk === 'group' || lk === 'layer' || lk === 'capa')) grpVal = strV;
-                if (!nomVal && (lk === 'nombre' || lk === 'name' || lk === 'id')) nomVal = strV;
+                if (!nomVal && (lk === 'nombre' || lk === 'name' || lk === 'id' || lk === 'identificador')) nomVal = strV;
             }
 
             if (!cVal) {
                 if (geojson.classes && geojson.classes[0]) cVal = geojson.classes[0].name;
+                else if (grpVal && !/^capa\s*vectorial$/i.test(grpVal)) cVal = grpVal;
                 else cVal = 'Clase 1';
             }
             if (!colVal) {
@@ -38838,11 +38941,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             if (!grpVal) grpVal = filename || 'Grupo 1';
 
-            delete cleanP['clase'];
-            delete cleanP['color'];
-            delete cleanP['grupo'];
-            delete cleanP['nombre'];
-            delete cleanP['name'];
+            // Limpiar todas las variantes para evitar duplicados en la cabecera DBF
+            for (const k of Object.keys(cleanP)) {
+                const lk = k.toLowerCase();
+                if (lk === 'clase' || lk === 'color' || lk === 'grupo' || lk === 'nombre' || lk === 'name') {
+                    delete cleanP[k];
+                }
+            }
 
             cleanP['CLASE'] = cVal;
             cleanP['COLOR'] = colVal;
@@ -39212,10 +39317,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             if (isLayerPointRelated(layer)) {
-                if (!cleanProps.grupo) cleanProps.grupo = layer.name || 'Grupo de Puntos';
-                if (!cleanProps.grupoId) cleanProps.grupoId = layer.id;
-                if (!cleanProps.clase && cleanProps.class) cleanProps.clase = cleanProps.class;
-                if (!cleanProps.clase) cleanProps.clase = 'Punto';
+                if (!cleanProps.grupo) cleanProps.grupo = cleanProps.GRUPO || layer.name || 'Grupo de Puntos';
+                if (!cleanProps.grupoId) cleanProps.grupoId = cleanProps.GRUPOID || layer.id;
+                if (!cleanProps.clase) cleanProps.clase = cleanProps.CLASE || cleanProps.class || cleanProps.CLASS || cleanProps.claseNombre;
+                if (!cleanProps.clase) {
+                    const cList = layer.pointClasses || layer.classes || [];
+                    cleanProps.clase = (cList[0]?.name) || 'Clase 1';
+                }
+                cleanProps.CLASE = cleanProps.clase;
             }
 
             cleanFeats.push({
@@ -41172,6 +41281,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const seenClassNames = new Set();
             const PALETTE = ['#38bdf8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
+            // Determinar si hay capas con clases idénticas que requieran diferenciarse
+            const layerClassNames = targetLayers.map(l => {
+                const cList = l.pointClasses || l.classes || [];
+                return cList.map(c => String(c.name).trim().toLowerCase());
+            });
+            const hasDuplicateClassNamesAcrossLayers = targetLayers.length > 1 && layerClassNames.some((namesA, i) => 
+                layerClassNames.some((namesB, j) => i !== j && namesA.some(nA => namesB.includes(nA)))
+            );
+
             targetLayers.forEach((l, lIdx) => {
                 const c = getCleanLayerGeoJson(l, onlySelected);
                 if (c && Array.isArray(c.features)) {
@@ -41182,18 +41300,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         // Asegurar clase y color de forma robusta
                         let cls = f.properties.clase || f.properties.CLASE || f.properties.class || f.properties.CLASS || f.properties.Clase || f.properties.claseNombre;
 
+                        if (!cls && f.properties.claseId) {
+                            const found = layerClasses.find(cl => String(cl.id) === String(f.properties.claseId));
+                            if (found) cls = found.name;
+                        }
+
                         // Si hay múltiples capas y esta capa tiene el nombre genérico 'Clase 1'
-                        // (o no tiene clase), asignar el nombre de la capa para que sea una clase distinta
-                        if (!cls || (String(cls).trim().toLowerCase() === 'clase 1' && targetLayers.length > 1)) {
-                            if (layerClasses.length > 1) {
-                                cls = layerClasses[0].name;
-                            } else if (l.name && !/^capa\s*vectorial$/i.test(l.name)) {
-                                cls = l.name;
-                            } else {
-                                cls = `Clase ${lIdx + 1}`;
+                        // (o colisiona con otra capa), asignar el nombre del grupo/capa para que sea una clase distinta
+                        if (targetLayers.length > 1) {
+                            if (!cls || (String(cls).trim().toLowerCase() === 'clase 1' && layerClasses.length <= 1)) {
+                                cls = (l.name && !/^capa\s*vectorial$/i.test(l.name)) ? l.name : `Clase ${lIdx + 1}`;
+                            } else if (hasDuplicateClassNamesAcrossLayers && layerClasses.length <= 1) {
+                                cls = (l.name && !/^capa\s*vectorial$/i.test(l.name)) ? l.name : `Clase ${lIdx + 1}`;
                             }
                         }
-                        if (!cls) cls = `Clase ${lIdx + 1}`;
+                        if (!cls) cls = (layerClasses[0]?.name) || `Clase ${lIdx + 1}`;
 
                         f.properties.clase = String(cls).trim();
                         f.properties.CLASE = f.properties.clase;
