@@ -1233,6 +1233,9 @@
       backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.18);
     }
+    #pixelInspectorCard button {
+      pointer-events: auto !important;
+    }
     #pixelInspectorCard .text-rose-400 { color: #fb7185 !important; }
     #pixelInspectorCard .text-blue-400 { color: #60a5fa !important; }
     #pixelInspectorCard .text-pink-400 { color: #f472b6 !important; }
@@ -3952,6 +3955,11 @@
         <span class="material-symbols-outlined">layers</span>
         <span class="text-[10px] font-medium tracking-tight">Style</span>
       </button>
+      <div class="h-6 w-[1px] bg-zinc-200"></div>
+      <button onclick="togglePixelInspector()" id="btnBottomPixelInspector" class="text-zinc-500 hover:text-violet-600 transition-colors flex flex-col items-center cursor-pointer" title="Activar / Desactivar Inspector Espectral de Píxel (Desactivado por defecto)">
+        <span class="material-symbols-outlined text-[20px]" id="bottomPixelInspectorIcon">satellite_alt</span>
+        <span class="text-[10px] font-medium tracking-tight" id="bottomPixelInspectorLabel">Inspector</span>
+      </button>
     </div>
   </div>
 
@@ -4226,6 +4234,11 @@
       </button>
       <button onclick="toggleMeasureMode()" id="btnMeasure" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 transition-colors" title="Medir Distancia/Área">
         <span class="material-symbols-outlined text-[18px]">square_foot</span>
+      </button>
+      <div class="h-[1px] bg-zinc-100 mx-2"></div>
+      <button onclick="togglePixelInspector()" id="btnPixelInspector" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-400 transition-all cursor-pointer relative" title="Activar Inspector Espectral de Píxel (Desactivado por defecto)">
+        <span class="material-symbols-outlined text-[20px]">satellite_alt</span>
+        <span id="pixelInspectorDot" class="w-2 h-2 rounded-full bg-zinc-300 absolute top-1.5 right-1.5 border border-white"></span>
       </button>
     </div>
   </div>
@@ -11015,9 +11028,87 @@ self.onmessage = async function(e) {
         };
       }
 
+      // Estado de activación del Inspector Multiespectral de Píxel (Desactivado por defecto)
+      window._pixelInspectorEnabled = false;
+
+      function togglePixelInspector(forceState) {
+        if (typeof forceState === 'boolean') {
+          window._pixelInspectorEnabled = forceState;
+        } else {
+          window._pixelInspectorEnabled = !window._pixelInspectorEnabled;
+        }
+
+        const isEnabled = window._pixelInspectorEnabled;
+        const pixelCard = document.getElementById('pixelInspectorCard');
+        if (!isEnabled) {
+          if (pixelCard) pixelCard.style.display = 'none';
+          if (window._pixelHoverBox) {
+            try { state.map.removeLayer(window._pixelHoverBox); } catch (_) {}
+            window._pixelHoverBox = null;
+          }
+        }
+
+        // 1. Botón Toolbar Lateral / Flotante
+        const toolbarBtn = document.getElementById('btnPixelInspector');
+        const inspectorDot = document.getElementById('pixelInspectorDot');
+        if (toolbarBtn) {
+          if (isEnabled) {
+            toolbarBtn.classList.add('bg-violet-600', 'text-white', 'shadow-md', 'shadow-violet-500/30');
+            toolbarBtn.classList.remove('text-zinc-400', 'hover:bg-zinc-100');
+            if (inspectorDot) {
+              inspectorDot.classList.remove('bg-zinc-300');
+              inspectorDot.classList.add('bg-emerald-400', 'animate-pulse');
+            }
+          } else {
+            toolbarBtn.classList.remove('bg-violet-600', 'text-white', 'shadow-md', 'shadow-violet-500/30');
+            toolbarBtn.classList.add('text-zinc-400', 'hover:bg-zinc-100');
+            if (inspectorDot) {
+              inspectorDot.classList.remove('bg-emerald-400', 'animate-pulse');
+              inspectorDot.classList.add('bg-zinc-300');
+            }
+          }
+        }
+
+        // 2. Botón Dock Inferior
+        const bottomBtn = document.getElementById('btnBottomPixelInspector');
+        const bottomLabel = document.getElementById('bottomPixelInspectorLabel');
+        const bottomIcon = document.getElementById('bottomPixelInspectorIcon');
+        if (bottomBtn) {
+          if (isEnabled) {
+            bottomBtn.classList.add('text-violet-600', 'font-bold');
+            bottomBtn.classList.remove('text-zinc-500');
+            if (bottomLabel) bottomLabel.textContent = 'Inspector ON';
+            if (bottomIcon) bottomIcon.classList.add('text-violet-600');
+          } else {
+            bottomBtn.classList.remove('text-violet-600', 'font-bold');
+            bottomBtn.classList.add('text-zinc-500');
+            if (bottomLabel) bottomLabel.textContent = 'Inspector';
+            if (bottomIcon) bottomIcon.classList.remove('text-violet-600');
+          }
+        }
+
+        // 3. Notificación al usuario
+        if (typeof toast === 'function') {
+          toast(
+            isEnabled ? 'Inspector Multiespectral: Activado (Pasa el cursor sobre un ráster satelital)' : 'Inspector Multiespectral: Desactivado',
+            isEnabled ? 'success' : 'info'
+          );
+        }
+
+        // Actualizar capas en sidebar
+        if (typeof updateLayersSidebar === 'function') {
+          try { updateLayersSidebar(); } catch (_) {}
+        }
+      }
+      window.togglePixelInspector = togglePixelInspector;
+
       // 7. Renderizado visual del Inspector Multiespectral
       function renderPixelInspectorCard(pixelCard, found, coords, e) {
         if (!pixelCard || !found) return;
+        if (!window._pixelInspectorEnabled) {
+          pixelCard.style.display = 'none';
+          return;
+        }
         if (!coords) {
           pixelCard.style.display = 'none';
           return;
@@ -11174,9 +11265,14 @@ self.onmessage = async function(e) {
               <span class="material-symbols-outlined text-[15px] text-violet-400 shrink-0">satellite_alt</span>
               <span class="text-[11px] font-black text-white truncate tracking-tight">${layerTitle}</span>
             </div>
-            <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/80 text-violet-100 border border-violet-400/30 shrink-0">
-              ${bandCount} ${bandCount === 1 ? 'Banda' : 'Bandas'}
-            </span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600/80 text-violet-100 border border-violet-400/30">
+                ${bandCount} ${bandCount === 1 ? 'Banda' : 'Bandas'}
+              </span>
+              <button onclick="event.stopPropagation(); togglePixelInspector(false)" class="w-5 h-5 flex items-center justify-center rounded-md bg-white/10 hover:bg-red-500/80 text-zinc-300 hover:text-white transition-all cursor-pointer" title="Cerrar Inspector">
+                <span class="material-symbols-outlined text-[13px]">close</span>
+              </button>
+            </div>
           </div>
 
           ${classBannerHtml}
@@ -11261,54 +11357,57 @@ self.onmessage = async function(e) {
             _inspectorDebounceTimer = null;
           }
 
-          // DEBOUNCE INTELIGENTE (300ms): Solo inspeccionar cuando el usuario detiene el mouse sobre un píxel
-          _inspectorDebounceTimer = setTimeout(() => {
-            if (window._supervisedState && window._supervisedState.active) return;
-            let found = null;
-            if (state.selectedLayerId) {
-              const sel = state.layers.find(l => l.id === state.selectedLayerId);
-              if (sel && sel.type === 'raster' && sel.visible) {
-                const latlngBounds = getNormalizedLayerBounds(sel);
-                if (latlngBounds && latlngBounds.contains(e.latlng)) found = sel;
+          // DEBOUNCE INTELIGENTE (300ms): Solo inspeccionar si el usuario activó explícitamente el Inspector y detiene el mouse sobre un píxel
+          if (window._pixelInspectorEnabled) {
+            _inspectorDebounceTimer = setTimeout(() => {
+              if (!window._pixelInspectorEnabled) return;
+              if (window._supervisedState && window._supervisedState.active) return;
+              let found = null;
+              if (state.selectedLayerId) {
+                const sel = state.layers.find(l => l.id === state.selectedLayerId);
+                if (sel && sel.type === 'raster' && sel.visible) {
+                  const latlngBounds = getNormalizedLayerBounds(sel);
+                  if (latlngBounds && latlngBounds.contains(e.latlng)) found = sel;
+                }
               }
-            }
-            if (!found) {
-              for (const l of state.layers) {
-                if (l.type !== 'raster' || !l.visible) continue;
-                const latlngBounds = getNormalizedLayerBounds(l);
-                if (latlngBounds && latlngBounds.contains(e.latlng)) { found = l; break; }
+              if (!found) {
+                for (const l of state.layers) {
+                  if (l.type !== 'raster' || !l.visible) continue;
+                  const latlngBounds = getNormalizedLayerBounds(l);
+                  if (latlngBounds && latlngBounds.contains(e.latlng)) { found = l; break; }
+                }
               }
-            }
 
-            if (found) {
-              const coords = getRasterPixelCoords(found, e.latlng);
-              if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
-                const pBounds = getPixelLatLngBounds(coords, found);
-                if (pBounds) {
-                  if (!window._pixelHoverBox) {
-                    window._pixelHoverBox = L.rectangle(pBounds, {
-                      color: '#ec4899',
-                      weight: 2,
-                      fill: true,
-                      fillColor: '#f472b6',
-                      fillOpacity: 0.35,
-                      interactive: false,
-                      zIndexOffset: 10000
-                    }).addTo(state.map);
-                  } else {
-                    window._pixelHoverBox.setBounds(pBounds);
+              if (found) {
+                const coords = getRasterPixelCoords(found, e.latlng);
+                if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
+                  const pBounds = getPixelLatLngBounds(coords, found);
+                  if (pBounds) {
+                    if (!window._pixelHoverBox) {
+                      window._pixelHoverBox = L.rectangle(pBounds, {
+                        color: '#ec4899',
+                        weight: 2,
+                        fill: true,
+                        fillColor: '#f472b6',
+                        fillOpacity: 0.35,
+                        interactive: false,
+                        zIndexOffset: 10000
+                      }).addTo(state.map);
+                    } else {
+                      window._pixelHoverBox.setBounds(pBounds);
+                    }
                   }
+                  if (window._rasterHoverRect) {
+                    try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
+                    window._rasterHoverRect = null;
+                  }
+                  window._lastRasterHoverId = null;
+                  renderPixelInspectorCard(pixelCard, found, coords, e);
+                  if (hoverInfo) hoverInfo.style.display = 'none';
                 }
-                if (window._rasterHoverRect) {
-                  try { state.map.removeLayer(window._rasterHoverRect); } catch(err) {}
-                  window._rasterHoverRect = null;
-                }
-                window._lastRasterHoverId = null;
-                renderPixelInspectorCard(pixelCard, found, coords, e);
-                if (hoverInfo) hoverInfo.style.display = 'none';
               }
-            }
-          }, 300);
+            }, 300);
+          }
 
           let found = null;
           if (state.selectedLayerId) {
@@ -11333,7 +11432,7 @@ self.onmessage = async function(e) {
             const latlngBounds = (b._southWest) ? b : L.latLngBounds([b.south, b.west], [b.north, b.east]);
             const coords = getRasterPixelCoords(found, e.latlng);
 
-            if (coords && coords.satPx >= 0 && coords.satPy >= 0) {
+            if (window._pixelInspectorEnabled && coords && coords.satPx >= 0 && coords.satPy >= 0) {
               return;
             }
 
@@ -29054,6 +29153,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')" title="Editar / Realizar Clasificación Supervisada de este TIFF">
             <span class="material-symbols-outlined text-xs text-emerald-600">edit_note</span>
           </button>`)}
+          ${!isVector ? `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md transition-colors ${window._pixelInspectorEnabled ? 'bg-violet-600 text-white shadow-xs' : 'hover:bg-violet-50 text-zinc-400 hover:text-violet-600'}"
+            onclick="event.stopPropagation(); togglePixelInspector()" title="${window._pixelInspectorEnabled ? 'Desactivar Inspector de Píxel' : 'Activar Inspector Espectral de Píxel'}">
+            <span class="material-symbols-outlined text-xs">satellite_alt</span>
+          </button>` : ''}
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-black transition-colors"
             onclick="event.stopPropagation(); openLayerContextMenu(event, ${layer.id})" title="Más opciones">
             <span class="material-symbols-outlined text-xs">more_vert</span>
@@ -29208,13 +29312,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         </div>
         ` : (!isVector ? `
         <div class="flex flex-col gap-2 pt-2 border-t border-zinc-200/80">
-          <!-- Opción directa: Editar clasificación para cualquier TIFF -->
+          <!-- Opción directa: Editar clasificación & Inspector para cualquier TIFF -->
           <div class="flex items-center gap-1.5 pb-2 border-b border-zinc-200/80">
             <button onclick="event.stopPropagation(); editSupervisedClassificationForLayer('${layer.id}')"
-              class="w-full py-1.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs transition-all cursor-pointer hover:scale-[1.01] active:scale-95"
+              class="flex-1 py-1.5 px-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs transition-all cursor-pointer hover:scale-[1.01] active:scale-95"
               title="Abrir o editar clasificación supervisada para este archivo TIFF">
               <span class="material-symbols-outlined text-[15px] text-emerald-600">edit_note</span>
               <span>Editar Clasificación</span>
+            </button>
+            <button onclick="event.stopPropagation(); togglePixelInspector()"
+              class="py-1.5 px-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-2xs transition-all cursor-pointer hover:scale-[1.01] active:scale-95 ${window._pixelInspectorEnabled ? 'bg-violet-600 text-white border border-violet-500 shadow-violet-500/20' : 'bg-white hover:bg-violet-50 text-zinc-700 hover:text-violet-700 border border-zinc-200'}"
+              title="Activar / Desactivar Inspector Espectral de Píxel">
+              <span class="material-symbols-outlined text-[15px] ${window._pixelInspectorEnabled ? 'text-white' : 'text-violet-600'}">satellite_alt</span>
+              <span>${window._pixelInspectorEnabled ? 'Inspector ON' : 'Inspector'}</span>
             </button>
           </div>
           <div class="flex items-center justify-between">
