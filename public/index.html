@@ -6870,6 +6870,37 @@
           </div>
         </div>
 
+        <!-- Cargar Muestras desde Capa Vectorial (Puntos / Polígonos) -->
+        <div class="p-3.5 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-white shadow-2xs flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-indigo-600">layers</span>
+              Cargar Entrenamiento desde Capa de Puntos o Polígonos
+            </label>
+            <span class="text-[8.5px] font-bold text-indigo-600/80 uppercase">Usa tus capas vectoriales como áreas de entrenamiento (ROI)</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1">
+              <select id="supVectorLayerSelect" onchange="onSupervisedVectorLayerChange(this.value)"
+                class="w-full bg-white border border-indigo-200 hover:border-indigo-400 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all cursor-pointer">
+                <option value="">-- Selecciona una capa de puntos o polígonos... --</option>
+              </select>
+            </div>
+            <button type="button" onclick="loadTrainingFromSelectedVectorLayer()" id="btnLoadSupVectorLayer"
+              class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:opacity-95 text-white active:scale-95"
+              style="background-color: #4f46e5 !important; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important; color: #ffffff !important; border: none !important;">
+              <span class="material-symbols-outlined text-[15px]" style="color: #ffffff !important;">model_training</span>
+              <span style="color: #ffffff !important;">Cargar Muestras</span>
+            </button>
+          </div>
+          
+          <div id="supVectorLayerInfoBadge" style="display: none;" class="flex items-center justify-between text-[9px] text-indigo-900 bg-white/80 p-2 rounded-xl border border-indigo-100">
+            <span id="supVectorLayerInfoText" class="font-semibold"></span>
+            <span class="text-zinc-400 text-[8px]">Se asociarán las clases y colores de la capa</span>
+          </div>
+        </div>
+
         <!-- Clases de Entrenamiento y Muestras Recolectadas -->
         <div class="flex flex-col gap-2.5">
           <div class="flex items-center justify-between">
@@ -24327,11 +24358,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const state_sup = window._supervisedState;
 
       let layer = null;
+      let requestedVectorLayer = null;
+
       if (layerId !== undefined && layerId !== null && layerId !== '') {
-        layer = state.layers.find(l => String(l.id) === String(layerId) || String(l.dbId) === String(layerId));
+        const found = state.layers.find(l => String(l.id) === String(layerId) || String(l.dbId) === String(layerId));
+        if (found) {
+          if (found.type === 'raster') {
+            layer = found;
+          } else {
+            requestedVectorLayer = found;
+          }
+        }
       }
       if (!layer && state.selectedLayerId != null) {
-        layer = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+        const sel = state.layers.find(l => String(l.id) === String(state.selectedLayerId));
+        if (sel && sel.type === 'raster') {
+          layer = sel;
+        } else if (sel && !requestedVectorLayer) {
+          requestedVectorLayer = sel;
+        }
       }
       if (!layer) {
         layer = state.layers.find(l => l.type === 'raster' && l.visible);
@@ -24402,6 +24447,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (modal) modal.style.display = 'flex';
       const dock = document.getElementById('supervisedMapDock');
       if (dock) dock.style.display = 'none';
+
+      if (typeof updateSupervisedVectorLayersList === 'function') {
+        updateSupervisedVectorLayersList(requestedVectorLayer ? requestedVectorLayer.id : undefined);
+      }
+      if (requestedVectorLayer && typeof loadTrainingFromSelectedVectorLayer === 'function') {
+        setTimeout(() => {
+          loadTrainingFromSelectedVectorLayer(requestedVectorLayer.id);
+        }, 150);
+      }
     }
 
     function closeSupervisedClassificationModal() {
@@ -27432,6 +27486,365 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     // ══════════════════════════════════════════════════════════════
+    //  ENTRENAMIENTO SUPERVISADO DESDE CAPAS VECTORIALES (PUNTOS Y POLÍGONOS)
+    // ══════════════════════════════════════════════════════════════
+
+    function samplePolygonGeometry(ringCoords, targetCls, rasterLayer) {
+      if (!ringCoords || ringCoords.length < 3) return 0;
+      const polyLatLngs = ringCoords.map(pt => [pt[1], pt[0]]);
+      const polyLngLats = ringCoords.map(pt => [pt[0], pt[1]]);
+      
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      for (const [lat, lng] of polyLatLngs) {
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+      }
+      
+      const polyAreaId = 'sup_vec_poly_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      let sampledCount = 0;
+      
+      const gridSteps = 7;
+      const latStep = (maxLat - minLat) / gridSteps;
+      const lngStep = (maxLng - minLng) / gridSteps;
+      
+      for (let curLat = minLat + latStep * 0.5; curLat < maxLat; curLat += latStep) {
+        for (let curLng = minLng + lngStep * 0.5; curLng < maxLng; curLng += lngStep) {
+          if (isPointInPolygon([curLng, curLat], polyLngLats)) {
+            const s = samplePixelAtLatLng(L.latLng(curLat, curLng), polyAreaId);
+            if (s) sampledCount++;
+            if (sampledCount >= 40) break;
+          }
+        }
+        if (sampledCount >= 40) break;
+      }
+      
+      if (sampledCount === 0) {
+        const cLat = (minLat + maxLat) / 2;
+        const cLng = (minLng + maxLng) / 2;
+        if (samplePixelAtLatLng(L.latLng(cLat, cLng), polyAreaId)) sampledCount++;
+        for (let i = 0; i < Math.min(polyLatLngs.length - 1, 5); i++) {
+          if (samplePixelAtLatLng(L.latLng(polyLatLngs[i][0], polyLatLngs[i][1]), polyAreaId)) sampledCount++;
+        }
+      }
+      
+      const state_sup = window._supervisedState;
+      if (state_sup.sampleMarkersLayer && sampledCount > 0) {
+        const polyL = L.polygon(polyLatLngs, {
+          color: targetCls.color,
+          weight: 2,
+          dashArray: '4, 4',
+          fillColor: targetCls.color,
+          fillOpacity: 0.25,
+          interactive: true
+        });
+        polyL._areaId = polyAreaId;
+        polyL._classId = targetCls.id;
+        polyL.addTo(state_sup.sampleMarkersLayer);
+      }
+      
+      return sampledCount;
+    }
+
+    function updateSupervisedVectorLayersList(preselectLayerId = null) {
+      const sel = document.getElementById('supVectorLayerSelect');
+      if (!sel) return;
+
+      const vectorLayers = state.layers.filter(l => 
+        l.type === 'vector' || l.isPointGroup || l.isPoints || l.isPolygonGroup || l.isPolygons || 
+        (l.geoJson && Array.isArray(l.geoJson.features) && l.geoJson.features.length > 0) ||
+        (l.mapLayer && typeof l.mapLayer.toGeoJSON === 'function')
+      );
+
+      if (vectorLayers.length === 0) {
+        sel.innerHTML = '<option value="">-- No hay capas de puntos o polígonos cargadas --</option>';
+        sel.disabled = true;
+        const btn = document.getElementById('btnLoadSupVectorLayer');
+        if (btn) btn.disabled = true;
+        const badge = document.getElementById('supVectorLayerInfoBadge');
+        if (badge) badge.style.display = 'none';
+        return;
+      }
+
+      sel.disabled = false;
+      const btn = document.getElementById('btnLoadSupVectorLayer');
+      if (btn) btn.disabled = false;
+
+      let html = '<option value="">-- Selecciona una capa de puntos o polígonos... --</option>';
+      vectorLayers.forEach(vl => {
+        const feats = (vl.geoJson && Array.isArray(vl.geoJson.features)) 
+          ? vl.geoJson.features 
+          : ((vl.mapLayer && typeof vl.mapLayer.toGeoJSON === 'function') ? (vl.mapLayer.toGeoJSON().features || []) : []);
+        
+        let geomType = 'Vector';
+        if (vl.isPoints || vl.isPointGroup || feats[0]?.geometry?.type === 'Point' || feats[0]?.geometry?.type === 'MultiPoint') {
+          geomType = '📍 Puntos';
+        } else if (vl.isPolygons || vl.isPolygonGroup || feats[0]?.geometry?.type === 'Polygon' || feats[0]?.geometry?.type === 'MultiPolygon') {
+          geomType = '🔷 Polígonos';
+        } else if (feats[0]?.geometry?.type === 'LineString' || feats[0]?.geometry?.type === 'MultiLineString') {
+          geomType = '📏 Líneas';
+        }
+
+        const classList = vl.pointClasses || vl.classes || [];
+        const detectedClasses = new Set();
+        feats.forEach(f => {
+          const p = f.properties || {};
+          const c = p.CLASE || p.clase || p.class || p.categoria || p.tipo;
+          if (c) detectedClasses.add(c);
+        });
+        const nClasses = Math.max(classList.length, detectedClasses.size, 1);
+
+        html += `<option value="${vl.id}">${geomType}: ${vl.name || 'Capa ' + vl.id} (${feats.length} entidades, ${nClasses} clase${nClasses > 1 ? 's' : ''})</option>`;
+      });
+
+      sel.innerHTML = html;
+      if (preselectLayerId && sel.querySelector(`option[value="${preselectLayerId}"]`)) {
+        sel.value = String(preselectLayerId);
+        onSupervisedVectorLayerChange(preselectLayerId);
+      }
+    }
+
+    function onSupervisedVectorLayerChange(layerId) {
+      const badge = document.getElementById('supVectorLayerInfoBadge');
+      const text = document.getElementById('supVectorLayerInfoText');
+      if (!badge || !text) return;
+
+      if (!layerId) {
+        badge.style.display = 'none';
+        return;
+      }
+
+      const layer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!layer) {
+        badge.style.display = 'none';
+        return;
+      }
+
+      const feats = (layer.geoJson && Array.isArray(layer.geoJson.features)) 
+        ? layer.geoJson.features 
+        : ((layer.mapLayer && typeof layer.mapLayer.toGeoJSON === 'function') ? (layer.mapLayer.toGeoJSON().features || []) : []);
+
+      const detectedClasses = new Set();
+      (layer.pointClasses || layer.classes || []).forEach(c => detectedClasses.add(c.name));
+      feats.forEach(f => {
+        const p = f.properties || {};
+        const c = p.CLASE || p.clase || p.class || p.categoria || p.tipo;
+        if (c) detectedClasses.add(c);
+      });
+
+      const isPoint = layer.isPoints || layer.isPointGroup || (feats[0]?.geometry?.type === 'Point');
+      const isPoly = layer.isPolygonGroup || layer.isPolygons || (feats[0]?.geometry?.type === 'Polygon');
+      const typeStr = isPoint ? 'Puntos' : (isPoly ? 'Polígonos' : 'Entidades');
+
+      const classNames = Array.from(detectedClasses);
+      const classesSummary = classNames.length > 0 ? `Clases: ${classNames.slice(0, 4).join(', ')}${classNames.length > 4 ? '...' : ''}` : 'Sin clases predefinidas';
+
+      text.innerHTML = `<strong>${feats.length} ${typeStr}</strong> &bull; ${classesSummary}`;
+      badge.style.display = 'flex';
+    }
+
+    async function loadTrainingFromSelectedVectorLayer(explicitLayerId = null) {
+      const state_sup = window._supervisedState;
+      if (!state_sup || !state_sup.layerId) {
+        toast('Selecciona primero una imagen satelital base para clasificar.', 'warning');
+        return;
+      }
+
+      const sel = document.getElementById('supVectorLayerSelect');
+      const layerId = explicitLayerId || (sel ? sel.value : null);
+      if (!layerId) {
+        toast('Selecciona una capa vectorial de la lista.', 'info');
+        return;
+      }
+
+      const vectorLayer = state.layers.find(l => String(l.id) === String(layerId));
+      if (!vectorLayer) {
+        toast('Capa vectorial no encontrada.', 'error');
+        return;
+      }
+
+      const rasterLayer = state.layers.find(l => String(l.id) === String(state_sup.layerId)) || state.layers.find(l => l.type === 'raster');
+      if (!rasterLayer) {
+        toast('Capa ráster satelital no encontrada.', 'error');
+        return;
+      }
+
+      showProgress(`Extrayendo muestras espectrales desde "${vectorLayer.name}"...`, 25, 'Clasificación Supervisada');
+
+      if (typeof ensureSupervisedSpectralData === 'function') {
+        try {
+          await ensureSupervisedSpectralData(rasterLayer);
+        } catch(e) {
+          console.warn('[loadTrainingFromSelectedVectorLayer] ensureSupervisedSpectralData:', e);
+        }
+      }
+      if (typeof analyzeSpectralData === 'function' && !rasterLayer._rawSpectralBands && !rasterLayer._unsupervisedSpectralData) {
+        try {
+          await analyzeSpectralData(rasterLayer);
+        } catch(e) {
+          console.warn('[loadTrainingFromSelectedVectorLayer] analyzeSpectralData:', e);
+        }
+      }
+
+      const feats = (vectorLayer.geoJson && Array.isArray(vectorLayer.geoJson.features)) 
+        ? vectorLayer.geoJson.features 
+        : ((vectorLayer.mapLayer && typeof vectorLayer.mapLayer.toGeoJSON === 'function') ? (vectorLayer.mapLayer.toGeoJSON().features || []) : []);
+
+      if (feats.length === 0) {
+        hideProgress();
+        toast(`La capa "${vectorLayer.name}" no contiene entidades geométricas para muestrear.`, 'warning');
+        return;
+      }
+
+      const hasExistingRealSamples = state_sup.classes.some(c => c.samples && c.samples.length > 0);
+      if (!hasExistingRealSamples) {
+        state_sup.classes = [];
+      }
+
+      const layerClasses = vectorLayer.pointClasses || vectorLayer.classes || [];
+      const PALETTE = ['#38bdf8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+      layerClasses.forEach(lc => {
+        if (!lc || !lc.name) return;
+        const exists = state_sup.classes.find(c => String(c.name).trim().toLowerCase() === String(lc.name).trim().toLowerCase());
+        if (!exists) {
+          state_sup.classes.push({
+            id: state_sup.classes.length + 1,
+            name: lc.name,
+            color: lc.color || PALETTE[state_sup.classes.length % PALETTE.length],
+            samples: [],
+            pixelSet: new Set(),
+            visible: true
+          });
+        }
+      });
+
+      let totalNewSamples = 0;
+
+      for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        if (!f || !f.geometry) continue;
+
+        const p = f.properties || {};
+        let cName = p.CLASE || p.clase || p.class || p.CLASS || p.claseNombre || p.categoria || p.tipo;
+        if (!cName && p.claseId) {
+          const matched = layerClasses.find(lc => String(lc.id) === String(p.claseId));
+          if (matched) cName = matched.name;
+        }
+        if (!cName) {
+          cName = (layerClasses[0]?.name) || vectorLayer.name || 'Clase 1';
+        }
+        cName = String(cName).trim();
+
+        let cColor = p.COLOR || p.color || p.Color;
+        if (!cColor) {
+          const matched = layerClasses.find(lc => String(lc.name).trim().toLowerCase() === cName.toLowerCase());
+          if (matched) cColor = matched.color;
+        }
+        if (!cColor) {
+          cColor = vectorLayer.color || PALETTE[state_sup.classes.length % PALETTE.length];
+        }
+
+        let targetCls = state_sup.classes.find(c => String(c.name).trim().toLowerCase() === cName.toLowerCase());
+        if (!targetCls) {
+          targetCls = {
+            id: state_sup.classes.length + 1,
+            name: cName,
+            color: cColor,
+            samples: [],
+            pixelSet: new Set(),
+            visible: true
+          };
+          state_sup.classes.push(targetCls);
+        }
+
+        state_sup.activeClassId = targetCls.id;
+
+        const gType = f.geometry.type;
+        const coords = f.geometry.coordinates;
+
+        if (gType === 'Point') {
+          const [lng, lat] = coords;
+          if (lng !== undefined && lat !== undefined) {
+            const s = samplePixelAtLatLng(L.latLng(lat, lng));
+            if (s) totalNewSamples++;
+          }
+        } else if (gType === 'MultiPoint') {
+          for (const pt of (coords || [])) {
+            const [lng, lat] = pt;
+            if (lng !== undefined && lat !== undefined) {
+              const s = samplePixelAtLatLng(L.latLng(lat, lng));
+              if (s) totalNewSamples++;
+            }
+          }
+        } else if (gType === 'Polygon') {
+          const ring = coords && coords[0];
+          if (ring && ring.length >= 3) {
+            const added = samplePolygonGeometry(ring, targetCls, rasterLayer);
+            totalNewSamples += added;
+          }
+        } else if (gType === 'MultiPolygon') {
+          for (const poly of (coords || [])) {
+            const ring = poly && poly[0];
+            if (ring && ring.length >= 3) {
+              const added = samplePolygonGeometry(ring, targetCls, rasterLayer);
+              totalNewSamples += added;
+            }
+          }
+        } else if (gType === 'LineString' || gType === 'MultiLineString') {
+          const lines = (gType === 'LineString') ? [coords] : (coords || []);
+          for (const line of lines) {
+            for (let j = 0; j < (line || []).length; j++) {
+              const [lng, lat] = line[j];
+              if (lng !== undefined && lat !== undefined) {
+                const s = samplePixelAtLatLng(L.latLng(lat, lng));
+                if (s) totalNewSamples++;
+              }
+            }
+          }
+        }
+      }
+
+      hideProgress();
+
+      if (totalNewSamples === 0) {
+        toast(`No se pudieron recolectar muestras de "${vectorLayer.name}". Comprueba que la capa vectorial esté situada sobre la imagen satelital activa.`, 'warning');
+      } else {
+        renderSupervisedClassesList();
+        updateSupervisedDockClassSelect();
+        drawSupervisedSpectralChart();
+        if (typeof renderSupervisedConfusionMatrix === 'function') renderSupervisedConfusionMatrix();
+        if (typeof updateSupervisedLiveClassification === 'function') updateSupervisedLiveClassification(true);
+        toast(`¡Entrenamiento cargado exitosamente desde "${vectorLayer.name}"! ${totalNewSamples} muestras en ${state_sup.classes.length} clases.`, 'success');
+      }
+    }
+
+    async function startSupervisedFromVectorLayer(vectorLayerId) {
+      const vLayer = state.layers.find(l => String(l.id) === String(vectorLayerId));
+      if (!vLayer) return toast('Capa vectorial no encontrada', 'error');
+
+      let rasterLayer = state.layers.find(l => l.type === 'raster' && l.visible);
+      if (!rasterLayer) rasterLayer = state.layers.find(l => l.type === 'raster');
+      if (!rasterLayer) {
+        return toast('No hay ninguna capa ráster o satelital cargada en el mapa para clasificar.', 'warning');
+      }
+
+      await openSupervisedClassificationModal(rasterLayer.id);
+
+      setTimeout(async () => {
+        updateSupervisedVectorLayersList(vLayer.id);
+        await loadTrainingFromSelectedVectorLayer(vLayer.id);
+      }, 250);
+    }
+
+    window.samplePolygonGeometry = samplePolygonGeometry;
+    window.updateSupervisedVectorLayersList = updateSupervisedVectorLayersList;
+    window.onSupervisedVectorLayerChange = onSupervisedVectorLayerChange;
+    window.loadTrainingFromSelectedVectorLayer = loadTrainingFromSelectedVectorLayer;
+    window.startSupervisedFromVectorLayer = startSupervisedFromVectorLayer;
+
+    // ══════════════════════════════════════════════════════════════
     //  MOTOR DE MATRIZ DE CONFUSIÓN, LOOCV Y RESOLUCIÓN DE CONFLICTOS
     // ══════════════════════════════════════════════════════════════
     function predictSupervisedPixel(vals, sampledClasses, algorithm, activeClassId, excludeSampleIdx = -1, excludeClassIdx = -1) {
@@ -27993,11 +28406,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
       state_sup.layerId = layer.id;
 
+      // Si no hay clases con muestras, pero hay una capa vectorial seleccionada en el combo, cargarla automáticamente
+      if (!state_sup.classes || !state_sup.classes.some(c => c.samples && c.samples.length > 0)) {
+        const vecSelect = document.getElementById('supVectorLayerSelect');
+        if (vecSelect && vecSelect.value) {
+          showProgress('Cargando muestras de la capa vectorial...', 20);
+          await loadTrainingFromSelectedVectorLayer(vecSelect.value);
+        }
+      }
+
       const activeClasses = state_sup.classes.filter(c => c.samples && c.samples.length > 0);
       if (activeClasses.length < 1) {
         minimizeSupervisedToMap();
         const activeCls = state_sup.classes.find(c => c.id === state_sup.activeClassId) || state_sup.classes[0];
-        toast('👆 Haz clic o arrastra en el satélite para muestrear "' + (activeCls?.name || 'la clase activa') + '".', 'info');
+        toast('👆 Selecciona una capa vectorial de entrenamiento o haz clic en el satélite para muestrear "' + (activeCls?.name || 'la clase activa') + '".', 'info');
         return;
       }
 
@@ -28467,6 +28889,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <span class="material-symbols-outlined text-xs">info</span>
           </button>
           ${isVector ? `
+          <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
+            onclick="event.stopPropagation(); startSupervisedFromVectorLayer('${layer.id}')" title="Usar esta capa como entrenamiento en Clasificación Supervisada">
+            <span class="material-symbols-outlined text-xs">model_training</span>
+          </button>
           ${(layer.isPoints || layer.isPointGroup) ? `
           <button class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
             onclick="event.stopPropagation(); openAddPointClassModal(${layer.id})" title="Crear nueva clase de puntos">
@@ -28857,6 +29283,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;">
               <span class="material-symbols-outlined text-[15px]">${drawBtnIcon}</span>
               <span>${drawBtnLabel}</span>
+            </button>
+
+            <!-- Botón Acción Directa: Clasificación Supervisada -->
+            <button type="button" onclick="event.stopPropagation(); startSupervisedFromVectorLayer(${layer.id})"
+              class="w-full py-2 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+              title="Usar los puntos o polígonos de esta capa como áreas de entrenamiento (ROI) en la Clasificación Supervisada">
+              <span class="material-symbols-outlined text-[15px] text-indigo-600">model_training</span>
+              <span>Usar en Clasificación Supervisada</span>
             </button>
           </div>
           `;
