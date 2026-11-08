@@ -5277,12 +5277,22 @@
           <label class="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-2">Formato de Salida:</label>
           <div class="grid grid-cols-2 gap-2.5">
             <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
-              <input type="radio" name="exportFormat" value="shp" checked class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
+              <input type="radio" name="exportFormat" value="shp_direct" checked class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
               <div class="flex flex-col">
                 <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[16px] text-emerald-600">folder_zip</span> Shapefile (.zip)
+                  <span class="material-symbols-outlined text-[16px] text-emerald-600">file_present</span> Shapefile (.shp directo)
                 </span>
-                <span class="text-[9px] text-zinc-500">SHP, DBF, SHX, PRJ (Capa Única)</span>
+                <span class="text-[9px] text-zinc-500">Archivo .shp único (sin .dbf ni .zip)</span>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
+              <input type="radio" name="exportFormat" value="shp" class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px] text-zinc-600">folder_zip</span> Shapefile (.zip)
+                </span>
+                <span class="text-[9px] text-zinc-500">SHP, DBF, SHX, PRJ (Paquete ZIP)</span>
               </div>
             </label>
 
@@ -5306,7 +5316,7 @@
               </div>
             </label>
 
-            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40">
+            <label class="flex items-center gap-2.5 p-3 rounded-2xl border border-zinc-200 hover:border-black bg-zinc-50/50 cursor-pointer transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/40 col-span-2">
               <input type="radio" name="exportFormat" value="kml" class="w-4 h-4 text-indigo-600 border-zinc-300 focus:ring-indigo-500">
               <div class="flex flex-col">
                 <span class="text-xs font-bold text-zinc-900 flex items-center gap-1">
@@ -8825,6 +8835,57 @@
                     }
                     return res;
                 }
+
+                function extractShpMetadata(buf) {
+                    if (!buf || buf.byteLength < 50) return null;
+                    const u8 = new Uint8Array(buf);
+                    const magicBytes = [65, 69, 82, 79, 77, 65, 80, 95, 83, 72, 80, 95, 77, 69, 84, 65];
+                    let foundIdx = -1;
+                    const view = new DataView(buf);
+                    const officialLen = view.getInt32(24, false) * 2;
+                    const startScan = (officialLen > 0 && officialLen < u8.length - 36) ? officialLen : 0;
+                    for (let i = startScan; i <= u8.length - 36; i++) {
+                        if (u8[i] === magicBytes[0] && u8[i+1] === magicBytes[1] && u8[i+2] === magicBytes[2]) {
+                            let match = true;
+                            for (let j = 0; j < 16; j++) {
+                                if (u8[i + j] !== magicBytes[j]) { match = false; break; }
+                            }
+                            if (match) { foundIdx = i; break; }
+                        }
+                    }
+                    if (foundIdx === -1 && startScan > 0) {
+                        for (let i = 0; i <= u8.length - 36; i++) {
+                            if (u8[i] === magicBytes[0] && u8[i+1] === magicBytes[1] && u8[i+2] === magicBytes[2]) {
+                                let match = true;
+                                for (let j = 0; j < 16; j++) {
+                                    if (u8[i + j] !== magicBytes[j]) { match = false; break; }
+                                }
+                                if (match) { foundIdx = i; break; }
+                            }
+                        }
+                    }
+                    if (foundIdx === -1) return null;
+                    try {
+                        const tView = new DataView(buf, foundIdx);
+                        const jsonLen = tView.getUint32(16, true);
+                        if (foundIdx + 20 + jsonLen > u8.length) return null;
+                        const jsonSlice = u8.subarray(foundIdx + 20, foundIdx + 20 + jsonLen);
+                        const jsonStr = new TextDecoder().decode(jsonSlice);
+                        return JSON.parse(jsonStr);
+                    } catch(e) {
+                        return null;
+                    }
+                }
+
+                function parseShpSafe(shpBuffer) {
+                    if (!shpBuffer || shpBuffer.byteLength < 100) throw new Error('Buffer de Shapefile inválido');
+                    const view = new DataView(shpBuffer);
+                    const officialShpLen = view.getInt32(24, false) * 2;
+                    const cleanBuf = (officialShpLen > 100 && shpBuffer.byteLength > officialShpLen) 
+                        ? shpBuffer.slice(0, officialShpLen) 
+                        : shpBuffer;
+                    return shp.parseShp(cleanBuf);
+                }
 self.onmessage = async function(e) {
                     const { action, file, selectedLayers, shpBuffer, dbfBuffer, prjText, name } = e.data;
                     console.log("[Worker] Action:", action, "File:", file ? file.name : "N/A");
@@ -8955,9 +9016,20 @@ self.onmessage = async function(e) {
                                     prjTextData = await prjBlob.text();
                                 }
 
-                                const parsedGeoms = shp.parseShp(shpArr);
-                                const parsedAttrs = dbfArr ? shp.parseDbf(dbfArr) : Array(parsedGeoms.length).fill({});
+                                const meta = extractShpMetadata(shpArr);
+                                const parsedGeoms = parseShpSafe(shpArr);
+                                let parsedAttrs;
+                                if (dbfArr) {
+                                    parsedAttrs = shp.parseDbf(dbfArr);
+                                } else if (meta && Array.isArray(meta.properties) && meta.properties.length === parsedGeoms.length) {
+                                    parsedAttrs = meta.properties;
+                                } else {
+                                    parsedAttrs = Array(parsedGeoms.length).fill({});
+                                }
                                 let geojson = await shp.combine([parsedGeoms, parsedAttrs]);
+                                if (meta && Array.isArray(meta.classes) && meta.classes.length > 0) {
+                                    geojson.classes = meta.classes;
+                                }
                                 
                                 if (parts.json && parts.json.length > 0) {
                                     try {
@@ -8974,7 +9046,7 @@ self.onmessage = async function(e) {
                                 results.push({ 
                                     name: layerInfo ? layerInfo.name : path.split('/').pop(), 
                                     path: path,
-                                    geojson: await reproject(geojson, prjTextData), 
+                                    geojson: await reproject(geojson, prjTextData || (meta ? meta.crs : null)), 
                                     prjText: prjTextData 
                                 });
                             }
@@ -8983,10 +9055,21 @@ self.onmessage = async function(e) {
                         }
                         else if (action === 'processDirect') {
                             if (typeof shp === 'undefined' || !shp.combine || !shp.parseShp) throw new Error("API shpjs incompleta en el worker.");
-                            const parsedGeoms = shp.parseShp(shpBuffer);
-                            const parsedAttrs = dbfBuffer ? shp.parseDbf(dbfBuffer) : Array(parsedGeoms.length).fill({});
+                            const meta = extractShpMetadata(shpBuffer);
+                            const parsedGeoms = parseShpSafe(shpBuffer);
+                            let parsedAttrs;
+                            if (dbfBuffer) {
+                                parsedAttrs = shp.parseDbf(dbfBuffer);
+                            } else if (meta && Array.isArray(meta.properties) && meta.properties.length === parsedGeoms.length) {
+                                parsedAttrs = meta.properties;
+                            } else {
+                                parsedAttrs = Array(parsedGeoms.length).fill({});
+                            }
                             let geojson = await shp.combine([parsedGeoms, parsedAttrs]);
-                            geojson = await reproject(geojson, prjText);
+                            if (meta && Array.isArray(meta.classes) && meta.classes.length > 0) {
+                                geojson.classes = meta.classes;
+                            }
+                            geojson = await reproject(geojson, prjText || (meta ? meta.crs : null));
                             self.postMessage({ action: 'processResults', results: [{ name, geojson }] });
                         }
                     } catch (err) {
@@ -19157,6 +19240,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         checks.forEach(c => c.checked = checked);
     }
 
+    function extractShpMetadata(buf) {
+        if (!buf || buf.byteLength < 50) return null;
+        const u8 = new Uint8Array(buf);
+        const magicBytes = [65, 69, 82, 79, 77, 65, 80, 95, 83, 72, 80, 95, 77, 69, 84, 65]; // "AEROMAP_SHP_META"
+        let foundIdx = -1;
+        const view = new DataView(buf);
+        const officialLen = view.getInt32(24, false) * 2;
+        const startScan = (officialLen > 0 && officialLen < u8.length - 36) ? officialLen : 0;
+        for (let i = startScan; i <= u8.length - 36; i++) {
+            if (u8[i] === magicBytes[0] && u8[i+1] === magicBytes[1] && u8[i+2] === magicBytes[2]) {
+                let match = true;
+                for (let j = 0; j < 16; j++) {
+                    if (u8[i + j] !== magicBytes[j]) { match = false; break; }
+                }
+                if (match) { foundIdx = i; break; }
+            }
+        }
+        if (foundIdx === -1 && startScan > 0) {
+            for (let i = 0; i <= u8.length - 36; i++) {
+                if (u8[i] === magicBytes[0] && u8[i+1] === magicBytes[1] && u8[i+2] === magicBytes[2]) {
+                    let match = true;
+                    for (let j = 0; j < 16; j++) {
+                        if (u8[i + j] !== magicBytes[j]) { match = false; break; }
+                    }
+                    if (match) { foundIdx = i; break; }
+                }
+            }
+        }
+        if (foundIdx === -1) return null;
+        try {
+            const tView = new DataView(buf, foundIdx);
+            const jsonLen = tView.getUint32(16, true);
+            if (foundIdx + 20 + jsonLen > u8.length) return null;
+            const jsonSlice = u8.subarray(foundIdx + 20, foundIdx + 20 + jsonLen);
+            const jsonStr = new TextDecoder().decode(jsonSlice);
+            return JSON.parse(jsonStr);
+        } catch(e) {
+            console.warn('[extractShpMetadata] error:', e);
+            return null;
+        }
+    }
+
+    function parseShpSafe(shpBuffer) {
+        if (!shpBuffer || shpBuffer.byteLength < 100) throw new Error('Buffer de Shapefile inválido o demasiado pequeño');
+        const view = new DataView(shpBuffer);
+        const officialShpLen = view.getInt32(24, false) * 2;
+        const cleanBuf = (officialShpLen > 100 && shpBuffer.byteLength > officialShpLen) 
+            ? shpBuffer.slice(0, officialShpLen) 
+            : shpBuffer;
+        const shpLib = (typeof window !== 'undefined' && window.shp) ? window.shp : (typeof shp !== 'undefined' ? shp : null);
+        if (!shpLib || typeof shpLib.parseShp !== 'function') throw new Error('Librería shpjs no disponible para parsear geometrías');
+        return shpLib.parseShp(cleanBuf);
+    }
+
     async function loadShapefileDirect(shpFile, dbfFile = null, prjFile = null, opts = {}) {
         showProgress(`Leyendo: ${shpFile.name}`, 20, 'Importador Shapefile');
         try {
@@ -19165,14 +19302,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const prjText = prjFile ? await prjFile.text() : null;
             const layerName = opts.originalName || shpFile.name.replace(/\.shp$/i, '');
 
-            // 1. Ejecución directa en hilo principal con shpjs si está disponible
+            // 1. Extraer metadatos incrustados si existen en el propio archivo .shp (sin necesidad de .dbf)
+            const meta = extractShpMetadata(shpBuffer);
+
+            // 2. Ejecución directa en hilo principal con shpjs si está disponible
             if (typeof window.shp !== 'undefined' && typeof window.shp.combine === 'function' && typeof window.shp.parseShp === 'function') {
                 showProgress('Procesando geometrías...', 60, 'Importador Shapefile');
-                const parsedGeoms = window.shp.parseShp(shpBuffer);
-                const parsedAttrs = dbfBuffer ? window.shp.parseDbf(dbfBuffer) : Array(parsedGeoms.length).fill({});
-                                let geojson = await window.shp.combine([parsedGeoms, parsedAttrs]);
+                const parsedGeoms = parseShpSafe(shpBuffer);
+                let parsedAttrs;
+                if (dbfBuffer) {
+                    parsedAttrs = window.shp.parseDbf(dbfBuffer);
+                } else if (meta && Array.isArray(meta.properties) && meta.properties.length === parsedGeoms.length) {
+                    parsedAttrs = meta.properties;
+                } else {
+                    parsedAttrs = Array(parsedGeoms.length).fill({});
+                }
+                let geojson = await window.shp.combine([parsedGeoms, parsedAttrs]);
+                if (meta && Array.isArray(meta.classes) && meta.classes.length > 0) {
+                    geojson.classes = meta.classes;
+                }
                 if (prjText) {
                     geojson = await reprojectGeoJSON(geojson, prjText);
+                } else if (meta && meta.crs && meta.crs !== 'EPSG:4326') {
+                    geojson = await reprojectGeoJSON(geojson, meta.crs);
                 }
                 if (opts.datasource) {
                     geojson = applyGeoJsonSubset(geojson, opts.datasource);
@@ -39185,18 +39337,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             recPos += recordLen;
         }
 
-        const prjWkt = CRS_PRJ_WKT_MAP[crs] || CRS_PRJ_WKT_MAP['EPSG:4326'];
-        const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
-
-        const outFiles = {
-            [`${safeBase}.shp`]: shpBytes,
-            [`${safeBase}.shx`]: shxBytes,
-            [`${safeBase}.dbf`]: dbfBytes,
-            [`${safeBase}.prj`]: fflate.strToU8(prjWkt),
-            [`${safeBase}.cpg`]: fflate.strToU8('UTF-8')
-        };
-
-        // Preservar definición de clases en JSON compañero dentro del ZIP
+        // Preservar definición de clases en JSON compañero y en el propio trailer de SHP
         const exportedClasses = [];
         const seenClassNames = new Set();
         if (Array.isArray(geojson.classes) && geojson.classes.length > 0) {
@@ -39220,6 +39361,40 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 });
             }
         }
+
+        // Incrustar metadata completa en trailer al final del archivo .shp
+        // Este trailer es 100% transparente para QGIS / ArcGIS (que leen sólo el File Length oficial ESRI de bytes 24-27)
+        // y permite que al importar el archivo .shp SOLO (sin .dbf ni .zip) se recuperen todas las clases, colores y atributos.
+        const shpMeta = {
+            version: 1,
+            crs: crs || 'EPSG:4326',
+            classes: exportedClasses,
+            properties: features.map(f => f.properties)
+        };
+        const metaJson = JSON.stringify(shpMeta);
+        const metaBytes = new TextEncoder().encode(metaJson);
+        const magicHeader = new TextEncoder().encode("AEROMAP_SHP_META");
+        const trailerLen = 16 + 4 + metaBytes.length + 16;
+
+        const finalShpBytes = new Uint8Array(shpBytes.length + trailerLen);
+        finalShpBytes.set(shpBytes, 0);
+        finalShpBytes.set(magicHeader, shpBytes.length);
+        const trailerView = new DataView(finalShpBytes.buffer, shpBytes.length);
+        trailerView.setUint32(16, metaBytes.length, true);
+        finalShpBytes.set(metaBytes, shpBytes.length + 20);
+        finalShpBytes.set(magicHeader, shpBytes.length + 20 + metaBytes.length);
+
+        const prjWkt = CRS_PRJ_WKT_MAP[crs] || CRS_PRJ_WKT_MAP['EPSG:4326'];
+        const safeBase = filename.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'capa';
+
+        const outFiles = {
+            [`${safeBase}.shp`]: finalShpBytes,
+            [`${safeBase}.shx`]: shxBytes,
+            [`${safeBase}.dbf`]: dbfBytes,
+            [`${safeBase}.prj`]: fflate.strToU8(prjWkt),
+            [`${safeBase}.cpg`]: fflate.strToU8('UTF-8')
+        };
+
         if (exportedClasses.length > 0) {
             const classJsonBytes = fflate.strToU8(JSON.stringify({ classes: exportedClasses }, null, 2));
             outFiles[`${safeBase}.classes.json`] = classJsonBytes;
@@ -40142,9 +40317,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             sel.value = String(vectorLayers[0].id);
         }
 
-        // Predeterminar formato Shapefile (.zip) como estándar principal
-        const shpRadio = modal.querySelector('input[name="exportFormat"][value="shp"]');
-        if (shpRadio) shpRadio.checked = true;
+        // Predeterminar formato Shapefile (.shp directo) como estándar principal
+        const shpDirectRadio = modal.querySelector('input[name="exportFormat"][value="shp_direct"]');
+        if (shpDirectRadio) shpDirectRadio.checked = true;
+        else {
+            const shpRadio = modal.querySelector('input[name="exportFormat"][value="shp"]');
+            if (shpRadio) shpRadio.checked = true;
+        }
 
         updateExportPointGroupsPreview();
         onExportLayerChange(onlySelected);
@@ -41385,6 +41564,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 triggerFileDownload(blob, safeBase + '.kml');
                 closeExportVectorModal();
                 toast('¡' + safeBase + '.kml exportado con éxito!', 'success');
+            } else if (format === 'shp_direct') {
+                const files = buildClientShapefileFiles(reprojected, safeBase, crs);
+                const shpData = files[`${safeBase}.shp`];
+                if (!shpData) throw new Error('Error al generar binario .shp');
+                const blob = new Blob([shpData], { type: 'application/octet-stream' });
+                triggerFileDownload(blob, safeBase + '.shp');
+                closeExportVectorModal();
+                toast('¡' + safeBase + '.shp exportado con éxito en una sola capa con todas las clases!', 'success');
             } else if (format === 'shp') {
                 // Separar solo si hay tipos geométricos incompatibles para cumplir la especificación ESRI
                 const ptFeats = [];
