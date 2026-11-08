@@ -4122,6 +4122,64 @@
     </button>
   </div>
 
+  <!-- HUD Flotante de Borrado y Modificación (Selección y Zona) -->
+  <div id="modifyDeleteHUD" style="display:none;" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto bg-zinc-950/95 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-2xl border border-rose-500/30 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
+    <div class="flex items-center gap-2 pr-2.5 border-r border-white/15">
+      <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+      <span id="modifyDeleteHudTitle" class="text-[10px] font-black uppercase tracking-widest text-rose-400 flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
+        Borrar
+      </span>
+    </div>
+
+    <!-- Instrucción dinámica -->
+    <div class="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
+      <span id="modifyDeleteHudInstruction" class="text-[10px] text-zinc-300 font-medium max-w-[280px] truncate">
+        Haz clic sobre cualquier elemento o arrastra una zona para borrar.
+      </span>
+    </div>
+
+    <div class="h-4 w-[1px] bg-white/15"></div>
+
+    <!-- Selector de Modo de Borrado (Por Selección vs Por Zona) -->
+    <div class="flex items-center gap-1 bg-white/5 p-0.5 rounded-xl border border-white/10">
+      <button onclick="setMode('delete_select')" id="btnHudDeleteSelect" class="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer" title="Borrar haciendo clic sobre cada elemento">
+        <span class="material-symbols-outlined text-[12px]">backspace</span> Por Selección
+      </button>
+      <button onclick="setMode('delete_zone')" id="btnHudDeleteZone" class="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer" title="Borrar delimitando un área o recuadro">
+        <span class="material-symbols-outlined text-[12px]">highlight_alt</span> Por Zona
+      </button>
+    </div>
+
+    <!-- Selector de Subtipo de Zona (Solo visible en delete_zone) -->
+    <div id="modifyDeleteZoneTypeControls" class="flex items-center gap-1">
+      <div class="h-4 w-[1px] bg-white/15"></div>
+      <button onclick="setZoneDeleteType('box')" id="btnZoneTypeBox" class="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-rose-600/80 text-white flex items-center gap-1 shadow-xs cursor-pointer" title="Arrastrar un recuadro rectangular">
+        <span class="material-symbols-outlined text-[12px]">crop_landscape</span> Recuadro
+      </button>
+      <button onclick="setZoneDeleteType('polygon')" id="btnZoneTypePoly" class="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer" title="Dibujar polígono irregular por clics">
+        <span class="material-symbols-outlined text-[12px]">polyline</span> Polígono
+      </button>
+    </div>
+
+    <div class="h-4 w-[1px] bg-white/15"></div>
+
+    <!-- Filtro de Capa / Ámbito -->
+    <div class="flex items-center gap-1">
+      <select id="modifyDeleteScopeSelect" onchange="window._deleteScope = this.value" class="bg-zinc-800 text-white text-[9.5px] font-bold rounded-lg px-2 py-1 border border-white/20 outline-none cursor-pointer">
+        <option value="all">Todas las capas</option>
+        <option value="selected">Solo capa seleccionada</option>
+      </select>
+    </div>
+
+    <div class="h-4 w-[1px] bg-white/15"></div>
+
+    <!-- Botón Listo / Salir -->
+    <button onclick="setMode('select')" class="px-3 py-1 rounded-lg bg-white text-black hover:bg-zinc-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer">
+      <span class="material-symbols-outlined text-[13px]">check</span> Listo
+    </button>
+  </div>
+
   <!-- Toolbar (Floating Top Left) -->
   <div class="fixed left-72 top-24 z-40 flex flex-col gap-2">
     <div class="glass-panel p-2 rounded-xl shadow-xl border border-white/20 flex flex-col gap-2" id="mapToolbar">
@@ -4209,19 +4267,43 @@
           </button>
         </div>
       </div>
-      <div class="relative group">
-        <button onclick="toggleEditSubmenu()" id="btn-mode-edit" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all" title="Herramientas de Edición">
+      <!-- Herramienta Edición / Modificar con Despliegue en Hover y Clic -->
+      <div class="relative group" id="editToolContainer">
+        <button onclick="toggleEditSubmenu()" id="btn-mode-edit" class="tool-btn w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all cursor-pointer" title="Herramientas de Modificación y Borrado (Pasa el ratón para desplegar)">
           <span class="material-symbols-outlined">edit_square</span>
         </button>
-        <!-- Submenu Flyout (Horizontal) -->
-        <div id="editToolsSubmenu" style="display: none;" class="absolute left-14 top-0 items-center gap-1 bg-zinc-900 text-white p-2 rounded-xl shadow-2xl border border-white/20 min-w-[180px] z-[100] animate-in slide-in-from-left-2 duration-300">
-            <button onclick="setMode('edit'); hideEditSubmenu()" class="flex-1 py-1.5 px-3 rounded-lg hover:bg-white/20 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px]">edit_square</span> Modificar
-            </button>
-            <div class="w-[1px] h-4 bg-white/20"></div>
-            <button onclick="toggleSplitMode(); hideEditSubmenu()" id="btnSubCut" class="flex-1 py-1.5 px-3 rounded-lg hover:bg-white/20 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px]">content_cut</span> Cortar
-            </button>
+        <!-- Submenu Flyout (Vertical organizado) -->
+        <div id="editToolsSubmenu" class="absolute left-12 top-0 hidden group-hover:flex flex-col gap-1.5 bg-zinc-900/95 backdrop-blur-md text-white p-2.5 rounded-2xl shadow-2xl border border-white/20 min-w-[240px] z-[100] animate-in slide-in-from-left-2 duration-200 before:absolute before:-left-3 before:top-0 before:w-3 before:h-full before:content-['']">
+          <div class="text-[9px] font-black uppercase tracking-widest text-zinc-400 px-2 py-0.5 border-b border-white/10 flex items-center justify-between">
+            <span>Modificar y Eliminar</span>
+            <span class="material-symbols-outlined text-[13px] text-amber-400">edit_square</span>
+          </div>
+
+          <!-- 1. Modificar Vértices / Nodos -->
+          <button onclick="setMode('edit'); hideEditSubmenu()" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-blue-400">edit_square</span>
+            <span>Modificar Vértices / Nodos</span>
+          </button>
+
+          <!-- 2. Cortar Polígono -->
+          <button onclick="toggleSplitMode(); hideEditSubmenu()" id="btnSubCut" class="w-full py-2 px-2.5 rounded-xl hover:bg-white/15 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-amber-400">content_cut</span>
+            <span>Cortar Polígono</span>
+          </button>
+
+          <div class="h-[1px] bg-white/10 my-0.5"></div>
+
+          <!-- 3. Borrar seleccionándolo (Clic) -->
+          <button onclick="setMode('delete_select'); hideEditSubmenu()" id="btnDeleteSelect" class="w-full py-2 px-2.5 rounded-xl hover:bg-rose-500/25 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-rose-300 hover:text-rose-200 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-rose-400">backspace</span>
+            <span>Borrar Seleccionándolo (Clic)</span>
+          </button>
+
+          <!-- 4. Borrar dibujando una zona (Lazo / Rectángulo) -->
+          <button onclick="setMode('delete_zone'); hideEditSubmenu()" id="btnDeleteZone" class="w-full py-2 px-2.5 rounded-xl hover:bg-rose-500/25 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 text-left text-rose-300 hover:text-rose-200 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-rose-400">highlight_alt</span>
+            <span>Borrar Dibujando una Zona</span>
+          </button>
         </div>
       </div>
       <div class="h-[1px] bg-zinc-100 mx-2"></div>
@@ -21288,7 +21370,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                     },
                     click: (e) => {
-                        if (window._drawingEraserActive) {
+                        if (window._drawingEraserActive || state.drawMode === 'delete_select') {
                             L.DomEvent.stopPropagation(e);
                             removeFeatureDirectly(feature, layer);
                             return;
@@ -21312,7 +21394,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                     },
                     contextmenu: (e) => {
-                        if (state.drawMode === 'point' || state.drawMode === 'polygon' || state.drawMode === 'line') {
+                        if (state.drawMode === 'point' || state.drawMode === 'polygon' || state.drawMode === 'line' || state.drawMode === 'delete_select') {
                             L.DomEvent.stopPropagation(e);
                             removeFeatureDirectly(feature, layer);
                             return;
@@ -32193,7 +32275,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <div class="ctx-item font-bold border-b border-zinc-100 pb-1 mb-1 text-[9px] uppercase text-zinc-400">
                 Opciones de Figura
             </div>
-            <div class="ctx-item text-red-500" onclick="hideCtx(); removeLayerFeature('${feature._id || ''}', ${layerData.id})">
+            <div class="ctx-item text-red-500" onclick="hideCtx(); removeLayerFeature('${feature.id || feature.properties?.id || feature._id || ''}', ${layerData.id})">
                 <span class="material-symbols-outlined">delete</span> Eliminar
             </div>
         `;
@@ -33393,6 +33475,267 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
+    function setupEditSubmenuHover() {
+      const container = document.getElementById('editToolContainer');
+      const submenu = document.getElementById('editToolsSubmenu');
+      if (!container || !submenu) return;
+
+      let closeTimer = null;
+      const show = () => {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        submenu.classList.remove('hidden');
+        submenu.classList.add('flex');
+        submenu.style.display = 'flex';
+      };
+      const hide = () => {
+        closeTimer = setTimeout(() => {
+          submenu.classList.add('hidden');
+          submenu.classList.remove('flex');
+          submenu.style.display = 'none';
+        }, 250);
+      };
+
+      container.addEventListener('mouseenter', show);
+      container.addEventListener('mouseleave', hide);
+      submenu.addEventListener('mouseenter', show);
+      submenu.addEventListener('mouseleave', hide);
+    }
+
+    function hideEditSubmenu() {
+      const submenu = document.getElementById('editToolsSubmenu');
+      if (submenu) {
+        submenu.classList.add('hidden');
+        submenu.classList.remove('flex');
+        submenu.style.display = 'none';
+      }
+    }
+
+    function toggleEditSubmenu() {
+      const submenu = document.getElementById('editToolsSubmenu');
+      if (!submenu) return;
+      if (submenu.style.display === 'none' || submenu.classList.contains('hidden')) {
+        submenu.classList.remove('hidden');
+        submenu.classList.add('flex');
+        submenu.style.display = 'flex';
+      } else {
+        hideEditSubmenu();
+      }
+    }
+
+    window._zoneDeleteType = 'box'; // 'box' (recuadro por arrastre) o 'polygon' (polígono por clics)
+    window._deleteScope = 'all'; // 'all' (todas las capas vectoriales) o 'selected' (solo capa activa)
+
+    function setZoneDeleteType(type) {
+      window._zoneDeleteType = type;
+      updateZoneTypeUI();
+      if (state.drawMode === 'delete_zone') {
+        updateModifyDeleteHUD('delete_zone');
+      }
+    }
+
+    function updateZoneTypeUI() {
+      const isBox = (window._zoneDeleteType || 'box') === 'box';
+      const btnBox = document.getElementById('btnZoneTypeBox');
+      const btnPoly = document.getElementById('btnZoneTypePoly');
+      if (btnBox) {
+        btnBox.className = isBox 
+          ? 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-rose-600 text-white flex items-center gap-1 shadow-xs cursor-pointer'
+          : 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer';
+      }
+      if (btnPoly) {
+        btnPoly.className = !isBox 
+          ? 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-rose-600 text-white flex items-center gap-1 shadow-xs cursor-pointer'
+          : 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer';
+      }
+    }
+
+    function updateModifyDeleteHUD(mode) {
+      const hud = document.getElementById('modifyDeleteHUD');
+      if (!hud) return;
+
+      if (mode !== 'delete_select' && mode !== 'delete_zone') {
+        hud.style.display = 'none';
+        return;
+      }
+
+      hud.style.display = 'flex';
+      const titleEl = document.getElementById('modifyDeleteHudTitle');
+      const instrEl = document.getElementById('modifyDeleteHudInstruction');
+      const btnSelect = document.getElementById('btnHudDeleteSelect');
+      const btnZone = document.getElementById('btnHudDeleteZone');
+      const zoneControls = document.getElementById('modifyDeleteZoneTypeControls');
+
+      if (mode === 'delete_select') {
+        if (titleEl) titleEl.innerHTML = `<span class="material-symbols-outlined text-[15px]">backspace</span> Borrar por Selección`;
+        if (instrEl) instrEl.textContent = 'Haz clic sobre cualquier punto, línea o polígono para borrarlo directamente.';
+        if (btnSelect) {
+          btnSelect.className = 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-rose-600 text-white flex items-center gap-1 shadow-xs cursor-pointer';
+        }
+        if (btnZone) {
+          btnZone.className = 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer';
+        }
+        if (zoneControls) zoneControls.style.display = 'none';
+      } else {
+        if (titleEl) titleEl.innerHTML = `<span class="material-symbols-outlined text-[15px]">highlight_alt</span> Borrar por Zona`;
+        const zType = window._zoneDeleteType || 'box';
+        if (instrEl) {
+          instrEl.textContent = (zType === 'box')
+            ? 'Arrastra un recuadro sobre el mapa para eliminar los elementos dentro.'
+            : 'Haz clics para delimitar el área y presiona Enter o doble clic para borrar.';
+        }
+        if (btnZone) {
+          btnZone.className = 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-rose-600 text-white flex items-center gap-1 shadow-xs cursor-pointer';
+        }
+        if (btnSelect) {
+          btnSelect.className = 'px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer';
+        }
+        if (zoneControls) zoneControls.style.display = 'flex';
+        updateZoneTypeUI();
+      }
+    }
+
+    function hideModifyDeleteHUD() {
+      const hud = document.getElementById('modifyDeleteHUD');
+      if (hud) hud.style.display = 'none';
+      if (window._deleteZoneBox) {
+        try { state.map.removeLayer(window._deleteZoneBox); } catch (_) {}
+        window._deleteZoneBox = null;
+      }
+      if (state.map && state.map.dragging) state.map.dragging.enable();
+      window._isZoneDragging = false;
+    }
+
+    function executeDeleteWithinZone(zonePoly, zoneLabel = 'zona delimitada') {
+      if (!zonePoly || !zonePoly.geometry) return;
+
+      const scope = window._deleteScope || 'all';
+      let targetLayers = [];
+      if (scope === 'selected' && state.selectedLayerId) {
+        const sel = state.layers.find(l => l.id === state.selectedLayerId && (l.type === 'vector' || l.geoJson));
+        if (sel) targetLayers = [sel];
+      }
+      if (targetLayers.length === 0) {
+        targetLayers = (state.layers || []).filter(l => (l.type === 'vector' || l.geoJson) && l.visible);
+      }
+
+      if (targetLayers.length === 0) {
+        toast('No hay capas vectoriales visibles con figuras para borrar.', 'warning');
+        return;
+      }
+
+      // Precalcular bbox de la zona para acelerar y como fallback
+      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+      try {
+        const coords = zonePoly.geometry.coordinates[0];
+        for (let i = 0; i < coords.length; i++) {
+          const [lng, lat] = coords[i];
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      } catch (_) {}
+
+      let totalDeleted = 0;
+      let affectedLayerNames = [];
+
+      targetLayers.forEach(layer => {
+        if (!layer.geoJson || !Array.isArray(layer.geoJson.features) || layer.geoJson.features.length === 0) return;
+
+        const remainingFeatures = [];
+        let layerDeletedCount = 0;
+
+        layer.geoJson.features.forEach(feature => {
+          if (!feature || !feature.geometry) {
+            remainingFeatures.push(feature);
+            return;
+          }
+
+          let isInside = false;
+          const geomType = feature.geometry.type;
+
+          try {
+            if (geomType === 'Point') {
+              const ptCoords = feature.geometry.coordinates;
+              const inBbox = (ptCoords[0] >= minLng && ptCoords[0] <= maxLng && ptCoords[1] >= minLat && ptCoords[1] <= maxLat);
+              if (inBbox) {
+                isInside = (typeof turf !== 'undefined' && turf.booleanPointInPolygon)
+                  ? turf.booleanPointInPolygon(feature, zonePoly)
+                  : true;
+              }
+            } else if (geomType === 'Polygon' || geomType === 'MultiPolygon' || geomType === 'LineString' || geomType === 'MultiLineString') {
+              if (typeof turf !== 'undefined' && turf.booleanIntersects) {
+                isInside = turf.booleanIntersects(feature, zonePoly) || (turf.booleanWithin && turf.booleanWithin(feature, zonePoly));
+              }
+              if (!isInside) {
+                const rawCoords = (geomType === 'Polygon') ? feature.geometry.coordinates[0] : 
+                                  (geomType === 'MultiPolygon') ? feature.geometry.coordinates[0][0] : 
+                                  (geomType === 'LineString') ? feature.geometry.coordinates : feature.geometry.coordinates[0];
+                if (Array.isArray(rawCoords)) {
+                  for (let i = 0; i < rawCoords.length; i++) {
+                    const c = rawCoords[i];
+                    if (c && c[0] >= minLng && c[0] <= maxLng && c[1] >= minLat && c[1] <= maxLat) {
+                      if (typeof turf !== 'undefined' && turf.booleanPointInPolygon) {
+                        if (turf.booleanPointInPolygon(c, zonePoly)) { isInside = true; break; }
+                      } else {
+                        isInside = true; break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[DeleteZone] Error evaluando geometría:', err);
+            isInside = false;
+          }
+
+          if (isInside) {
+            layerDeletedCount++;
+            const classList = layer.pointClasses || layer.classes || [];
+            if (feature.properties && classList.length > 0) {
+              const c = classList.find(cl => String(cl.id) === String(feature.properties.claseId) || 
+                String(cl.name).toLowerCase() === String(feature.properties.clase || '').toLowerCase());
+              if (c && c.count > 0) c.count--;
+            }
+            if (state.selectedFeature && (state.selectedFeature === feature || state.selectedFeature.id === feature.id)) {
+              state.selectedFeature = null;
+              hideCtx();
+            }
+          } else {
+            remainingFeatures.push(feature);
+          }
+        });
+
+        if (layerDeletedCount > 0) {
+          layer.geoJson.features = remainingFeatures;
+          refreshVectorMapLayer(layer);
+          totalDeleted += layerDeletedCount;
+          affectedLayerNames.push(layer.name);
+        }
+      });
+
+      if (totalDeleted > 0) {
+        updatePointHUD();
+        updatePolygonHUD();
+        updateLayersSidebar();
+        if (typeof renderAttributeTable === 'function') renderAttributeTable();
+        const layerStr = affectedLayerNames.length === 1 ? `de "${affectedLayerNames[0]}"` : `en ${affectedLayerNames.length} capa(s)`;
+        toast(`✓ Se eliminaron ${totalDeleted} elemento(s) ${layerStr} dentro de la ${zoneLabel}.`, 'success', 5000);
+      } else {
+        toast(`No se encontraron puntos ni polígonos dentro de la ${zoneLabel}.`, 'info');
+      }
+    }
+
+    window.setupEditSubmenuHover = setupEditSubmenuHover;
+    window.hideEditSubmenu = hideEditSubmenu;
+    window.toggleEditSubmenu = toggleEditSubmenu;
+    window.setZoneDeleteType = setZoneDeleteType;
+    window.updateZoneTypeUI = updateZoneTypeUI;
+    window.updateModifyDeleteHUD = updateModifyDeleteHUD;
+    window.hideModifyDeleteHUD = hideModifyDeleteHUD;
+    window.executeDeleteWithinZone = executeDeleteWithinZone;
+
     function toggleVertexEditingFromSidebar() {
         if (state.selectedFeature && state.selectedLayerId) {
             if (splitMode) toggleSplitMode(); // EXCLUSIVITY: turn off split mode
@@ -33553,18 +33896,31 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       state.drawPoints = [];
       if (state.tempLayer) state.map.removeLayer(state.tempLayer);
       state.tempLayer = null;
+      if (window._deleteZoneBox) {
+        try { state.map.removeLayer(window._deleteZoneBox); } catch (_) {}
+        window._deleteZoneBox = null;
+      }
+      if (state.map && state.map.dragging) state.map.dragging.enable();
+      window._isZoneDragging = false;
       cleanupSnap();
       updateCursorStyle(mode);
 
       // Update UI buttons
       document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.classList.remove('bg-black', 'text-white');
+        btn.classList.remove('bg-black', 'text-white', 'bg-rose-600');
         btn.classList.add('text-zinc-500', 'hover:bg-zinc-100');
       });
       const activeBtn = document.getElementById(`btn-mode-${mode}`);
       if (activeBtn) {
         activeBtn.classList.remove('text-zinc-500', 'hover:bg-zinc-100');
         activeBtn.classList.add('bg-black', 'text-white');
+      }
+      if (mode === 'delete_select' || mode === 'delete_zone' || mode === 'edit') {
+        const editBtn = document.getElementById('btn-mode-edit');
+        if (editBtn) {
+          editBtn.classList.remove('text-zinc-500', 'hover:bg-zinc-100');
+          editBtn.classList.add((mode === 'delete_select' || mode === 'delete_zone') ? 'bg-rose-600' : 'bg-black', 'text-white');
+        }
       }
 
       // Cursor feedback
@@ -33580,18 +33936,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (mode === 'point') {
         updatePointHUD();
         hidePolygonHUD();
+        hideModifyDeleteHUD();
       } else if (mode === 'polygon') {
         updatePolygonHUD();
         hidePointHUD();
+        hideModifyDeleteHUD();
+      } else if (mode === 'delete_select' || mode === 'delete_zone') {
+        hidePointHUD();
+        hidePolygonHUD();
+        updateModifyDeleteHUD(mode);
       } else {
         hidePointHUD();
         hidePolygonHUD();
+        hideModifyDeleteHUD();
         if (window._drawingEraserActive) toggleDrawingEraser();
       }
 
       if (mode !== 'select' && !splitMode) {
           if (mode === 'point') {
               toast('Modo dibujo: Puntos. Haz clic en el mapa para ubicar puntos. [Esc] para finalizar.', 'info');
+          } else if (mode === 'delete_select') {
+              toast('Modo Borrar por Selección: Haz clic sobre cualquier punto, línea o polígono para eliminarlo. [Esc] para salir.', 'info');
+          } else if (mode === 'delete_zone') {
+              const zType = window._zoneDeleteType || 'box';
+              toast(`Modo Borrar por Zona (${zType === 'box' ? 'Recuadro' : 'Polígono'}): ${zType === 'box' ? 'Arrastra un recuadro' : 'Haz clics'} para borrar todo dentro. [Esc] para salir.`, 'info');
           } else {
               toast(`Modo dibujo: ${mode === 'line' ? 'Línea' : 'Polígono'}. [Enter/Click Derecho] para finalizar. [Esc] para cancelar.`, 'info');
           }
@@ -33600,6 +33968,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function initDrawEvents() {
       state.map.on('mousedown', e => {
+        if (state.drawMode === 'delete_zone' && (window._zoneDeleteType || 'box') === 'box') {
+          window._isZoneDragging = true;
+          window._zoneStartLatLng = e.latlng;
+          state.map.dragging.disable();
+          if (window._deleteZoneBox) {
+            try { state.map.removeLayer(window._deleteZoneBox); } catch (_) {}
+            window._deleteZoneBox = null;
+          }
+          window._deleteZoneBox = L.rectangle([e.latlng, e.latlng], {
+            color: '#f43f5e',
+            weight: 2,
+            dashArray: '6,6',
+            fill: true,
+            fillColor: '#f43f5e',
+            fillOpacity: 0.22,
+            interactive: false
+          }).addTo(state.map);
+          return;
+        }
         if (window._supervisedState && window._supervisedState.active) {
           if (window._supervisedState.samplingTool === 'select') {
             if (state.map._container) state.map._container.style.cursor = 'grabbing';
@@ -33610,6 +33997,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
 
       state.map.on('mouseup', e => {
+        if (state.drawMode === 'delete_zone' && window._isZoneDragging) {
+          window._isZoneDragging = false;
+          state.map.dragging.enable();
+          if (window._deleteZoneBox && window._zoneStartLatLng) {
+            const bounds = L.latLngBounds(window._zoneStartLatLng, e.latlng);
+            const p1 = state.map.latLngToContainerPoint(window._zoneStartLatLng);
+            const p2 = state.map.latLngToContainerPoint(e.latlng);
+            const pxDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+            try { state.map.removeLayer(window._deleteZoneBox); } catch (_) {}
+            window._deleteZoneBox = null;
+            window._zoneStartLatLng = null;
+
+            if (pxDist > 8) {
+              const w = bounds.getWest(), s = bounds.getSouth(), eLng = bounds.getEast(), n = bounds.getNorth();
+              const zonePoly = turf.polygon([[[w, s], [eLng, s], [eLng, n], [w, n], [w, s]]]);
+              executeDeleteWithinZone(zonePoly, 'zona rectangular');
+            }
+          }
+          return;
+        }
         if (window._supervisedState && window._supervisedState.active) {
           if (window._supervisedState.samplingTool === 'select') {
             if (state.map._container) state.map._container.style.cursor = 'grab';
@@ -33658,6 +34066,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           return;
         }
         
+        if (state.drawMode === 'delete_select') {
+          const clickedPoint = state.map.latLngToContainerPoint(e.latlng);
+          let found = null;
+          let foundLayer = null;
+          const targetLayers = (state.layers || []).filter(l => (l.type === 'vector' || l.geoJson) && l.visible);
+          for (const lyr of targetLayers) {
+            if (!lyr.geoJson || !Array.isArray(lyr.geoJson.features)) continue;
+            for (const f of lyr.geoJson.features) {
+              if (f.geometry && f.geometry.type === 'Point') {
+                const pt = L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]);
+                const pPx = state.map.latLngToContainerPoint(pt);
+                const dist = Math.hypot(pPx.x - clickedPoint.x, pPx.y - clickedPoint.y);
+                if (dist <= 20) {
+                  found = f;
+                  foundLayer = lyr;
+                  break;
+                }
+              }
+            }
+            if (found) break;
+          }
+          if (found && foundLayer) {
+            removeFeatureDirectly(found, foundLayer);
+            return;
+          }
+          return;
+        }
+
+        if (state.drawMode === 'delete_zone' && window._zoneDeleteType === 'polygon') {
+          state.drawPoints.push([e.latlng.lat, e.latlng.lng]);
+          if (state.tempLayer) state.map.removeLayer(state.tempLayer);
+          state.tempLayer = L.polygon(state.drawPoints, {
+            color: '#f43f5e',
+            weight: 2,
+            dashArray: '6,6',
+            fill: true,
+            fillColor: '#f43f5e',
+            fillOpacity: 0.25
+          }).addTo(state.map);
+          return;
+        }
+
         if (state.drawMode === 'point') {
           handlePointMapClick(e.latlng);
           return;
@@ -33675,6 +34125,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (window._supervisedState && window._supervisedState.active) {
           if (window._supervisedState.samplingTool === 'polygon') {
             if (typeof finishSupervisedPolygon === 'function') finishSupervisedPolygon();
+          }
+          return;
+        }
+        if (state.drawMode === 'delete_zone' && window._zoneDeleteType === 'polygon') {
+          L.DomEvent.stopPropagation(e);
+          if (state.drawPoints.length >= 3) {
+            const coords = state.drawPoints.map(p => [p[1], p[0]]);
+            coords.push(coords[0]);
+            const zonePoly = turf.polygon([coords]);
+            if (state.tempLayer) {
+              state.map.removeLayer(state.tempLayer);
+              state.tempLayer = null;
+            }
+            state.drawPoints = [];
+            executeDeleteWithinZone(zonePoly, 'zona poligonal');
+          } else {
+            toast('Delimita al menos 3 vértices para la zona poligonal.', 'warning');
           }
           return;
         }
@@ -33742,6 +34209,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             undoLastDrawnPoint();
             return;
           }
+        } else if (state.drawMode === 'delete_zone') {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            if (state.drawPoints.length > 0) {
+              state.drawPoints = [];
+              if (state.tempLayer) {
+                state.map.removeLayer(state.tempLayer);
+                state.tempLayer = null;
+              }
+              toast('Trazo de zona cancelado.', 'info');
+            } else {
+              setMode('select');
+            }
+            return;
+          }
+          if (e.key === 'Enter' && window._zoneDeleteType === 'polygon') {
+            e.preventDefault();
+            if (state.drawPoints.length >= 3) {
+              const coords = state.drawPoints.map(p => [p[1], p[0]]);
+              coords.push(coords[0]);
+              const zonePoly = turf.polygon([coords]);
+              if (state.tempLayer) {
+                state.map.removeLayer(state.tempLayer);
+                state.tempLayer = null;
+              }
+              state.drawPoints = [];
+              executeDeleteWithinZone(zonePoly, 'zona poligonal');
+            } else {
+              toast('Delimita al menos 3 vértices para la zona poligonal.', 'warning');
+            }
+            return;
+          }
+        } else if (state.drawMode === 'delete_select') {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            setMode('select');
+            return;
+          }
         }
 
         if (state.drawMode === 'select' && !splitMode) return;
@@ -33769,8 +34274,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       setupPointSubmenuHover();
       setupPolygonSubmenuHover();
       setupLineSubmenuHover();
+      setupEditSubmenuHover();
       state.map.on('mousemove', e => {
-          if (state.drawMode === 'select') return;
+          if (state.drawMode === 'delete_zone' && window._isZoneDragging && window._deleteZoneBox && window._zoneStartLatLng) {
+              const bounds = L.latLngBounds(window._zoneStartLatLng, e.latlng);
+              window._deleteZoneBox.setBounds(bounds);
+              return;
+          }
+          if (state.drawMode === 'select' || state.drawMode === 'delete_select') return;
           
           const snapped = getSnappedLatLng(e.latlng);
           const currentPos = snapped ? snapped.latlng : e.latlng;
