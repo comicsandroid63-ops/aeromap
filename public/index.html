@@ -81,11 +81,17 @@
         }
       }
     } catch(e) {}
-    // Detect invite URL params IMMEDIATELY before page renders (fixes race vs initCollabFromURL)
+    // Detect invite or Geovisor URL params IMMEDIATELY before page renders
     try {
       const _urlParams = new URLSearchParams(location.search);
+      const _geoVisor = _urlParams.get('geovisor') || _urlParams.get('viewer');
+      if (_geoVisor) {
+        window.__isGeovisorMode = true;
+        window.__geovisorId = _geoVisor;
+        try { sessionStorage.setItem('_pendingGeovisor', _geoVisor); } catch(_) {}
+      }
       const _invPid = _urlParams.get('project');
-      if (_invPid) {
+      if (_invPid && !_geoVisor) {
         const _invToken = _urlParams.get('t') || null;
         sessionStorage.setItem('_pendingSharedProject', JSON.stringify({ pid: _invPid, token: _invToken }));
         history.replaceState({}, '', location.pathname);
@@ -572,6 +578,29 @@
     }
     .mh-nav-chip:hover { background:#f0f0eb; color:#555; }
     .mh-nav-chip.active { background:#1a1c1f; color:#fff; font-weight:600; }
+
+    /* ═══ GEOVISOR MODE STYLES ═══ */
+    body.geovisor-mode #leftToolbar,
+    body.geovisor-mode #layerPanel,
+    body.geovisor-mode #modifyDeleteHUD,
+    body.geovisor-mode #drawingEraserHUD,
+    body.geovisor-mode #toolbar-draw-group,
+    body.geovisor-mode #pixelInspectorCard,
+    body.geovisor-mode header.fixed.top-0,
+    body.geovisor-mode #layoutPaper,
+    body.geovisor-mode #layoutToolsPanel {
+      display: none !important;
+    }
+    body.geovisor-mode #geovisorTopBar {
+      display: flex !important;
+    }
+    .geovisor-card {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .geovisor-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 35px rgba(0,0,0,0.09);
+    }
 
     /* Map History Enhancements */
     .mh-compare-container {
@@ -2432,6 +2461,30 @@
         <div class="text-center py-20 col-span-full text-sm" style="color:#999;" id="projectsEmpty">Cargando proyectos...</div>
       </div>
 
+      <!-- ═══════ GEOVISORES PÚBLICOS ═══════ -->
+      <div class="mt-10 mb-8 p-6 rounded-2xl bg-zinc-50 border border-zinc-200" id="geovisoresDashboardSection">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-indigo-600 text-[22px]">public</span>
+              <h2 class="text-lg sm:text-xl font-bold text-zinc-900">Geovisores Web</h2>
+              <span id="geovisoresCountBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 uppercase tracking-wider">0 activos</span>
+            </div>
+            <p class="text-xs sm:text-sm text-zinc-500 mt-0.5">Convierte tus proyectos en visualizadores interactivos públicos con enlace compartible para clientes o comunidades</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openCreateGeovisorModal()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:bg-indigo-700 shadow-sm bg-indigo-600 text-white cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">add_circle</span>
+              Crear Geovisor
+            </button>
+          </div>
+        </div>
+
+        <div id="geovisoresGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- Populated by renderGeovisoresGrid() -->
+        </div>
+      </div>
+
       </div>
     </div>
   </div>
@@ -2609,6 +2662,267 @@
     </div>
   </div>
 
+  <!-- ═══ MODAL CREAR / CONVERTIR A GEOVISOR ═══ -->
+  <div id="createGeovisorModal" class="hidden fixed inset-0 z-[20000] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-zinc-200 animate-fade-in flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">public</span>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-zinc-900" id="createGeovisorModalTitle">Crear Geovisor Web</h3>
+            <p class="text-[11px] text-zinc-400">Publica un mapa interactivo con enlace para compartir</p>
+          </div>
+        </div>
+        <button onclick="closeCreateGeovisorModal()" class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-3.5">
+        <!-- Project Selector (if creating from dashboard) -->
+        <div id="geovisorProjectSelectContainer">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Proyecto Base a Convertir</label>
+          <select id="geovisorProjectSelect" onchange="onGeovisorProjectSelected(this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 outline-none focus:border-indigo-600">
+            <!-- Injected dynamically -->
+          </select>
+        </div>
+
+        <!-- Title -->
+        <div>
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Título del Geovisor</label>
+          <input type="text" id="geovisorTitleInput" placeholder="ej. Geovisor Catastral y Cobertura 2026" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 outline-none focus:border-indigo-600">
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Descripción / Subtítulo</label>
+          <textarea id="geovisorDescInput" rows="2" placeholder="Breve explicación para los visitantes que abran el enlace..." class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs text-zinc-800 outline-none focus:border-indigo-600 resize-none"></textarea>
+        </div>
+
+        <!-- Options -->
+        <div>
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Herramientas Habilitadas para el Visitante</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-zinc-100">
+              <input type="checkbox" id="geoOptMeasure" checked class="accent-indigo-600">
+              <span class="text-[11px] font-medium text-zinc-700">Medir distancia/área</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-zinc-100">
+              <input type="checkbox" id="geoOptLayers" checked class="accent-indigo-600">
+              <span class="text-[11px] font-medium text-zinc-700">Leyenda y capas</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-zinc-100">
+              <input type="checkbox" id="geoOptInspect" checked class="accent-indigo-600">
+              <span class="text-[11px] font-medium text-zinc-700">Inspeccionar atributos</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-zinc-100">
+              <input type="checkbox" id="geoOptBasemap" checked class="accent-indigo-600">
+              <span class="text-[11px] font-medium text-zinc-700">Cambiar mapa base</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Basemap default -->
+        <div>
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Mapa Base Inicial</label>
+          <select id="geovisorDefaultBasemap" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 outline-none">
+            <option value="carto_dark">Nocturno / Carto Dark (Moderno)</option>
+            <option value="esri_sat">Satélite de Alta Resolución (Esri)</option>
+            <option value="osm">Calles Estándar (OpenStreetMap)</option>
+            <option value="topo">Topográfico con Curvas</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
+        <button onclick="closeCreateGeovisorModal()" class="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-100 text-zinc-600 transition-colors">Cancelar</button>
+        <button onclick="confirmCreateOrPublishGeovisor()" id="btnConfirmPublishGeovisor" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">rocket_launch</span>
+          Publicar Geovisor
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL ENLACE COMPARTIR GEOVISOR ═══ -->
+  <div id="geovisorShareResultModal" class="hidden fixed inset-0 z-[20001] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-zinc-200 animate-fade-in flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-zinc-900">¡Geovisor Listo para Compartir!</h3>
+            <p class="text-[11px] text-zinc-400">Cualquiera con este enlace puede explorar el mapa interactivo</p>
+          </div>
+        </div>
+        <button onclick="closeGeovisorShareResultModal()" class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-4">
+        <!-- Direct Share Link -->
+        <div>
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Enlace Público Directo</label>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="geovisorShareUrlInput" readonly class="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-mono text-zinc-800 outline-none select-all">
+            <button onclick="copyGeovisorShareLink()" id="btnCopyGeovisorLink" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer">
+              <span class="material-symbols-outlined text-[15px]">content_copy</span>
+              Copiar
+            </button>
+          </div>
+          <span id="geovisorLinkCopiedNotice" class="text-[10px] font-bold text-emerald-600 mt-1 hidden">✓ ¡Enlace copiado al portapapeles!</span>
+        </div>
+
+        <!-- Action Quick Links -->
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="openCurrentGeovisorInNewTab()" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-xs font-bold text-zinc-800 transition-colors cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-blue-600">open_in_new</span>
+            Abrir Geovisor
+          </button>
+          <button onclick="copyGeovisorEmbedCode()" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-xs font-bold text-zinc-800 transition-colors cursor-pointer">
+            <span class="material-symbols-outlined text-[16px] text-purple-600">code</span>
+            Código Embed
+          </button>
+        </div>
+
+        <!-- Standalone HTML Download -->
+        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between">
+          <div class="min-w-0 pr-2">
+            <h4 class="text-xs font-bold text-zinc-800">Descargar HTML Autónomo</h4>
+            <p class="text-[10px] text-zinc-500 mt-0.5">Archivo .html autónomo para abrir offline sin servidor ni conexión</p>
+          </div>
+          <button onclick="downloadCurrentGeovisorHtml()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center gap-1 shrink-0 transition-colors cursor-pointer">
+            <span class="material-symbols-outlined text-[15px] text-emerald-600">download</span>
+            Descargar
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-3 border-t border-zinc-100">
+        <button onclick="closeGeovisorShareResultModal()" class="px-5 py-2 rounded-xl text-xs font-bold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ GEOVISOR RUNTIME UI (Active in Geovisor Mode) ═══ -->
+  <!-- Geovisor Top Bar -->
+  <div id="geovisorTopBar" class="hidden fixed top-0 left-0 right-0 z-[1500] px-4 py-2.5 bg-zinc-900/90 backdrop-blur-md border-b border-white/10 text-white flex items-center justify-between select-none">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center gap-1.5 shrink-0">
+        <span class="material-symbols-outlined text-indigo-400 text-[22px]">public</span>
+        <span class="text-xs font-black tracking-wider uppercase text-zinc-100">Zima Geovisor</span>
+      </div>
+      <div class="h-4 w-px bg-white/20 hidden sm:block"></div>
+      <div class="min-w-0 flex items-center gap-2">
+        <h1 id="geovisorDisplayTitle" class="text-xs sm:text-sm font-bold truncate text-white">Geovisor Público</h1>
+        <span id="geovisorLayerBadge" class="hidden sm:inline-flex text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">0 capas</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5">
+      <!-- Capas / Leyenda Toggle -->
+      <button onclick="toggleGeovisorLayersDrawer()" id="btnGeoLayers" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 transition-colors cursor-pointer" title="Capas y Leyenda">
+        <span class="material-symbols-outlined text-[15px]">layers</span>
+        <span class="hidden md:inline">Capas</span>
+      </button>
+
+      <!-- Medir Toggle -->
+      <button onclick="toggleGeovisorMeasure()" id="btnGeoMeasure" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 transition-colors cursor-pointer" title="Medir Distancia y Área">
+        <span class="material-symbols-outlined text-[15px]">square_foot</span>
+        <span class="hidden md:inline">Medir</span>
+      </button>
+
+      <!-- Mapa Base Dropdown -->
+      <div class="relative">
+        <button onclick="toggleGeovisorBasemapMenu()" id="btnGeoBasemap" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 transition-colors cursor-pointer" title="Cambiar Mapa Base">
+          <span class="material-symbols-outlined text-[15px]">map</span>
+          <span class="hidden md:inline">Base</span>
+        </button>
+        <div id="geovisorBasemapDropdown" class="hidden absolute top-full right-0 mt-2 bg-zinc-900 border border-white/10 rounded-xl p-1.5 shadow-2xl z-[1600] w-44 space-y-1">
+          <button onclick="setGeovisorBasemap('carto_dark')" class="w-full text-left px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-2 cursor-pointer">
+            <span class="w-3 h-3 rounded-full bg-zinc-800 border border-white/20"></span> Nocturno
+          </button>
+          <button onclick="setGeovisorBasemap('esri_sat')" class="w-full text-left px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-2 cursor-pointer">
+            <span class="w-3 h-3 rounded-full bg-blue-600 border border-white/20"></span> Satélite
+          </button>
+          <button onclick="setGeovisorBasemap('osm')" class="w-full text-left px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-2 cursor-pointer">
+            <span class="w-3 h-3 rounded-full bg-emerald-600 border border-white/20"></span> Calles OSM
+          </button>
+          <button onclick="setGeovisorBasemap('topo')" class="w-full text-left px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-2 cursor-pointer">
+            <span class="w-3 h-3 rounded-full bg-amber-600 border border-white/20"></span> Topográfico
+          </button>
+        </div>
+      </div>
+
+      <!-- Restablecer Extensión (Home) -->
+      <button onclick="resetGeovisorExtent()" class="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Restablecer Vista Inicial">
+        <span class="material-symbols-outlined text-[18px]">home</span>
+      </button>
+
+      <!-- Compartir -->
+      <button onclick="openCurrentGeovisorShareModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 transition-colors cursor-pointer" title="Compartir este Geovisor">
+        <span class="material-symbols-outlined text-[15px]">share</span>
+        <span class="hidden sm:inline">Compartir</span>
+      </button>
+
+      <!-- Fullscreen -->
+      <button onclick="toggleGeovisorFullscreen()" class="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Pantalla Completa">
+        <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+      </button>
+
+      <!-- Salir / Abrir Editor -->
+      <button onclick="exitGeovisorMode()" class="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-white/10 transition-colors cursor-pointer" title="Salir del Geovisor">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Geovisor Floating Layers / Leyenda Drawer -->
+  <div id="geovisorLayersDrawer" class="hidden fixed top-14 right-4 z-[1400] w-72 sm:w-80 max-h-[calc(100vh-72px)] bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white flex flex-col overflow-hidden animate-fade-in">
+    <div class="flex items-center justify-between p-3.5 border-b border-white/10 shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-indigo-400 text-[18px]">layers</span>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-200">Capas y Leyenda</h3>
+      </div>
+      <button onclick="toggleGeovisorLayersDrawer()" class="text-zinc-400 hover:text-white text-xs cursor-pointer">✕</button>
+    </div>
+    <div id="geovisorLayersList" class="p-3 space-y-2.5 overflow-y-auto custom-scrollbar flex-1 text-xs">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+
+  <!-- Geovisor Feature Info Card (Click on feature) -->
+  <div id="geovisorInfoCard" class="hidden fixed bottom-6 left-6 z-[1400] max-w-sm sm:max-w-md w-full bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl text-white p-4 animate-fade-in">
+    <div class="flex items-center justify-between mb-2 pb-2 border-b border-white/10">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="material-symbols-outlined text-cyan-400 text-[18px]">location_on</span>
+        <h4 id="geovisorInfoTitle" class="text-xs font-bold text-white truncate">Detalle del Elemento</h4>
+      </div>
+      <button onclick="closeGeovisorInfoCard()" class="text-zinc-400 hover:text-white text-xs cursor-pointer">✕</button>
+    </div>
+    <div id="geovisorInfoBody" class="text-xs space-y-1.5 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+      <!-- Key-Value attributes -->
+    </div>
+  </div>
+
+  <!-- Geovisor Measure HUD -->
+  <div id="geovisorMeasureHUD" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1450] bg-zinc-900/95 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl p-3 flex items-center gap-3 text-white">
+    <span class="material-symbols-outlined text-amber-400 text-[20px]">square_foot</span>
+    <div>
+      <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Herramienta de Medición</div>
+      <div id="geovisorMeasureOutput" class="text-xs font-extrabold text-white">Haz clic en el mapa para medir</div>
+    </div>
+    <div class="flex items-center gap-1.5 ml-2 border-l border-white/10 pl-2">
+      <button onclick="clearGeovisorMeasure()" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] font-bold text-zinc-300 cursor-pointer">Limpiar</button>
+      <button onclick="toggleGeovisorMeasure()" class="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-[10px] font-bold text-zinc-950 cursor-pointer">Terminar</button>
+    </div>
+  </div>
+
   <!-- ═══ MAP HISTORY FULLSCREEN PRESENTATION MODAL ═══ -->
   <div id="mhPresentationModal" class="hidden fixed inset-0 z-[10000] flex flex-col bg-zinc-950 text-white select-none">
     <!-- Top Bar -->
@@ -2709,6 +3023,12 @@
         id="btnOpenLayout">
         <span class="material-symbols-outlined text-[16px]">map</span>
         Exportar Mapa
+      </button>
+      <button
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:shadow"
+        onclick="openPublishGeovisorModal()" id="btnPublishGeovisor" title="Convertir proyecto actual en Geovisor público y compartir enlace">
+        <span class="material-symbols-outlined text-[16px]">public</span>
+        Geovisor
       </button>
 
       <div class="flex items-center gap-2 border-l border-zinc-200 pl-4 ml-2">
@@ -21604,6 +21924,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                     },
                     click: (e) => {
+                        if (window.__isGeovisorMode) {
+                            L.DomEvent.stopPropagation(e);
+                            if (typeof showGeovisorFeatureInfo === 'function') {
+                                showGeovisorFeatureInfo(feature, layer, e.latlng);
+                            }
+                            return;
+                        }
                         if (window._drawingEraserActive || state.drawMode === 'delete_select') {
                             L.DomEvent.stopPropagation(e);
                             removeFeatureDirectly(feature, layer);
@@ -46240,6 +46567,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (typeof renderSavedMapHistories === 'function') {
         renderSavedMapHistories();
       }
+      if (typeof renderGeovisoresGrid === 'function') {
+        renderGeovisoresGrid();
+      }
       if (typeof renderAllTemplateCanvasPreviews === 'function') {
         setTimeout(renderAllTemplateCanvasPreviews, 50);
       }
@@ -46290,6 +46620,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     <span class="text-[11px] text-white font-medium">${p.access_role === 'member' ? 'Compartido conmigo' : 'GIS Project'}</span>
                   </div>
                 </div>
+                <button onclick="event.stopPropagation(); convertProjectToGeovisor('${p.id}')" title="Convertir en Geovisor público y compartir link" class="absolute top-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600 text-white" style="background:rgba(0,0,0,0.5);right:72px;">
+                  <span class="material-symbols-outlined text-white" style="font-size:14px;">public</span>
+                </button>
                 <button onclick="event.stopPropagation(); openShareModal('${p.id}')" title="Compartir proyecto (colaboración)" class="absolute top-2 right-10 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all" style="background:rgba(0,0,0,0.4);">
                   <span class="material-symbols-outlined text-white" style="font-size:14px;">person_add</span>
                 </button>
@@ -46302,7 +46635,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <p class="text-xs mt-1 line-clamp-2" style="color:#999;">${p.description || 'Sin descripción'}</p>
                 <div class="flex items-center justify-between mt-3 pt-3" style="border-top:1px solid #f0f0eb;">
                   <span class="text-[10px]" style="color:#bbb;">${date}</span>
-                  <span class="text-[10px] font-medium" style="color:#ccc;">Abrir →</span>
+                  <div class="flex items-center gap-2">
+                    <button onclick="event.stopPropagation(); convertProjectToGeovisor('${p.id}')" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5" title="Convertir a Geovisor público">
+                      <span class="material-symbols-outlined text-[13px]">public</span> Geovisor
+                    </button>
+                    <span class="text-[10px] font-medium" style="color:#ccc;">Abrir →</span>
+                  </div>
                 </div>
               </div>
             </div>`;
@@ -47993,6 +48331,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     try { initSupabase(); } catch(e) { console.warn('[Init] Supabase init error:', e); }
     try { initAuth(); } catch(e) { console.warn('[Init] Auth init error:', e); }
     try { setTimeout(initCollabFromURL, 200); } catch(e) { console.warn('[Init] Collab init error:', e); }
+    try { setTimeout(initGeovisorFromURL, 150); } catch(e) { console.warn('[Init] Geovisor init error:', e); }
 
     // ════════════════════════════════════════
     // Model Builder (Herramientas Avanzadas)
@@ -49475,6 +49814,1023 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // Extend Leaflet Canvas renderer to support fillPattern
     // ═══════════════════════════════════════════════════════════
         // ═══════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════
+    // ZIMA GEOVISOR — Public Web GIS Viewer & Project Converter
+    // ═══════════════════════════════════════════════════════════
+
+    const GEOVISOR_STORAGE_KEY = '_zima_geovisores';
+    let _currentActiveGeovisor = null;
+    let _geovisorMeasureActive = false;
+    let _geovisorMeasurePts = [];
+    let _geovisorMeasureLayer = null;
+    let _geovisorTempLine = null;
+    let _geovisorActiveLayerInstances = [];
+
+    // Storage Management
+    function getSavedGeovisores() {
+      try {
+        const raw = localStorage.getItem(GEOVISOR_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.warn('[Geovisor] Error reading storage:', e);
+        return [];
+      }
+    }
+
+    function saveGeovisorToStorage(geovisor) {
+      const list = getSavedGeovisores();
+      const idx = list.findIndex(g => g.id === geovisor.id);
+      geovisor.updatedAt = new Date().toISOString();
+      if (!geovisor.createdAt) geovisor.createdAt = geovisor.updatedAt;
+
+      if (idx >= 0) {
+        list[idx] = geovisor;
+      } else {
+        list.unshift(geovisor);
+      }
+
+      try {
+        localStorage.setItem(GEOVISOR_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('[Geovisor] Storage full, trimming older geovisores:', e);
+        if (list.length > 5) {
+          list.pop();
+          try { localStorage.setItem(GEOVISOR_STORAGE_KEY, JSON.stringify(list)); } catch (_) {}
+        }
+      }
+      renderGeovisoresGrid();
+    }
+
+    function renderGeovisoresGrid() {
+      const list = getSavedGeovisores();
+      const grid = document.getElementById('geovisoresGrid');
+      const badge = document.getElementById('geovisoresCountBadge');
+      if (badge) badge.textContent = `${list.length} activo${list.length === 1 ? '' : 's'}`;
+
+      if (grid) {
+        if (list.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full py-8 text-center text-zinc-400 text-xs bg-white rounded-xl border border-dashed border-zinc-200">
+              <span class="material-symbols-outlined text-3xl mb-1 text-indigo-400">public</span>
+              <p class="font-medium text-zinc-700">No hay geovisores publicados aún</p>
+              <p class="text-[11px] text-zinc-400 mt-0.5">Convierte cualquiera de tus proyectos abajo o pulsa "Crear Geovisor" para generar tu primer visualizador con enlace compartible</p>
+            </div>`;
+        } else {
+          grid.innerHTML = list.map(geo => {
+            const dateStr = geo.updatedAt ? new Date(geo.updatedAt).toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric' }) : 'Reciente';
+            const layerCount = geo.layers ? geo.layers.length : 0;
+            return `
+              <div class="geovisor-card group rounded-2xl overflow-hidden border border-zinc-200 bg-white shadow-2xs flex flex-col justify-between">
+                <div>
+                  <div class="relative h-28 p-3 flex flex-col justify-between cursor-pointer overflow-hidden" 
+                       style="background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%);"
+                       onclick="openGeovisorViewer('${geo.id}')">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 backdrop-blur-sm">
+                        GEOVISOR PÚBLICO
+                      </span>
+                      <span class="text-[10px] font-bold text-white/80">${layerCount} capas</span>
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-bold text-white line-clamp-1 group-hover:text-cyan-300 transition-colors">${escHtml(geo.title || 'Geovisor')}</h4>
+                      <p class="text-[10px] text-white/60 line-clamp-1 mt-0.5">${escHtml(geo.description || 'Visualizador interactivo de mapas')}</p>
+                    </div>
+                  </div>
+                  <div class="p-3">
+                    <div class="flex items-center justify-between text-[11px] text-zinc-400 font-medium mb-3">
+                      <span>Actualizado: ${dateStr}</span>
+                      <span class="text-emerald-600 font-bold flex items-center gap-0.5">● Enlace activo</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="p-3 pt-0 border-t border-zinc-100 flex items-center justify-between gap-1">
+                  <button onclick="openGeovisorViewer('${geo.id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-[15px]">visibility</span> Abrir
+                  </button>
+                  <button onclick="copyGeovisorLinkById('${geo.id}')" class="p-1.5 rounded-xl hover:bg-zinc-100 text-zinc-700 transition-colors cursor-pointer" title="Copiar Enlace Público">
+                    <span class="material-symbols-outlined text-[17px]">share</span>
+                  </button>
+                  <button onclick="downloadCurrentGeovisorHtml('${geo.id}')" class="p-1.5 rounded-xl hover:bg-zinc-100 text-blue-600 transition-colors cursor-pointer" title="Descargar HTML Autónomo">
+                    <span class="material-symbols-outlined text-[17px]">download</span>
+                  </button>
+                  <button onclick="deleteGeovisor('${geo.id}')" class="p-1.5 rounded-xl hover:bg-red-50 text-red-500 transition-colors cursor-pointer" title="Eliminar Geovisor">
+                    <span class="material-symbols-outlined text-[17px]">delete</span>
+                  </button>
+                </div>
+              </div>`;
+          }).join('');
+        }
+      }
+    }
+
+    // Modal: Open Create/Publish Modal
+    function openCreateGeovisorModal(preselectedProjectId) {
+      const modal = document.getElementById('createGeovisorModal');
+      if (!modal) return;
+
+      const sel = document.getElementById('geovisorProjectSelect');
+      const container = document.getElementById('geovisorProjectSelectContainer');
+
+      // Populate projects
+      if (sel) {
+        sel.innerHTML = '<option value="">-- Usar capas del mapa actual en pantalla --</option>';
+        try {
+          const listEl = document.getElementById('projectsList');
+          if (listEl) {
+            const cards = listEl.querySelectorAll('.group');
+            cards.forEach(c => {
+              const h3 = c.querySelector('h3');
+              const match = c.getAttribute('onclick')?.match(/openProject\('([^']+)'\)/);
+              if (match && h3) {
+                const opt = document.createElement('option');
+                opt.value = match[1];
+                opt.textContent = h3.textContent.trim();
+                sel.appendChild(opt);
+              }
+            });
+          }
+        } catch (_) {}
+
+        if (preselectedProjectId) {
+          sel.value = preselectedProjectId;
+        }
+      }
+
+      // Default fields
+      const titleInput = document.getElementById('geovisorTitleInput');
+      const descInput = document.getElementById('geovisorDescInput');
+      
+      let initialTitle = 'Geovisor Zima ' + new Date().getFullYear();
+      let initialDesc = 'Visualizador web interactivo para análisis geoespacial y consulta de capas';
+
+      if (typeof _currentProject !== 'undefined' && _currentProject?.name) {
+        initialTitle = 'Geovisor · ' + _currentProject.name;
+        if (_currentProject.description) initialDesc = _currentProject.description;
+      }
+
+      if (titleInput) titleInput.value = initialTitle;
+      if (descInput) descInput.value = initialDesc;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeCreateGeovisorModal() {
+      const modal = document.getElementById('createGeovisorModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function onGeovisorProjectSelected(projectId) {
+      if (!projectId) return;
+      const sel = document.getElementById('geovisorProjectSelect');
+      const titleInput = document.getElementById('geovisorTitleInput');
+      const selectedText = sel.options[sel.selectedIndex]?.text;
+      if (titleInput && selectedText) {
+        titleInput.value = 'Geovisor · ' + selectedText;
+      }
+    }
+
+    // 🌐 CONVERTIR PROYECTO COMPLETO EN GEOVISOR
+    async function convertProjectToGeovisor(projectId) {
+      showProgress('Convirtiendo proyecto completo a Geovisor público...', 30);
+      try {
+        let project = null;
+        const uid = _currentUser?.id || 'guest';
+
+        // 1. Fetch project info
+        try {
+          const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(uid)}`);
+          if (res.ok) project = await res.json();
+        } catch (_) {}
+
+        if (!project && typeof _currentProject !== 'undefined' && _currentProject?.id === projectId) {
+          project = _currentProject;
+        }
+
+        // 2. Fetch project layers
+        let layers = [];
+        try {
+          const resL = await fetch(`/api/layers?project_id=${encodeURIComponent(projectId)}`);
+          if (resL.ok) layers = await resL.json();
+        } catch (_) {}
+
+        // If in current workspace and matches, take live layers
+        if ((!layers || layers.length === 0) && typeof state !== 'undefined' && state.layers && state.layers.length > 0) {
+          layers = state.layers.map(l => ({
+            id: l.id,
+            name: l.name,
+            type: l.type,
+            visible: l.visible !== false,
+            opacity: l.opacity != null ? l.opacity : 1,
+            geoJson: l.geoJson || null,
+            storageUrl: l.storageUrl || l.overviewUrl || null,
+            bounds: l.bounds ? [[l.bounds.getSouth(), l.bounds.getWest()], [l.bounds.getNorth(), l.bounds.getEast()]] : null
+          }));
+        }
+
+        // Pack layer data cleanly
+        const packagedLayers = (Array.isArray(layers) ? layers : []).map(l => {
+          let gj = l.geoJson;
+          if (!gj && l.config?.geoJson) gj = l.config.geoJson;
+          if (!gj) {
+            try { gj = JSON.parse(localStorage.getItem(`layer_backup_${l.id}`)); } catch (_) {}
+          }
+          return {
+            id: l.id || 'layer_' + Date.now(),
+            name: l.name || 'Capa',
+            type: l.type || (gj ? 'vector' : 'raster'),
+            visible: l.visible !== false,
+            opacity: l.opacity != null ? l.opacity : 1,
+            geoJson: gj || null,
+            storageUrl: l.storage_url || l.storageUrl || l.overviewUrl || null,
+            bounds: l.bounds || null
+          };
+        });
+
+        const geovisorId = 'geo_' + projectId;
+        const geovisor = {
+          id: geovisorId,
+          projectId: projectId,
+          title: (project?.name || 'Geovisor Zima') + ' (Geovisor)',
+          description: project?.description || 'Geovisor interactivo público generado desde proyecto completo',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          center: [10.46, -73.25],
+          zoom: 11,
+          basemap: 'carto_dark',
+          config: {
+            allowMeasure: true,
+            allowLayers: true,
+            allowInspect: true,
+            allowBasemap: true,
+            allowSearch: true
+          },
+          layers: packagedLayers
+        };
+
+        // If we have active Leaflet map, use current center/zoom
+        if (typeof state !== 'undefined' && state.map) {
+          const c = state.map.getCenter();
+          geovisor.center = [c.lat, c.lng];
+          geovisor.zoom = state.map.getZoom();
+        }
+
+        // Save
+        saveGeovisorToStorage(geovisor);
+        hideProgress();
+        toast('¡Proyecto convertido en Geovisor exitosamente!', 'success');
+        
+        // Open share modal immediately
+        openGeovisorShareModal(geovisor);
+      } catch (err) {
+        hideProgress();
+        console.error('[Geovisor] Error converting project:', err);
+        toast('Error al convertir proyecto: ' + err.message, 'error');
+      }
+    }
+
+    // Publish from workspace topbar button
+    function openPublishGeovisorModal() {
+      const currentPid = (typeof _currentProject !== 'undefined' && _currentProject?.id) || '';
+      openCreateGeovisorModal(currentPid);
+    }
+
+    function confirmCreateOrPublishGeovisor() {
+      const title = document.getElementById('geovisorTitleInput')?.value || 'Geovisor Zima';
+      const desc = document.getElementById('geovisorDescInput')?.value || '';
+      const basemap = document.getElementById('geovisorDefaultBasemap')?.value || 'carto_dark';
+      const allowMeasure = document.getElementById('geoOptMeasure')?.checked !== false;
+      const allowLayers = document.getElementById('geoOptLayers')?.checked !== false;
+      const allowInspect = document.getElementById('geoOptInspect')?.checked !== false;
+      const allowBasemap = document.getElementById('geoOptBasemap')?.checked !== false;
+
+      const selPid = document.getElementById('geovisorProjectSelect')?.value;
+
+      // Extract current map state and layers
+      let layers = [];
+      if (typeof state !== 'undefined' && state.layers && state.layers.length > 0) {
+        layers = state.layers.map(l => ({
+          id: l.id,
+          name: l.name,
+          type: l.type,
+          visible: l.visible !== false,
+          opacity: l.opacity != null ? l.opacity : 1,
+          geoJson: l.geoJson || null,
+          storageUrl: l.storageUrl || l.overviewUrl || null,
+          bounds: l.bounds ? [[l.bounds.getSouth(), l.bounds.getWest()], [l.bounds.getNorth(), l.bounds.getEast()]] : null
+        }));
+      }
+
+      const geovisorId = 'geo_' + (selPid || Date.now());
+      let center = [10.46, -73.25];
+      let zoom = 10;
+      if (typeof state !== 'undefined' && state.map) {
+        const c = state.map.getCenter();
+        center = [c.lat, c.lng];
+        zoom = state.map.getZoom();
+      }
+
+      const geovisor = {
+        id: geovisorId,
+        projectId: selPid || ((typeof _currentProject !== 'undefined' && _currentProject) ? _currentProject.id : null),
+        title: title,
+        description: desc,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        center: center,
+        zoom: zoom,
+        basemap: basemap,
+        config: {
+          allowMeasure,
+          allowLayers,
+          allowInspect,
+          allowBasemap
+        },
+        layers: layers
+      };
+
+      saveGeovisorToStorage(geovisor);
+      closeCreateGeovisorModal();
+      openGeovisorShareModal(geovisor);
+      toast('¡Geovisor publicado y listo para compartir!', 'success');
+    }
+
+    // Share Modal
+    function openGeovisorShareModal(geovisor) {
+      _currentActiveGeovisor = geovisor;
+      const modal = document.getElementById('geovisorShareResultModal');
+      if (!modal) return;
+
+      const shareUrl = `${location.origin}/index.html?geovisor=${encodeURIComponent(geovisor.id)}`;
+      const urlInput = document.getElementById('geovisorShareUrlInput');
+      if (urlInput) urlInput.value = shareUrl;
+
+      const notice = document.getElementById('geovisorLinkCopiedNotice');
+      if (notice) notice.classList.add('hidden');
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeGeovisorShareResultModal() {
+      const modal = document.getElementById('geovisorShareResultModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function copyGeovisorShareLink() {
+      const urlInput = document.getElementById('geovisorShareUrlInput');
+      if (!urlInput) return;
+      const link = urlInput.value;
+
+      try {
+        navigator.clipboard.writeText(link).then(() => {
+          showCopySuccess();
+        }).catch(() => {
+          fallbackCopyText(link);
+        });
+      } catch (_) {
+        fallbackCopyText(link);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      try {
+        const temp = document.createElement('textarea');
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showCopySuccess();
+      } catch (e) {
+        prompt('Copia el enlace del geovisor:', text);
+      }
+    }
+
+    function showCopySuccess() {
+      const notice = document.getElementById('geovisorLinkCopiedNotice');
+      if (notice) notice.classList.remove('hidden');
+      const btn = document.getElementById('btnCopyGeovisorLink');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[15px]">check</span> Copiado';
+        btn.classList.add('bg-emerald-600');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.remove('bg-emerald-600');
+        }, 2500);
+      }
+      toast('¡Enlace del Geovisor copiado al portapapeles!', 'success');
+    }
+
+    function copyGeovisorLinkById(id) {
+      const list = getSavedGeovisores();
+      const geo = list.find(g => g.id === id);
+      if (!geo) return;
+      openGeovisorShareModal(geo);
+      copyGeovisorShareLink();
+    }
+
+    function openCurrentGeovisorInNewTab() {
+      const urlInput = document.getElementById('geovisorShareUrlInput');
+      if (!urlInput || !urlInput.value) return;
+      window.open(urlInput.value, '_blank');
+    }
+
+    function copyGeovisorEmbedCode() {
+      const urlInput = document.getElementById('geovisorShareUrlInput');
+      if (!urlInput || !urlInput.value) return;
+      const embedCode = `<iframe src="${urlInput.value}&embed=true" width="100%" height="600" frameborder="0" style="border:0;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.15);" allowfullscreen></iframe>`;
+      try {
+        navigator.clipboard.writeText(embedCode).then(() => {
+          toast('Código iFrame copiado al portapapeles', 'success');
+        }).catch(() => {
+          prompt('Copia el código iFrame:', embedCode);
+        });
+      } catch (_) {
+        prompt('Copia el código iFrame:', embedCode);
+      }
+    }
+
+    function openCurrentGeovisorShareModal() {
+      if (_currentActiveGeovisor) {
+        openGeovisorShareModal(_currentActiveGeovisor);
+      } else {
+        toast('No hay geovisor activo para compartir', 'info');
+      }
+    }
+
+    function deleteGeovisor(id) {
+      if (!confirm('¿Deseas eliminar este Geovisor? El enlace dejará de estar disponible.')) return;
+      let list = getSavedGeovisores();
+      list = list.filter(g => g.id !== id);
+      try { localStorage.setItem(GEOVISOR_STORAGE_KEY, JSON.stringify(list)); } catch (_) {}
+      renderGeovisoresGrid();
+      toast('Geovisor eliminado', 'info');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Geovisor Viewer Runtime (Full Web Map Experience)
+    // ═══════════════════════════════════════════════════════════
+
+    async function openGeovisorViewer(id, directData) {
+      let geo = directData;
+      if (!geo) {
+        const list = getSavedGeovisores();
+        geo = list.find(g => g.id === id);
+      }
+
+      // If not in localStorage, try fetching as project
+      if (!geo) {
+        showProgress('Cargando Geovisor desde la nube...', 30);
+        try {
+          const rawId = id.replace(/^geo_/, '');
+          const res = await fetch(`/api/projects?id=${encodeURIComponent(rawId)}&user_id=guest`);
+          if (res.ok) {
+            const proj = await res.json();
+            const resL = await fetch(`/api/layers?project_id=${encodeURIComponent(rawId)}`);
+            const layers = resL.ok ? await resL.json() : [];
+            geo = {
+              id: id,
+              title: proj.name || 'Geovisor Zima',
+              description: proj.description || '',
+              center: [10.46, -73.25],
+              zoom: 11,
+              basemap: 'carto_dark',
+              layers: layers
+            };
+          }
+        } catch (_) {}
+        hideProgress();
+      }
+
+      if (!geo) {
+        // Fallback default geovisor
+        geo = {
+          id: id || 'geo_default',
+          title: 'Geovisor Público Zima',
+          description: 'Exploración geoespacial en tiempo real',
+          center: [10.46, -73.25],
+          zoom: 11,
+          basemap: 'carto_dark',
+          layers: (typeof state !== 'undefined' && state.layers) ? state.layers : []
+        };
+      }
+
+      _currentActiveGeovisor = geo;
+      window.__isGeovisorMode = true;
+
+      // Activate UI mode
+      document.body.classList.add('geovisor-mode');
+      document.getElementById('landingPage')?.classList.add('hidden');
+      document.getElementById('loginDashboard')?.classList.add('hidden');
+      document.getElementById('projectDashboard')?.classList.add('hidden');
+      document.getElementById('workspace')?.classList.remove('hidden');
+
+      // Title & Badge
+      const titleEl = document.getElementById('geovisorDisplayTitle');
+      if (titleEl) titleEl.textContent = geo.title || 'Geovisor Público';
+
+      const badgeEl = document.getElementById('geovisorLayerBadge');
+      if (badgeEl) badgeEl.textContent = `${geo.layers?.length || 0} capas`;
+
+      // Set map view
+      if (typeof state !== 'undefined' && state.map) {
+        state.map.invalidateSize();
+        if (geo.center && geo.zoom) {
+          state.map.setView(geo.center, geo.zoom);
+        }
+        setGeovisorBasemap(geo.basemap || 'carto_dark');
+
+        // Restore layers into map
+        if (geo.layers && geo.layers.length > 0) {
+          restoreGeovisorLayers(geo.layers);
+        }
+
+        setTimeout(() => state.map.invalidateSize(), 300);
+      }
+
+      renderGeovisorLayersList();
+      toast('Geovisor cargado con éxito', 'info');
+    }
+
+    function restoreGeovisorLayers(layersList) {
+      _geovisorActiveLayerInstances = [];
+      const boundsArr = [];
+
+      layersList.forEach(l => {
+        if (l.geoJson) {
+          try {
+            const geoJsonLayer = L.geoJSON(l.geoJson, {
+              style: (feat) => {
+                const color = feat.properties?.color || '#38bdf8';
+                return {
+                  color: color,
+                  fillColor: color,
+                  weight: 2.5,
+                  opacity: 0.9,
+                  fillOpacity: 0.25
+                };
+              },
+              pointToLayer: (feat, latlng) => {
+                const color = feat.properties?.color || '#38bdf8';
+                return L.circleMarker(latlng, {
+                  radius: 6,
+                  color: '#ffffff',
+                  weight: 1.5,
+                  fillColor: color,
+                  fillOpacity: 0.95
+                });
+              },
+              onEachFeature: (feat, layerInst) => {
+                layerInst.on('click', (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  showGeovisorFeatureInfo(feat, l, e.latlng);
+                });
+              }
+            });
+
+            if (l.visible !== false) {
+              geoJsonLayer.addTo(state.map);
+              try { boundsArr.push(geoJsonLayer.getBounds()); } catch(_) {}
+            }
+
+            _geovisorActiveLayerInstances.push({ config: l, instance: geoJsonLayer });
+          } catch (err) {
+            console.warn('[Geovisor] Error adding layer:', l.name, err);
+          }
+        }
+      });
+
+      // Fit bounds if available
+      if (boundsArr.length > 0 && typeof state !== 'undefined' && state.map) {
+        try {
+          const groupBounds = boundsArr.reduce((acc, b) => acc.extend(b), L.latLngBounds(boundsArr[0]));
+          if (groupBounds.isValid()) {
+            state.map.fitBounds(groupBounds, { padding: [50, 50], maxZoom: 16 });
+          }
+        } catch (_) {}
+      }
+    }
+
+    function toggleGeovisorLayersDrawer() {
+      const drawer = document.getElementById('geovisorLayersDrawer');
+      if (drawer) drawer.classList.toggle('hidden');
+    }
+
+    function renderGeovisorLayersList() {
+      const listEl = document.getElementById('geovisorLayersList');
+      if (!listEl) return;
+
+      const layers = _currentActiveGeovisor?.layers || [];
+      if (layers.length === 0) {
+        listEl.innerHTML = '<div class="text-zinc-500 text-center py-4">No hay capas en este Geovisor</div>';
+        return;
+      }
+
+      listEl.innerHTML = layers.map((l, i) => {
+        // Collect class swatches for legend
+        const classSwatches = [];
+        if (l.geoJson && l.geoJson.features) {
+          const seen = new Set();
+          l.geoJson.features.forEach(f => {
+            const cls = f.properties?.clase || f.properties?.class || f.properties?.CLASE || 'Clase';
+            const col = f.properties?.color || '#38bdf8';
+            if (!seen.has(cls + col)) {
+              seen.add(cls + col);
+              classSwatches.push({ name: cls, color: col });
+            }
+          });
+        }
+
+        return `
+          <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label class="flex items-center gap-2 cursor-pointer min-w-0 flex-1">
+                <input type="checkbox" ${l.visible !== false ? 'checked' : ''} onchange="toggleGeovisorLayerVisible(${i}, this.checked)" class="accent-indigo-500 rounded">
+                <span class="text-xs font-bold text-white truncate">${escHtml(l.name)}</span>
+              </label>
+              <button onclick="zoomToGeovisorLayer(${i})" class="text-zinc-400 hover:text-white" title="Enfocar capa">
+                <span class="material-symbols-outlined text-[15px]">zoom_in</span>
+              </button>
+            </div>
+            
+            ${classSwatches.length > 0 ? `
+              <div class="pt-1.5 border-t border-white/5 space-y-1">
+                <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Leyenda:</span>
+                <div class="flex flex-wrap gap-1.5">
+                  ${classSwatches.slice(0, 8).map(sw => `
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-black/40 text-zinc-300 border border-white/10">
+                      <span class="w-2.5 h-2.5 rounded-full" style="background:${sw.color};"></span>
+                      ${escHtml(sw.name)}
+                    </span>`).join('')}
+                </div>
+              </div>` : ''}
+
+            <!-- Opacity slider -->
+            <div class="flex items-center gap-2 pt-1">
+              <span class="text-[9px] text-zinc-400">Opacidad</span>
+              <input type="range" min="0" max="1" step="0.05" value="${l.opacity != null ? l.opacity : 1}" onchange="setGeovisorLayerOpacity(${i}, this.value)" class="flex-1 accent-indigo-500 h-1">
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function toggleGeovisorLayerVisible(idx, isVisible) {
+      const item = _geovisorActiveLayerInstances[idx];
+      if (!item || !item.instance) return;
+      if (isVisible) {
+        item.instance.addTo(state.map);
+      } else {
+        state.map.removeLayer(item.instance);
+      }
+      if (_currentActiveGeovisor?.layers[idx]) {
+        _currentActiveGeovisor.layers[idx].visible = isVisible;
+      }
+    }
+
+    function setGeovisorLayerOpacity(idx, opacity) {
+      const item = _geovisorActiveLayerInstances[idx];
+      if (!item || !item.instance) return;
+      const op = parseFloat(opacity);
+      if (item.instance.setStyle) {
+        item.instance.setStyle({ fillOpacity: op * 0.35, opacity: op });
+      }
+    }
+
+    function zoomToGeovisorLayer(idx) {
+      const item = _geovisorActiveLayerInstances[idx];
+      if (!item || !item.instance) return;
+      try {
+        const b = item.instance.getBounds();
+        if (b && b.isValid()) state.map.fitBounds(b, { padding: [50, 50], maxZoom: 16 });
+      } catch (_) {}
+    }
+
+    // Feature Click Inspector Card
+    function showGeovisorFeatureInfo(feature, layerInfo, latlng) {
+      const card = document.getElementById('geovisorInfoCard');
+      const title = document.getElementById('geovisorInfoTitle');
+      const body = document.getElementById('geovisorInfoBody');
+      if (!card || !title || !body) return;
+
+      const props = feature.properties || {};
+      const layerName = layerInfo?.name || 'Elemento Espacial';
+      title.textContent = layerName;
+
+      let geomInfo = '';
+      try {
+        if (typeof turf !== 'undefined') {
+          if (feature.geometry.type.includes('Polygon')) {
+            const areaM2 = turf.area(feature);
+            const areaHa = (areaM2 / 10000).toFixed(2);
+            geomInfo = `<div class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold mb-2 flex items-center justify-between">
+              <span>Área Calculada:</span> <span>${areaHa} ha (${Math.round(areaM2).toLocaleString()} m²)</span>
+            </div>`;
+          } else if (feature.geometry.type.includes('Line')) {
+            const lenKm = turf.length(feature, { units: 'kilometers' }).toFixed(2);
+            geomInfo = `<div class="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 font-bold mb-2 flex items-center justify-between">
+              <span>Longitud:</span> <span>${lenKm} km</span>
+            </div>`;
+          }
+        }
+      } catch (_) {}
+
+      const rows = Object.entries(props).map(([k, v]) => {
+        const displayVal = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        return `
+          <div class="flex items-center justify-between py-1 border-b border-white/5 text-[11px]">
+            <span class="text-zinc-400 font-medium">${escHtml(k)}</span>
+            <span class="font-bold text-white max-w-[60%] truncate text-right">${escHtml(displayVal)}</span>
+          </div>`;
+      }).join('');
+
+      body.innerHTML = geomInfo + (rows || '<div class="text-zinc-500 italic py-2">Sin atributos adicionales</div>');
+      card.classList.remove('hidden');
+    }
+
+    function closeGeovisorInfoCard() {
+      const card = document.getElementById('geovisorInfoCard');
+      if (card) card.classList.add('hidden');
+    }
+
+    // Geovisor Measurement Tool
+    function toggleGeovisorMeasure() {
+      _geovisorMeasureActive = !_geovisorMeasureActive;
+      const btn = document.getElementById('btnGeoMeasure');
+      const hud = document.getElementById('geovisorMeasureHUD');
+
+      if (!_geovisorMeasureLayer && typeof state !== 'undefined' && state.map) {
+        _geovisorMeasureLayer = L.layerGroup().addTo(state.map);
+      }
+
+      if (_geovisorMeasureActive) {
+        if (btn) btn.classList.add('bg-amber-500', 'text-zinc-950');
+        if (hud) hud.classList.remove('hidden');
+        _geovisorMeasurePts = [];
+        if (_geovisorMeasureLayer) _geovisorMeasureLayer.clearLayers();
+        state.map.on('click', onGeovisorMeasureClick);
+        state.map.on('mousemove', onGeovisorMeasureMove);
+        toast('Modo Medición activo: Haz clic en el mapa para añadir vértices', 'info');
+      } else {
+        if (btn) btn.classList.remove('bg-amber-500', 'text-zinc-950');
+        if (hud) hud.classList.add('hidden');
+        state.map.off('click', onGeovisorMeasureClick);
+        state.map.off('mousemove', onGeovisorMeasureMove);
+        if (_geovisorMeasureLayer) _geovisorMeasureLayer.clearLayers();
+      }
+    }
+
+    function clearGeovisorMeasure() {
+      _geovisorMeasurePts = [];
+      if (_geovisorMeasureLayer) _geovisorMeasureLayer.clearLayers();
+      const out = document.getElementById('geovisorMeasureOutput');
+      if (out) out.textContent = 'Haz clic en el mapa para medir';
+    }
+
+    function onGeovisorMeasureClick(e) {
+      const pt = [e.latlng.lng, e.latlng.lat];
+      _geovisorMeasurePts.push(pt);
+      L.circleMarker(e.latlng, { radius: 4, color: '#f59e0b', fillColor: '#ffffff', fillOpacity: 1 }).addTo(_geovisorMeasureLayer);
+
+      if (_geovisorMeasurePts.length > 1) {
+        renderGeovisorMeasureResult();
+      }
+    }
+
+    function onGeovisorMeasureMove(e) {
+      if (_geovisorMeasurePts.length === 0) return;
+      if (_geovisorTempLine && _geovisorMeasureLayer) _geovisorMeasureLayer.removeLayer(_geovisorTempLine);
+      const last = _geovisorMeasurePts[_geovisorMeasurePts.length - 1];
+      _geovisorTempLine = L.polyline([[last[1], last[0]], e.latlng], { color: '#f59e0b', dashArray: '5,5', weight: 2 }).addTo(_geovisorMeasureLayer);
+    }
+
+    function renderGeovisorMeasureResult() {
+      if (_geovisorMeasurePts.length < 2) return;
+      const out = document.getElementById('geovisorMeasureOutput');
+
+      try {
+        const line = turf.lineString(_geovisorMeasurePts);
+        const distKm = turf.length(line, { units: 'kilometers' });
+        const distStr = distKm > 1 ? `${distKm.toFixed(2)} km` : `${Math.round(distKm * 1000)} m`;
+
+        if (_geovisorMeasurePts.length >= 3) {
+          const closed = [..._geovisorMeasurePts, _geovisorMeasurePts[0]];
+          const poly = turf.polygon([closed]);
+          const areaM2 = turf.area(poly);
+          const areaHa = (areaM2 / 10000).toFixed(2);
+          if (out) out.textContent = `Distancia: ${distStr} · Área: ${areaHa} ha`;
+        } else {
+          if (out) out.textContent = `Distancia: ${distStr}`;
+        }
+
+        L.polyline(_geovisorMeasurePts.map(p => [p[1], p[0]]), { color: '#f59e0b', weight: 4 }).addTo(_geovisorMeasureLayer);
+      } catch (_) {}
+    }
+
+    // Basemaps
+    function toggleGeovisorBasemapMenu() {
+      const menu = document.getElementById('geovisorBasemapDropdown');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    function setGeovisorBasemap(type) {
+      if (typeof state === 'undefined' || !state.map) return;
+      if (state.baseLayer) state.map.removeLayer(state.baseLayer);
+
+      let url, attr;
+      if (type === 'esri_sat') {
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        attr = 'Esri World Imagery';
+      } else if (type === 'osm') {
+        url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        attr = 'OpenStreetMap';
+      } else if (type === 'topo') {
+        url = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
+        attr = 'OpenTopoMap';
+      } else {
+        // carto_dark
+        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        attr = 'CartoDB Dark Matter';
+      }
+
+      state.baseLayer = L.tileLayer(url, { maxZoom: 19, attribution: attr }).addTo(state.map);
+      state.baseLayer.bringToBack();
+      toggleGeovisorBasemapMenu();
+    }
+
+    function resetGeovisorExtent() {
+      if (_currentActiveGeovisor && typeof state !== 'undefined' && state.map) {
+        state.map.setView(_currentActiveGeovisor.center || [10.46, -73.25], _currentActiveGeovisor.zoom || 11);
+      }
+    }
+
+    function toggleGeovisorFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function exitGeovisorMode() {
+      window.__isGeovisorMode = false;
+      document.body.classList.remove('geovisor-mode');
+      document.getElementById('geovisorTopBar')?.classList.add('hidden');
+      document.getElementById('geovisorLayersDrawer')?.classList.add('hidden');
+      document.getElementById('geovisorInfoCard')?.classList.add('hidden');
+      document.getElementById('geovisorMeasureHUD')?.classList.add('hidden');
+
+      // Return to projects dashboard
+      if (typeof backToProjects === 'function') {
+        backToProjects();
+      } else {
+        document.getElementById('workspace')?.classList.add('hidden');
+        document.getElementById('projectDashboard')?.classList.remove('hidden');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Standalone Offline HTML Geovisor Generator
+    // ═══════════════════════════════════════════════════════════
+
+    function generateStandaloneGeovisorHtml(geovisor) {
+      const geo = geovisor || _currentActiveGeovisor;
+      const title = geo?.title || 'Geovisor Zima';
+      const desc = geo?.description || '';
+      const center = geo?.center || [10.46, -73.25];
+      const zoom = geo?.zoom || 11;
+      const layersJson = JSON.stringify(geo?.layers || []);
+
+      return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escHtml(title)}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"><\/script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter', sans-serif; height:100vh; overflow:hidden; background:#0f172a; color:#fff; }
+    #map { width:100%; height:100%; }
+    .topbar { position:fixed; top:0; left:0; right:0; z-index:1000; padding:12px 20px; background:rgba(15,23,42,0.92); backdrop-filter:blur(10px); border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:space-between; }
+    .card { position:fixed; bottom:20px; left:20px; z-index:1000; background:rgba(15,23,42,0.95); border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:16px; max-width:360px; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <div style="font-size:14px;font-weight:800;color:#fff;">${escHtml(title)}</div>
+      <div style="font-size:10px;color:#94a3b8;">${escHtml(desc)}</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:#312e81;color:#c7d2fe;">Zima Geovisor</div>
+  </div>
+  <div id="map"></div>
+  <div id="infoCard" class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <b id="cardTitle" style="font-size:12px;color:#38bdf8;">Elemento</b>
+      <button onclick="document.getElementById('infoCard').style.display='none'" style="background:none;border:none;color:#94a3b8;cursor:pointer;">✕</button>
+    </div>
+    <div id="cardContent" style="font-size:11px;line-height:1.6;max-height:200px;overflow-y:auto;"></div>
+  </div>
+  <script>
+    const map = L.map('map', { preferCanvas:true }).setView([${center[0]}, ${center[1]}], ${zoom});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+
+    const layersData = ${layersJson};
+    layersData.forEach(l => {
+      if (l.geoJson) {
+        L.geoJSON(l.geoJson, {
+          style: (f) => ({ color: f.properties?.color || '#38bdf8', weight: 2.5, fillOpacity: 0.25 }),
+          pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius:6, color:'#fff', weight:1.5, fillColor: f.properties?.color || '#38bdf8', fillOpacity:0.9 }),
+          onEachFeature: (f, layerInst) => {
+            layerInst.on('click', (e) => {
+              document.getElementById('cardTitle').textContent = l.name || 'Detalle';
+              let html = '';
+              for (const [k, v] of Object.entries(f.properties || {})) {
+                html += '<div><span style="color:#94a3b8;">' + k + ':</span> <b>' + v + '</b></div>';
+              }
+              document.getElementById('cardContent').innerHTML = html;
+              document.getElementById('infoCard').style.display = 'block';
+            });
+          }
+        }).addTo(map);
+      }
+    });
+  <\/script>
+</body>
+</html>`;
+    }
+
+    function downloadCurrentGeovisorHtml(id) {
+      let geo = _currentActiveGeovisor;
+      if (id) {
+        const list = getSavedGeovisores();
+        const found = list.find(g => g.id === id);
+        if (found) geo = found;
+      }
+      if (!geo) {
+        toast('Selecciona un geovisor para descargar', 'warning');
+        return;
+      }
+
+      const html = generateStandaloneGeovisorHtml(geo);
+      const title = (geo.title || 'geovisor').toLowerCase().replace(/[^a-z0-9_-]/g, '_').substring(0, 40);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${title}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Geovisor descargado en HTML autónomo', 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Geovisor URL Initializer
+    // ═══════════════════════════════════════════════════════════
+
+    // Global window bindings for Geovisor functions
+    window.openCreateGeovisorModal = openCreateGeovisorModal;
+    window.closeCreateGeovisorModal = closeCreateGeovisorModal;
+    window.confirmCreateOrPublishGeovisor = confirmCreateOrPublishGeovisor;
+    window.submitCreateGeovisor = confirmCreateOrPublishGeovisor;
+    window.convertProjectToGeovisor = convertProjectToGeovisor;
+    window.openPublishGeovisorModal = openPublishGeovisorModal;
+    window.openGeovisorViewer = openGeovisorViewer;
+    window.exitGeovisorMode = exitGeovisorMode;
+    window.copyGeovisorLink = copyGeovisorLinkById;
+    window.copyGeovisorLinkById = copyGeovisorLinkById;
+    window.copyGeovisorShareLink = copyGeovisorShareLink;
+    window.copyGeovisorEmbedCode = copyGeovisorEmbedCode;
+    window.downloadCurrentGeovisorHtml = downloadCurrentGeovisorHtml;
+    window.deleteGeovisor = deleteGeovisor;
+    window.toggleGeovisorLayersDrawer = toggleGeovisorLayersDrawer;
+    window.toggleGeovisorMeasure = toggleGeovisorMeasure;
+    window.clearGeovisorMeasure = clearGeovisorMeasure;
+    window.setGeovisorBasemap = setGeovisorBasemap;
+    window.toggleGeovisorBasemapMenu = toggleGeovisorBasemapMenu;
+    window.resetGeovisorExtent = resetGeovisorExtent;
+    window.toggleGeovisorFullscreen = toggleGeovisorFullscreen;
+    window.closeGeovisorInfoCard = closeGeovisorInfoCard;
+    window.showGeovisorFeatureInfo = showGeovisorFeatureInfo;
+    window.renderGeovisoresGrid = renderGeovisoresGrid;
+
+    function initGeovisorFromURL() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const geoId = params.get('geovisor') || params.get('viewer') || window.__geovisorId || sessionStorage.getItem('_pendingGeovisor');
+        if (geoId) {
+          console.log('[Geovisor] URL detection activated for:', geoId);
+          openGeovisorViewer(geoId);
+        }
+      } catch (e) {
+        console.warn('[Geovisor] Error initializing from URL:', e);
+      }
+    }
+
     // Map History Designer — Enhanced Multi-Format Story Builder
     // ═══════════════════════════════════════════════════════════
 
