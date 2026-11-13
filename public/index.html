@@ -580,19 +580,52 @@
     .mh-nav-chip.active { background:#1a1c1f; color:#fff; font-weight:600; }
 
     /* ═══ GEOVISOR MODE STYLES ═══ */
-    body.geovisor-mode #leftToolbar,
-    body.geovisor-mode #layerPanel,
+    body.geovisor-mode aside,
+    body.geovisor-mode header,
+    body.geovisor-mode .fixed.right-6.top-24,
+    body.geovisor-mode .fixed.bottom-10,
+    body.geovisor-mode .fixed.left-72,
+    body.geovisor-mode #aiCopilotPanel,
+    body.geovisor-mode #attributeTablePanel,
+    body.geovisor-mode #pointDrawHUD,
+    body.geovisor-mode #polygonDrawHUD,
     body.geovisor-mode #modifyDeleteHUD,
     body.geovisor-mode #drawingEraserHUD,
-    body.geovisor-mode #toolbar-draw-group,
     body.geovisor-mode #pixelInspectorCard,
-    body.geovisor-mode header.fixed.top-0,
+    body.geovisor-mode #basemapGallery,
+    body.geovisor-mode #timeSliderPanel,
+    body.geovisor-mode #supervisedMapDock,
+    body.geovisor-mode #symbologyPanel,
+    body.geovisor-mode #floatingVectorStylePanel,
     body.geovisor-mode #layoutPaper,
     body.geovisor-mode #layoutToolsPanel {
       display: none !important;
     }
     body.geovisor-mode #geovisorTopBar {
       display: flex !important;
+      z-index: 10001 !important;
+    }
+    body.geovisor-mode #geovisorLayersDrawer,
+    body.geovisor-mode #geovisorInfoCard,
+    body.geovisor-mode #geovisorMeasureHUD {
+      z-index: 10002 !important;
+    }
+    body.geovisor-mode #workspace {
+      display: block !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 10000 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    body.geovisor-mode #map {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1 !important;
     }
     .geovisor-card {
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -50272,15 +50305,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ═══════════════════════════════════════════════════════════
 
     async function openGeovisorViewer(id, directData) {
+      window.__isGeovisorMode = true;
+      document.body.classList.add('geovisor-mode');
+      document.getElementById('landingPage')?.classList.add('hidden');
+      document.getElementById('loginDashboard')?.classList.add('hidden');
+      document.getElementById('projectDashboard')?.classList.add('hidden');
+      const wsEl = document.getElementById('workspace');
+      if (wsEl) wsEl.classList.remove('hidden');
+
+      const topBar = document.getElementById('geovisorTopBar');
+      if (topBar) {
+        topBar.classList.remove('hidden');
+        topBar.style.display = 'flex';
+      }
+
       let geo = directData;
       if (!geo) {
         const list = getSavedGeovisores();
         geo = list.find(g => g.id === id);
       }
 
-      // If not in localStorage, try fetching as project
+      // Check if ID matches a local project in storage
       if (!geo) {
-        showProgress('Cargando Geovisor desde la nube...', 30);
+        try {
+          const rawId = (id || '').replace(/^geo_/, '');
+          const projs = JSON.parse(localStorage.getItem('_zima_projects') || '[]');
+          const pMatch = projs.find(p => p.id === rawId || p.id === id);
+          if (pMatch) {
+            geo = {
+              id: id || `geo_${pMatch.id}`,
+              title: pMatch.name || 'Geovisor Zima',
+              description: pMatch.desc || pMatch.description || 'Proyecto exportado como Geovisor',
+              center: [10.46, -73.25],
+              zoom: 11,
+              basemap: 'carto_dark',
+              layers: pMatch.layers || []
+            };
+          }
+        } catch (_) {}
+      }
+
+      // If not in localStorage, try fetching as project
+      if (!geo && id && !id.startsWith('geo_default')) {
         try {
           const rawId = id.replace(/^geo_/, '');
           const res = await fetch(`/api/projects?id=${encodeURIComponent(rawId)}&user_id=guest`);
@@ -50299,7 +50365,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             };
           }
         } catch (_) {}
-        hideProgress();
       }
 
       if (!geo) {
@@ -50311,19 +50376,31 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           center: [10.46, -73.25],
           zoom: 11,
           basemap: 'carto_dark',
-          layers: (typeof state !== 'undefined' && state.layers) ? state.layers : []
+          layers: (typeof state !== 'undefined' && state.layers && state.layers.length > 0) ? state.layers : [
+            {
+              name: 'Zona_Estudio_Delimitacion.geojson',
+              type: 'vector',
+              color: '#38bdf8',
+              visible: true,
+              data: {
+                type: 'FeatureCollection',
+                features: [
+                  {
+                    type: 'Feature',
+                    properties: { CODIGO: 'SECT-01', NOMBRE: 'Sector Centro', AREA_HA: 45.2, ESTADO: 'Activo' },
+                    geometry: {
+                      type: 'Polygon',
+                      coordinates: [[[-73.26, 10.45], [-73.24, 10.45], [-73.24, 10.47], [-73.26, 10.47], [-73.26, 10.45]]]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         };
       }
 
       _currentActiveGeovisor = geo;
-      window.__isGeovisorMode = true;
-
-      // Activate UI mode
-      document.body.classList.add('geovisor-mode');
-      document.getElementById('landingPage')?.classList.add('hidden');
-      document.getElementById('loginDashboard')?.classList.add('hidden');
-      document.getElementById('projectDashboard')?.classList.add('hidden');
-      document.getElementById('workspace')?.classList.remove('hidden');
 
       // Title & Badge
       const titleEl = document.getElementById('geovisorDisplayTitle');
