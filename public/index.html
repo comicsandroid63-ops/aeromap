@@ -573,6 +573,84 @@
     .mh-nav-chip:hover { background:#f0f0eb; color:#555; }
     .mh-nav-chip.active { background:#1a1c1f; color:#fff; font-weight:600; }
 
+    /* Map History Enhancements */
+    .mh-compare-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      user-select: none;
+      touch-action: none;
+      background: #000;
+    }
+    .mh-compare-container img {
+      pointer-events: none;
+      user-select: none;
+    }
+    .mh-compare-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #ffffff;
+      box-shadow: 0 0 12px rgba(0,0,0,0.5);
+      cursor: ew-resize;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateX(-50%);
+    }
+    .mh-compare-handle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #1a1c1f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .mh-metric-card {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 16px;
+      transition: all 0.25s ease;
+    }
+    .mh-metric-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.28);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #mhPrintContainer, #mhPrintContainer * {
+        visibility: visible !important;
+      }
+      #mhPrintContainer {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #fff !important;
+        display: block !important;
+      }
+      .mh-print-page {
+        page-break-after: always;
+        break-after: page;
+        min-height: 100vh;
+        padding: 40px !important;
+        box-sizing: border-box;
+      }
+    }
+
     .template-thumb { position:relative; z-index:1; }
     .template-badge {
       position:absolute; top:10px; right:10px;
@@ -2144,12 +2222,36 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Map History</h2>
-            <p class="text-xs sm:text-sm" style="color:#666;">Diseña historias visuales para tus mapas con estilos minimalistas</p>
+            <p class="text-xs sm:text-sm" style="color:#666;">Diseña historias visuales para tus mapas con estilos minimalistas, métricas interactivas y comparadores temporales</p>
           </div>
-          <button onclick="openMapHistoryDesigner()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
-            <span class="material-symbols-outlined text-[17px]">auto_stories</span>
-            Crear Historia
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="openMapHistoryDesigner()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:opacity-90 shadow-sm" style="background:#1a1c1f;color:#fff;">
+              <span class="material-symbols-outlined text-[17px]">auto_stories</span>
+              Crear Historia
+            </button>
+          </div>
+        </div>
+
+        <!-- MIS HISTORIAS GUARDADAS (DINÁMICO) -->
+        <div id="mySavedStoriesSection" class="mb-6 p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px] text-zinc-700">bookmark</span>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700">Mis Historias Guardadas</h3>
+              <span id="savedStoriesCount" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-700">0</span>
+            </div>
+            <button onclick="openMapHistoryDesigner()" class="text-xs font-semibold text-zinc-600 hover:text-black flex items-center gap-1 transition-colors">
+              <span class="material-symbols-outlined text-[14px]">add</span> Nueva Historia
+            </button>
+          </div>
+          <div id="mySavedStoriesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Dynamically populated by renderSavedMapHistories() -->
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Plantillas y Estilos Rápidos</h3>
+          <span class="text-[11px] text-zinc-400">8 temas visuales prediseñados</span>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="mapHistoryGrid">
           <div onclick="openMapHistoryDesigner('oscuro')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
@@ -2337,21 +2439,54 @@
   <!-- ═══ MAP HISTORY DESIGNER MODAL ═══ -->
   <div id="mapHistoryModal" class="hidden fixed inset-0 z-[9999] flex flex-col" style="background:#fff;">
     <!-- Header -->
-    <div class="flex items-center justify-between px-8 py-4 border-b shrink-0" style="border-color:#e8e8e0;background:#fff;">
-      <div class="flex items-center gap-3">
-        <button onclick="closeMapHistoryDesigner()" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 transition-colors">
+    <div class="flex items-center justify-between px-5 py-3 border-b shrink-0 bg-white" style="border-color:#e8e8e0;">
+      <div class="flex items-center gap-3 min-w-0">
+        <button onclick="closeMapHistoryDesigner()" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-100 transition-colors" title="Cerrar diseñador">
           <span class="material-symbols-outlined text-[20px]" style="color:#666;">close</span>
         </button>
-        <span class="material-symbols-outlined" style="color:#1a1c1f;">auto_stories</span>
-        <h3 class="text-lg font-bold" style="color:#1a1c1f;">Diseñador Map History</h3>
+        <span class="material-symbols-outlined text-amber-500 text-[24px]">auto_stories</span>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-2">
+            <input id="mhStoryTitleInput" type="text" value="Map History" oninput="updateMHTitle(this.value)" placeholder="Título de la historia..."
+              class="text-sm font-bold bg-transparent border-b border-transparent hover:border-zinc-300 focus:border-zinc-800 outline-none px-1 py-0.5 max-w-[180px] sm:max-w-xs transition-colors truncate" title="Clic para renombrar historia">
+            <span id="mhThemeBadge" class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200">Nocturno</span>
+          </div>
+          <span class="text-[10px] text-zinc-400 font-medium">Diseñador interactivo de historias visuales</span>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <!-- New Story -->
+        <button onclick="newMapHistory()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-zinc-100 transition-colors" style="color:#1a1c1f;border:1px solid #e8e8e0;" title="Comenzar una nueva historia">
+          <span class="material-symbols-outlined text-[15px]">post_add</span>
+          <span class="hidden sm:inline">Nueva</span>
+        </button>
+
+        <!-- Saved Stories Dropdown -->
         <div class="relative">
-          <button onclick="toggleMHResources()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#f0f0eb;color:#1a1c1f;">
-            <span class="material-symbols-outlined text-[16px]">palette</span>
-            Recursos
+          <button onclick="toggleMHSavedList()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-zinc-100 transition-colors" style="color:#1a1c1f;border:1px solid #e8e8e0;" title="Abrir historias guardadas">
+            <span class="material-symbols-outlined text-[15px]">folder_open</span>
+            <span class="hidden sm:inline">Mis Historias</span>
           </button>
-          <div id="mhResourcesPanel" class="hidden absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-3 z-[9999]" style="box-shadow:0 20px 60px rgba(0,0,0,0.12);min-width:280px;">
+          <div id="mhSavedListDropdown" class="hidden absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-200 p-3 z-[10000] w-72 max-h-80 overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-100">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Historias Guardadas</span>
+              <button onclick="toggleMHSavedList()" class="text-zinc-400 hover:text-zinc-600 text-xs">✕</button>
+            </div>
+            <div id="mhSavedListItems" class="space-y-1.5">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Resources Button -->
+        <div class="relative">
+          <button onclick="toggleMHResources()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-zinc-100 transition-colors" style="color:#1a1c1f;border:1px solid #e8e8e0;">
+            <span class="material-symbols-outlined text-[15px]">palette</span>
+            <span class="hidden sm:inline">Recursos</span>
+          </button>
+          <div id="mhResourcesPanel" class="hidden absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-zinc-100 p-3 z-[10000]" style="box-shadow:0 20px 60px rgba(0,0,0,0.12);min-width:280px;">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[10px] font-bold uppercase tracking-wider" style="color:#999;">Recursos Gráficos</span>
               <button onclick="toggleMHResources()" class="text-[12px] leading-none" style="color:#999;">✕</button>
@@ -2379,32 +2514,87 @@
             </div>
           </div>
         </div>
-        <button onclick="openMHPreviewTab()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#f0f0eb;color:#1a1c1f;">
-          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
-          Vista Previa
+
+        <!-- Quick Map Capture Button in Header -->
+        <button onclick="captureActiveMapToCurrentSection()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-90 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 border border-amber-300" title="Capturar la vista activa del mapa Leaflet e insertarla en la sección actual">
+          <span class="material-symbols-outlined text-[15px]">photo_camera</span>
+          <span class="hidden sm:inline">Capturar Mapa</span>
         </button>
-        <button onclick="saveMapHistory()" class="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style="background:#1a1c1f;color:#fff;">
-          <span class="material-symbols-outlined text-[16px]">save</span>
-          Guardar Historia
+
+        <!-- Presentation Mode -->
+        <button onclick="startMHPresentation()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 bg-indigo-600 text-white shadow-sm hover:shadow" title="Iniciar presentación a pantalla completa (Slideshow)">
+          <span class="material-symbols-outlined text-[15px]">slideshow</span>
+          <span>Presentación</span>
+        </button>
+
+        <!-- Preview Tab -->
+        <button onclick="openMHPreviewTab()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:bg-zinc-200" style="background:#f0f0eb;color:#1a1c1f;" title="Abrir historia en pestaña limpia">
+          <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+          <span class="hidden md:inline">Vista Previa</span>
+        </button>
+
+        <!-- Export Dropdown -->
+        <div class="relative">
+          <button onclick="toggleMHExportDropdown()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-zinc-200 transition-colors" style="background:#f0f0eb;color:#1a1c1f;" title="Exportar historia">
+            <span class="material-symbols-outlined text-[15px]">ios_share</span>
+            <span class="hidden sm:inline">Exportar</span>
+          </button>
+          <div id="mhExportDropdown" class="hidden absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-zinc-200 p-1.5 z-[10000] w-52">
+            <button onclick="downloadMHHtml();toggleMHExportDropdown();" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg hover:bg-zinc-100 text-zinc-800 text-left transition-colors">
+              <span class="material-symbols-outlined text-[16px] text-blue-600">html</span>
+              Descargar HTML Autónomo
+            </button>
+            <button onclick="exportMHPdf();toggleMHExportDropdown();" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg hover:bg-zinc-100 text-zinc-800 text-left transition-colors">
+              <span class="material-symbols-outlined text-[16px] text-red-600">picture_as_pdf</span>
+              Imprimir / Guardar PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Save Story Button -->
+        <button onclick="saveMapHistory()" class="flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 shadow-sm" style="background:#1a1c1f;color:#fff;">
+          <span class="material-symbols-outlined text-[15px]">save</span>
+          <span>Guardar</span>
         </button>
       </div>
     </div>
 
     <div class="flex flex-1 overflow-hidden">
       <!-- Left: Section List -->
-      <div class="w-64 shrink-0 p-4 overflow-y-auto custom-scrollbar" style="background:#fafafa;border-right:1px solid #e8e8e0;">
-        <div class="flex items-center justify-between mb-4">
-          <h4 class="text-xs font-bold uppercase tracking-wider" style="color:#999;">Secciones</h4>
-          <button onclick="addMHSection()" class="w-7 h-7 rounded-full flex items-center justify-center hover:bg-zinc-200 transition-colors" style="background:#e8e8e0;">
-            <span class="material-symbols-outlined text-[16px]" style="color:#1a1c1f;">add</span>
+      <div class="w-64 shrink-0 p-3 overflow-y-auto custom-scrollbar flex flex-col" style="background:#fafafa;border-right:1px solid #e8e8e0;">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Secciones</h4>
+          <span id="mhSectionCountBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-200 text-zinc-700">1</span>
+        </div>
+
+        <!-- Quick Section Adder Buttons -->
+        <div class="grid grid-cols-2 gap-1.5 mb-3 p-1.5 rounded-xl bg-white border border-zinc-200 shadow-2xs">
+          <button onclick="addMHSection('cover')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-amber-500">auto_stories</span> +Portada
+          </button>
+          <button onclick="addMHSection('map')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-blue-500">map</span> +Mapa
+          </button>
+          <button onclick="addMHSection('comparison')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-purple-500">compare</span> +Comparar
+          </button>
+          <button onclick="addMHSection('metrics')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-emerald-500">query_stats</span> +Métricas
+          </button>
+          <button onclick="addMHSection('quote')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-pink-500">format_quote</span> +Cita
+          </button>
+          <button onclick="addMHSection('separator')" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span class="material-symbols-outlined text-[13px] text-zinc-400">horizontal_rule</span> +Separador
           </button>
         </div>
-        <div id="mhSectionList" class="space-y-2"></div>
+
+        <div id="mhSectionList" class="space-y-1.5 flex-1"></div>
       </div>
 
       <!-- Center: Full Preview + Navigator -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar flex items-start justify-center p-8" id="mhPreviewContainer" style="background:#f0f0eb;">
-        <div id="mhPreviewBook" class="w-full" style="max-width:600px;position:relative;"></div>
+      <div class="flex-1 overflow-y-auto custom-scrollbar flex items-start justify-center p-6 sm:p-8" id="mhPreviewContainer" style="background:#f0f0eb;">
+        <div id="mhPreviewBook" class="w-full" style="max-width:680px;position:relative;"></div>
       </div>
 
       <!-- Right: Section Editor -->
@@ -2416,6 +2606,50 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ MAP HISTORY FULLSCREEN PRESENTATION MODAL ═══ -->
+  <div id="mhPresentationModal" class="hidden fixed inset-0 z-[10000] flex flex-col bg-zinc-950 text-white select-none">
+    <!-- Top Bar -->
+    <div class="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-md">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-amber-400 text-[20px]">auto_stories</span>
+        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-xs sm:max-w-md">Map History</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="mhPresSlideCounter" class="text-xs font-mono font-medium text-zinc-400">1 / 5</span>
+        <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors flex items-center gap-1.5" title="Reproducción automática">
+          <span class="material-symbols-outlined text-[15px]" id="mhPresAutoPlayIcon">play_arrow</span>
+          <span id="mhPresAutoPlayText">Auto</span>
+        </button>
+        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors" title="Pantalla completa (F)">
+          <span class="material-symbols-outlined text-[18px]">fullscreen</span>
+        </button>
+        <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors" title="Salir de presentación (Esc)">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <!-- Slide Progress Bar -->
+    <div class="w-full h-1 bg-zinc-800">
+      <div id="mhPresProgressBar" class="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300" style="width: 20%;"></div>
+    </div>
+    <!-- Slide Content Stage -->
+    <div class="flex-1 relative flex items-center justify-center p-4 sm:p-10 overflow-y-auto custom-scrollbar" id="mhPresStage">
+      <!-- Animated Slide injected here -->
+    </div>
+    <!-- Bottom Controls & Nav -->
+    <div class="flex items-center justify-between px-6 py-3 border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-md">
+      <button onclick="prevMHPresSlide()" class="flex items-center gap-1 px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none" id="mhPresPrevBtn">
+        <span class="material-symbols-outlined text-[16px]">arrow_back</span> Anterior
+      </button>
+      <div id="mhPresThumbDots" class="flex items-center gap-1.5 max-w-xs sm:max-w-md overflow-x-auto py-1">
+        <!-- Dots injected here -->
+      </div>
+      <button onclick="nextMHPresSlide()" class="flex items-center gap-1 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none" id="mhPresNextBtn">
+        Siguiente <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+      </button>
     </div>
   </div>
 
@@ -46003,6 +46237,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     async function loadProjects() {
       updateAdminUI();
+      if (typeof renderSavedMapHistories === 'function') {
+        renderSavedMapHistories();
+      }
       if (typeof renderAllTemplateCanvasPreviews === 'function') {
         setTimeout(renderAllTemplateCanvasPreviews, 50);
       }
@@ -46121,6 +46358,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         if (!project) throw new Error('Proyecto no encontrado');
         _currentProject = project;
+        let pMeta = null;
+        try { pMeta = typeof project.metadata === 'string' ? JSON.parse(project.metadata) : project.metadata; } catch (_) {}
+        if (pMeta && pMeta.type === 'map_history' && pMeta.data) {
+          openMapHistoryDesigner(null, pMeta.data, project.id);
+          return;
+        }
         document.getElementById('projectDashboard').classList.add('hidden');
         document.getElementById('workspace').classList.remove('hidden');
         // Ocultar el globo 3D (se ve como "logo/carita" flotante sobre el mapa)
@@ -49231,60 +49474,335 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     // Extend Leaflet Canvas renderer to support fillPattern
     // ═══════════════════════════════════════════════════════════
-    // Map History Designer — Section-based Story Builder
+        // ═══════════════════════════════════════════════════════════
+    // Map History Designer — Enhanced Multi-Format Story Builder
     // ═══════════════════════════════════════════════════════════
 
     const mhThemes = {
-      oscuro:   { bg:'#0f0f0f', text:'#ffffff', accent:'#4a90d9' },
-      claro:    { bg:'#f5f5f0', text:'#1a1c1f', accent:'#2d6a9f' },
-      naturaleza:{ bg:'#1a3c34', text:'#ffffff', accent:'#95d5b2' },
-      minimal:  { bg:'#000000', text:'#ffffff', accent:'#888888' },
-      oceano:   { bg:'#0a1628', text:'#ffffff', accent:'#5ba8e8' },
-      atardecer:{ bg:'#2d1b00', text:'#ffffff', accent:'#d4a373' },
-      bosque:   { bg:'#0b2b1a', text:'#ffffff', accent:'#6abf8a' },
-      desierto: { bg:'#5c4033', text:'#ffffff', accent:'#e8c9a0' },
+      oscuro:     { bg:'#0f0f0f', text:'#ffffff', accent:'#38bdf8', secondary:'#18181b', name:'Nocturno' },
+      claro:      { bg:'#f8fafc', text:'#0f172a', accent:'#0284c7', secondary:'#f1f5f9', name:'Elegante Claro' },
+      naturaleza: { bg:'#06281e', text:'#f0fdf4', accent:'#34d399', secondary:'#0b382b', name:'Naturaleza' },
+      minimal:    { bg:'#000000', text:'#ffffff', accent:'#94a3b8', secondary:'#121212', name:'Minimal B&W' },
+      oceano:     { bg:'#06152d', text:'#ffffff', accent:'#38bdf8', secondary:'#0d2346', name:'Océano' },
+      atardecer:  { bg:'#231006', text:'#fffbeb', accent:'#fb923c', secondary:'#381b0d', name:'Atardecer' },
+      bosque:     { bg:'#082312', text:'#f0fdf4', accent:'#4ade80', secondary:'#11381e', name:'Bosque' },
+      desierto:   { bg:'#332014', text:'#fef3c7', accent:'#f59e0b', secondary:'#472c1c', name:'Desierto' },
+      tecnologico:{ bg:'#0a0e17', text:'#e2e8f0', accent:'#a855f7', secondary:'#131a2c', name:'Tecnológico' },
+      terracota:  { bg:'#2b1810', text:'#faede8', accent:'#f87171', secondary:'#3d2217', name:'Terracota' }
     };
 
+    const MH_STORAGE_KEY = '_zima_map_histories';
+
     let mhData = {
+      id: 'mh_' + Date.now(),
+      title: 'Map History',
       sections: [],
+      resources: [],
       theme: 'oscuro',
       globalBg: '#0f0f0f',
       globalText: '#ffffff',
-      globalAccent: '#4a90d9',
+      globalAccent: '#38bdf8',
+      updatedAt: new Date().toISOString()
     };
     let mhSelectedSection = null;
     let mhSectionIdCounter = 0;
+    let _mhResCounter = 0;
+    let mhNavObserver = null;
+    let mhScrollObserver = null;
 
-    function openMapHistoryDesigner(theme) {
+    // Presentation Mode state
+    let mhPresIndex = 0;
+    let mhPresTimer = null;
+    let mhPresAutoPlay = false;
+
+    // Helper: Escape HTML
+    function escHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Storage Management (Local & Cloud)
+    function getSavedMapHistories() {
+      try {
+        const raw = localStorage.getItem(MH_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.warn('[MapHistory] Error reading localStorage:', e);
+        return [];
+      }
+    }
+
+    function saveMapHistoryToStorage(story) {
+      const list = getSavedMapHistories();
+      const idx = list.findIndex(s => s.id === story.id);
+      story.updatedAt = new Date().toISOString();
+      if (!story.title) story.title = story.sections[0]?.title || 'Map History';
+      
+      // Auto-extract thumbnail from first image or generate gradient
+      if (!story.thumb) {
+        const imgSec = story.sections.find(s => s.imageUrl);
+        if (imgSec) story.thumb = imgSec.imageUrl;
+      }
+
+      if (idx >= 0) {
+        list[idx] = story;
+      } else {
+        list.unshift(story);
+      }
+
+      try {
+        localStorage.setItem(MH_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('[MapHistory] LocalStorage full, trimming older stories:', e);
+        if (list.length > 2) {
+          list.pop();
+          try { localStorage.setItem(MH_STORAGE_KEY, JSON.stringify(list)); } catch (_) {}
+        }
+      }
+      renderSavedMapHistories();
+    }
+
+    function renderSavedMapHistories() {
+      const list = getSavedMapHistories();
+      const grid = document.getElementById('mySavedStoriesGrid');
+      const badge = document.getElementById('savedStoriesCount');
+      if (badge) badge.textContent = String(list.length);
+
+      if (grid) {
+        if (list.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full py-8 text-center text-zinc-400 text-xs bg-white rounded-xl border border-dashed border-zinc-200">
+              <span class="material-symbols-outlined text-3xl mb-1 text-zinc-300">auto_stories</span>
+              <p class="font-medium text-zinc-600">Aún no tienes historias guardadas</p>
+              <p class="text-[11px] text-zinc-400 mt-0.5">Elige una plantilla o pulsa "Crear Historia" para diseñar tu primer Story Map</p>
+            </div>`;
+        } else {
+          grid.innerHTML = list.map(story => {
+            const dateStr = story.updatedAt ? new Date(story.updatedAt).toLocaleDateString('es', { day:'numeric', month:'short' }) : 'Reciente';
+            const theme = mhThemes[story.theme] || mhThemes.oscuro;
+            const bgStyle = story.thumb ? `background-image:url('${story.thumb}');background-size:cover;background-position:center;` : `background:linear-gradient(135deg, ${theme.bg} 0%, ${theme.secondary || '#222'} 100%);`;
+            return `
+              <div class="group rounded-xl overflow-hidden border border-zinc-200 bg-white shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col">
+                <div class="relative h-28 flex items-center justify-center p-3 cursor-pointer overflow-hidden" style="${bgStyle}" onclick="openSavedMapHistory('${story.id}')">
+                  ${!story.thumb ? `
+                    <div class="text-center" style="color:${theme.text};">
+                      <span class="material-symbols-outlined text-2xl" style="color:${theme.accent};">auto_stories</span>
+                      <h4 class="text-xs font-bold mt-1 line-clamp-1">${escHtml(story.title || 'Map History')}</h4>
+                    </div>` : `
+                    <div class="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors"></div>
+                    <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white drop-shadow">
+                      <span class="text-xs font-bold truncate">${escHtml(story.title || 'Map History')}</span>
+                    </div>`}
+                  <span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
+                    ${story.sections?.length || 1} partes
+                  </span>
+                </div>
+                <div class="p-3 flex items-center justify-between gap-2 border-t border-zinc-100 bg-white">
+                  <div class="min-w-0">
+                    <p class="text-[11px] font-bold text-zinc-800 truncate">${escHtml(story.title || 'Sin título')}</p>
+                    <span class="text-[10px] text-zinc-400 font-medium">${dateStr}</span>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="playSavedMapHistory('${story.id}')" class="p-1 rounded-lg hover:bg-zinc-100 text-indigo-600 transition-colors" title="Reproducir presentación">
+                      <span class="material-symbols-outlined text-[17px]">slideshow</span>
+                    </button>
+                    <button onclick="downloadSavedMapHistory('${story.id}')" class="p-1 rounded-lg hover:bg-zinc-100 text-blue-600 transition-colors" title="Descargar HTML">
+                      <span class="material-symbols-outlined text-[17px]">download</span>
+                    </button>
+                    <button onclick="openSavedMapHistory('${story.id}')" class="p-1 rounded-lg hover:bg-zinc-100 text-zinc-700 transition-colors" title="Editar historia">
+                      <span class="material-symbols-outlined text-[17px]">edit</span>
+                    </button>
+                    <button onclick="deleteSavedMapHistory('${story.id}')" class="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Eliminar historia">
+                      <span class="material-symbols-outlined text-[17px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+              </div>`;
+          }).join('');
+        }
+      }
+
+      // Populate designer header dropdown
+      const dropItems = document.getElementById('mhSavedListItems');
+      if (dropItems) {
+        if (list.length === 0) {
+          dropItems.innerHTML = '<p class="text-xs text-zinc-400 py-3 text-center">No hay historias guardadas</p>';
+        } else {
+          dropItems.innerHTML = list.map(story => `
+            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-50 border border-transparent hover:border-zinc-200 cursor-pointer transition-all" onclick="openSavedMapHistory('${story.id}');toggleMHSavedList();">
+              <div class="min-w-0 pr-2">
+                <p class="text-xs font-bold text-zinc-800 truncate">${escHtml(story.title || 'Map History')}</p>
+                <p class="text-[10px] text-zinc-400">${story.sections?.length || 1} secciones</p>
+              </div>
+              <button onclick="event.stopPropagation();playSavedMapHistory('${story.id}');" class="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Presentar">
+                <span class="material-symbols-outlined text-[15px]">slideshow</span>
+              </button>
+            </div>`).join('');
+        }
+      }
+    }
+
+    function toggleMHSavedList() {
+      const el = document.getElementById('mhSavedListDropdown');
+      if (el) el.classList.toggle('hidden');
+    }
+
+    function toggleMHExportDropdown() {
+      const el = document.getElementById('mhExportDropdown');
+      if (el) el.classList.toggle('hidden');
+    }
+
+    // Open/Close Designer
+    function openMapHistoryDesigner(theme, initialData, projectId) {
       const modal = document.getElementById('mapHistoryModal');
       if (!modal) return;
-      mhData = {
-        sections: [{ id: 'sec_0', type:'cover', title:'Portada', body:'Subtítulo o descripción del mapa', bgColor: null, textColor: null, imageUrl: null, layout:'center' }],
-        resources: [],
-        theme: theme || 'oscuro',
-        globalBg: mhThemes[theme || 'oscuro'].bg,
-        globalText: mhThemes[theme || 'oscuro'].text,
-        globalAccent: mhThemes[theme || 'oscuro'].accent,
-      };
-      mhSectionIdCounter = 1;
-      mhSelectedSection = 'sec_0';
+
+      if (initialData && initialData.sections) {
+        mhData = JSON.parse(JSON.stringify(initialData));
+        if (projectId) mhData.projectId = projectId;
+      } else {
+        const themeId = theme || 'oscuro';
+        const t = mhThemes[themeId] || mhThemes.oscuro;
+        
+        // Auto-detect project or active layers for title
+        let defaultTitle = 'Map History';
+        let defaultSubtitle = 'Historia visual y análisis espacial interactivo';
+        if (typeof _currentProject !== 'undefined' && _currentProject?.name) {
+          defaultTitle = _currentProject.name;
+        } else if (typeof state !== 'undefined' && state.layers && state.layers.length > 0) {
+          defaultTitle = state.layers[0].name.replace(/\.[a-z0-9]+$/i, '');
+        }
+
+        mhData = {
+          id: 'mh_' + Date.now(),
+          title: defaultTitle,
+          sections: [
+            { id: 'sec_0', type:'cover', title: defaultTitle, body: defaultSubtitle, bgColor: null, textColor: null, imageUrl: null, layout:'center' },
+            { id: 'sec_1', type:'map', title: 'Vista Principal del Mapa', body: 'Observación geoespacial y detalle de capas activas.', bgColor: null, textColor: null, imageUrl: null, layout:'center' }
+          ],
+          resources: [],
+          theme: themeId,
+          globalBg: t.bg,
+          globalText: t.text,
+          globalAccent: t.accent,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      mhSectionIdCounter = mhData.sections.length;
+      mhSelectedSection = mhData.sections[0]?.id || 'sec_0';
+      
+      const titleInput = document.getElementById('mhStoryTitleInput');
+      if (titleInput) titleInput.value = mhData.title || 'Map History';
+      
+      const badge = document.getElementById('mhThemeBadge');
+      if (badge) {
+        badge.textContent = mhThemes[mhData.theme]?.name || mhData.theme;
+      }
+
       modal.classList.remove('hidden');
       renderMHSectionList();
       renderMHPreview();
       renderMHEditor();
+      renderSavedMapHistories();
     }
 
     function closeMapHistoryDesigner() {
-      document.getElementById('mapHistoryModal').classList.add('hidden');
+      const modal = document.getElementById('mapHistoryModal');
+      if (modal) modal.classList.add('hidden');
     }
 
-    function addMHSection() {
-      const id = 'sec_' + mhSectionIdCounter++;
-      mhData.sections.push({ id, type:'map', title:'Nueva Sección', body:'Descripción de esta sección...', bgColor: null, textColor: null, imageUrl: null, layout:'center' });
+    function newMapHistory() {
+      if (confirm('¿Deseas iniciar una nueva historia de mapa?')) {
+        openMapHistoryDesigner('oscuro');
+      }
+    }
+
+    function updateMHTitle(newTitle) {
+      mhData.title = newTitle || 'Map History';
+      // If the first section is cover, sync title if appropriate
+      if (mhData.sections[0] && mhData.sections[0].type === 'cover' && (!mhData.sections[0].title || mhData.sections[0].title === 'Portada' || mhData.sections[0].title === 'Map History')) {
+        mhData.sections[0].title = mhData.title;
+      }
+      renderMHPreview();
+      renderMHSectionList();
+    }
+
+    // Smart Navigation
+    function goToMapHistory() {
+      const ws = document.getElementById('workspace');
+      if (ws && !ws.classList.contains('hidden')) {
+        // We are inside the GIS workspace! Open designer directly so layers and map remain ready for snapshots
+        openMapHistoryDesigner();
+        toast('Map History abierto sobre el espacio de trabajo actual', 'info');
+      } else {
+        // We are on landing or dashboard: scroll smoothly to Map History section
+        const section = document.getElementById('mapHistoryGrid');
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          openMapHistoryDesigner();
+        }
+      }
+    }
+
+    // Add Section with comprehensive support for all section types
+    function addMHSection(type = 'map') {
+      const id = 'sec_' + (mhSectionIdCounter++);
+      let newSec = {
+        id,
+        type,
+        title: type === 'cover' ? (mhData.title || 'Portada') :
+               type === 'comparison' ? 'Comparación Temporal' :
+               type === 'metrics' ? 'Indicadores Geoespaciales' :
+               type === 'quote' ? 'Nota Técnica / Conclusión' :
+               type === 'text' ? 'Contexto del Estudio' : 'Nueva Sección de Mapa',
+        body: 'Descripción detallada de esta sección.',
+        bgColor: null,
+        textColor: null,
+        imageUrl: null,
+        layout: 'center'
+      };
+
+      if (type === 'comparison') {
+        newSec.imageUrl2 = null;
+        newSec.label1 = 'Antes / Cobertura A';
+        newSec.label2 = 'Después / Cobertura B';
+        newSec.compareMode = 'slider'; // 'slider' | 'side-by-side'
+      } else if (type === 'metrics') {
+        newSec.metrics = [
+          { label: 'Área Total', value: '1,420 ha', change: '+4.5%', icon: 'forest', color: '#10b981' },
+          { label: 'NDVI Promedio', value: '0.72', change: 'Saludable', icon: 'eco', color: '#3b82f6' },
+          { label: 'Cuerpos de Agua', value: '8.4%', change: '-0.8%', icon: 'water_drop', color: '#06b6d4' }
+        ];
+      } else if (type === 'quote') {
+        newSec.quoteText = 'El monitoreo multiespectral permite evaluar la respuesta de la cobertura frente a la estacionalidad y actividades humanas.';
+        newSec.author = 'Equipo Técnico GIS';
+        newSec.role = 'Unidad de Teledetección y Análisis Satelital';
+      } else if (type === 'separator') {
+        newSec = {
+          id,
+          type: 'separator',
+          title: '',
+          body: '',
+          bgColor: null,
+          textColor: null,
+          imageUrl: null,
+          layout: 'center',
+          sepStyle: 'solid',
+          sepThick: 1,
+          sepWidth: 40,
+          sepSpace: 16,
+          sepColor: null
+        };
+      }
+
+      mhData.sections.push(newSec);
       mhSelectedSection = id;
       renderMHSectionList();
       renderMHPreview();
       renderMHEditor();
+
       setTimeout(() => {
         const el = document.getElementById('mh_section_' + id);
         if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
@@ -49294,24 +49812,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function insertMHSectionAfter(afterId, type) {
       const idx = mhData.sections.findIndex(s => s.id === afterId);
       if (idx < 0) return;
-      const id = 'sec_' + mhSectionIdCounter++;
-      const sec = type === 'separator'
-        ? { id, type:'separator', title:'', body:'', bgColor:null, textColor:null, imageUrl:null, layout:'center',
-            sepStyle:'solid', sepThick:1, sepWidth:40, sepSpace:16, sepColor:null }
-        : { id, type, title:'Nueva Sección', body:'', bgColor:null, textColor:null, imageUrl:null, layout:'center' };
+      const id = 'sec_' + (mhSectionIdCounter++);
+      let sec;
+      if (type === 'separator') {
+        sec = { id, type:'separator', title:'', body:'', bgColor:null, textColor:null, imageUrl:null, layout:'center',
+                sepStyle:'solid', sepThick:1, sepWidth:40, sepSpace:16, sepColor:null };
+      } else if (type === 'comparison') {
+        sec = { id, type:'comparison', title:'Comparación', body:'Análisis comparativo de capas.', imageUrl:null, imageUrl2:null, label1:'Antes', label2:'Después', compareMode:'slider', bgColor:null, textColor:null, layout:'center' };
+      } else if (type === 'metrics') {
+        sec = { id, type:'metrics', title:'Métricas', body:'', metrics:[{ label:'Área', value:'500 ha', change:'+2%', icon:'forest', color:'#10b981' }], bgColor:null, textColor:null, layout:'center' };
+      } else if (type === 'quote') {
+        sec = { id, type:'quote', title:'Cita', quoteText:'Nota relevante...', author:'Especialista', role:'GIS Analyst', body:'', bgColor:null, textColor:null, layout:'center' };
+      } else {
+        sec = { id, type, title:'Nueva Sección', body:'', bgColor:null, textColor:null, imageUrl:null, layout:'center' };
+      }
       mhData.sections.splice(idx + 1, 0, sec);
       mhSelectedSection = id;
       renderMHSectionList();
       renderMHPreview();
       renderMHEditor();
-      setTimeout(() => {
-        const el = document.getElementById('mh_section_' + id);
-        if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
-      }, 50);
     }
 
     function removeMHSection(id) {
-      if (mhData.sections.length <= 1) return;
+      if (mhData.sections.length <= 1) {
+        toast('La historia debe tener al menos una sección', 'warning');
+        return;
+      }
       mhData.sections = mhData.sections.filter(s => s.id !== id);
       if (mhSelectedSection === id) mhSelectedSection = mhData.sections[0]?.id || null;
       renderMHSectionList();
@@ -49341,8 +49867,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (field === 'type') {
         sec.type = value;
         if (value === 'cover') sec.layout = 'center';
-      } else if (field === 'layout') {
-        sec.layout = value;
+        if (value === 'comparison' && !sec.compareMode) {
+          sec.compareMode = 'slider';
+          sec.label1 = sec.label1 || 'Antes';
+          sec.label2 = sec.label2 || 'Después';
+        }
+        if (value === 'metrics' && (!sec.metrics || sec.metrics.length === 0)) {
+          sec.metrics = [
+            { label: 'Área Total', value: '1,420 ha', change: '+4.5%', icon: 'forest', color: '#10b981' },
+            { label: 'NDVI Promedio', value: '0.72', change: 'Saludable', icon: 'eco', color: '#3b82f6' }
+          ];
+        }
+        if (value === 'quote' && !sec.quoteText) {
+          sec.quoteText = sec.body || 'Cita o resumen destacado sobre el mapa.';
+          sec.author = sec.author || 'Analista SIG';
+        }
       } else {
         sec[field] = value;
       }
@@ -49351,20 +49890,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderMHSectionList();
     }
 
+    // Rich Text syncing
     function execMHRich(cmd, val) {
       document.execCommand(cmd, false, val || null);
       syncMHRichBody();
     }
 
     function execMHRichLink() {
-      const sel = window.getSelection();
       const url = prompt('URL del enlace:', 'https://');
       if (!url) return;
       document.execCommand('createLink', false, url);
       syncMHRichBody();
     }
-
-
 
     function syncMHRichBody() {
       const el = document.getElementById('mhRichBody');
@@ -49375,12 +49912,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderMHPreview();
     }
 
-    function updateMHGlobal(field, value) {
-      mhData[field] = value;
-      renderMHPreview();
-      renderMHEditor();
-    }
-
+    // Global Theme & Styling
     function selectMHTheme(themeId) {
       const theme = mhThemes[themeId];
       if (!theme) return;
@@ -49388,11 +49920,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       mhData.globalBg = theme.bg;
       mhData.globalText = theme.text;
       mhData.globalAccent = theme.accent;
+      const badge = document.getElementById('mhThemeBadge');
+      if (badge) badge.textContent = theme.name || themeId;
       renderMHPreview();
       renderMHEditor();
     }
 
-    function handleMHImageUpload(secId) {
+    // Image Upload
+    function handleMHImageUpload(secId, field = 'imageUrl') {
       const sec = mhData.sections.find(s => s.id === secId);
       if (!sec) return;
       const input = document.createElement('input');
@@ -49403,7 +49938,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (ev) => {
-          sec.imageUrl = ev.target.result;
+          sec[field] = ev.target.result;
           renderMHPreview();
           renderMHEditor();
         };
@@ -49412,45 +49947,189 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       input.click();
     }
 
-    function renderMHSectionList() {
-      const list = document.getElementById('mhSectionList');
-      if (!list) return;
-      list.innerHTML = mhData.sections.map((s, i) => `
-        <div id="mh_section_${s.id}" class="group">
-          <div onclick="selectMHSection('${s.id}')" class="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${mhSelectedSection === s.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-100 text-zinc-700'}" style="${mhSelectedSection === s.id ? 'background:#1a1c1f;' : ''}">
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="material-symbols-outlined text-[14px] shrink-0 ${mhSelectedSection === s.id ? 'text-white' : 'text-zinc-400'}">${s.type === 'cover' ? 'auto_stories' : s.type === 'map' ? 'map' : s.type === 'separator' ? 'horizontal_rule' : 'article'}</span>
-              <span class="text-[11px] font-semibold truncate ${mhSelectedSection === s.id ? 'text-white' : ''}">${s.type === 'separator' ? 'Separador' : (s.title || 'Sin título')}</span>
-            </div>
-            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              ${i > 0 ? `<button onclick="event.stopPropagation();moveMHSection('${s.id}',-1)" class="w-6 h-6 rounded flex items-center justify-center hover:bg-black/10 transition-colors"><span class="material-symbols-outlined text-[12px]">arrow_upward</span></button>` : ''}
-              ${i < mhData.sections.length - 1 ? `<button onclick="event.stopPropagation();moveMHSection('${s.id}',1)" class="w-6 h-6 rounded flex items-center justify-center hover:bg-black/10 transition-colors"><span class="material-symbols-outlined text-[12px]">arrow_downward</span></button>` : ''}
-              ${mhData.sections.length > 1 ? `<button onclick="event.stopPropagation();removeMHSection('${s.id}')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-red-100 transition-colors"><span class="material-symbols-outlined text-[12px]">close</span></button>` : ''}
-            </div>
-          </div>
-          <div class="flex items-center gap-1 px-4 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onclick="event.stopPropagation();insertMHSectionAfter('${s.id}','separator')" class="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium hover:bg-zinc-100 transition-colors" style="color:#999;">
-              <span class="material-symbols-outlined text-[10px]">add</span> Separador
-            </button>
-            <button onclick="event.stopPropagation();insertMHSectionAfter('${s.id}','map')" class="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium hover:bg-zinc-100 transition-colors" style="color:#999;">
-              <span class="material-symbols-outlined text-[10px]">add</span> Sección
-            </button>
-          </div>
-        </div>`).join('');
+    // 📸 INSTANT MAP CAPTURE TO CURRENT SECTION
+    async function captureActiveMapToCurrentSection(field = 'imageUrl') {
+      const sec = mhData.sections.find(s => s.id === mhSelectedSection);
+      if (!sec) {
+        toast('Selecciona primero una sección para capturar la imagen', 'warning');
+        return;
+      }
+
+      const mapEl = document.getElementById('map');
+      if (!mapEl) {
+        toast('No hay un mapa activo en el espacio de trabajo', 'warning');
+        return;
+      }
+
+      showProgress('Capturando vista del mapa activo...', 30);
+      try {
+        if (typeof state !== 'undefined' && state.map) {
+          state.map.invalidateSize();
+        }
+
+        let dataUrl = null;
+
+        // Try html2canvas snapshot of Leaflet map container
+        if (typeof html2canvas !== 'undefined') {
+          try {
+            const renderedCanvas = await html2canvas(mapEl, {
+              useCORS: true,
+              allowTaint: true,
+              scale: 1.2,
+              logging: false,
+              backgroundColor: '#121212'
+            });
+            dataUrl = renderedCanvas.toDataURL('image/jpeg', 0.88);
+          } catch (h2cErr) {
+            console.warn('[MapHistory] html2canvas error, falling back:', h2cErr);
+          }
+        }
+
+        // Fallback: direct leaflet canvas extraction
+        if (!dataUrl) {
+          const canvas = mapEl.querySelector('canvas');
+          if (canvas) {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          }
+        }
+
+        // Fallback 2: check if current layer has overview/thumbnail
+        if (!dataUrl && typeof state !== 'undefined' && state.layers && state.layers.length > 0) {
+          const l = state.layers[0];
+          dataUrl = l.thumb || l.overviewUrl || null;
+        }
+
+        if (!dataUrl) {
+          // Generate a sleek vector geo-snapshot placeholder
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = 800; tempCanvas.height = 450;
+          const ctx = tempCanvas.getContext('2d');
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, 800, 450);
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(40, 40, 720, 370);
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 20px Inter, sans-serif';
+          ctx.fillText('Captura de Vista Satelital · Zima GIS', 60, 80);
+          ctx.font = '14px Inter, sans-serif';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('Coordenadas: ' + (typeof state !== 'undefined' && state.map ? state.map.getCenter().toString() : 'Área de estudio'), 60, 115);
+          dataUrl = tempCanvas.toDataURL('image/jpeg', 0.85);
+        }
+
+        sec[field] = dataUrl;
+        renderMHPreview();
+        renderMHEditor();
+        renderMHSectionList();
+        hideProgress();
+        toast('¡Captura del mapa insertada con éxito!', 'success');
+      } catch (err) {
+        hideProgress();
+        console.error('[MapHistory] Capture error:', err);
+        toast('Error al capturar mapa: ' + err.message, 'error');
+      }
     }
 
+    // Comparison slider mouse/touch drag handler
+    function handleMHCompareDrag(e, container) {
+      if (e.buttons !== 1 && e.type !== 'touchmove') return;
+      const rect = container.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const beforeEl = container.querySelector('.mh-compare-before');
+      const dividerEl = container.querySelector('.mh-compare-divider');
+      if (beforeEl) beforeEl.style.width = pct + '%';
+      if (dividerEl) dividerEl.style.left = pct + '%';
+    }
+
+    function handleMHCompareClick(e, container) {
+      const rect = container.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const beforeEl = container.querySelector('.mh-compare-before');
+      const dividerEl = container.querySelector('.mh-compare-divider');
+      if (beforeEl) beforeEl.style.width = pct + '%';
+      if (dividerEl) dividerEl.style.left = pct + '%';
+    }
+
+    // Metrics CRUD
+    function addMHMetric(secId) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec) return;
+      if (!sec.metrics) sec.metrics = [];
+      sec.metrics.push({ label: 'Nuevo Indicador', value: '100%', change: '+0.0%', icon: 'analytics', color: mhData.globalAccent });
+      renderMHEditor();
+      renderMHPreview();
+    }
+
+    function updateMHMetric(secId, idx, key, val) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec || !sec.metrics || !sec.metrics[idx]) return;
+      sec.metrics[idx][key] = val;
+      renderMHPreview();
+    }
+
+    function deleteMHMetric(secId, idx) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec || !sec.metrics) return;
+      sec.metrics.splice(idx, 1);
+      renderMHEditor();
+      renderMHPreview();
+    }
+
+    // Render Section List (Left Sidebar)
+    function renderMHSectionList() {
+      const list = document.getElementById('mhSectionList');
+      const countBadge = document.getElementById('mhSectionCountBadge');
+      if (countBadge) countBadge.textContent = String(mhData.sections.length);
+      if (!list) return;
+
+      const typeIcons = {
+        cover: 'auto_stories',
+        map: 'map',
+        comparison: 'compare',
+        metrics: 'query_stats',
+        quote: 'format_quote',
+        text: 'article',
+        separator: 'horizontal_rule'
+      };
+
+      list.innerHTML = mhData.sections.map((s, i) => {
+        const isSelected = mhSelectedSection === s.id;
+        const icon = typeIcons[s.type] || 'article';
+        const titleText = s.type === 'separator' ? 'Separador' : (s.title || 'Sin título');
+
+        return `
+          <div id="mh_section_${s.id}" class="group">
+            <div onclick="selectMHSection('${s.id}')" class="flex items-center justify-between px-2.5 py-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-zinc-900 text-white shadow-xs' : 'hover:bg-zinc-100 text-zinc-700'}">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[15px] shrink-0 ${isSelected ? 'text-amber-400' : 'text-zinc-400'}">${icon}</span>
+                <span class="text-[11px] font-semibold truncate ${isSelected ? 'text-white' : ''}">${escHtml(titleText)}</span>
+              </div>
+              <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                ${i > 0 ? `<button onclick="event.stopPropagation();moveMHSection('${s.id}',-1)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-black/10 transition-colors" title="Subir"><span class="material-symbols-outlined text-[11px]">arrow_upward</span></button>` : ''}
+                ${i < mhData.sections.length - 1 ? `<button onclick="event.stopPropagation();moveMHSection('${s.id}',1)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-black/10 transition-colors" title="Bajar"><span class="material-symbols-outlined text-[11px]">arrow_downward</span></button>` : ''}
+                ${mhData.sections.length > 1 ? `<button onclick="event.stopPropagation();removeMHSection('${s.id}')" class="w-5 h-5 rounded flex items-center justify-center hover:bg-red-500/20 text-red-500 transition-colors" title="Eliminar"><span class="material-symbols-outlined text-[11px]">close</span></button>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Render Preview Book
     function renderMHPreview() {
       const book = document.getElementById('mhPreviewBook');
       if (!book) return;
       const s = mhData.sections;
       if (!s || s.length === 0) {
-        book.innerHTML = '<div class="text-center py-20 text-zinc-400 text-sm">Agrega secciones para comenzar</div>';
+        book.innerHTML = '<div class="text-center py-20 text-zinc-400 text-sm">Agrega secciones para comenzar tu historia</div>';
         return;
       }
       const accent = mhData.globalAccent;
       const animTypes = ['mh-section-wrap', 'mh-animate-slide-left', 'mh-section-wrap', 'mh-animate-scale'];
 
-      // Merge separators into the following section (as top decoration)
+      // Merge separators
       const groups = [];
       let pendingSep = null;
       for (const sec of s) {
@@ -49461,7 +50140,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           pendingSep = null;
         }
       }
-      // If a trailing separator exists, add it as its own block
       if (pendingSep) groups.push({ section: pendingSep, separator: null });
 
       let groupIdx = 0;
@@ -49472,7 +50150,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const bg = sec.bgColor || mhData.globalBg;
         const text = sec.textColor || mhData.globalText;
 
-        // Build separator top decoration html
         let sepHtml = '';
         if (sep) {
           const sepColor = sep.sepColor || accent;
@@ -49483,13 +50160,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const label = sep.title || '';
           sepHtml = `
             <div style="padding:${sepSpace}px 20px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-              ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sepColor};text-transform:uppercase;margin-bottom:2px;">${label}</span>` : ''}
+              ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sepColor};text-transform:uppercase;margin-bottom:2px;">${escHtml(label)}</span>` : ''}
               <div style="width:${sepWidth}px;border-top:${sepThick}px ${sepStyle} ${sepColor};"></div>
             </div>`;
         }
 
         if (sec.type === 'separator') {
-          // standalone trailing separator (no section after it)
           const sepColor = sec.sepColor || accent;
           const sepThick = sec.sepThick || 1;
           const sepWidth = Math.min(sec.sepWidth || 40, 80);
@@ -49498,213 +50174,953 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const label = sec.title || '';
           return `
             <div class="mh-section-wrap ${animClass}" style="padding:${sepSpace}px 20px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-              ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sepColor};text-transform:uppercase;margin-bottom:2px;">${label}</span>` : ''}
+              ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sepColor};text-transform:uppercase;margin-bottom:2px;">${escHtml(label)}</span>` : ''}
               <div style="width:${sepWidth}px;border-top:${sepThick}px ${sepStyle} ${sepColor};"></div>
             </div>`;
         }
 
-        const isCover = sec.type === 'cover';
-        const img = sec.imageUrl;
-        const hasImg = !!img;
-        const imgLayout = sec.layout || 'center';
-
         let contentHtml = '';
-        if (isCover) {
+
+        if (sec.type === 'cover') {
           contentHtml = `
-            <div class="flex flex-col items-center justify-center text-center min-h-[400px] px-10 py-16">
+            <div class="flex flex-col items-center justify-center text-center min-h-[380px] px-8 py-16" style="background:${bg};color:${text};">
               ${sepHtml}
-              <div style="color:${accent};font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;">Map History</div>
-              <h2 style="color:${text};font-size:28px;font-weight:900;line-height:1.1;margin-bottom:12px;max-width:400px;">${sec.title || 'Sin título'}</h2>
-              ${sec.body ? `<div style="color:${text};font-size:13px;line-height:1.6;max-width:360px;opacity:0.7;">${sec.body}</div>` : ''}
-              <div style="margin-top:24px;width:40px;height:2px;background:${accent};border-radius:2px;"></div>
-              <div style="margin-top:40px;color:${text};font-size:8px;font-weight:600;letter-spacing:2px;text-transform:uppercase;opacity:0.3;">Zima · Map History</div>
+              <div style="color:${accent};font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;">Map History · Zima</div>
+              <h1 style="font-size:30px;font-weight:900;line-height:1.15;margin-bottom:12px;max-width:500px;">${escHtml(sec.title || 'Sin título')}</h1>
+              ${sec.body ? `<div style="font-size:13px;line-height:1.6;max-width:420px;opacity:0.8;">${sec.body}</div>` : ''}
+              ${sec.imageUrl ? `<div class="mt-6 rounded-xl overflow-hidden max-w-sm shadow-md"><img src="${sec.imageUrl}" style="width:100%;height:160px;object-fit:cover;"></div>` : ''}
+              <div style="margin-top:24px;width:48px;height:2px;background:${accent};border-radius:2px;"></div>
             </div>`;
-        } else if (hasImg && imgLayout === 'full') {
+        } else if (sec.type === 'comparison') {
+          const img1 = sec.imageUrl || '';
+          const img2 = sec.imageUrl2 || '';
+          const l1 = sec.label1 || 'Antes';
+          const l2 = sec.label2 || 'Después';
+
           contentHtml = `
-            <div class="relative min-h-[300px] flex items-center justify-center" style="background:${bg};">
-              <img src="${img}" alt="${sec.title}" style="width:100%;height:auto;max-height:400px;object-fit:contain;display:block;">
-            </div>
-            <div style="padding:24px 28px;background:${bg};">
+            <div style="padding:28px 24px;background:${bg};color:${text};">
               ${sepHtml}
-              <h2 style="color:${text};font-size:18px;font-weight:800;margin-bottom:8px;">${sec.title || 'Sin título'}</h2>
-              ${sec.body ? `<div style="color:${text};font-size:12px;line-height:1.6;opacity:0.7;">${sec.body}</div>` : ''}
+              <div style="color:${accent};font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Comparación Multitemporal</div>
+              <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title || 'Comparación')}</h2>
+              ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;margin-bottom:16px;">${sec.body}</div>` : ''}
+              
+              ${(img1 && img2 && sec.compareMode === 'slider') ? `
+                <div class="mh-compare-container w-full h-72 sm:h-80" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                  <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                  <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
+                    <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                  </div>
+                  <div class="mh-compare-divider" style="left:50%;">
+                    <div class="mh-compare-handle">⇄</div>
+                  </div>
+                  <span class="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l1)}</span>
+                  <span class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l2)}</span>
+                </div>
+              ` : (img1 || img2) ? `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div class="rounded-xl overflow-hidden border border-white/10 relative">
+                    ${img1 ? `<img src="${img1}" style="width:100%;height:180px;object-fit:cover;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 1</div>'}
+                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">${escHtml(l1)}</span>
+                  </div>
+                  <div class="rounded-xl overflow-hidden border border-white/10 relative">
+                    ${img2 ? `<img src="${img2}" style="width:100%;height:180px;object-fit:cover;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 2</div>'}
+                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">${escHtml(l2)}</span>
+                  </div>
+                </div>
+              ` : `
+                <div class="p-6 rounded-xl border border-dashed border-zinc-500/30 text-center text-xs opacity-60">
+                  Inserta ambas imágenes en el panel derecho para activar el comparador antes/después
+                </div>`}
             </div>`;
-        } else if (hasImg && (imgLayout === 'left' || imgLayout === 'right')) {
-          const flexDir = imgLayout === 'left' ? 'row' : 'row-reverse';
+        } else if (sec.type === 'metrics') {
+          const metricsList = sec.metrics || [];
           contentHtml = `
-            <div style="display:flex;flex-direction:${flexDir};min-height:280px;background:${bg};">
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;">
-                <img src="${img}" alt="${sec.title}" style="width:100%;height:200px;object-fit:cover;border-radius:8px;">
+            <div style="padding:28px 24px;background:${bg};color:${text};">
+              ${sepHtml}
+              <div style="color:${accent};font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Panel de Indicadores</div>
+              <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title || 'Métricas')}</h2>
+              ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;margin-bottom:16px;">${sec.body}</div>` : ''}
+
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                ${metricsList.map(m => `
+                  <div class="mh-metric-card flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="material-symbols-outlined text-[20px]" style="color:${m.color || accent};">${m.icon || 'analytics'}</span>
+                      ${m.change ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${m.color || accent}22;color:${m.color || accent};">${escHtml(m.change)}</span>` : ''}
+                    </div>
+                    <div>
+                      <div class="text-xl sm:text-2xl font-black tracking-tight" style="color:${text};">${escHtml(m.value || '0')}</div>
+                      <div class="text-[10px] font-semibold opacity-70 mt-0.5 truncate">${escHtml(m.label || 'Métrica')}</div>
+                    </div>
+                  </div>`).join('')}
               </div>
-              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 28px;">
-                ${sepHtml}
-                <h2 style="color:${text};font-size:16px;font-weight:800;margin-bottom:8px;">${sec.title || 'Sin título'}</h2>
-                ${sec.body ? `<div style="color:${text};font-size:12px;line-height:1.6;opacity:0.7;">${sec.body}</div>` : ''}
-              </div>
+            </div>`;
+        } else if (sec.type === 'quote') {
+          contentHtml = `
+            <div style="padding:36px 28px;background:${bg};color:${text};display:flex;flex-direction:column;align-items:center;text-align:center;">
+              ${sepHtml}
+              <span class="material-symbols-outlined text-4xl mb-3 opacity-30" style="color:${accent};">format_quote</span>
+              <blockquote style="font-size:16px;font-style:italic;line-height:1.6;max-width:480px;font-weight:500;margin-bottom:16px;">
+                "${escHtml(sec.quoteText || sec.body || 'Sin contenido de cita')}"
+              </blockquote>
+              <div style="width:32px;height:2px;background:${accent};margin-bottom:12px;opacity:0.5;"></div>
+              ${sec.author ? `<div style="font-size:12px;font-weight:700;">${escHtml(sec.author)}</div>` : ''}
+              ${sec.role ? `<div style="font-size:10px;opacity:0.6;margin-top:2px;">${escHtml(sec.role)}</div>` : ''}
             </div>`;
         } else {
-          contentHtml = `
-            <div style="padding:32px 28px;background:${bg};min-height:200px;display:flex;flex-direction:column;justify-content:center;">
-              ${sepHtml}
-              <h2 style="color:${text};font-size:18px;font-weight:800;margin-bottom:8px;">${sec.title || 'Sin título'}</h2>
-              ${sec.body ? `<div style="color:${text};font-size:12px;line-height:1.6;opacity:0.7;">${sec.body}</div>` : ''}
-              ${img ? `<div style="margin-top:16px;"><img src="${img}" alt="${sec.title}" style="width:100%;max-height:250px;object-fit:cover;border-radius:8px;"></div>` : ''}
-            </div>`;
+          // Standard Map & Text section
+          const img = sec.imageUrl;
+          const hasImg = !!img;
+          const imgLayout = sec.layout || 'center';
+
+          if (hasImg && imgLayout === 'full') {
+            contentHtml = `
+              <div class="relative min-h-[280px] flex items-center justify-center" style="background:${bg};">
+                <img src="${img}" alt="${escHtml(sec.title)}" style="width:100%;height:auto;max-height:420px;object-fit:contain;display:block;">
+              </div>
+              <div style="padding:24px 28px;background:${bg};color:${text};">
+                ${sepHtml}
+                <h2 style="font-size:18px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title || 'Sin título')}</h2>
+                ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;">${sec.body}</div>` : ''}
+              </div>`;
+          } else if (hasImg && (imgLayout === 'left' || imgLayout === 'right')) {
+            const flexDir = imgLayout === 'left' ? 'row' : 'row-reverse';
+            contentHtml = `
+              <div style="display:flex;flex-direction:${flexDir};min-height:260px;background:${bg};color:${text};">
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;">
+                  <img src="${img}" alt="${escHtml(sec.title)}" style="width:100%;height:200px;object-fit:cover;border-radius:10px;">
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px;">
+                  ${sepHtml}
+                  <h2 style="font-size:17px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title || 'Sin título')}</h2>
+                  ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;">${sec.body}</div>` : ''}
+                </div>
+              </div>`;
+          } else {
+            contentHtml = `
+              <div style="padding:32px 28px;background:${bg};color:${text};min-height:200px;display:flex;flex-direction:column;justify-content:center;">
+                ${sepHtml}
+                <h2 style="font-size:18px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title || 'Sin título')}</h2>
+                ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;">${sec.body}</div>` : ''}
+                ${img ? `<div style="margin-top:16px;"><img src="${img}" alt="${escHtml(sec.title)}" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;"></div>` : ''}
+              </div>`;
+          }
         }
+
         return `<div class="mh-section-wrap ${animClass}" data-mh-id="${sec.id}">${contentHtml}</div>`;
       }).join('');
-      // Build navigation menu
+
+      // Build navigation chips
       const navItems = groups.map((g, i) => {
         const sec = g.section;
         if (sec.type === 'separator') return null;
         const label = sec.title || `Sección ${i+1}`;
-        return `<button class="mh-nav-chip" onclick="scrollToMHSection(${i})" data-idx="${i}" title="${label.replace(/"/g,'&quot;')}">${label.replace(/</g,'&lt;').replace(/"/g,'&quot;')}</button>`;
+        return `<button class="mh-nav-chip" onclick="scrollToMHSection(${i})" data-idx="${i}" title="${label.replace(/"/g,'&quot;')}">${escHtml(label)}</button>`;
       }).filter(Boolean).join('');
       const navHtml = groups.length > 1 ? `<div class="mh-book-nav" id="mhBookNav">${navItems}</div>` : '';
 
-      const shadow = groups.length > 0;
-      book.innerHTML = `${navHtml}<div class="mh-book-container" style="border-radius:12px;overflow:hidden;${shadow ? 'box-shadow:0 2px 16px rgba(0,0,0,0.08);' : ''}">${book.innerHTML}</div>`;
-      // Re-render resources
+      book.innerHTML = `${navHtml}<div class="mh-book-container" style="border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.12);">${book.innerHTML}</div>`;
+
+      // Re-render placed resources
       if (mhData.resources) {
         mhData.resources.forEach(r => renderMHResourceElement(r.id, r.type, r.x, r.y));
       }
       setTimeout(observeMHSections, 50);
     }
 
-    function openMHPreviewTab() {
+    // Scroll & Nav Observers
+    function scrollToMHSection(idx) {
+      const wraps = document.querySelectorAll('#mhPreviewBook .mh-section-wrap');
+      if (idx < 0 || idx >= wraps.length) return;
+      wraps[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function observeMHSections() {
+      if (mhScrollObserver) mhScrollObserver.disconnect();
+      mhScrollObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('mh-visible');
+            mhScrollObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+      if (mhNavObserver) mhNavObserver.disconnect();
+      mhNavObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          const chip = document.querySelector(`.mh-nav-chip[data-idx="${entry.target.dataset.mhIdx}"]`);
+          if (chip) chip.classList.toggle('active', entry.isIntersecting);
+        });
+      }, { threshold: 0.3 });
+
+      document.querySelectorAll('#mhPreviewBook .mh-section-wrap').forEach((el, i) => {
+        el.classList.remove('mh-visible');
+        el.dataset.mhIdx = String(i);
+        mhScrollObserver.observe(el);
+        mhNavObserver.observe(el);
+      });
+    }
+
+    // Render Editor Panel (Right Sidebar)
+    function renderMHEditor() {
+      const editor = document.getElementById('mhSectionEditor');
+      if (!editor) return;
+      const sec = mhData.sections.find(s => s.id === mhSelectedSection);
+      if (!sec) {
+        editor.innerHTML = '<div class="text-center py-12" style="color:#ccc;"><span class="material-symbols-outlined text-3xl">touch_app</span><p class="text-xs mt-2">Selecciona una sección para editarla</p></div>';
+        return;
+      }
+
+      const typeOptions = [
+        { id:'cover', label:'Portada', icon:'auto_stories' },
+        { id:'map', label:'Mapa', icon:'map' },
+        { id:'comparison', label:'Comparar', icon:'compare' },
+        { id:'metrics', label:'Métricas', icon:'query_stats' },
+        { id:'quote', label:'Cita', icon:'format_quote' },
+        { id:'text', label:'Texto', icon:'article' },
+        { id:'separator', label:'Separador', icon:'horizontal_rule' }
+      ];
+
+      let typeSpecificControls = '';
+
+      if (sec.type === 'separator') {
+        typeSpecificControls = `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Etiqueta (opcional)</label>
+            <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none" placeholder="ej. ● ● ● o FASE II">
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Estilo</label>
+            <div class="grid grid-cols-3 gap-2 mt-1">
+              ${['solid','dashed','dotted'].map(st => `
+                <div onclick="updateMHField('sepStyle','${st}')" class="px-2 py-2 rounded-lg text-[10px] font-bold text-center cursor-pointer transition-all ${(sec.sepStyle||'solid') === st ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}">
+                  ${st === 'solid' ? '— Sólido' : st === 'dashed' ? '- Guiones' : '··· Puntos'}
+                </div>`).join('')}
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Grosor: ${sec.sepThick || 1}px</label>
+            <input type="range" min="1" max="6" value="${sec.sepThick || 1}" onchange="updateMHField('sepThick',parseInt(this.value))" class="w-full mt-1">
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Color del separador</label>
+            <input type="color" value="${sec.sepColor || mhData.globalAccent}" onchange="updateMHField('sepColor',this.value)" class="w-full h-8 rounded-lg border border-zinc-200 cursor-pointer mt-1">
+          </div>`;
+      } else if (sec.type === 'comparison') {
+        typeSpecificControls = `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Título</label>
+            <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none">
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Modo de Comparación</label>
+            <div class="grid grid-cols-2 gap-2 mt-1">
+              <button onclick="updateMHField('compareMode','slider')" class="px-2 py-2 rounded-lg text-[10px] font-bold transition-all ${sec.compareMode === 'slider' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}">
+                ↔ Deslizador
+              </button>
+              <button onclick="updateMHField('compareMode','side-by-side')" class="px-2 py-2 rounded-lg text-[10px] font-bold transition-all ${sec.compareMode === 'side-by-side' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}">
+                ◫ Lado a Lado
+              </button>
+            </div>
+          </div>
+
+          <!-- Image 1 -->
+          <div class="mb-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold text-zinc-700 uppercase">Capa 1 (Antes / Base)</span>
+              ${sec.imageUrl ? `<button onclick="updateMHField('imageUrl',null)" class="text-[10px] text-red-500 hover:underline">Quitar</button>` : ''}
+            </div>
+            <input type="text" value="${escHtml(sec.label1 || 'Antes')}" onchange="updateMHField('label1',this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs border border-zinc-200 mb-2 bg-white" placeholder="Etiqueta Capa 1">
+            ${sec.imageUrl ? `
+              <img src="${sec.imageUrl}" class="w-full h-20 object-cover rounded-lg border border-zinc-200 mb-2">
+            ` : ''}
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="captureActiveMapToCurrentSection('imageUrl')" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200 flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">photo_camera</span> 📸 Capturar Mapa
+              </button>
+              <button onclick="handleMHImageUpload('${sec.id}','imageUrl')" class="px-2 py-1.5 rounded-lg bg-white hover:bg-zinc-100 text-zinc-700 text-[10px] font-bold border border-zinc-200 flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">upload</span> Subir
+              </button>
+            </div>
+          </div>
+
+          <!-- Image 2 -->
+          <div class="mb-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold text-zinc-700 uppercase">Capa 2 (Después / Comparada)</span>
+              ${sec.imageUrl2 ? `<button onclick="updateMHField('imageUrl2',null)" class="text-[10px] text-red-500 hover:underline">Quitar</button>` : ''}
+            </div>
+            <input type="text" value="${escHtml(sec.label2 || 'Después')}" onchange="updateMHField('label2',this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs border border-zinc-200 mb-2 bg-white" placeholder="Etiqueta Capa 2">
+            ${sec.imageUrl2 ? `
+              <img src="${sec.imageUrl2}" class="w-full h-20 object-cover rounded-lg border border-zinc-200 mb-2">
+            ` : ''}
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="captureActiveMapToCurrentSection('imageUrl2')" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200 flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">photo_camera</span> 📸 Capturar Mapa
+              </button>
+              <button onclick="handleMHImageUpload('${sec.id}','imageUrl2')" class="px-2 py-1.5 rounded-lg bg-white hover:bg-zinc-100 text-zinc-700 text-[10px] font-bold border border-zinc-200 flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-[13px]">upload</span> Subir
+              </button>
+            </div>
+          </div>`;
+      } else if (sec.type === 'metrics') {
+        const metricsList = sec.metrics || [];
+        typeSpecificControls = `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Título</label>
+            <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none">
+          </div>
+          <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Tarjetas de Métricas (${metricsList.length})</label>
+              <button onclick="addMHMetric('${sec.id}')" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">+ Añadir Métrica</button>
+            </div>
+            <div class="space-y-2">
+              ${metricsList.map((m, mi) => `
+                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-zinc-600">Indicador #${mi+1}</span>
+                    <button onclick="deleteMHMetric('${sec.id}',${mi})" class="text-zinc-400 hover:text-red-500 text-xs">✕</button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <input type="text" value="${escHtml(m.label)}" placeholder="Etiqueta" onchange="updateMHMetric('${sec.id}',${mi},'label',this.value)" class="px-2 py-1 text-xs border border-zinc-200 rounded bg-white">
+                    <input type="text" value="${escHtml(m.value)}" placeholder="Valor (ej. 1,420 ha)" onchange="updateMHMetric('${sec.id}',${mi},'value',this.value)" class="px-2 py-1 text-xs border border-zinc-200 rounded bg-white font-bold">
+                  </div>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <input type="text" value="${escHtml(m.change||'')}" placeholder="Subtítulo/Tendencia" onchange="updateMHMetric('${sec.id}',${mi},'change',this.value)" class="px-2 py-1 text-[11px] border border-zinc-200 rounded bg-white">
+                    <select onchange="updateMHMetric('${sec.id}',${mi},'icon',this.value)" class="px-2 py-1 text-[11px] border border-zinc-200 rounded bg-white">
+                      ${['forest','eco','water_drop','analytics','radar','terrain','monitoring','layers'].map(ic => `<option value="${ic}" ${m.icon === ic ? 'selected' : ''}>${ic}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>`).join('')}
+            </div>
+          </div>`;
+      } else if (sec.type === 'quote') {
+        typeSpecificControls = `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Texto de la Cita</label>
+            <textarea onchange="updateMHField('quoteText',this.value)" rows="3" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none resize-none leading-relaxed">${escHtml(sec.quoteText || sec.body || '')}</textarea>
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Autor / Responsable</label>
+            <input type="text" value="${escHtml(sec.author||'')}" onchange="updateMHField('author',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none" placeholder="ej. Dra. María González">
+          </div>
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Cargo / Institución</label>
+            <input type="text" value="${escHtml(sec.role||'')}" onchange="updateMHField('role',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none" placeholder="ej. Especialista en Teledetección">
+          </div>`;
+      } else {
+        // Standard Map, Cover, Text controls
+        typeSpecificControls = `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Título</label>
+            <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs border border-zinc-200 mt-1 outline-none">
+          </div>
+
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Descripción</label>
+            <div class="mt-1 rounded-lg overflow-hidden border border-zinc-200">
+              <div class="flex items-center gap-0.5 px-2 py-1.5 bg-zinc-100 border-b border-zinc-200">
+                <button onclick="execMHRich('bold')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 font-bold text-xs" title="Negrita">B</button>
+                <button onclick="execMHRich('italic')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 italic text-xs" title="Cursiva">I</button>
+                <button onclick="execMHRich('underline')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 underline text-xs" title="Subrayado">U</button>
+                <span class="w-px h-3.5 mx-1 bg-zinc-300"></span>
+                <button onclick="execMHRich('insertUnorderedList')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 text-xs" title="Lista"><span class="material-symbols-outlined text-[13px]">format_list_bulleted</span></button>
+                <button onclick="execMHRich('insertOrderedList')" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 text-xs" title="Numeración"><span class="material-symbols-outlined text-[13px]">format_list_numbered</span></button>
+                <span class="w-px h-3.5 mx-1 bg-zinc-300"></span>
+                <button onclick="execMHRichLink()" class="w-6 h-6 rounded flex items-center justify-center hover:bg-zinc-200 text-xs" title="Enlace"><span class="material-symbols-outlined text-[13px]">link</span></button>
+              </div>
+              <div id="mhRichBody" contenteditable="true" oninput="syncMHRichBody()" class="w-full px-3 py-2 text-xs outline-none min-h-[75px] bg-zinc-50" style="line-height:1.6;">${sec.body || ''}</div>
+            </div>
+          </div>
+
+          ${sec.type !== 'cover' ? `
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Diseño de Imagen</label>
+            <div class="grid grid-cols-2 gap-2">
+              ${[
+                {id:'center', label:'Centrado', icon:'text_fields'},
+                {id:'full', label:'Imagen Grande', icon:'panorama'},
+                {id:'left', label:'Izquierda', icon:'view_sidebar'},
+                {id:'right', label:'Derecha', icon:'view_sidebar_right'}
+              ].map(l => `
+                <div onclick="updateMHField('layout','${l.id}')" class="px-2 py-2 rounded-lg text-[10px] font-semibold text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 ${sec.layout === l.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}">
+                  <span class="material-symbols-outlined text-[14px]">${l.icon}</span>
+                  ${l.label}
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Image & Snapshot -->
+          <div class="mb-4">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Imagen / Captura de Mapa</label>
+            ${sec.imageUrl ? `
+              <div class="relative rounded-xl overflow-hidden mb-2 border border-zinc-200">
+                <img src="${sec.imageUrl}" class="w-full h-24 object-cover">
+                <button onclick="updateMHField('imageUrl',null)" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-red-500 transition-colors">
+                  <span class="material-symbols-outlined text-[12px]">close</span>
+                </button>
+              </div>` : ''}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <button onclick="captureActiveMapToCurrentSection('imageUrl')" class="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-bold border border-amber-300 flex items-center justify-center gap-1.5 transition-colors">
+                <span class="material-symbols-outlined text-[15px]">photo_camera</span>
+                📸 Capturar Mapa
+              </button>
+              <button onclick="handleMHImageUpload('${sec.id}','imageUrl')" class="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[11px] font-bold border border-zinc-200 flex items-center justify-center gap-1.5 transition-colors">
+                <span class="material-symbols-outlined text-[15px]">add_photo_alternate</span>
+                Subir Archivo
+              </button>
+            </div>
+          </div>`;
+      }
+
+      editor.innerHTML = `
+        <!-- Tipo de Sección -->
+        <div class="mb-5">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2 block">Tipo de Sección</label>
+          <div class="grid grid-cols-4 gap-1.5">
+            ${typeOptions.map(t => `
+              <button onclick="updateMHField('type','${t.id}')" class="px-1.5 py-2 rounded-xl text-[10px] font-bold text-center cursor-pointer transition-all flex flex-col items-center gap-1 ${sec.type === t.id ? 'bg-zinc-900 text-white shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}">
+                <span class="material-symbols-outlined text-[15px]">${t.icon}</span>
+                <span class="truncate w-full text-center">${t.label}</span>
+              </button>`).join('')}
+          </div>
+        </div>
+
+        ${typeSpecificControls}
+
+        <!-- Colores de sección -->
+        <div class="mb-5 pt-4 border-t border-zinc-200">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2 block">Colores Específicos (opcional)</label>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <span class="text-[10px] text-zinc-400 block mb-1">Fondo</span>
+              <input type="color" value="${sec.bgColor || mhData.globalBg}" onchange="updateMHField('bgColor',this.value === '${mhData.globalBg}' ? null : this.value)" class="w-full h-7 rounded-lg border border-zinc-200 cursor-pointer">
+            </div>
+            <div>
+              <span class="text-[10px] text-zinc-400 block mb-1">Texto</span>
+              <input type="color" value="${sec.textColor || mhData.globalText}" onchange="updateMHField('textColor',this.value === '${mhData.globalText}' ? null : this.value)" class="w-full h-7 rounded-lg border border-zinc-200 cursor-pointer">
+            </div>
+          </div>
+        </div>
+
+        <!-- Paleta Global -->
+        <div class="pt-4 border-t border-zinc-200">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Tema Visual de la Historia</label>
+            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700">${mhThemes[mhData.theme]?.name || mhData.theme}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            ${Object.entries(mhThemes).map(([k,v]) => {
+              const isSelected = mhData.theme === k;
+              return `
+                <div onclick="selectMHTheme('${k}')" class="flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all border ${isSelected ? 'border-zinc-900 bg-zinc-100 font-bold' : 'border-zinc-200 hover:bg-zinc-50'}">
+                  <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style="background:${v.bg};border:1px solid rgba(0,0,0,0.1);">
+                    <span style="color:${v.accent};font-size:10px;font-weight:900;">•</span>
+                  </div>
+                  <span class="text-[10px] truncate text-zinc-800">${v.name}</span>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Save Story to LocalStorage & Projects API
+    async function saveMapHistory() {
+      const name = (mhData.title || mhData.sections[0]?.title || 'Map History').substring(0, 50);
+      const desc = 'Map History · ' + mhData.sections.length + ' secciones visuales';
+
+      // 1. Instant local persistence
+      saveMapHistoryToStorage(mhData);
+
+      // 2. Background cloud project save
       try {
+        const uid = _currentUser?.id || 'guest';
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: uid,
+            name: name,
+            description: desc,
+            metadata: JSON.stringify({
+              type: 'map_history',
+              data: mhData,
+            }),
+          }),
+        });
+        if (res.ok) {
+          const project = await res.json();
+          if (project && project.id) mhData.projectId = project.id;
+        }
+      } catch (e) {
+        console.warn('[MapHistory] Cloud sync optional/offline:', e);
+      }
+
+      toast('¡Historia guardada con éxito!', 'success');
+      renderSavedMapHistories();
+    }
+
+    function openSavedMapHistory(id) {
+      const list = getSavedMapHistories();
+      const story = list.find(s => s.id === id);
+      if (!story) {
+        toast('Historia no encontrada', 'error');
+        return;
+      }
+      openMapHistoryDesigner(null, story);
+    }
+
+    function deleteSavedMapHistory(id) {
+      if (!confirm('¿Estás seguro de eliminar esta historia?')) return;
+      let list = getSavedMapHistories();
+      list = list.filter(s => s.id !== id);
+      try {
+        localStorage.setItem(MH_STORAGE_KEY, JSON.stringify(list));
+      } catch (_) {}
+      renderSavedMapHistories();
+      toast('Historia eliminada', 'info');
+    }
+
+    function duplicateMapHistory(id) {
+      const list = getSavedMapHistories();
+      const story = list.find(s => s.id === id);
+      if (!story) return;
+      const copy = JSON.parse(JSON.stringify(story));
+      copy.id = 'mh_' + Date.now();
+      copy.title = (copy.title || 'Historia') + ' (Copia)';
+      saveMapHistoryToStorage(copy);
+      toast('Historia duplicada', 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Presentation Mode (Fullscreen Slideshow)
+    // ═══════════════════════════════════════════════════════════
+
+    function startMHPresentation(storyData) {
+      const data = storyData || mhData;
+      if (!data || !data.sections || data.sections.length === 0) {
+        toast('No hay secciones para presentar', 'warning');
+        return;
+      }
+
+      const modal = document.getElementById('mhPresentationModal');
+      if (!modal) return;
+
+      mhPresIndex = 0;
+      modal.classList.remove('hidden');
+
+      const titleEl = document.getElementById('mhPresTitle');
+      if (titleEl) titleEl.textContent = data.title || data.sections[0]?.title || 'Map History';
+
+      renderMHPresSlide();
+
+      // Keyboard listeners
+      window.addEventListener('keydown', handleMHPresKeydown);
+    }
+
+    function closeMHPresentation() {
+      const modal = document.getElementById('mhPresentationModal');
+      if (modal) modal.classList.add('hidden');
+      if (mhPresTimer) {
+        clearInterval(mhPresTimer);
+        mhPresTimer = null;
+      }
+      mhPresAutoPlay = false;
+      window.removeEventListener('keydown', handleMHPresKeydown);
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function handleMHPresKeydown(e) {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextMHPresSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevMHPresSlide();
+      } else if (e.key === 'Escape') {
+        closeMHPresentation();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleMHPresentationFullscreen();
+      }
+    }
+
+    function renderMHPresSlide() {
+      const stage = document.getElementById('mhPresStage');
+      if (!stage) return;
+
+      // Filter out standalone separators for slides
+      const nonSepSections = mhData.sections.filter(s => s.type !== 'separator');
+      if (nonSepSections.length === 0) return;
+
+      if (mhPresIndex < 0) mhPresIndex = 0;
+      if (mhPresIndex >= nonSepSections.length) mhPresIndex = nonSepSections.length - 1;
+
+      const sec = nonSepSections[mhPresIndex];
+      const bg = sec.bgColor || mhData.globalBg;
+      const text = sec.textColor || mhData.globalText;
       const accent = mhData.globalAccent;
+
+      // Update counters & progress
+      const counterEl = document.getElementById('mhPresSlideCounter');
+      if (counterEl) counterEl.textContent = `${mhPresIndex + 1} / ${nonSepSections.length}`;
+
+      const progressEl = document.getElementById('mhPresProgressBar');
+      if (progressEl) {
+        const pct = ((mhPresIndex + 1) / nonSepSections.length) * 100;
+        progressEl.style.width = pct + '%';
+      }
+
+      const prevBtn = document.getElementById('mhPresPrevBtn');
+      const nextBtn = document.getElementById('mhPresNextBtn');
+      if (prevBtn) prevBtn.disabled = (mhPresIndex === 0);
+      if (nextBtn) nextBtn.disabled = (mhPresIndex === nonSepSections.length - 1);
+
+      // Render dots
+      const dots = document.getElementById('mhPresThumbDots');
+      if (dots) {
+        dots.innerHTML = nonSepSections.map((_, i) => `
+          <button onclick="goToMHPresSlide(${i})" class="w-2.5 h-2.5 rounded-full transition-all ${i === mhPresIndex ? 'bg-white scale-125' : 'bg-zinc-600 hover:bg-zinc-400'}"></button>
+        `).join('');
+      }
+
+      // Build slide HTML
+      let slideContent = '';
+      if (sec.type === 'cover') {
+        slideContent = `
+          <div class="flex flex-col items-center justify-center text-center p-8 max-w-2xl animate-fade-in">
+            <span class="text-xs font-bold uppercase tracking-widest mb-4" style="color:${accent};">Map History · Presentación</span>
+            <h1 class="text-3xl sm:text-5xl font-black mb-6 leading-tight" style="color:${text};">${escHtml(sec.title)}</h1>
+            ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed mb-6">${sec.body}</div>` : ''}
+            ${sec.imageUrl ? `<img src="${sec.imageUrl}" class="w-full max-h-72 object-cover rounded-2xl shadow-2xl mb-6">` : ''}
+            <div class="w-12 h-1 rounded-full" style="background:${accent};"></div>
+          </div>`;
+      } else if (sec.type === 'comparison') {
+        const img1 = sec.imageUrl || '';
+        const img2 = sec.imageUrl2 || '';
+        slideContent = `
+          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
+            <h2 class="text-2xl sm:text-3xl font-extrabold mb-2" style="color:${text};">${escHtml(sec.title)}</h2>
+            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-6 text-center max-w-xl">${sec.body}</div>` : ''}
+            ${(img1 && img2 && sec.compareMode === 'slider') ? `
+              <div class="mh-compare-container w-full h-[55vh] shadow-2xl rounded-2xl" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
+                  <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                </div>
+                <div class="mh-compare-divider" style="left:50%;">
+                  <div class="mh-compare-handle">⇄</div>
+                </div>
+                <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1||'Antes')}</span>
+                <span class="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2||'Después')}</span>
+              </div>
+            ` : `
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                  ${img1 ? `<img src="${img1}" class="w-full h-80 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center">Sin imagen</div>'}
+                  <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label1||'Antes')}</span>
+                </div>
+                <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                  ${img2 ? `<img src="${img2}" class="w-full h-80 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center">Sin imagen</div>'}
+                  <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2||'Después')}</span>
+                </div>
+              </div>`}
+          </div>`;
+      } else if (sec.type === 'metrics') {
+        const metricsList = sec.metrics || [];
+        slideContent = `
+          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
+            <span class="text-xs font-bold uppercase tracking-widest mb-2" style="color:${accent};">Indicadores de Desempeño Espacial</span>
+            <h2 class="text-2xl sm:text-4xl font-extrabold mb-4" style="color:${text};">${escHtml(sec.title)}</h2>
+            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-8 text-center max-w-xl">${sec.body}</div>` : ''}
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full">
+              ${metricsList.map(m => `
+                <div class="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col justify-between shadow-xl">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="material-symbols-outlined text-3xl" style="color:${m.color || accent};">${m.icon || 'analytics'}</span>
+                    ${m.change ? `<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:${m.color||accent}22;color:${m.color||accent};">${escHtml(m.change)}</span>` : ''}
+                  </div>
+                  <div>
+                    <div class="text-3xl sm:text-4xl font-black tracking-tight" style="color:${text};">${escHtml(m.value || '0')}</div>
+                    <div class="text-xs font-semibold opacity-70 mt-1">${escHtml(m.label || '')}</div>
+                  </div>
+                </div>`).join('')}
+            </div>
+          </div>`;
+      } else if (sec.type === 'quote') {
+        slideContent = `
+          <div class="flex flex-col items-center justify-center text-center p-8 max-w-2xl animate-fade-in">
+            <span class="material-symbols-outlined text-6xl mb-6 opacity-30" style="color:${accent};">format_quote</span>
+            <blockquote class="text-xl sm:text-3xl font-medium italic leading-relaxed mb-6" style="color:${text};">
+              "${escHtml(sec.quoteText || sec.body)}"
+            </blockquote>
+            <div class="w-12 h-1 rounded-full mb-4" style="background:${accent};"></div>
+            ${sec.author ? `<div class="text-base font-bold">${escHtml(sec.author)}</div>` : ''}
+            ${sec.role ? `<div class="text-xs opacity-60">${escHtml(sec.role)}</div>` : ''}
+          </div>`;
+      } else {
+        // Standard Map
+        slideContent = `
+          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
+            <h2 class="text-2xl sm:text-3xl font-extrabold mb-3" style="color:${text};">${escHtml(sec.title)}</h2>
+            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-6 text-center max-w-2xl">${sec.body}</div>` : ''}
+            ${sec.imageUrl ? `
+              <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 max-h-[60vh] flex items-center justify-center bg-black/40">
+                <img src="${sec.imageUrl}" class="w-full h-auto max-h-[60vh] object-contain">
+              </div>` : ''}
+          </div>`;
+      }
+
+      stage.innerHTML = `<div class="w-full h-full flex items-center justify-center" style="background:${bg};color:${text};border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">${slideContent}</div>`;
+    }
+
+    function nextMHPresSlide() {
+      const nonSep = mhData.sections.filter(s => s.type !== 'separator');
+      if (mhPresIndex < nonSep.length - 1) {
+        mhPresIndex++;
+        renderMHPresSlide();
+      } else if (mhPresAutoPlay) {
+        mhPresIndex = 0;
+        renderMHPresSlide();
+      }
+    }
+
+    function prevMHPresSlide() {
+      if (mhPresIndex > 0) {
+        mhPresIndex--;
+        renderMHPresSlide();
+      }
+    }
+
+    function goToMHPresSlide(idx) {
+      mhPresIndex = idx;
+      renderMHPresSlide();
+    }
+
+    function toggleMHPresentationFullscreen() {
+      const modal = document.getElementById('mhPresentationModal');
+      if (!modal) return;
+      if (!document.fullscreenElement) {
+        modal.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function toggleMHPresentationAutoPlay() {
+      mhPresAutoPlay = !mhPresAutoPlay;
+      const icon = document.getElementById('mhPresAutoPlayIcon');
+      const text = document.getElementById('mhPresAutoPlayText');
+
+      if (mhPresAutoPlay) {
+        if (icon) icon.textContent = 'pause';
+        if (text) text.textContent = 'Pausar';
+        mhPresTimer = setInterval(nextMHPresSlide, 5000);
+        toast('Reproducción automática iniciada (5s)', 'info');
+      } else {
+        if (icon) icon.textContent = 'play_arrow';
+        if (text) text.textContent = 'Auto';
+        if (mhPresTimer) {
+          clearInterval(mhPresTimer);
+          mhPresTimer = null;
+        }
+      }
+    }
+
+    function playSavedMapHistory(id) {
+      const list = getSavedMapHistories();
+      const story = list.find(s => s.id === id);
+      if (!story) return;
+      mhData = JSON.parse(JSON.stringify(story));
+      startMHPresentation(mhData);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Export Utilities: Standalone HTML & PDF
+    // ═══════════════════════════════════════════════════════════
+
+    function generateStandaloneMHHtml() {
+      const title = mhData.title || mhData.sections[0]?.title || 'Map History';
       const bg = mhData.globalBg;
       const text = mhData.globalText;
-      const fontLink = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap';
-      const iconLink = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1';
-      let sectionsHtml = '';
-      const groups = [];
-      let pendingSep = null;
-      for (const sec of mhData.sections) {
-        if (sec.type === 'separator') { pendingSep = sec; continue; }
-        groups.push({ section: sec, separator: pendingSep });
-        pendingSep = null;
-      }
-      if (pendingSep) groups.push({ section: pendingSep, separator: null });
-      const pageBg = mhData.sections[0]?.bgColor || bg;
-      const pageText = mhData.sections[0]?.textColor || text;
-      groups.forEach((g, i) => {
-        const sec = g.section;
-        const sep = g.separator;
-        if (sec.type === 'separator') {
-          const sc = sep?.sepColor || sec.sepColor || accent;
-          const st = sep?.sepThick || sec.sepThick || 1;
-          const sw = Math.min(sep?.sepWidth || sec.sepWidth || 40, 80);
-          const ss = Math.max(sep?.sepSpace || sec.sepSpace || 12, 4);
-          const sl = sep?.sepStyle || sec.sepStyle || 'solid';
-          const label = sep?.title || sec.title || '';
-          sectionsHtml += `<div style="padding:${ss}px 20px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sc};text-transform:uppercase;">${label}</span>` : ''}
-            <div style="width:${sw}px;border-top:${st}px ${sl} ${sc};"></div>
-          </div>`;
-          return;
-        }
-        const secBg = sec.bgColor || bg;
-        const secText = sec.textColor || text;
-        let sepHtml = '';
-        if (sep) {
-          const sc = sep.sepColor || accent;
-          const st = sep.sepThick || 1;
-          const sw = Math.min(sep.sepWidth || 40, 80);
-          const ss = Math.max(sep.sepSpace || 12, 4);
-          const sl = sep.sepStyle || 'solid';
-          const label = sep.title || '';
-          sepHtml = `<div style="padding:${ss}px 20px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-            ${label ? `<span style="font-size:9px;font-weight:600;letter-spacing:3px;color:${sc};text-transform:uppercase;">${label}</span>` : ''}
-            <div style="width:${sw}px;border-top:${st}px ${sl} ${sc};"></div>
-          </div>`;
-        }
-        const img = sec.imageUrl;
-        const hasImg = !!img;
-        const imgLayout = sec.layout || 'center';
-        const isCover = sec.type === 'cover';
+      const accent = mhData.globalAccent;
 
-        if (isCover) {
+      let sectionsHtml = '';
+      for (const sec of mhData.sections) {
+        const sBg = sec.bgColor || bg;
+        const sText = sec.textColor || text;
+
+        if (sec.type === 'cover') {
           sectionsHtml += `
-            <div style="background:${secBg};color:${secText};padding:80px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;">
-              ${sepHtml}
-              <div style="color:${accent};font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;">Map History</div>
-              <h1 style="font-size:36px;font-weight:900;line-height:1.1;margin-bottom:12px;max-width:500px;">${escHtml(sec.title)}</h1>
-              ${sec.body ? `<div style="font-size:14px;line-height:1.7;max-width:400px;opacity:0.7;">${sec.body}</div>` : ''}
-              <div style="margin-top:24px;width:40px;height:2px;background:${accent};border-radius:2px;"></div>
-            </div>`;
-        } else if (hasImg && imgLayout === 'full') {
+            <section style="min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;background:${sBg};color:${sText};">
+              <span style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:16px;">Map History</span>
+              <h1 style="font-size:42px;font-weight:900;line-height:1.15;max-width:650px;margin-bottom:16px;">${escHtml(sec.title)}</h1>
+              ${sec.body ? `<div style="font-size:15px;line-height:1.7;max-width:500px;opacity:0.8;margin-bottom:24px;">${sec.body}</div>` : ''}
+              ${sec.imageUrl ? `<img src="${sec.imageUrl}" style="width:100%;max-width:550px;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.3);margin-bottom:24px;">` : ''}
+              <div style="width:48px;height:3px;background:${accent};border-radius:2px;"></div>
+            </section>`;
+        } else if (sec.type === 'comparison') {
+          const img1 = sec.imageUrl || '';
+          const img2 = sec.imageUrl2 || '';
           sectionsHtml += `
-            <div style="background:${secBg};color:${secText};">
-              <img src="${img}" alt="" style="width:100%;max-height:500px;object-fit:contain;display:block;">
-              <div style="padding:32px 32px 40px;">
-                ${sepHtml}
-                <h2 style="font-size:22px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:13px;line-height:1.7;opacity:0.7;">${sec.body}</div>` : ''}
-              </div>
-            </div>`;
-        } else if (hasImg && (imgLayout === 'left' || imgLayout === 'right')) {
-          const fd = imgLayout === 'left' ? 'row' : 'row-reverse';
+            <section style="padding:60px 24px;background:${sBg};color:${sText};max-width:900px;margin:0 auto;">
+              <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
+              ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.8;margin-bottom:24px;">${sec.body}</div>` : ''}
+              ${(img1 && img2) ? `
+                <div class="mh-compare-container" style="height:480px;position:relative;overflow:hidden;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.2);" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
+                  <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                  <div class="before-layer" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:2px solid white;">
+                    <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                  </div>
+                  <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;">
+                    <div style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
+                  </div>
+                  <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.6);color:white;font-size:11px;font-weight:700;">${escHtml(sec.label1||'Antes')}</span>
+                  <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.6);color:white;font-size:11px;font-weight:700;">${escHtml(sec.label2||'Después')}</span>
+                </div>` : ''}
+            </section>`;
+        } else if (sec.type === 'metrics') {
+          const metricsList = sec.metrics || [];
           sectionsHtml += `
-            <div style="display:flex;flex-direction:${fd};min-height:320px;background:${secBg};color:${secText};">
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;">
-                <img src="${img}" alt="" style="width:100%;height:220px;object-fit:cover;border-radius:8px;">
+            <section style="padding:60px 24px;background:${sBg};color:${sText};max-width:900px;margin:0 auto;">
+              <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
+              ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.8;margin-bottom:24px;">${sec.body}</div>` : ''}
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;">
+                ${metricsList.map(m => `
+                  <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;">
+                    <div style="font-size:26px;font-weight:900;color:${sText};">${escHtml(m.value)}</div>
+                    <div style="font-size:12px;font-weight:600;opacity:0.7;margin-top:4px;">${escHtml(m.label)}</div>
+                    ${m.change ? `<div style="font-size:11px;font-weight:700;color:${m.color||accent};margin-top:8px;">${escHtml(m.change)}</div>` : ''}
+                  </div>`).join('')}
               </div>
-              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px;">
-                ${sepHtml}
-                <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:13px;line-height:1.7;opacity:0.7;">${sec.body}</div>` : ''}
-              </div>
+            </section>`;
+        } else if (sec.type === 'quote') {
+          sectionsHtml += `
+            <section style="padding:60px 24px;background:${sBg};color:${sText};text-align:center;">
+              <blockquote style="font-size:22px;font-style:italic;line-height:1.6;max-width:650px;margin:0 auto 16px;">
+                "${escHtml(sec.quoteText || sec.body)}"
+              </blockquote>
+              ${sec.author ? `<div style="font-size:14px;font-weight:800;">${escHtml(sec.author)}</div>` : ''}
+              ${sec.role ? `<div style="font-size:11px;opacity:0.6;">${escHtml(sec.role)}</div>` : ''}
+            </section>`;
+        } else if (sec.type === 'separator') {
+          const sepColor = sec.sepColor || accent;
+          sectionsHtml += `
+            <div style="padding:24px 0;display:flex;flex-direction:column;align-items:center;background:${bg};">
+              ${sec.title ? `<span style="font-size:9px;font-weight:700;letter-spacing:3px;color:${sepColor};text-transform:uppercase;margin-bottom:6px;">${escHtml(sec.title)}</span>` : ''}
+              <div style="width:${sec.sepWidth||40}px;border-top:${sec.sepThick||1}px ${sec.sepStyle||'solid'} ${sepColor};"></div>
             </div>`;
         } else {
           sectionsHtml += `
-            <div style="background:${secBg};color:${secText};padding:48px 32px;min-height:240px;display:flex;flex-direction:column;justify-content:center;">
-              ${sepHtml}
-              <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-              ${sec.body ? `<div style="font-size:13px;line-height:1.7;opacity:0.7;">${sec.body}</div>` : ''}
-              ${img ? `<div style="margin-top:16px;"><img src="${img}" alt="" style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;"></div>` : ''}
-            </div>`;
+            <section style="padding:60px 24px;background:${sBg};color:${sText};max-width:900px;margin:0 auto;">
+              <h2 style="font-size:24px;font-weight:800;margin-bottom:12px;">${escHtml(sec.title)}</h2>
+              ${sec.body ? `<div style="font-size:14px;line-height:1.7;opacity:0.85;margin-bottom:20px;">${sec.body}</div>` : ''}
+              ${sec.imageUrl ? `<img src="${sec.imageUrl}" style="width:100%;max-height:480px;object-fit:cover;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.15);">` : ''}
+            </section>`;
         }
-      });
+      }
 
-      const html = `<!DOCTYPE html>
+      return `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>${escHtml(mhData.sections[0]?.title || 'Map History')}</title>
-<link href="${fontLink}" rel="stylesheet">
-<link href="${iconLink}" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-direction:column;align-items:center;padding:20px;}
-.book{width:100%;max-width:100%;border-radius:0;overflow:visible;box-shadow:none;min-height:100vh;}
-.book a{color:inherit;text-decoration:underline;text-underline-offset:2px;opacity:0.85;cursor:pointer;transition:opacity 0.2s;}
-.book a:hover{opacity:1;}
-.book a:not([href]){opacity:0.4;cursor:default;text-decoration:none;}
-@media(min-width:1024px){body{padding:0}.book{max-width:100%;border-radius:0;box-shadow:none;}}
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escHtml(title)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter', sans-serif; background:${bg}; color:${text}; line-height:1.5; overflow-x:hidden; }
+    img { max-width:100%; display:block; }
+    @media print {
+      body { background:#fff !important; color:#000 !important; }
+      section { page-break-after:always; break-after:page; }
+    }
+  </style>
 </head>
-<body><div class="book">${sectionsHtml}</div></body>
+<body>
+  ${sectionsHtml}
+  <script>
+    function handleCompare(e, container) {
+      if (e.buttons !== 1 && e.type !== 'touchmove') return;
+      const rect = container.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const before = container.querySelector('.before-layer');
+      const div = container.querySelector('.divider');
+      if (before) before.style.width = pct + '%';
+      if (div) div.style.left = pct + '%';
+    }
+  <\/script>
+</body>
 </html>`;
+    }
+
+    function downloadMHHtml() {
+      const html = generateStandaloneMHHtml();
+      const rawTitle = mhData.title || mhData.sections[0]?.title || 'historia_mapa';
+      const filename = rawTitle.toLowerCase().replace(/[^a-z0-9_-]/g, '_').substring(0, 40) + '.html';
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Historia descargada en HTML autónomo', 'success');
+    }
+
+    function downloadSavedMapHistory(id) {
+      const list = getSavedMapHistories();
+      const story = list.find(s => s.id === id);
+      if (!story) return;
+      const prevData = mhData;
+      mhData = story;
+      downloadMHHtml();
+      mhData = prevData;
+    }
+
+    function exportMHPdf() {
+      // Use standard window.print on a dedicated print view
+      const html = generateStandaloneMHHtml();
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast('Permite ventanas emergentes para exportar a PDF', 'warning');
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 700);
+    }
+
+    function openMHPreviewTab() {
+      const html = generateStandaloneMHHtml();
       const blob = new Blob([html], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-      } catch (e) { toast('Error al abrir vista previa: ' + e.message, 'error'); }
     }
 
+    // Resources palette helper functions
     function toggleMHResources() {
       const p = document.getElementById('mhResourcesPanel');
       if (p) p.classList.toggle('hidden');
     }
 
-    let _mhResCounter = 0;
     function insertMHResource(type) {
       const book = document.getElementById('mhPreviewBook');
       if (!book) { toast('Abre primero el diseñador', 'info'); return; }
       const container = document.getElementById('mhPreviewContainer');
       const scrollTop = container ? container.scrollTop : 0;
-      const x = 40 + Math.round(Math.random() * 100);
+      const x = 40 + Math.round(Math.random() * 80);
       const y = scrollTop + 30 + Math.round(Math.random() * 40);
       const resId = 'mhres_' + (++_mhResCounter);
       mhData.resources.push({ id: resId, type, x, y });
@@ -49715,53 +51131,38 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
     function renderMHResourceElement(resId, type, x, y) {
       const book = document.getElementById('mhPreviewBook');
       if (!book) return;
-      // Remove existing element for this resource if any
       const old = document.getElementById(resId);
       if (old) old.remove();
 
       const htmlMap = {
-        'arrow-right': '<span style="font-size:32px;font-weight:300;display:block;line-height:1;">→</span>',
-        'arrow-left': '<span style="font-size:32px;font-weight:300;display:block;line-height:1;">←</span>',
-        'arrow-up': '<span style="font-size:32px;font-weight:300;display:block;line-height:1;">↑</span>',
-        'arrow-down': '<span style="font-size:32px;font-weight:300;display:block;line-height:1;">↓</span>',
+        'arrow-right': '<span style="font-size:32px;line-height:1;">→</span>',
+        'arrow-left': '<span style="font-size:32px;line-height:1;">←</span>',
+        'arrow-up': '<span style="font-size:32px;line-height:1;">↑</span>',
+        'arrow-down': '<span style="font-size:32px;line-height:1;">↓</span>',
         'line-h': '<div style="width:100%;height:2px;background:currentColor;"></div>',
         'line-dash': '<div style="width:100%;border-top:2px dashed currentColor;"></div>',
         'line-dot': '<div style="width:100%;border-top:2px dotted currentColor;"></div>',
-        'circle': '<span style="font-size:28px;display:block;line-height:1;">●</span>',
-        'circle-o': '<span style="font-size:28px;display:block;line-height:1;">○</span>',
-        'square': '<span style="font-size:28px;display:block;line-height:1;">■</span>',
-        'diamond': '<span style="font-size:28px;display:block;line-height:1;">◇</span>',
-        'cross': '<span style="font-size:28px;display:block;line-height:1;">✚</span>',
-        'star': '<span style="font-size:30px;display:block;line-height:1;">★</span>',
-        'triangle': '<span style="font-size:28px;display:block;line-height:1;">▲</span>',
-        'divider-dots': '<div style="font-size:14px;letter-spacing:6px;text-align:center;width:100%;">• • •</div>',
-        'divider-star': '<div style="font-size:18px;letter-spacing:8px;text-align:center;width:100%;">✻ ✻ ✻</div>',
-        'divider-wave': '<div style="font-size:20px;letter-spacing:8px;text-align:center;width:100%;opacity:0.6;">~ ~ ~</div>',
+        'circle': '<span style="font-size:28px;line-height:1;">●</span>',
+        'circle-o': '<span style="font-size:28px;line-height:1;">○</span>',
+        'square': '<span style="font-size:28px;line-height:1;">■</span>',
+        'diamond': '<span style="font-size:28px;line-height:1;">◇</span>',
+        'cross': '<span style="font-size:28px;line-height:1;">✚</span>',
+        'star': '<span style="font-size:30px;line-height:1;">★</span>',
+        'triangle': '<span style="font-size:28px;line-height:1;">▲</span>',
+        'divider-dots': '<div style="font-size:14px;letter-spacing:6px;text-align:center;">• • •</div>',
+        'divider-star': '<div style="font-size:18px;letter-spacing:8px;text-align:center;">✻ ✻ ✻</div>',
+        'divider-wave': '<div style="font-size:20px;letter-spacing:8px;text-align:center;opacity:0.6;">~ ~ ~</div>',
         'frame-simple': '<div style="width:100%;height:100%;border:2px solid currentColor;border-radius:6px;"></div>',
-        'quote': '<div style="border-left:3px solid currentColor;padding:4px 12px;font-style:italic;font-size:12px;">Cita</div>',
+        'quote': '<div style="border-left:3px solid currentColor;padding:4px 12px;font-style:italic;font-size:12px;">Cita</div>'
       };
       const html = htmlMap[type] || '<span>?</span>';
-      const w = ['arrow-right','arrow-left','arrow-up','arrow-down','line-h','line-dash','line-dot','circle','circle-o','square','diamond','cross','star','triangle','divider-dots','divider-star','divider-wave'].includes(type) ? '40px' : (type === 'frame-simple' ? '80px' : '60px');
-      const h = ['circle','circle-o','square','diamond','cross','star','triangle'].includes(type) ? '40px' : (type === 'frame-simple' ? '60px' : '30px');
-
       const div = document.createElement('div');
       div.id = resId;
-      const txtCol = mhData.globalText || '#000';
       div.className = 'absolute cursor-grab z-50 flex items-center justify-center select-none group';
-      div.style.cssText = `left:${x}px;top:${y}px;width:${w};height:${h};color:${txtCol};`;
-      div.style.background = 'rgba(255,255,255,0.15)';
-      div.style.borderRadius = '6px';
+      div.style.cssText = `left:${x}px;top:${y}px;min-width:36px;min-height:36px;color:${mhData.globalText};background:rgba(255,255,255,0.15);border-radius:6px;padding:4px;`;
       div.innerHTML = html + '<button onclick="deleteMHResource(this)" class="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-[60]">✕</button>';
       book.appendChild(div);
       makeMHResourceDraggable(div);
-      // Brief entrance animation
-      div.style.transition = 'opacity 0.2s, transform 0.2s';
-      div.style.opacity = '0';
-      div.style.transform = 'scale(0.8)';
-      requestAnimationFrame(() => {
-        div.style.opacity = '1';
-        div.style.transform = 'scale(1)';
-      });
     }
 
     function deleteMHResource(btn) {
@@ -49784,7 +51185,6 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         origX = rect.left - bookRect.left + book.scrollLeft;
         origY = rect.top - bookRect.top + book.scrollTop;
         el.style.cursor = 'grabbing';
-        el.style.zIndex = '100';
         e.preventDefault();
       });
       document.addEventListener('mousemove', (e) => {
@@ -49795,7 +51195,6 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         const ny = origY + dy;
         el.style.left = nx + 'px';
         el.style.top = ny + 'px';
-        // Update data model
         const res = mhData.resources.find(r => r.id === el.id);
         if (res) { res.x = nx; res.y = ny; }
       });
@@ -49804,300 +51203,15 @@ body{font-family:'Inter',sans-serif;background:#f0f0eb;display:flex;flex-directi
         isDown = false;
         el.style.cursor = 'grab';
       });
-      el.style.cursor = 'grab';
     }
 
-    function scrollToMHSection(idx) {
-      const wraps = document.querySelectorAll('#mhPreviewBook .mh-section-wrap');
-      if (idx < 0 || idx >= wraps.length) return;
-      const container = document.getElementById('mhPreviewContainer');
-      if (!container) return;
-      wraps[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    let mhNavObserver = null;
-    let mhScrollObserver = null;
-    function observeMHSections() {
-      if (mhScrollObserver) mhScrollObserver.disconnect();
-      // IntersectionObserver for scroll-triggered animations (one-time)
-      mhScrollObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('mh-visible');
-            mhScrollObserver.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-      // Observer for active nav chip tracking (continuous)
-      if (mhNavObserver) mhNavObserver.disconnect();
-      mhNavObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          const chip = document.querySelector(`.mh-nav-chip[data-idx="${entry.target.dataset.mhIdx}"]`);
-          if (chip) chip.classList.toggle('active', entry.isIntersecting);
-        });
-      }, { threshold: 0.3 });
-      document.querySelectorAll('#mhPreviewBook .mh-section-wrap').forEach((el, i) => {
-        el.classList.remove('mh-visible');
-        el.dataset.mhIdx = String(i);
-        mhScrollObserver.observe(el);
-        mhNavObserver.observe(el);
+    // Auto-initialize saved histories on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(renderSavedMapHistories, 300);
       });
-    }
-
-    function renderMHEditor() {
-      const editor = document.getElementById('mhSectionEditor');
-      if (!editor) return;
-      const sec = mhData.sections.find(s => s.id === mhSelectedSection);
-      if (!sec) {
-        editor.innerHTML = '<div class="text-center py-12" style="color:#ccc;"><span class="material-symbols-outlined text-3xl">touch_app</span><p class="text-xs mt-2">Selecciona una sección para editarla</p></div>';
-        return;
-      }
-
-      editor.innerHTML = `
-        <!-- Tipo -->
-        <div class="mb-5">
-          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#999;">Tipo</h4>
-          <div class="grid grid-cols-4 gap-2">
-            ${['cover','map','text','separator'].map(t => `
-              <div onclick="updateMHField('type','${t}')" class="px-3 py-2 rounded-lg text-[10px] font-semibold text-center cursor-pointer transition-all ${sec.type === t ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}" style="${sec.type === t ? 'background:#1a1c1f;' : ''}">
-                ${t === 'cover' ? 'Portada' : t === 'map' ? 'Mapa' : t === 'text' ? 'Texto' : 'Separador'}
-              </div>`).join('')}
-          </div>
-        </div>
-
-        ${sec.type === 'separator' ? `
-        <!-- Separator: title -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Etiqueta (opcional)</label>
-          <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs font-medium outline-none mt-1" style="border:1px solid #e8e8e0;background:#fafafa;" placeholder="ej. ● ● ●">
-        </div>
-        <!-- Separator: style -->
-        <div class="mb-4">
-          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#999;">Estilo</h4>
-          <div class="grid grid-cols-3 gap-2">
-            ${['solid','dashed','dotted'].map(st => `
-              <div onclick="updateMHField('sepStyle','${st}')" class="px-3 py-3 rounded-lg text-[9px] font-semibold text-center cursor-pointer transition-all ${(sec.sepStyle||'solid') === st ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}" style="${(sec.sepStyle||'solid') === st ? 'background:#1a1c1f;' : ''}">
-                ${st === 'solid' ? '—' : st === 'dashed' ? '− −' : '⋯'}
-              </div>`).join('')}
-          </div>
-        </div>
-        <!-- Separator: thickness -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Grosor</label>
-          <div class="flex items-center gap-2 mt-1">
-            <input type="range" min="1" max="8" value="${sec.sepThick || 1}" onchange="updateMHField('sepThick',parseInt(this.value))" class="flex-1">
-            <span class="text-[10px] font-mono font-bold" style="color:#666;min-width:16px;">${sec.sepThick || 1}px</span>
-          </div>
-        </div>
-        <!-- Separator: width (px) -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Ancho (px)</label>
-          <div class="flex items-center gap-2 mt-1">
-            <input type="range" min="16" max="80" value="${sec.sepWidth || 40}" onchange="updateMHField('sepWidth',parseInt(this.value))" class="flex-1">
-            <span class="text-[10px] font-mono font-bold" style="color:#666;min-width:20px;">${sec.sepWidth || 40}px</span>
-          </div>
-        </div>
-        <!-- Separator: spacing -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Espaciado</label>
-          <div class="flex items-center gap-2 mt-1">
-            <input type="range" min="4" max="48" value="${sec.sepSpace || 16}" onchange="updateMHField('sepSpace',parseInt(this.value))" class="flex-1">
-            <span class="text-[10px] font-mono font-bold" style="color:#666;min-width:16px;">${sec.sepSpace || 16}px</span>
-          </div>
-        </div>
-        <!-- Separator: color -->
-        <div class="mb-5">
-          <label class="text-[10px] font-medium" style="color:#888;">Color</label>
-          <div class="flex items-center gap-2 mt-1">
-            <input type="color" value="${sec.sepColor || mhData.globalAccent}" onchange="updateMHField('sepColor',this.value)" class="flex-1 h-8 rounded-lg cursor-pointer" style="border:1px solid #e8e8e0;">
-            <span class="text-[9px] font-mono font-bold" style="color:#666;">${sec.sepColor || mhData.globalAccent}</span>
-          </div>
-        </div>
-        ` : `
-        <!-- Título -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Título</label>
-          <input type="text" value="${escHtml(sec.title)}" onchange="updateMHField('title',this.value)" class="w-full px-3 py-2 rounded-lg text-xs font-medium outline-none mt-1" style="border:1px solid #e8e8e0;background:#fafafa;">
-        </div>
-
-        <!-- Cuerpo / Rich Text -->
-        <div class="mb-4">
-          <label class="text-[10px] font-medium" style="color:#888;">Descripción</label>
-          <div class="mt-1 rounded-lg overflow-hidden" style="border:1px solid #e8e8e0;">
-            <div class="flex items-center gap-0.5 px-2 py-1.5" style="background:#f5f5f5;border-bottom:1px solid #e8e8e0;">
-              <button onclick="execMHRich('bold')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Negrita"><span style="font-weight:700;font-size:12px;">B</span></button>
-              <button onclick="execMHRich('italic')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Cursiva"><span style="font-style:italic;font-size:12px;">I</span></button>
-              <button onclick="execMHRich('underline')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Subrayado"><span style="text-decoration:underline;font-size:12px;">U</span></button>
-              <span class="w-px h-4 mx-1" style="background:#ddd;"></span>
-              <button onclick="execMHRich('insertUnorderedList')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Lista"><span class="material-symbols-outlined text-[14px]">format_list_bulleted</span></button>
-              <button onclick="execMHRich('insertOrderedList')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Lista numerada"><span class="material-symbols-outlined text-[14px]">format_list_numbered</span></button>
-              <span class="w-px h-4 mx-1" style="background:#ddd;"></span>
-              <button onclick="execMHRich('removeFormat')" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Limpiar formato"><span class="material-symbols-outlined text-[14px]">format_clear</span></button>
-              <button onclick="execMHRichLink()" class="w-7 h-7 rounded flex items-center justify-center hover:bg-zinc-200 transition-colors" title="Insertar enlace"><span class="material-symbols-outlined text-[14px]">link</span></button>
-            </div>
-            <div id="mhRichBody" contenteditable="true" oninput="syncMHRichBody()" class="w-full px-3 py-2 text-xs outline-none min-h-[80px]" style="background:#fafafa;line-height:1.6;">${sec.body || ''}</div>
-          </div>
-        </div>
-
-        <!-- Layout (solo no-cover) -->
-        ${sec.type !== 'cover' ? `
-        <div class="mb-5">
-          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#999;">Diseño</h4>
-          <div class="grid grid-cols-2 gap-2">
-            ${[
-              {id:'center', label:'Centrado', icon:'text_fields'},
-              {id:'full', label:'Imagen grande', icon:'panorama'},
-              {id:'left', label:'Imagen izquierda', icon:'view_sidebar'},
-              {id:'right', label:'Imagen derecha', icon:'view_sidebar_right'},
-            ].map(l => `
-              <div onclick="updateMHField('layout','${l.id}')" class="px-2 py-3 rounded-lg text-[9px] font-semibold text-center cursor-pointer transition-all flex flex-col items-center gap-1 ${sec.layout === l.id ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}" style="${sec.layout === l.id ? 'background:#1a1c1f;' : ''}">
-                <span class="material-symbols-outlined text-[14px]">${l.icon}</span>
-                ${l.label}
-              </div>`).join('')}
-          </div>
-        </div>` : ''}
-
-        <!-- Image -->
-        <div class="mb-5">
-          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#999;">Imagen del Mapa</h4>
-          ${sec.imageUrl
-            ? `<div class="relative rounded-lg overflow-hidden mb-2" style="border:1px solid #e8e8e0;">
-                <img src="${sec.imageUrl}" style="width:100%;height:100px;object-fit:cover;">
-                <button onclick="updateMHField('imageUrl',null)" class="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(0,0,0,0.5);">
-                  <span class="material-symbols-outlined text-white text-[12px]">close</span>
-                </button>
-              </div>`
-            : `<button onclick="handleMHImageUpload('${sec.id}')" class="w-full py-4 rounded-lg border-2 border-dashed text-xs font-medium cursor-pointer hover:bg-zinc-50 transition-colors flex flex-col items-center gap-1" style="border-color:#e8e8e0;color:#999;">
-                <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
-                Subir imagen del mapa
-              </button>`}
-        </div>
-
-        <!-- Colores de sección -->
-        <div class="mb-5">
-          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#999;">Colores (opcional)</h4>
-          <div class="space-y-3">
-            <div>
-              <label class="text-[10px] font-medium" style="color:#888;">Fondo</label>
-              <div class="flex items-center gap-2">
-                <input type="color" value="${sec.bgColor || mhData.globalBg}" onchange="updateMHField('bgColor',this.value === '${mhData.globalBg}' ? null : this.value)" class="flex-1 h-8 rounded-lg cursor-pointer" style="border:1px solid #e8e8e0;">
-                <span class="text-[9px]" style="color:#999;">G: ${mhData.globalBg}</span>
-              </div>
-            </div>
-            <div>
-              <label class="text-[10px] font-medium" style="color:#888;">Texto</label>
-              <div class="flex items-center gap-2">
-                <input type="color" value="${sec.textColor || mhData.globalText}" onchange="updateMHField('textColor',this.value === '${mhData.globalText}' ? null : this.value)" class="flex-1 h-8 rounded-lg cursor-pointer" style="border:1px solid #e8e8e0;">
-                <span class="text-[9px]" style="color:#999;">G: ${mhData.globalText}</span>
-              </div>
-            </div>
-          </div>
-        </div>`}
-
-        <!-- Tema global -->
-        <div class="mb-4 pt-5" style="border-top:1px solid #e8e8e0;">
-          <div class="flex items-center justify-between mb-4">
-            <h4 class="text-xs font-bold uppercase tracking-wider" style="color:#999;">Tema Global</h4>
-            <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:${mhData.globalBg};color:${mhData.globalText};border:1px solid ${mhData.globalText}33;">${mhData.theme.charAt(0).toUpperCase()+mhData.theme.slice(1)}</span>
-          </div>
-          <!-- Current theme preview -->
-          <div class="rounded-xl overflow-hidden mb-4" style="box-shadow:0 2px 8px rgba(0,0,0,0.04);border:1px solid #e8e8e0;">
-            <div style="background:${mhData.globalBg};padding:20px 16px;text-align:center;">
-              <div style="color:${mhData.globalAccent};font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Vista previa</div>
-              <div style="color:${mhData.globalText};font-size:15px;font-weight:800;letter-spacing:-0.3px;">Aa</div>
-              <div style="display:flex;justify-content:center;gap:6px;margin-top:8px;">
-                <span style="width:12px;height:12px;border-radius:50%;background:${mhData.globalBg};border:1px solid ${mhData.globalText}22;"></span>
-                <span style="width:12px;height:12px;border-radius:50%;background:${mhData.globalText};"></span>
-                <span style="width:12px;height:12px;border-radius:50%;background:${mhData.globalAccent};"></span>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;">
-              <div style="padding:6px;text-align:center;background:#f8f8f8;border-right:1px solid #e8e8e0;">
-                <span style="font-size:7px;font-weight:600;color:#999;display:block;">Fondo</span>
-                <span style="font-size:9px;font-weight:700;color:#1a1c1f;font-family:monospace;">${mhData.globalBg}</span>
-              </div>
-              <div style="padding:6px;text-align:center;background:#f8f8f8;border-right:1px solid #e8e8e0;">
-                <span style="font-size:7px;font-weight:600;color:#999;display:block;">Texto</span>
-                <span style="font-size:9px;font-weight:700;color:#1a1c1f;font-family:monospace;">${mhData.globalText}</span>
-              </div>
-              <div style="padding:6px;text-align:center;background:#f8f8f8;">
-                <span style="font-size:7px;font-weight:600;color:#999;display:block;">Acento</span>
-                <span style="font-size:9px;font-weight:700;color:#1a1c1f;font-family:monospace;">${mhData.globalAccent}</span>
-              </div>
-            </div>
-          </div>
-          <!-- Theme grid with separators -->
-          <div style="display:flex;flex-wrap:wrap;gap:2px;">
-            ${Object.entries(mhThemes).map(([k,v]) => {
-              const isSelected = mhData.theme === k;
-              const label = {oscuro:'Nocturno',claro:'Claro',naturaleza:'Naturaleza',minimal:'Minimal',oceano:'Océano',atardecer:'Atardecer',bosque:'Bosque',desierto:'Desierto'}[k] || k;
-              return `
-              <div onclick="selectMHTheme('${k}')" class="relative cursor-pointer transition-all duration-200" style="flex:1 0 calc(50% - 2px);min-width:0;">
-                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:${isSelected ? '#f3f3f3' : 'transparent'};${isSelected ? 'box-shadow:inset 0 0 0 1.5px #1a1c1f;' : 'border:1px solid #e8e8e0;'}">
-                  <div style="width:24px;height:24px;border-radius:6px;background:${v.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;${v.bg === '#f5f5f0' || v.bg === '#ffffff' ? 'border:1px solid #ddd;' : ''}">
-                    <span style="color:${v.text};font-size:8px;font-weight:700;">A</span>
-                  </div>
-                  <span style="font-size:10px;font-weight:${isSelected ? '700' : '500'};color:${isSelected ? '#1a1c1f' : '#666'};flex:1;">${label}</span>
-                  ${isSelected ? '<span class="material-symbols-outlined" style="font-size:14px;color:#1a1c1f;">check_circle</span>' : ''}
-                </div>
-              </div>`}).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    function escHtml(s) {
-      if (!s) return '';
-      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function goToMapHistory() {
-      backToProjects();
-      setTimeout(() => {
-        const section = document.getElementById('mapHistoryGrid');
-        if (section) {
-          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          section.parentElement.style.outline = '2px solid #1a1c1f';
-          section.parentElement.style.outlineOffset = '8px';
-          section.parentElement.style.borderRadius = '12px';
-          setTimeout(() => {
-            section.parentElement.style.outline = 'none';
-            section.parentElement.style.outlineOffset = '0';
-          }, 2500);
-        }
-      }, 300);
-    }
-
-    function saveMapHistory() {
-      const name = (mhData.sections[0]?.title || 'Map History').substring(0, 50);
-      const desc = 'Map History - Historia visual con ' + mhData.sections.length + ' secciones';
-
-      async function doSave() {
-        try {
-          const uid = _currentUser?.id || 'guest';
-          const res = await fetch('/api/projects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: uid,
-              name: name,
-              description: desc,
-              metadata: JSON.stringify({
-                type: 'map_history',
-                data: mhData,
-              }),
-            }),
-          });
-          const project = await res.json();
-          if (project.error) throw new Error(project.error);
-          closeMapHistoryDesigner();
-          toast('Map History creado con éxito', 'success');
-          setTimeout(() => openProject(project.id), 500);
-        } catch (e) {
-          toast('Error: ' + e.message, 'error');
-        }
-      }
-      doSave();
+    } else {
+      setTimeout(renderSavedMapHistories, 300);
     }
 
     if (typeof L !== 'undefined' && L.Canvas) {
