@@ -8049,12 +8049,14 @@
                     <!-- Sección de Composiciones QGIS Importadas -->
                     <div id="layoutTemplatesQgisList" class="flex flex-col gap-1.5 mb-2 pb-2 border-b border-zinc-100 hidden"></div>
                     <div class="flex flex-col gap-1.5">
-                        <button onclick="applyTemplateInModal('standard')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-200 bg-white">
+                        <button onclick="applyTemplateInModal('standard')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border-2 border-zinc-900 bg-zinc-50/70">
                             <div>
-                                <span class="text-xs font-bold text-zinc-900 block">Diseño Estándar (Sin Plantilla)</span>
-                                <span class="text-[9px] text-zinc-400">Limpio · Elementos Clásicos GIS · Sin decoraciones</span>
+                                <span class="text-xs font-black text-zinc-900 block flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[15px] text-zinc-900">crop_square</span> Cartografía Técnica (Por Defecto)
+                                </span>
+                                <span class="text-[9px] text-zinc-600">Líneas rectas 90° · Leyenda, Localización y Metadatos</span>
                             </div>
-                            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700">Original</span>
+                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-zinc-900 text-white uppercase">Por Defecto</span>
                         </button>
                         <button onclick="applyTemplateInModal('cadastral')" class="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left border border-zinc-100">
                             <div>
@@ -8208,21 +8210,21 @@
       <div class="flex-1 min-w-0 h-full overflow-auto p-8 flex justify-center items-start relative custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]" style="min-width: 0; height: 100%;">
         <!-- The "Paper" -->
         <div id="layoutPaper" onclick="onLayoutPaperClick(event)" ondragover="layoutResourceDragOver(event)" ondrop="layoutResourceDrop(event)" class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative transition-all duration-300 overflow-hidden flex flex-col shrink-0" style="width: 210mm; height: 297mm;">
-            <!-- Map Element -->
-            <div id="layoutMapFrame" onclick="layoutSelectElement('mapFrame')" class="absolute cursor-move border-[1px] border-black group bg-white z-10" style="width: 180mm; height: 218mm; top: 24mm; left: 15mm; transition: all 0.3s; overflow: visible;">
+            <!-- Map Element (Marco Principal con líneas rectas 90°) -->
+            <div id="layoutMapFrame" onclick="layoutSelectElement('mapFrame')" class="absolute cursor-move group bg-white z-10" style="width: 190mm; height: 180mm; top: 10mm; left: 10mm; border: 1.5px solid #000000; border-radius: 0px !important; box-shadow: none; transition: all 0.2s; overflow: visible;">
                 <!-- Floating Toolbar on Frame -->
-                <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-xl shadow-2xl border border-white/20 flex items-center gap-1 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
-                    <button id="floatBtnModeContent" onclick="setLayoutMapMode('content')" class="px-2.5 py-1 bg-white text-zinc-900 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all" title="Mover la vista del mapa desde dentro">
+                <div id="layoutMapFloatingToolbar" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900/95 backdrop-blur-md text-white px-2 py-1 rounded-none shadow-2xl border border-white/20 flex items-center gap-1 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-auto">
+                    <button id="floatBtnModeContent" onclick="setLayoutMapMode('content')" class="px-2.5 py-1 bg-white text-zinc-900 rounded-none text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all" title="Mover la vista del mapa desde dentro">
                         <span class="material-symbols-outlined text-[13px]">pan_tool</span> Mover Vista
                     </button>
-                    <button id="floatBtnModeFrame" onclick="setLayoutMapMode('frame')" class="px-2.5 py-1 hover:bg-white/10 text-zinc-400 hover:text-white rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all" title="Mover el marco en la página">
+                    <button id="floatBtnModeFrame" onclick="setLayoutMapMode('frame')" class="px-2.5 py-1 hover:bg-white/10 text-zinc-400 hover:text-white rounded-none text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all" title="Mover el marco en la página">
                         <span class="material-symbols-outlined text-[13px]">open_with</span> Mover Marco
                     </button>
                     <div class="w-[1px] h-3.5 bg-white/20 mx-1"></div>
-                    <button onclick="layoutContentZoomStep(-0.15)" class="w-5 h-5 rounded hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold" title="Alejar vista">−</button>
+                    <button onclick="layoutContentZoomStep(-0.15)" class="w-5 h-5 rounded-none hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold" title="Alejar vista">−</button>
                     <span id="floatZoomBadge" class="text-[9px] font-mono font-bold text-zinc-300 w-10 text-center">100%</span>
-                    <button onclick="layoutContentZoomStep(0.15)" class="w-5 h-5 rounded hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold" title="Acercar vista">+</button>
-                    <button onclick="layoutContentReset()" class="px-1.5 h-5 rounded hover:bg-white/20 text-zinc-300 hover:text-white text-[8px] font-bold uppercase flex items-center justify-center ml-0.5" title="Centrar">⟲</button>
+                    <button onclick="layoutContentZoomStep(0.15)" class="w-5 h-5 rounded-none hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold" title="Acercar vista">+</button>
+                    <button onclick="layoutContentReset()" class="px-1.5 h-5 rounded-none hover:bg-white/20 text-zinc-300 hover:text-white text-[8px] font-bold uppercase flex items-center justify-center ml-0.5" title="Centrar">⟲</button>
                 </div>
 
                 <div id="layoutMapContainer" class="w-full h-full relative overflow-hidden" style="background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 20px 20px; z-index: 1; isolation: isolate;">
@@ -8237,50 +8239,70 @@
                 <div id="layoutMapResizeH" class="absolute -bottom-1 left-0 w-full h-1 cursor-ns-resize z-40 hidden group-hover:block"></div>
             </div>
 
-            <!-- Title Box -->
-            <div id="layoutTitleContainer" onclick="layoutSelectElement('title')" class="absolute cursor-move group z-30 flex items-center justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 180mm; top: 8mm; left: 15mm; min-height: 14mm;">
+            <!-- Title Box (Opcional / Por defecto desactivado en plano técnico) -->
+            <div id="layoutTitleContainer" onclick="layoutSelectElement('title')" class="absolute cursor-move group z-30 hidden items-center justify-center p-2 bg-white border border-black shadow-none" style="width: 190mm; top: 2mm; left: 10mm; min-height: 10mm; border-radius: 0px !important;">
                 <div class="flex flex-col w-full items-center text-center">
-                    <h1 id="layoutTitleDisplay" class="text-xl font-black text-black uppercase tracking-tight leading-snug outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-2 transition-all cursor-text text-center w-full" contenteditable="true" spellcheck="false">Plano Cartográfico Pop</h1>
-                    <span contenteditable="true" spellcheck="false" class="text-[8.5px] font-bold text-zinc-500 tracking-wider uppercase mt-0.5 outline-none px-2 cursor-text text-center">Levantamiento Territorial & Análisis de Geodatos</span>
+                    <h1 id="layoutTitleDisplay" class="text-base font-black text-black uppercase tracking-tight leading-snug outline-none hover:bg-black/5 rounded-none px-2 transition-all cursor-text text-center w-full" contenteditable="true" spellcheck="false">Plano Cartográfico Oficial</h1>
+                    <span contenteditable="true" spellcheck="false" class="text-[8px] font-bold text-zinc-600 tracking-wider uppercase mt-0.5 outline-none px-2 cursor-text text-center">Levantamiento Territorial & Análisis de Geodatos</span>
                 </div>
                 <div id="layoutTitleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
-            <!-- Metadata/Details -->
-            <div id="layoutMetadataContainer" onclick="layoutSelectElement('metadata')" class="absolute cursor-move group z-35 flex flex-col justify-center p-3 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[18mm]" style="width: 70mm; height: 40mm; top: 245mm; left: 125mm; overflow: visible;">
-                <!-- Pin / Punto Decorativo Superior -->
-                <div id="layoutMetadataPin" class="absolute -top-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border border-zinc-400 flex items-center justify-center shadow-sm pointer-events-none z-10">
-                    <span id="layoutMetadataPinDot" class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                </div>
-                <div id="layoutMetadataDisplay" class="flex flex-col gap-1.5 w-full text-left" style="overflow: visible;">
-                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 border-b border-zinc-100 pb-1" style="overflow: visible;">
-                        <span id="metaDateLabelDisplay" class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Fecha:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right" id="layoutDateDisplay" oninput="if(document.getElementById('metaDateInput')) document.getElementById('metaDateInput').value = this.innerText;" style="line-height: 1.3; white-space: nowrap; overflow: visible;">21 de octubre de 2026</span>
-                    </div>
-                    <div class="flex items-center justify-between text-[8px] font-bold text-zinc-500 pt-0.5" style="overflow: visible;">
-                        <span id="metaCoordLabelDisplay" class="uppercase tracking-wider shrink-0 mr-2 text-[8px]">Centro:</span>
-                        <span contenteditable="true" spellcheck="false" class="font-extrabold text-zinc-900 outline-none hover:bg-black/5 px-1 rounded cursor-text text-right text-[7.5px]" id="layoutCoordDisplay" oninput="if(document.getElementById('metaCoordInput')) document.getElementById('metaCoordInput').value = this.innerText;" style="line-height: 1.3; white-space: nowrap; overflow: visible;">WGS-84</span>
-                    </div>
-                </div>
-                <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
-            </div>
-
-            <!-- Legend Box -->
-            <div id="layoutLegendContainer" onclick="layoutSelectElement('legend')" class="absolute cursor-move group z-20 flex flex-col gap-2.5 p-3.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30" style="width: 54mm; height: 40mm; top: 245mm; left: 15mm;">
-                <div id="layoutLegend" class="flex flex-col gap-3 w-full">
-                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-black uppercase tracking-widest text-zinc-400 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Leyenda Activa</span>
-                    <div id="layoutLegendList" class="flex flex-wrap gap-x-6 gap-y-3">
+            <!-- Caja 1: Leyenda (Abajo Izquierda - ~60% ancho) -->
+            <div id="layoutLegendContainer" onclick="layoutSelectElement('legend')" class="absolute cursor-move group z-20 flex flex-col p-3 bg-white border-[1.5px] border-black shadow-none overflow-hidden" style="width: 116mm; height: 92mm; top: 195mm; left: 10mm; border-radius: 0px !important;">
+                <div id="layoutLegend" class="flex flex-col gap-2 w-full h-full">
+                    <span contenteditable="true" spellcheck="false" id="layoutLegendTitle" class="text-[10px] font-black uppercase tracking-wider text-black border-b border-black pb-1 outline-none cursor-text">Leyenda</span>
+                    <div id="layoutLegendList" class="flex-1 overflow-y-auto custom-scrollbar pr-1 grid grid-cols-2 gap-x-4 gap-y-2 text-[8px] font-sans">
                         <!-- Legend items injected here -->
                     </div>
                 </div>
                 <div id="layoutLegendResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
-            <!-- Scale Box -->
-            <div id="layoutScaleContainer" onclick="layoutSelectElement('scale')" class="absolute cursor-move group z-20 flex flex-col items-center justify-center p-2.5 bg-white/95 backdrop-blur-sm border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 min-h-[16mm]" style="width: 50mm; height: 18mm; top: 245mm; left: 72mm;">
-                <div id="layoutScale" class="flex flex-col items-center justify-center gap-1 w-full text-center">
-                    <span contenteditable="true" spellcheck="false" class="text-[8px] font-black uppercase tracking-widest text-zinc-500 outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all">Escala Visual</span>
-                    <div id="layoutScaleBar" class="h-2 relative border border-black/80 shrink-0 mx-auto" style="width: 100px;">
+            <!-- Caja 2: Localización (Abajo Derecha Superior - ~40% ancho) -->
+            <div id="layoutOverviewContainer" onclick="layoutSelectElement('overview')" class="absolute cursor-move group z-30 flex flex-col bg-white border-[1.5px] border-black shadow-none overflow-hidden" style="width: 70mm; height: 50mm; top: 195mm; left: 130mm; border-radius: 0px !important;">
+                <div class="px-2.5 py-1 bg-white border-b border-black flex items-center justify-between select-none shrink-0">
+                    <span contenteditable="true" spellcheck="false" id="layoutOverviewTitle" class="text-[9px] font-black uppercase tracking-wider text-black outline-none cursor-text">Localización</span>
+                    <span class="text-[7.5px] font-mono font-bold text-zinc-500 uppercase">Contexto</span>
+                </div>
+                <div id="layoutOverviewMap" class="w-full flex-1 relative bg-zinc-100 overflow-hidden" style="z-index: 1;">
+                    <!-- Leaflet overview inset map injected here -->
+                </div>
+                <div id="layoutOverviewResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
+            </div>
+
+            <!-- Caja 3: Sistema de referencia (Abajo Derecha Inferior - ~40% ancho) -->
+            <div id="layoutMetadataContainer" onclick="layoutSelectElement('metadata')" class="absolute cursor-move group z-35 flex flex-col p-2.5 bg-white border-[1.5px] border-black shadow-none overflow-hidden" style="width: 70mm; height: 39mm; top: 248mm; left: 130mm; border-radius: 0px !important;">
+                <span contenteditable="true" spellcheck="false" id="layoutMetaTitleDisplay" class="text-[9px] font-black uppercase tracking-wider text-black border-b border-black pb-1 mb-1.5 outline-none cursor-text">Sistema de referencia</span>
+                <div id="layoutMetadataDisplay" class="flex flex-col gap-1 w-full text-left font-sans text-[8px] leading-tight text-zinc-900">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-zinc-600">Datum:</span>
+                        <span contenteditable="true" spellcheck="false" id="metaDatumDisplay" class="font-extrabold outline-none cursor-text">WGS84</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-zinc-600">Proyección:</span>
+                        <span contenteditable="true" spellcheck="false" id="metaProjDisplay" class="font-extrabold outline-none cursor-text">UTM-18N / MAGNA</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-zinc-600">EPSG:</span>
+                        <span contenteditable="true" spellcheck="false" id="metaEpsgDisplay" class="font-extrabold outline-none cursor-text">32618 / 9377</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-zinc-600">Escala:</span>
+                        <span contenteditable="true" spellcheck="false" id="metaScaleDisplay" class="font-extrabold outline-none cursor-text">1:50,000</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-0.5 border-t border-zinc-200">
+                        <span class="font-bold text-zinc-600">Fecha:</span>
+                        <span contenteditable="true" spellcheck="false" id="layoutDateDisplay" class="font-extrabold outline-none cursor-text">Noviembre 2026</span>
+                    </div>
+                </div>
+                <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
+            </div>
+
+            <!-- Scale Box (En esquina inferior izquierda del mapa principal) -->
+            <div id="layoutScaleContainer" onclick="layoutSelectElement('scale')" class="absolute cursor-move group z-30 flex flex-col items-start justify-center p-1.5 bg-white/90 border border-black shadow-none" style="width: 58mm; height: 16mm; top: 165mm; left: 14mm; border-radius: 0px !important;">
+                <div id="layoutScale" class="flex flex-col items-start justify-center gap-1 w-full">
+                    <div id="layoutScaleBar" class="h-2 relative border border-black shrink-0" style="width: 120px;">
                         <div class="absolute inset-0 flex">
                             <div class="flex-1 bg-black"></div>
                             <div class="flex-1 bg-white"></div>
@@ -8288,7 +8310,10 @@
                             <div class="flex-1 bg-white"></div>
                         </div>
                     </div>
-                    <span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-black outline-none hover:bg-black/5 focus:bg-white/80 focus:ring-1 focus:ring-primary/40 rounded px-1 cursor-text transition-all" id="layoutScaleDisplay">1:50,000</span>
+                    <div class="flex items-center justify-between w-full text-[8px] font-bold text-black font-mono">
+                        <span>0</span>
+                        <span id="layoutScaleDisplay">10 km</span>
+                    </div>
                 </div>
                 <div id="layoutScaleResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
@@ -8297,8 +8322,8 @@
             <div id="layoutDecor" style="display: none"></div>
             <div id="layoutFooter" style="display: none"></div>
             
-            <!-- Compass Element (Draggable) -->
-            <div id="layoutCompass" onclick="layoutSelectElement('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-1 bg-transparent border-0 rounded-lg shadow-none hover:ring-1 hover:ring-primary/30 transition-shadow" style="width: 50mm; height: 20mm; top: 265mm; left: 72mm;">
+            <!-- Compass Element (Draggable - dentro del mapa arriba de la escala) -->
+            <div id="layoutCompass" onclick="layoutSelectElement('compass')" class="absolute cursor-move group z-[100] flex items-center justify-center p-0.5 bg-transparent border-0 shadow-none hover:ring-1 hover:ring-black" style="width: 22mm; height: 22mm; top: 132mm; left: 18mm; border-radius: 0px !important;">
                 <div id="layoutCompassContainer" class="w-full h-full relative flex items-center justify-center pointer-events-none">
                     <!-- Compass designs will be injected via JS -->
                 </div>
@@ -8333,6 +8358,109 @@
 
         <!-- Scrollable Props Container -->
         <div id="layoutDrawerPropsBody" class="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
+            <!-- SECCIÓN UNIFICADA: CONTORNO Y BORDES DEL MARCO -->
+            <div id="layoutContourEditorSection" class="hidden flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                <div class="flex items-center justify-between">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[15px] text-zinc-700">border_style</span> Contorno y Bordes del Marco
+                    </span>
+                    <span id="contourElementBadge" class="text-[8px] font-mono font-bold bg-zinc-900 text-white px-2 py-0.5 rounded uppercase">Marco</span>
+                </div>
+
+                <!-- Grosor de Borde -->
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Grosor del Contorno</label>
+                        <span id="contourWidthVal" class="text-[9px] font-mono font-bold text-zinc-800">1.5px</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="contourWidthSlider" min="0" max="8" step="0.5" value="1.5" oninput="layoutUpdateActiveContour('width', this.value)" class="flex-1 accent-black cursor-pointer">
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="layoutUpdateActiveContour('width', 0)" class="px-1.5 py-0.5 bg-white border border-zinc-200 rounded text-[8px] font-bold text-zinc-700 hover:bg-zinc-100">0</button>
+                            <button type="button" onclick="layoutUpdateActiveContour('width', 1)" class="px-1.5 py-0.5 bg-white border border-zinc-200 rounded text-[8px] font-bold text-zinc-700 hover:bg-zinc-100">1px</button>
+                            <button type="button" onclick="layoutUpdateActiveContour('width', 1.5)" class="px-1.5 py-0.5 bg-zinc-900 text-white rounded text-[8px] font-bold hover:bg-black">1.5</button>
+                            <button type="button" onclick="layoutUpdateActiveContour('width', 2)" class="px-1.5 py-0.5 bg-white border border-zinc-200 rounded text-[8px] font-bold text-zinc-700 hover:bg-zinc-100">2px</button>
+                            <button type="button" onclick="layoutUpdateActiveContour('width', 3)" class="px-1.5 py-0.5 bg-white border border-zinc-200 rounded text-[8px] font-bold text-zinc-700 hover:bg-zinc-100">3px</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color de Borde y Fondo -->
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Color del Borde</label>
+                        <div class="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-zinc-200">
+                            <input type="color" id="contourColorInput" value="#000000" oninput="layoutUpdateActiveContour('color', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                            <span id="contourColorHex" class="text-[9px] font-mono font-bold text-zinc-800">#000000</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Color de Fondo</label>
+                        <div class="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-zinc-200">
+                            <input type="color" id="contourBgInput" value="#ffffff" oninput="layoutUpdateActiveContour('bg', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent">
+                            <span id="contourBgHex" class="text-[9px] font-mono font-bold text-zinc-800">#FFFFFF</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paleta Rápida de Colores de Borde -->
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-[7.5px] font-bold text-zinc-400 uppercase">Paleta:</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="layoutUpdateActiveContour('color', '#000000')" class="w-4 h-4 rounded-full bg-black border border-zinc-300 hover:scale-110" title="Negro Técnico"></button>
+                        <button type="button" onclick="layoutUpdateActiveContour('color', '#374151')" class="w-4 h-4 rounded-full bg-zinc-700 border border-zinc-300 hover:scale-110" title="Gris Carbón"></button>
+                        <button type="button" onclick="layoutUpdateActiveContour('color', '#1e3a8a')" class="w-4 h-4 rounded-full bg-blue-900 border border-zinc-300 hover:scale-110" title="Azul Cartográfico"></button>
+                        <button type="button" onclick="layoutUpdateActiveContour('color', '#14532d')" class="w-4 h-4 rounded-full bg-green-900 border border-zinc-300 hover:scale-110" title="Verde Institucional"></button>
+                        <button type="button" onclick="layoutUpdateActiveContour('color', '#78350f')" class="w-4 h-4 rounded-full bg-amber-900 border border-zinc-300 hover:scale-110" title="Marrón Topográfico"></button>
+                    </div>
+                </div>
+
+                <!-- Estilo de Línea & Curvatura -->
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Estilo de Línea</label>
+                        <select id="contourStyleSelect" onchange="layoutUpdateActiveContour('style', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-1.5 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="solid">Sólido Continuo</option>
+                            <option value="double">Doble Línea (SIG)</option>
+                            <option value="dashed">Discontinuo / Trazos</option>
+                            <option value="dotted">Punteado</option>
+                            <option value="none">Sin Borde</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Esquinas (Radio)</label>
+                            <span id="contourRadiusVal" class="text-[8px] font-mono font-bold text-zinc-700">0px (Rectas)</span>
+                        </div>
+                        <input type="range" id="contourRadiusSlider" min="0" max="24" step="1" value="0" oninput="layoutUpdateActiveContour('radius', this.value)" class="w-full accent-black cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Botón unificador -->
+                <div class="pt-1.5 border-t border-zinc-200/60">
+                    <button type="button" onclick="layoutApplyContourToAll()" class="w-full py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-colors border border-zinc-300/80" title="Aplica este contorno a todos los marcos cartográficos (mapa, leyenda, localización, metadatos)">
+                        <span class="material-symbols-outlined text-[13px]">select_all</span> Aplicar Contorno a Todos los Marcos
+                    </button>
+                </div>
+            </div>
+
+            <!-- 7. LOCALIZACIÓN (OVERVIEW INSET) PROPS -->
+            <div id="props-overview" class="hidden flex-col gap-4">
+                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Caja de Localización (Contexto)</span>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Título de la Caja</label>
+                        <input type="text" id="overviewTitleInput" value="LOCALIZACIÓN" oninput="layoutUpdateOverviewTitle(this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Sincronizar Extensión</span>
+                        <button type="button" onclick="updateLayoutOverviewExtent()" class="px-2.5 py-1 bg-zinc-900 text-white rounded-lg text-[8.5px] font-bold uppercase hover:bg-black flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[13px]">my_location</span> Centrar en Mapa
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 1. TÍTULO PRINCIPAL PROPS -->
             <div id="props-title" class="hidden flex-col gap-4">
                 <!-- PANEL TURÍSTICO REGIONAL (Doble línea Cursiva + Bloque 3D) -->
@@ -35082,39 +35210,49 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     let layoutConfig = {
         paper: 'A4',
         orientation: 'portrait',
-        titleText: 'Proyecto Zima Editor',
+        titleText: 'Plano Cartográfico Oficial',
         initialized: false,
+        theme: null,
         elements: {
-            mapFrame: false,
+            mapFrame: true,
             title: false,
-            metadata: false,
-            legend: false,
-            scale: false,
+            metadata: true,
+            legend: true,
+            overview: true,
+            scale: true,
             compass: true
         },
+        borderStyles: {
+            mapFrame: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            legend: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            overview: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            metadata: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            scale: { width: '1px', color: '#000000', style: 'solid', bg: 'rgba(255,255,255,0.85)', radius: '0px' }
+        },
         styles: {
-            title: { fontSize: 30, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false },
-            metadata: { fontSize: 10, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false },
-            legend: { fontSize: 9, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false, design: 'classic' },
-            scale: { fontSize: 9, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false, design: 'classic' },
-            compass: { color: '#000000', design: 'modern', rotation: 0, size: 25 }
+            title: { fontSize: 20, color: '#000000', fontFamily: 'Inter', bold: true, italic: false, underline: false },
+            metadata: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false },
+            legend: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false, design: 'classic' },
+            scale: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', bold: false, italic: false, underline: false, design: 'classic' },
+            compass: { color: '#000000', design: 'classic', rotation: 0, size: 22 }
         },
         shapes: [], 
-        mapFrame: { top: '20mm', left: '20mm', width: '170mm', height: '170mm', visible: false },
-        compass: { top: '220mm', left: '160mm', width: '30mm', height: '30mm' },
-        titleProps: { top: '174mm', left: '73mm', width: '127mm', height: '18mm' },
-        metadata: { top: '202mm', left: '139mm', width: '61mm', height: '20mm' },
-        legend: { top: '174mm', left: '10mm', width: '58mm', height: '72mm' },
-        scale: { top: '202mm', left: '73mm', width: '61mm', height: '20mm' },
+        mapFrame: { top: '10mm', left: '10mm', width: '190mm', height: '180mm', visible: true },
+        compass: { top: '132mm', left: '18mm', width: '22mm', height: '22mm' },
+        titleProps: { top: '2mm', left: '10mm', width: '190mm', height: '8mm' },
+        metadata: { top: '248mm', left: '130mm', width: '70mm', height: '39mm' },
+        legend: { top: '195mm', left: '10mm', width: '116mm', height: '92mm' },
+        overview: { top: '195mm', left: '130mm', width: '70mm', height: '50mm' },
+        scale: { top: '165mm', left: '14mm', width: '58mm', height: '16mm' },
         grid: { 
-            enabled: false,
+            enabled: true,
             auto: true,
-            color: '#333333', 
-            opacity: 0.45,
+            color: '#000000', 
+            opacity: 0.35,
             intervalLat: 0.5, 
             intervalLng: 0.5, 
             showLabels: true,
-            fontSize: 8,
+            fontSize: 8.5,
             fontColor: '#000000',
             fontFamily: 'Inter',
             orientLat: 'horizontal',
@@ -36298,70 +36436,119 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             return;
         }
 
-        // ═══ SIN PLANTILLA (Diseño Estándar / Limpio: Título Arriba, Demás Cosas Abajo) ═══
+        // ═══ PLANTILLA TÉCNICA CARTOGRÁFICA OFICIAL (IGAC / QGIS · Por Defecto · Líneas Rectas 90°) ═══
         layoutConfig.theme = null;
+        const bStyles = layoutConfig.borderStyles || {
+            mapFrame: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            legend: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            overview: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            metadata: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' }
+        };
+
         if (titleContainer) {
-            titleContainer.style.display = 'flex';
-            titleContainer.style.top = layoutConfig.titleProps?.top || '8mm';
-            titleContainer.style.left = layoutConfig.titleProps?.left || '15mm';
-            titleContainer.style.width = layoutConfig.titleProps?.width || '180mm';
+            titleContainer.style.display = layoutConfig.elements?.title ? 'flex' : 'none';
+            titleContainer.style.top = layoutConfig.titleProps?.top || '2mm';
+            titleContainer.style.left = layoutConfig.titleProps?.left || '10mm';
+            titleContainer.style.width = layoutConfig.titleProps?.width || '190mm';
+            titleContainer.style.borderRadius = '0px';
         }
+
         if (mapFrame) {
-            mapFrame.style.top = layoutConfig.mapFrame?.top || '24mm';
-            mapFrame.style.left = layoutConfig.mapFrame?.left || '15mm';
-            mapFrame.style.width = layoutConfig.mapFrame?.width || '180mm';
-            mapFrame.style.height = layoutConfig.mapFrame?.height || '218mm';
-            mapFrame.style.borderColor = '#111115';
-            mapFrame.style.borderWidth = '1px';
-            mapFrame.style.borderStyle = 'solid';
+            mapFrame.style.top = layoutConfig.mapFrame?.top || '10mm';
+            mapFrame.style.left = layoutConfig.mapFrame?.left || '10mm';
+            mapFrame.style.width = layoutConfig.mapFrame?.width || '190mm';
+            mapFrame.style.height = layoutConfig.mapFrame?.height || '180mm';
+            mapFrame.style.borderWidth = bStyles.mapFrame?.width || '1.5px';
+            mapFrame.style.borderColor = bStyles.mapFrame?.color || '#000000';
+            mapFrame.style.borderStyle = bStyles.mapFrame?.style || 'solid';
+            mapFrame.style.backgroundColor = bStyles.mapFrame?.bg || '#ffffff';
+            mapFrame.style.borderRadius = bStyles.mapFrame?.radius || '0px';
             mapFrame.style.boxShadow = 'none';
-            mapFrame.style.borderRadius = '0';
         }
+
         if (legendContainer) {
             legendContainer.style.display = 'flex';
-            legendContainer.style.top = layoutConfig.legend?.top || '245mm';
-            legendContainer.style.left = layoutConfig.legend?.left || '15mm';
-            legendContainer.style.width = layoutConfig.legend?.width || '54mm';
-            legendContainer.style.height = layoutConfig.legend?.height || '40mm';
-            legendContainer.style.background = 'rgba(255,255,255,0.92)';
-            legendContainer.style.borderColor = '#e5e7eb';
-            legendContainer.style.borderWidth = '1px';
+            legendContainer.style.top = layoutConfig.legend?.top || '195mm';
+            legendContainer.style.left = layoutConfig.legend?.left || '10mm';
+            legendContainer.style.width = layoutConfig.legend?.width || '116mm';
+            legendContainer.style.height = layoutConfig.legend?.height || '92mm';
+            legendContainer.style.borderWidth = bStyles.legend?.width || '1.5px';
+            legendContainer.style.borderColor = bStyles.legend?.color || '#000000';
+            legendContainer.style.borderStyle = bStyles.legend?.style || 'solid';
+            legendContainer.style.backgroundColor = bStyles.legend?.bg || '#ffffff';
+            legendContainer.style.borderRadius = bStyles.legend?.radius || '0px';
             legendContainer.style.boxShadow = 'none';
             legendContainer.style.color = '#000000';
         }
+
+        const overviewContainer = document.getElementById('layoutOverviewContainer');
+        if (overviewContainer) {
+            overviewContainer.style.display = 'flex';
+            overviewContainer.style.top = layoutConfig.overview?.top || '195mm';
+            overviewContainer.style.left = layoutConfig.overview?.left || '130mm';
+            overviewContainer.style.width = layoutConfig.overview?.width || '70mm';
+            overviewContainer.style.height = layoutConfig.overview?.height || '50mm';
+            overviewContainer.style.borderWidth = bStyles.overview?.width || '1.5px';
+            overviewContainer.style.borderColor = bStyles.overview?.color || '#000000';
+            overviewContainer.style.borderStyle = bStyles.overview?.style || 'solid';
+            overviewContainer.style.backgroundColor = bStyles.overview?.bg || '#ffffff';
+            overviewContainer.style.borderRadius = bStyles.overview?.radius || '0px';
+            overviewContainer.style.boxShadow = 'none';
+            if (typeof initLayoutOverviewMap === 'function') {
+                setTimeout(initLayoutOverviewMap, 60);
+            }
+        }
+
+        if (metadataContainer) {
+            metadataContainer.style.display = 'flex';
+            metadataContainer.style.top = layoutConfig.metadata?.top || '248mm';
+            metadataContainer.style.left = layoutConfig.metadata?.left || '130mm';
+            metadataContainer.style.width = layoutConfig.metadata?.width || '70mm';
+            metadataContainer.style.height = layoutConfig.metadata?.height || '39mm';
+            metadataContainer.style.borderWidth = bStyles.metadata?.width || '1.5px';
+            metadataContainer.style.borderColor = bStyles.metadata?.color || '#000000';
+            metadataContainer.style.borderStyle = bStyles.metadata?.style || 'solid';
+            metadataContainer.style.backgroundColor = bStyles.metadata?.bg || '#ffffff';
+            metadataContainer.style.borderRadius = bStyles.metadata?.radius || '0px';
+            metadataContainer.style.boxShadow = 'none';
+        }
+
         if (scaleContainer) {
             scaleContainer.style.display = 'flex';
-            scaleContainer.style.top = layoutConfig.scale?.top || '245mm';
-            scaleContainer.style.left = layoutConfig.scale?.left || '72mm';
-            scaleContainer.style.width = layoutConfig.scale?.width || '50mm';
-            scaleContainer.style.height = layoutConfig.scale?.height || '18mm';
-            scaleContainer.style.background = 'rgba(255,255,255,0.92)';
-            scaleContainer.style.borderColor = '#e5e7eb';
-            scaleContainer.style.borderWidth = '1px';
+            scaleContainer.style.top = layoutConfig.scale?.top || '165mm';
+            scaleContainer.style.left = layoutConfig.scale?.left || '14mm';
+            scaleContainer.style.width = layoutConfig.scale?.width || '58mm';
+            scaleContainer.style.height = layoutConfig.scale?.height || '16mm';
+            scaleContainer.style.background = 'rgba(255,255,255,0.88)';
+            scaleContainer.style.border = '1px solid #000000';
+            scaleContainer.style.borderRadius = '0px';
             scaleContainer.style.boxShadow = 'none';
             scaleContainer.style.color = '#000000';
         }
+
         if (compassEl) {
             compassEl.style.display = 'flex';
-            compassEl.style.top = layoutConfig.compass?.top || '265mm';
-            compassEl.style.left = layoutConfig.compass?.left || '72mm';
-            compassEl.style.width = layoutConfig.compass?.width || '50mm';
-            compassEl.style.height = layoutConfig.compass?.height || '20mm';
-        }
-        if (metadataContainer) {
-            metadataContainer.style.display = 'flex';
-            metadataContainer.style.top = layoutConfig.metadata?.top || '245mm';
-            metadataContainer.style.left = layoutConfig.metadata?.left || '125mm';
-            metadataContainer.style.width = layoutConfig.metadata?.width || '70mm';
-            metadataContainer.style.height = layoutConfig.metadata?.height || '40mm';
-            metadataContainer.style.background = 'rgba(255,255,255,0.92)';
-            metadataContainer.style.border = '1px solid #e5e7eb';
+            compassEl.style.top = layoutConfig.compass?.top || '132mm';
+            compassEl.style.left = layoutConfig.compass?.left || '18mm';
+            compassEl.style.width = layoutConfig.compass?.width || '22mm';
+            compassEl.style.height = layoutConfig.compass?.height || '22mm';
+            compassEl.style.borderRadius = '0px';
+            compassEl.style.boxShadow = 'none';
         }
 
         if (!layoutConfig.styles) layoutConfig.styles = {};
         if (!layoutConfig.styles.compass) layoutConfig.styles.compass = {};
-        layoutConfig.styles.compass.design = 'modern';
+        layoutConfig.styles.compass.design = 'classic';
         layoutConfig.styles.compass.color = '#000000';
+
+        if (!layoutConfig.grid) layoutConfig.grid = {};
+        layoutConfig.grid.enabled = true;
+        layoutConfig.grid.auto = true;
+        layoutConfig.grid.position = 'outside';
+        layoutConfig.grid.color = '#000000';
+        layoutConfig.grid.opacity = 0.35;
+        layoutConfig.grid.showLabels = true;
+        layoutConfig.grid.fontSize = 8.5;
 
         if (typeof layoutUpdateCompassDesign === 'function') layoutUpdateCompassDesign();
         if (typeof layoutDrawGrid === 'function' && layoutConfig.grid && layoutConfig.grid.enabled) layoutDrawGrid();
@@ -36551,6 +36738,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             window.layoutLayersGroup = L.layerGroup().addTo(window.layoutLeafletMap);
 
+            window.layoutLeafletMap.on('moveend zoomend', () => {
+                if (typeof updateLayoutOverviewExtent === 'function') {
+                    updateLayoutOverviewExtent();
+                }
+            });
             window.layoutLeafletMap.on('zoomend', () => {
                 updateLayoutZoomBadges();
                 if (layoutConfig && layoutConfig.grid && layoutConfig.grid.enabled) {
@@ -36890,6 +37082,232 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (curBlock && inputBlock) inputBlock.value = curBlock.innerText.trim();
     }
 
+    
+    // ══════════════════════════════════════════════════════════════════════════════════
+    // MAQUETADOR: CONTROL DE CONTORNO, BORDES Y LOCALIZACIÓN (TÉCNICA POR DEFECTO)
+    // ══════════════════════════════════════════════════════════════════════════════════
+    window.layoutOverviewMap = null;
+    window.layoutOverviewExtentRect = null;
+
+    function initLayoutOverviewMap() {
+        const ovContainer = document.getElementById('layoutOverviewMap');
+        if (!ovContainer) return;
+
+        if (!window.layoutOverviewMap) {
+            ovContainer.innerHTML = '';
+            window.layoutOverviewMap = L.map('layoutOverviewMap', {
+                preferCanvas: true,
+                attributionControl: false,
+                zoomControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                touchZoom: false,
+                boxZoom: false,
+                keyboard: false
+            });
+
+            // Basemap claro de referencia continental / nacional
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '',
+                maxZoom: 16,
+                crossOrigin: 'anonymous'
+            }).addTo(window.layoutOverviewMap);
+
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '',
+                maxZoom: 16,
+                crossOrigin: 'anonymous'
+            }).addTo(window.layoutOverviewMap);
+        }
+
+        setTimeout(() => {
+            if (!window.layoutOverviewMap) return;
+            window.layoutOverviewMap.invalidateSize({ animate: false });
+            updateLayoutOverviewExtent();
+        }, 120);
+    }
+
+    function updateLayoutOverviewExtent() {
+        if (!window.layoutOverviewMap) return;
+        let bounds = null;
+        if (window.layoutLeafletMap && typeof window.layoutLeafletMap.getBounds === 'function') {
+            bounds = window.layoutLeafletMap.getBounds();
+        } else if (state.map && typeof state.map.getBounds === 'function') {
+            bounds = state.map.getBounds();
+        }
+
+        if (bounds && bounds.isValid()) {
+            const center = bounds.getCenter();
+            window.layoutOverviewMap.setView(center, 5, { animate: false });
+
+            if (window.layoutOverviewExtentRect) {
+                window.layoutOverviewExtentRect.setBounds(bounds);
+            } else {
+                window.layoutOverviewExtentRect = L.rectangle(bounds, {
+                    color: '#dc2626',
+                    weight: 2,
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.28,
+                    dashArray: 'none'
+                }).addTo(window.layoutOverviewMap);
+            }
+        } else {
+            window.layoutOverviewMap.setView([4.5, -73.2], 5, { animate: false });
+        }
+    }
+
+    function layoutUpdateOverviewTitle(val) {
+        const el = document.getElementById('layoutOverviewTitle');
+        if (el) el.textContent = val;
+        if (!layoutConfig.overview) layoutConfig.overview = {};
+        layoutConfig.overview.title = val;
+    }
+
+    function _rgbToHex(rgb) {
+        if (!rgb || rgb === 'transparent' || rgb.includes('rgba(0, 0, 0, 0)')) return '#ffffff';
+        const match = rgb.match(/\d+/g);
+        if (!match || match.length < 3) return '#000000';
+        const r = parseInt(match[0]).toString(16).padStart(2, '0');
+        const g = parseInt(match[1]).toString(16).padStart(2, '0');
+        const b = parseInt(match[2]).toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+    }
+
+    function layoutSyncBorderDrawer(key) {
+        const elIdMap = {
+            mapFrame: 'layoutMapFrame',
+            legend: 'layoutLegendContainer',
+            overview: 'layoutOverviewContainer',
+            metadata: 'layoutMetadataContainer',
+            scale: 'layoutScaleContainer'
+        };
+        const el = document.getElementById(elIdMap[key] || key);
+        if (!el) return;
+
+        const badge = document.getElementById('contourElementBadge');
+        const badgeNames = {
+            mapFrame: 'Marco Principal',
+            legend: 'Leyenda',
+            overview: 'Localización',
+            metadata: 'Sistema Referencia',
+            scale: 'Escala'
+        };
+        if (badge) badge.textContent = badgeNames[key] || key;
+
+        const comp = window.getComputedStyle(el);
+        const stored = (layoutConfig.borderStyles && layoutConfig.borderStyles[key]) ? layoutConfig.borderStyles[key] : {};
+
+        // 1. Grosor
+        const curWidth = stored.width !== undefined ? parseFloat(stored.width) : (parseFloat(el.style.borderWidth || comp.borderWidth) || 1.5);
+        const wSlider = document.getElementById('contourWidthSlider');
+        const wVal = document.getElementById('contourWidthVal');
+        if (wSlider) wSlider.value = curWidth;
+        if (wVal) wVal.textContent = curWidth + 'px';
+
+        // 2. Color borde
+        let curColor = stored.color || el.style.borderColor || comp.borderColor || '#000000';
+        if (curColor.startsWith('rgb')) curColor = _rgbToHex(curColor);
+        const cInp = document.getElementById('contourColorInput');
+        const cHex = document.getElementById('contourColorHex');
+        if (cInp) cInp.value = curColor;
+        if (cHex) cHex.textContent = curColor.toUpperCase();
+
+        // 3. Color fondo
+        let curBg = stored.bg || el.style.backgroundColor || comp.backgroundColor || '#ffffff';
+        if (curBg.startsWith('rgb')) curBg = _rgbToHex(curBg);
+        const bgInp = document.getElementById('contourBgInput');
+        const bgHex = document.getElementById('contourBgHex');
+        if (bgInp) bgInp.value = curBg;
+        if (bgHex) bgHex.textContent = curBg.toUpperCase();
+
+        // 4. Estilo línea
+        const curStyle = stored.style || el.style.borderStyle || comp.borderStyle || 'solid';
+        const sSel = document.getElementById('contourStyleSelect');
+        if (sSel) sSel.value = curStyle === 'none' ? 'none' : curStyle;
+
+        // 5. Radio esquinas
+        const curRad = stored.radius !== undefined ? parseFloat(stored.radius) : (parseFloat(el.style.borderRadius || comp.borderRadius) || 0);
+        const rSlider = document.getElementById('contourRadiusSlider');
+        const rVal = document.getElementById('contourRadiusVal');
+        if (rSlider) rSlider.value = curRad;
+        if (rVal) rVal.textContent = curRad === 0 ? '0px (Rectas)' : curRad + 'px';
+    }
+
+    function layoutUpdateActiveContour(prop, val) {
+        if (!currentPropsKey) return;
+        const elIdMap = {
+            mapFrame: 'layoutMapFrame',
+            legend: 'layoutLegendContainer',
+            overview: 'layoutOverviewContainer',
+            metadata: 'layoutMetadataContainer',
+            scale: 'layoutScaleContainer'
+        };
+        const el = document.getElementById(elIdMap[currentPropsKey] || currentPropsKey);
+        if (!el) return;
+
+        if (!layoutConfig.borderStyles) layoutConfig.borderStyles = {};
+        if (!layoutConfig.borderStyles[currentPropsKey]) {
+            layoutConfig.borderStyles[currentPropsKey] = { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' };
+        }
+
+        if (prop === 'width') {
+            const px = typeof val === 'number' ? val + 'px' : (String(val).includes('px') ? val : val + 'px');
+            el.style.borderWidth = px;
+            layoutConfig.borderStyles[currentPropsKey].width = px;
+            const wVal = document.getElementById('contourWidthVal');
+            const wSlider = document.getElementById('contourWidthSlider');
+            if (wVal) wVal.textContent = px;
+            if (wSlider) wSlider.value = parseFloat(px);
+        } else if (prop === 'color') {
+            el.style.borderColor = val;
+            layoutConfig.borderStyles[currentPropsKey].color = val;
+            const cInp = document.getElementById('contourColorInput');
+            const cHex = document.getElementById('contourColorHex');
+            if (cInp) cInp.value = val;
+            if (cHex) cHex.textContent = val.toUpperCase();
+        } else if (prop === 'bg') {
+            el.style.backgroundColor = val;
+            layoutConfig.borderStyles[currentPropsKey].bg = val;
+            const bgInp = document.getElementById('contourBgInput');
+            const bgHex = document.getElementById('contourBgHex');
+            if (bgInp) bgInp.value = val;
+            if (bgHex) bgHex.textContent = val.toUpperCase();
+        } else if (prop === 'style') {
+            el.style.borderStyle = val;
+            layoutConfig.borderStyles[currentPropsKey].style = val;
+            const sSel = document.getElementById('contourStyleSelect');
+            if (sSel) sSel.value = val;
+        } else if (prop === 'radius') {
+            const rad = typeof val === 'number' ? val + 'px' : (String(val).includes('px') ? val : val + 'px');
+            el.style.borderRadius = rad;
+            layoutConfig.borderStyles[currentPropsKey].radius = rad;
+            const rVal = document.getElementById('contourRadiusVal');
+            const rSlider = document.getElementById('contourRadiusSlider');
+            if (rVal) rVal.textContent = parseFloat(rad) === 0 ? '0px (Rectas)' : rad;
+            if (rSlider) rSlider.value = parseFloat(rad);
+        }
+    }
+
+    function layoutApplyContourToAll() {
+        if (!currentPropsKey) currentPropsKey = 'mapFrame';
+        const w = (document.getElementById('contourWidthSlider')?.value || 1.5) + 'px';
+        const c = document.getElementById('contourColorInput')?.value || '#000000';
+        const s = document.getElementById('contourStyleSelect')?.value || 'solid';
+        const bg = document.getElementById('contourBgInput')?.value || '#ffffff';
+        const r = (document.getElementById('contourRadiusSlider')?.value || 0) + 'px';
+
+        ['mapFrame', 'legend', 'overview', 'metadata'].forEach(k => {
+            currentPropsKey = k;
+            layoutUpdateActiveContour('width', w);
+            layoutUpdateActiveContour('color', c);
+            layoutUpdateActiveContour('style', s);
+            layoutUpdateActiveContour('bg', bg);
+            layoutUpdateActiveContour('radius', r);
+        });
+        toast('Contorno aplicado a todos los marcos cartográficos.', 'success');
+    }
+
     function layoutUpdateTouristTitleText(part, text) {
         if (part === 'cursive') {
             const el = document.getElementById('touristTitleCursive');
@@ -37024,6 +37442,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             mapFrame: 'layoutMapFrame',
             metadata: 'layoutMetadataContainer',
             legend: (document.getElementById('touristLegendBox') && layoutConfig && layoutConfig.theme === 'ghibli') ? 'touristLegendBox' : 'layoutLegendContainer',
+            overview: 'layoutOverviewContainer',
             scale: 'layoutScaleContainer',
             touristPoiList: 'touristPoiList',
             touristLegendBox: 'touristLegendBox',
@@ -37492,6 +37911,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             metadata: { icon: 'calendar_today', title: 'Tarjeta de Metadatos', subtitle: 'Fecha de emisión, coordenadas y borde verde' },
             legend: { icon: 'list_alt', title: 'Leyenda Activa', subtitle: 'Diseño, columnas y colores' },
             scale: { icon: 'linear_scale', title: 'Escala Visual', subtitle: 'Regleta métrica y formato' },
+            overview: { icon: 'travel_explore', title: 'Localización', subtitle: 'Mapa de contexto regional y extensión' },
             touristPoiList: { icon: 'format_list_numbered', title: 'Puntos de Interés (POI)', subtitle: 'Atractivos, paradas turísticas y numeración' },
             touristLegendBox: { icon: 'category', title: 'Convenciones y Servicios', subtitle: 'Iconografía y simbología del mapa' },
             touristTopLogo: { icon: 'image', title: 'Logo / Emblema Turístico', subtitle: 'Emblema montañoso, relieve y tipografía' },
@@ -37565,6 +37985,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (activeProp) {
                 activeProp.classList.remove('hidden');
                 activeProp.classList.add('flex');
+            }
+        }
+
+        // Sincronizar el panel de Contorno y Marco
+        const contourSec = document.getElementById('layoutContourEditorSection');
+        if (contourSec) {
+            if (['mapFrame', 'legend', 'overview', 'metadata', 'scale'].includes(key)) {
+                contourSec.classList.remove('hidden');
+                contourSec.classList.add('flex');
+                if (typeof layoutSyncBorderDrawer === 'function') layoutSyncBorderDrawer(key);
+            } else {
+                contourSec.classList.add('hidden');
+                contourSec.classList.remove('flex');
             }
         }
 
@@ -38081,6 +38514,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('layoutLegendContainer').style.display = visible ? 'flex' : 'none';
         } else if (key === 'scale') {
             document.getElementById('layoutScaleContainer').style.display = visible ? 'flex' : 'none';
+        } else if (key === 'overview') {
+            const ov = document.getElementById('layoutOverviewContainer');
+            if (ov) ov.style.display = visible ? 'flex' : 'none';
+            if (visible && typeof initLayoutOverviewMap === 'function') {
+                setTimeout(initLayoutOverviewMap, 60);
+            }
         } else if (key === 'compass') {
             document.getElementById('layoutCompass').style.display = visible ? 'flex' : 'none';
             layoutUpdateCompassDesign();
@@ -38277,6 +38716,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         { id: 'layoutTitleContainer', resizer: 'layoutTitleResize', key: 'title' },
         { id: 'layoutMetadataContainer', resizer: 'layoutMetadataResize', key: 'metadata' },
         { id: 'layoutLegendContainer', resizer: 'layoutLegendResize', key: 'legend' },
+        { id: 'layoutOverviewContainer', resizer: 'layoutOverviewResize', key: 'overview' },
         { id: 'layoutScaleContainer', resizer: 'layoutScaleResize', key: 'scale' }
     ];
 
@@ -38397,6 +38837,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } else if (dragEl.id === 'layoutScaleContainer') {
                 layoutConfig.scale.top = dragEl.style.top;
                 layoutConfig.scale.left = dragEl.style.left;
+            } else if (dragEl.id === 'layoutOverviewContainer') {
+                if (!layoutConfig.overview) layoutConfig.overview = {};
+                layoutConfig.overview.top = dragEl.style.top;
+                layoutConfig.overview.left = dragEl.style.left;
             } else if (dragEl === mapFrame) {
                 layoutConfig.mapFrame.top = dragEl.style.top;
                 layoutConfig.mapFrame.left = dragEl.style.left;
@@ -38423,6 +38867,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } else if (resizeEl.id === 'layoutScaleContainer') {
                 layoutConfig.scale.width = resizeEl.style.width;
                 layoutConfig.scale.height = resizeEl.style.height;
+            } else if (resizeEl.id === 'layoutOverviewContainer') {
+                if (!layoutConfig.overview) layoutConfig.overview = {};
+                layoutConfig.overview.width = resizeEl.style.width;
+                layoutConfig.overview.height = resizeEl.style.height;
+                if (window.layoutOverviewMap) window.layoutOverviewMap.invalidateSize({ animate: false });
             } else if (resizeEl === mapFrame) {
                 layoutConfig.mapFrame.width = resizeEl.style.width;
                 layoutConfig.mapFrame.height = resizeEl.style.height;
@@ -38605,6 +39054,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                <span class="material-symbols-outlined text-[16px]">settings</span>
                            </button>
                            <button onclick="event.stopPropagation(); layoutToggleElement('legend')" id="eye-legend" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility</span>
+                           </button>
+                       </div>
+                    </div>
+
+                    <!-- Localización (Contexto Regional) -->
+                    <div onclick="layoutSelectElement('overview')" class="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">travel_explore</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Localización</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('overview')" id="gear-btn-overview" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Localización">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('overview')" id="eye-overview" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
                                <span class="material-symbols-outlined text-[18px]">visibility</span>
                            </button>
                        </div>
@@ -47833,21 +48298,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         standard: {
           theme: null,
           paper: 'A4', orientation: 'portrait',
-          titleText: layoutConfig.titleText || 'Proyecto Zima Editor',
-          elements: { mapFrame: true, title: true, metadata: true, legend: true, scale: true, compass: true },
+          titleText: layoutConfig.titleText || 'Plano Cartográfico Oficial',
+          elements: { mapFrame: true, title: false, metadata: true, legend: true, overview: true, scale: true, compass: true },
+          borderStyles: {
+            mapFrame: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            legend: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            overview: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            metadata: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' }
+          },
           styles: {
-            title: { fontSize: 22, color: '#000000', fontFamily: 'Inter', bold: true },
+            title: { fontSize: 20, color: '#000000', fontFamily: 'Inter', bold: true },
             metadata: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter' },
             legend: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', design: 'classic' },
             scale: { fontSize: 8.5, color: '#000000', fontFamily: 'Inter', design: 'classic' },
-            compass: { color: '#000000', design: 'modern', rotation: 0, size: 25 }
+            compass: { color: '#000000', design: 'classic', rotation: 0, size: 22 }
           },
-          titleProps: { top: '8mm', left: '15mm', width: '180mm' },
-          mapFrame: { top: '24mm', left: '15mm', width: '180mm', height: '218mm', visible: true },
-          legend: { top: '245mm', left: '15mm', width: '54mm', height: '40mm' },
-          scale: { top: '245mm', left: '72mm', width: '50mm', height: '18mm' },
-          compass: { top: '265mm', left: '72mm', width: '50mm', height: '20mm' },
-          metadata: { top: '245mm', left: '125mm', width: '70mm', height: '40mm' }
+          titleProps: { top: '2mm', left: '10mm', width: '190mm', height: '8mm' },
+          mapFrame: { top: '10mm', left: '10mm', width: '190mm', height: '180mm', visible: true },
+          legend: { top: '195mm', left: '10mm', width: '116mm', height: '92mm' },
+          overview: { top: '195mm', left: '130mm', width: '70mm', height: '50mm' },
+          metadata: { top: '248mm', left: '130mm', width: '70mm', height: '39mm' },
+          scale: { top: '165mm', left: '14mm', width: '58mm', height: '16mm' },
+          compass: { top: '132mm', left: '18mm', width: '22mm', height: '22mm' },
+          grid: { enabled: true, auto: true, position: 'outside', color: '#000000', opacity: 0.35, showLabels: true, fontSize: 8.5 }
         },
         ghibli: {
           theme: 'ghibli',
