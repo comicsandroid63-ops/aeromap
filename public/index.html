@@ -36382,26 +36382,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (design === 'grid-compact') legendList.className = 'grid grid-cols-2 gap-4';
         else if (design === 'row-horizontal') legendList.className = 'flex flex-row gap-8 items-center';
 
-        const visibleLayers = (state.layers || []).filter(l => l.visible);
-        if (visibleLayers.length === 0 && layoutConfig && layoutConfig.theme) {
-            const themeLegends = {
-                pop_geometric: [
-                    { name: 'Zona de Cobertura Principal', color: '#008259' },
-                    { name: 'Área Protegida / Restringida', color: '#e11d48' },
-                    { name: 'Vértice Geodésico Principal', color: '#ff2a85' },
-                    { name: 'Infraestructura & Control', color: '#111115' },
-                    { name: 'Sector Rural / Expansión', color: '#fbb040' },
-                    { name: 'Red Hídrica & Drenaje', color: '#00a8e8' }
-                ]
-            };
-            const items = themeLegends[layoutConfig.theme] || themeLegends.pop_geometric || themeLegends.squid_game || [];
-            items.forEach(it => {
-                const item = document.createElement('div');
-                item.className = 'flex items-center gap-2';
-                item.innerHTML = `<span style="width:12px;height:7px;background:${it.color};display:inline-block;border-radius:1px;border:0.5px solid rgba(0,0,0,0.2);"></span><span contenteditable="true" spellcheck="false" class="text-[9px] font-bold text-zinc-700 outline-none hover:bg-black/5 focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 cursor-text transition-all">${it.name}</span>`;
-                legendList.appendChild(item);
-            });
-            return;
+        const visibleLayers = (state.layers || []).filter(l => l.visible !== false);
+        if (visibleLayers.length === 0) {
+            let hasDrawn = false;
+            if (state.drawnItems && typeof state.drawnItems.eachLayer === 'function') {
+                state.drawnItems.eachLayer(() => { hasDrawn = true; });
+            }
+            if (!hasDrawn) {
+                const emptyItem = document.createElement('div');
+                emptyItem.className = 'text-[9px] text-zinc-400 italic py-1';
+                emptyItem.textContent = 'Mapa Base / Sin capas adicionales';
+                legendList.appendChild(emptyItem);
+                return;
+            }
         }
 
         state.layers.forEach(l => {
@@ -36614,21 +36607,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
 
         // Clonar capas visibles
-        const visibleLayers = (state.layers || []).filter(l => l.visible).slice().reverse();
+        const visibleLayers = (state.layers || []).filter(l => l.visible !== false).slice().reverse();
 
-        if (visibleLayers.length === 0 && window.layoutLeafletMap) {
-            const c = (state.map && typeof state.map.getCenter === 'function' ? state.map.getCenter() : window.layoutLeafletMap.getCenter()) || { lat: 4.6097, lng: -74.0817 };
-            const d = 0.007;
-            const z1 = [[c.lat + d*0.6, c.lng - d*0.7], [c.lat + d*0.6, c.lng + d*0.1], [c.lat + d*0.1, c.lng + d*0.1], [c.lat + d*0.1, c.lng - d*0.7]];
-            const z2 = [[c.lat + d*0.6, c.lng + d*0.2], [c.lat + d*0.6, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.8], [c.lat - d*0.1, c.lng + d*0.2]];
-            const z3 = [[c.lat - d*0.05, c.lng - d*0.7], [c.lat - d*0.05, c.lng + d*0.1], [c.lat - d*0.6, c.lng + d*0.1], [c.lat - d*0.6, c.lng - d*0.7]];
-            const z4 = [[c.lat - d*0.2, c.lng + d*0.2], [c.lat - d*0.2, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.8], [c.lat - d*0.6, c.lng + d*0.2]];
-
-            L.polygon(z1, { color: '#008259', weight: 3, fillColor: '#008259', fillOpacity: 0.75 }).bindTooltip('POLÍGONO A · ZONA NORTE', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#008259] px-2 py-0.5 rounded shadow-md border border-white' }).addTo(window.layoutLayersGroup);
-            L.polygon(z2, { color: '#ff2a85', weight: 3, fillColor: '#ff2a85', fillOpacity: 0.65 }).bindTooltip('POLÍGONO B · ÁREA PROTEGIDA', { permanent: true, direction: 'center', className: 'text-[9px] font-black text-white bg-[#ff2a85] px-2 py-0.5 rounded shadow-md' }).addTo(window.layoutLayersGroup);
-            L.polygon(z3, { color: '#d97706', weight: 2.5, fillColor: '#fbb040', fillOpacity: 0.7 }).bindTooltip('POLÍGONO C · SECTOR RURAL', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-black bg-[#fbb040] px-1.5 py-0.5 rounded shadow-sm' }).addTo(window.layoutLayersGroup);
-            L.polygon(z4, { color: '#0284c7', weight: 2.5, fillColor: '#00a8e8', fillOpacity: 0.65 }).bindTooltip('POLÍGONO D · CUENCA HÍDRICA', { permanent: true, direction: 'center', className: 'text-[9px] font-bold text-white bg-[#00a8e8] px-1.5 py-0.5 rounded' }).addTo(window.layoutLayersGroup);
-            L.polyline([[c.lat + d*0.8, c.lng - d*0.3], [c.lat - d*0.8, c.lng - d*0.3]], { color: '#ffffff', weight: 6, opacity: 0.95 }).bindTooltip('CORREDOR VIAL PRINCIPAL', { permanent: true, direction: 'center', className: 'text-[8px] font-black text-black bg-white px-1.5 rounded border border-[#ff2a85]' }).addTo(window.layoutLayersGroup);
+        // Sincronizar trazos dibujados por el usuario si existen
+        if (state.drawnItems && typeof state.drawnItems.toGeoJSON === 'function') {
+            try {
+                const gj = state.drawnItems.toGeoJSON();
+                if (gj && gj.features && gj.features.length > 0) {
+                    const dLayer = L.geoJSON(gj, {
+                        style: (feat) => ({
+                            color: feat.properties?.color || feat.properties?.strokeColor || '#38bdf8',
+                            weight: feat.properties?.weight || 2.5,
+                            fillColor: feat.properties?.fillColor || feat.properties?.color || '#38bdf8',
+                            fillOpacity: feat.properties?.fillOpacity ?? 0.35
+                        }),
+                        pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
+                            radius: feat.properties?.pointRadius || 6,
+                            fillColor: feat.properties?.fillColor || feat.properties?.color || '#38bdf8',
+                            color: '#ffffff',
+                            weight: 2,
+                            fillOpacity: 0.85
+                        })
+                    });
+                    window.layoutLayersGroup.addLayer(dLayer);
+                }
+            } catch (e) {
+                console.warn('[LayoutMapSync] Error syncing drawn items:', e);
+            }
         }
         
         for (const l of visibleLayers) {
