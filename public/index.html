@@ -14847,7 +14847,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           try {
             const baseImg = this.pyramid.levels[0];
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
-            let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+            let bandsToUse = nSamples === 1 ? [0] : (this.options.bands ? this.options.bands.filter(b => b < nSamples) : null);
             if (!bandsToUse || bandsToUse.length === 0) {
               bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
             }
@@ -15124,7 +15124,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (this.geo?.bands || 1);
-            let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+            let bandsToUse = nSamples === 1 ? [0] : (this.options.bands ? this.options.bands.filter(b => b < nSamples) : null);
             if (!bandsToUse || bandsToUse.length === 0) {
               bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
             }
@@ -15896,7 +15896,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
 
           const nSamples = level.getSamplesPerPixel ? level.getSamplesPerPixel() : (this.geo?.bands || 1);
-          let bandsToUse = this.options.bands ? this.options.bands.filter(b => b < nSamples) : null;
+          let bandsToUse = nSamples === 1 ? [0] : (this.options.bands ? this.options.bands.filter(b => b < nSamples) : null);
           if (!bandsToUse || bandsToUse.length === 0) {
             bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
           }
@@ -16381,7 +16381,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           agriBands = [1, 0, 2];
           swirBands = [2, 1, 0];
         } else {
-          naturalBands = [0, 0, 0];
+          naturalBands = [0];
         }
       }
 
