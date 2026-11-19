@@ -42975,9 +42975,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 zIndex: 550
             });
 
-            if (window.map) {
-                newLayer.mapLayer.addTo(window.map);
-                window.map.fitBounds(bounds);
+            const mapRef = (typeof state !== 'undefined' && state.map) ? state.map : window.map;
+            if (mapRef) {
+                newLayer.mapLayer.addTo(mapRef);
+                if (bounds) mapRef.fitBounds(bounds);
             }
 
             state.layers.unshift(newLayer);
@@ -43052,39 +43053,218 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         try {
             if (_currentRasterTool === 'clip' || _currentRasterTool === 'clip_bbox') {
-                showProgress('Recortando geometría raster...', 50);
-                const outCanvas = document.createElement('canvas');
-                outCanvas.width = 200;
-                outCanvas.height = 200;
-                const ctx = outCanvas.getContext('2d');
+                showProgress('Recortando geometría raster...', 30);
+                const mapRef = (typeof state !== 'undefined' && state.map) ? state.map : window.map;
+                let maskLayer = null;
+                let polyRings = [];
+                let targetLatLngBounds = null;
 
-                // Draw clipped gradient/image
-                ctx.save();
-                ctx.beginPath();
                 if (_currentRasterTool === 'clip') {
-                    // Polygon mask clip
-                    ctx.arc(100, 100, 75, 0, Math.PI * 2);
+                    const maskId = document.getElementById('singleRasterMaskSelect')?.value;
+                    maskLayer = state.layers.find(l => String(l.id) === String(maskId));
+                    if (!maskLayer || !maskLayer.geoJson || !maskLayer.geoJson.features || maskLayer.geoJson.features.length === 0) {
+                        hideProgress();
+                        toast('Selecciona una capa vectorial con polígonos para recortar.', 'error');
+                        return;
+                    }
+                    // Extraer todos los polígonos y calcular su bounding box WGS84
+                    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+                    const collectRing = (ring) => {
+                        if (!Array.isArray(ring) || ring.length < 3) return false;
+                        for (const pt of ring) {
+                            if (pt[0] < minLng) minLng = pt[0];
+                            if (pt[0] > maxLng) maxLng = pt[0];
+                            if (pt[1] < minLat) minLat = pt[1];
+                            if (pt[1] > maxLat) maxLat = pt[1];
+                        }
+                        return true;
+                    };
+                    for (const f of maskLayer.geoJson.features) {
+                        const g = f && f.geometry;
+                        if (!g) continue;
+                        if (g.type === 'Polygon' && g.coordinates) {
+                            if (collectRing(g.coordinates[0])) polyRings.push(g.coordinates);
+                        } else if (g.type === 'MultiPolygon' && g.coordinates) {
+                            for (const poly of g.coordinates) {
+                                if (poly && collectRing(poly[0])) polyRings.push(poly);
+                            }
+                        }
+                    }
+                    if (polyRings.length === 0 || !isFinite(minLng)) {
+                        hideProgress();
+                        toast('La capa máscara seleccionada no contiene polígonos válidos.', 'error');
+                        return;
+                    }
+                    targetLatLngBounds = L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
                 } else {
-                    // BBox clip
-                    ctx.rect(20, 20, 160, 160);
+                    targetLatLngBounds = mapRef ? mapRef.getBounds() : L.latLngBounds(bounds);
                 }
-                ctx.clip();
 
-                const grad = ctx.createLinearGradient(0, 0, 200, 200);
-                grad.addColorStop(0, '#10b981');
-                grad.addColorStop(0.5, '#f59e0b');
-                grad.addColorStop(1, '#ef4444');
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, 200, 200);
-                ctx.restore();
+                const srcBounds = (bounds && typeof bounds.getSouthWest === 'function')
+                    ? bounds
+                    : L.latLngBounds(bounds);
 
-                addProcessedRasterLayer({
-                    name: `[Recorte] ${sourceLayer.name}`,
-                    canvas: outCanvas,
-                    bounds: bounds,
-                    format: 'GeoTIFF'
-                });
-                closeRasterToolModal();
+                if (!srcBounds.intersects(targetLatLngBounds)) {
+                    hideProgress();
+                    toast('La máscara o vista no se intersecta con el área del ráster.', 'error');
+                    return;
+                }
+
+                const cropExtent = document.getElementById('singleRasterCropExtent') ? document.getElementById('singleRasterCropExtent').checked : true;
+                const interS = Math.max(srcBounds.getSouth(), targetLatLngBounds.getSouth());
+                const interN = Math.min(srcBounds.getNorth(), targetLatLngBounds.getNorth());
+                const interW = Math.max(srcBounds.getWest(), targetLatLngBounds.getWest());
+                const interE = Math.min(srcBounds.getEast(), targetLatLngBounds.getEast());
+                const clipBounds = cropExtent ? L.latLngBounds([interS, interW], [interN, interE]) : srcBounds;
+
+                const clientGeo = sourceLayer.clientGeo || sourceLayer._geotiffTileLayer?.geo;
+                if (clientGeo && clientGeo.image) {
+                    showProgress('Leyendo píxeles reales del GeoTIFF...', 50);
+                    const baseImg = clientGeo.image;
+                    const fullW = baseImg.getWidth();
+                    const fullH = baseImg.getHeight();
+                    const ox = clientGeo.origin ? clientGeo.origin[0] : 0;
+                    const oy = clientGeo.origin ? clientGeo.origin[1] : 0;
+                    const rx = clientGeo.resolution ? clientGeo.resolution[0] : 1;
+                    const ry = clientGeo.resolution ? clientGeo.resolution[1] : -1;
+                    const epsg = clientGeo.epsg || 4326;
+
+                    let minX = clipBounds.getWest(), maxX = clipBounds.getEast();
+                    let minY = clipBounds.getSouth(), maxY = clipBounds.getNorth();
+
+                    if (epsg && epsg !== 4326 && typeof proj4 !== 'undefined') {
+                        try {
+                            const fwd = proj4('EPSG:4326', 'EPSG:' + epsg);
+                            const corners = [
+                                fwd.forward([clipBounds.getWest(), clipBounds.getSouth()]),
+                                fwd.forward([clipBounds.getEast(), clipBounds.getSouth()]),
+                                fwd.forward([clipBounds.getWest(), clipBounds.getNorth()]),
+                                fwd.forward([clipBounds.getEast(), clipBounds.getNorth()])
+                            ];
+                            minX = Math.min(...corners.map(c => c[0]));
+                            maxX = Math.max(...corners.map(c => c[0]));
+                            minY = Math.min(...corners.map(c => c[1]));
+                            maxY = Math.max(...corners.map(c => c[1]));
+                        } catch (_) {}
+                    }
+
+                    const pxL = Math.max(0, Math.floor((minX - ox) / Math.abs(rx)));
+                    const pxR = Math.min(fullW, Math.ceil((maxX - ox) / Math.abs(rx)));
+                    const pxT = Math.max(0, Math.floor((oy - maxY) / Math.abs(ry)));
+                    const pxB = Math.min(fullH, Math.ceil((oy - minY) / Math.abs(ry)));
+
+                    const winW = pxR - pxL;
+                    const winH = pxB - pxT;
+                    if (winW <= 0 || winH <= 0) {
+                        hideProgress();
+                        toast('La ventana de recorte quedó fuera de los píxeles del ráster.', 'error');
+                        return;
+                    }
+
+                    const maxDim = 1800;
+                    const scale = Math.min(1, maxDim / Math.max(winW, winH));
+                    const outW = Math.max(1, Math.round(winW * scale));
+                    const outH = Math.max(1, Math.round(winH * scale));
+
+                    const nSamples = baseImg.getSamplesPerPixel ? baseImg.getSamplesPerPixel() : (sourceLayer.bands || 1);
+                    let bandsToUse = nSamples === 1 ? [0] : (sourceLayer.rendererParams?.bands ? sourceLayer.rendererParams.bands.filter(b => b < nSamples) : [0, 1, 2]);
+                    if (!bandsToUse || bandsToUse.length === 0) bandsToUse = nSamples >= 3 ? [0, 1, 2] : [0];
+                    const isRgb = bandsToUse.length >= 3;
+
+                    const readOpts = {
+                        window: [pxL, pxT, pxR, pxB],
+                        samples: bandsToUse,
+                        interleave: isRgb,
+                        resampleMethod: 'nearest'
+                    };
+                    if (outW !== winW || outH !== winH) {
+                        readOpts.width = outW;
+                        readOpts.height = outH;
+                    }
+
+                    const raw = await baseImg.readRasters(readOpts);
+                    const isArr = Array.isArray(raw);
+                    const fB = isArr ? raw[0] : raw;
+                    const isByte = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
+                    const photo = baseImg.fileDirectory?.PhotometricInterpretation ?? clientGeo.photometric ?? (isRgb ? 2 : 1);
+                    const globalStats = sourceLayer._geotiffTileLayer ? await sourceLayer._geotiffTileLayer._getGlobalStats() : null;
+                    const styleOpts = { renderer: sourceLayer.renderer, ...(sourceLayer.rendererParams || {}) };
+
+                    showProgress('Renderizando recorte con colores originales...', 75);
+                    const pixels = await processPixelsAsync(raw, outW, outH, isRgb, isByte, isArr, clientGeo.noDataValue, photo, globalStats, clientGeo.colorMap, styleOpts);
+
+                    const outCanvas = document.createElement('canvas');
+                    outCanvas.width = outW;
+                    outCanvas.height = outH;
+                    const ctx = outCanvas.getContext('2d');
+                    ctx.putImageData(new ImageData(pixels, outW, outH), 0, 0);
+
+                    // Calcular bounds geográficos exactos de la ventana de píxeles [pxL..pxR, pxT..pxB]
+                    const winMinX = ox + pxL * Math.abs(rx);
+                    const winMaxX = ox + pxR * Math.abs(rx);
+                    const winMaxY = oy - pxT * Math.abs(ry);
+                    const winMinY = oy - pxB * Math.abs(ry);
+                    let exactBounds = L.latLngBounds([winMinY, winMinX], [winMaxY, winMaxX]);
+                    if (epsg && epsg !== 4326 && typeof proj4 !== 'undefined') {
+                        try {
+                            const inv = proj4('EPSG:' + epsg, 'EPSG:4326');
+                            const sw = inv.forward([winMinX, winMinY]);
+                            const ne = inv.forward([winMaxX, winMaxY]);
+                            const nw = inv.forward([winMinX, winMaxY]);
+                            const se = inv.forward([winMaxX, winMinY]);
+                            exactBounds = L.latLngBounds(
+                                [Math.min(sw[1], se[1]), Math.min(sw[0], nw[0])],
+                                [Math.max(nw[1], ne[1]), Math.max(ne[0], se[0])]
+                            );
+                        } catch (_) {}
+                    }
+
+                    // Aplicar recorte poligonal exacto (máscara vectorial)
+                    if (_currentRasterTool === 'clip' && polyRings.length > 0) {
+                        const maskCanvas = document.createElement('canvas');
+                        maskCanvas.width = outW;
+                        maskCanvas.height = outH;
+                        const mCtx = maskCanvas.getContext('2d');
+                        mCtx.fillStyle = '#ffffff';
+
+                        const bW = exactBounds.getWest(), bE = exactBounds.getEast();
+                        const bS = exactBounds.getSouth(), bN = exactBounds.getNorth();
+                        const lngSpan = (bE - bW) || 1e-9;
+                        const latSpan = (bN - bS) || 1e-9;
+
+                        mCtx.beginPath();
+                        for (const poly of polyRings) {
+                            for (const ring of poly) {
+                                if (!ring || ring.length < 3) continue;
+                                for (let pIdx = 0; pIdx < ring.length; pIdx++) {
+                                    const cx = ((ring[pIdx][0] - bW) / lngSpan) * outW;
+                                    const cy = ((bN - ring[pIdx][1]) / latSpan) * outH;
+                                    if (pIdx === 0) mCtx.moveTo(cx, cy);
+                                    else mCtx.lineTo(cx, cy);
+                                }
+                                mCtx.closePath();
+                            }
+                        }
+                        mCtx.fill('evenodd');
+
+                        ctx.globalCompositeOperation = 'destination-in';
+                        ctx.drawImage(maskCanvas, 0, 0);
+                        ctx.globalCompositeOperation = 'source-over';
+                    }
+
+                    hideProgress();
+                    addProcessedRasterLayer({
+                        name: `[Recorte${maskLayer ? ': ' + maskLayer.name : ''}] ${sourceLayer.name}`,
+                        canvas: outCanvas,
+                        bounds: exactBounds,
+                        bands: sourceLayer.bands || 1,
+                        format: 'GeoTIFF'
+                    });
+                    closeRasterToolModal();
+                } else {
+                    hideProgress();
+                    toast('La capa ráster aún se está cargando en memoria. Espera un momento e intenta de nuevo.', 'warning');
+                }
 
             } else if (_currentRasterTool === 'calc') {
                 showProgress('Calculando índice espectral...', 50);
