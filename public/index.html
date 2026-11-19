@@ -14411,8 +14411,45 @@ class TileLRUCache {
       if (_pixelWorker) return _pixelWorker;
       
       const workerCode = `
+        const WORKER_RAMPS = {
+          viridis: [[0,68,1,84],[0.25,59,82,139],[0.5,33,145,140],[0.75,94,201,98],[1,253,231,37]],
+          magma: [[0,0,0,4],[0.25,80,18,123],[0.5,182,54,121],[0.75,251,136,97],[1,252,253,191]],
+          inferno: [[0,0,0,4],[0.25,120,28,109],[0.5,182,54,121],[0.75,239,114,0],[1,252,255,164]],
+          plasma: [[0,13,8,135],[0.25,126,3,168],[0.5,204,71,120],[0.75,248,149,64],[1,240,249,33]],
+          cividis: [[0,0,32,70],[0.25,75,75,108],[0.5,118,120,124],[0.75,175,175,117],[1,254,233,68]],
+          turbo: [[0,48,18,59],[0.25,71,148,255],[0.5,162,255,162],[0.75,255,153,58],[1,144,12,0]],
+          spectral: [[0,158,1,66],[0.2,213,62,79],[0.4,253,174,97],[0.6,230,245,152],[0.8,102,194,165],[1,94,79,162]],
+          blues: [[0,247,251,255],[1,8,48,107]],
+          greens: [[0,247,252,245],[1,0,68,27]],
+          greys: [[0,255,255,255],[1,0,0,0]],
+          oranges: [[0,255,245,235],[1,127,39,4]],
+          purples: [[0,252,251,253],[1,63,0,125]],
+          reds: [[0,255,245,240],[1,103,0,13]],
+          brbg: [[0,84,48,5],[0.5,245,245,245],[1,1,102,94]],
+          piyg: [[0,142,1,82],[0.5,247,247,247],[1,39,100,25]],
+          prgn: [[0,64,0,75],[0.5,247,247,247],[1,0,68,27]],
+          rdbu: [[0,103,0,31],[0.5,247,247,247],[1,5,48,97]],
+          rdgy: [[0,103,0,31],[0.5,255,255,255],[1,26,26,26]],
+          rdpu: [[0,255,247,236],[0.5,253,141,60],[1,127,0,0]],
+          rdylbu: [[0,165,0,38],[0.5,255,255,191],[1,49,54,149]],
+          rdylgn: [[0,165,0,38],[0.5,255,255,191],[1,0,104,55]],
+          bugn: [[0,237,248,251],[1,0,74,44]],
+          bupu: [[0,237,248,251],[1,129,15,124]],
+          gnbu: [[0,240,249,232],[1,8,64,129]],
+          orrd: [[0,255,247,236],[1,127,0,0]],
+          pubu: [[0,241,248,251],[1,5,70,123]],
+          pubugn: [[0,246,241,249],[1,1,70,54]],
+          puor: [[0,127,59,8],[0.5,247,247,247],[1,45,0,75]],
+          purd: [[0,247,244,249],[1,103,0,31]],
+          ylgn: [[0,255,255,229],[1,0,69,41]],
+          ylgnbu: [[0,255,255,217],[1,8,29,88]],
+          ylorbr: [[0,255,255,229],[1,102,37,6]],
+          ylorrd: [[0,255,255,204],[1,189,0,38]],
+          mako: [[0,11,4,5],[0.5,53,123,163],[1,222,245,229]],
+          rocket: [[0,3,2,18],[0.5,203,71,93],[1,250,235,221]]
+        };
         self.onmessage = function(e) {
-          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap } = e.data;
+          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap, style } = e.data;
           
           const px = width * height;
           const d = new Uint8ClampedArray(px * 4);
@@ -14644,11 +14681,51 @@ class TileLRUCache {
               }
             }
           } else {
-            // Single band (Palette ColorMap / DEM / NDVI / Grayscale)
+            // Single band (Pseudocolor / Palette ColorMap / DEM / NDVI / Grayscale)
             const b0 = isArrayOfBands ? raw[0] : raw;
             const b0Arr = isByte ? new Uint8Array(b0) : ((b0 instanceof Float32Array || b0 instanceof Float64Array) ? b0 : new Float32Array(b0));
             const activePalette = (colorMap && colorMap.length >= 4) ? colorMap : (globalStats && globalStats.colorMap && globalStats.colorMap.length >= 4 ? globalStats.colorMap : null);
-            if ((photometric === 3 || activePalette) && activePalette) {
+            const isPseudocolor = style && style.renderer === 'pseudocolor';
+            if (isPseudocolor) {
+              const cmap = WORKER_RAMPS[style.colormap || 'viridis'] || WORKER_RAMPS.viridis;
+              const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
+              const minV = (sB.minV != null && isFinite(sB.minV)) ? sB.minV : (sB.p2 || 0);
+              const maxV = (sB.maxV != null && isFinite(sB.maxV)) ? sB.maxV : (sB.p98 || 255);
+              const span = (maxV - minV) || 1;
+              const method = style.interpolation || 'linear';
+              const numCls = Math.max(2, parseInt(style.classes || 5, 10) || 5);
+              const invert = !!style.invert;
+              for (let i = 0; i < px; i++) {
+                const v = b0Arr[i];
+                const pi = i * 4;
+                if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || (v === 0 && noDataValue === 0) || v <= -9990 || v >= 1e30) {
+                  d[pi + 3] = 0;
+                } else {
+                  let norm = Math.max(0, Math.min(1, (v - minV) / span));
+                  if (invert) norm = 1 - norm;
+                  if (method === 'discrete') {
+                    const clsIdx = Math.min(numCls - 1, Math.floor(norm * numCls));
+                    norm = clsIdx / (numCls - 1);
+                  }
+                  let low = cmap[0], high = cmap[cmap.length - 1];
+                  for (let j = 0; j < cmap.length - 1; j++) {
+                    if (norm >= cmap[j][0] && norm <= cmap[j + 1][0]) {
+                      low = cmap[j]; high = cmap[j + 1]; break;
+                    }
+                  }
+                  if (method === 'exact') {
+                    d[pi] = low[1]; d[pi + 1] = low[2]; d[pi + 2] = low[3];
+                  } else {
+                    const rSpan = high[0] - low[0] || 1;
+                    const t = (norm - low[0]) / rSpan;
+                    d[pi]     = Math.round(low[1] + (high[1] - low[1]) * t);
+                    d[pi + 1] = Math.round(low[2] + (high[2] - low[2]) * t);
+                    d[pi + 2] = Math.round(low[3] + (high[3] - low[3]) * t);
+                  }
+                  d[pi + 3] = 255;
+                }
+              }
+            } else if ((photometric === 3 || activePalette) && activePalette) {
               const maxIdx = (activePalette.length >> 2) - 1;
               for (let i = 0; i < px; i++) {
                 const v = b0Arr[i];
@@ -14702,7 +14779,7 @@ class TileLRUCache {
       return _pixelWorker;
     }
     
-    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap) {
+    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap, style) {
       return new Promise((resolve) => {
         const worker = getPixelWorker();
         const id = Date.now() + Math.random();
@@ -14729,7 +14806,7 @@ class TileLRUCache {
         }
         
         worker.postMessage({
-          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap: colorMap || null
+          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap: colorMap || null, style: style || null
         }, transferables);
       });
     }
@@ -14749,6 +14826,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       
       setBands: function(bands) {
         this.options.bands = bands;
+        this._quickOverview = null;
+        this._quickOverviewPromise = null;
+        this._globalStats = null;
+        this._globalStatsPromise = null;
+        this._renderVersion = (this._renderVersion || 0) + 1;
+        this.redraw();
+      },
+
+      setStyle: function(renderer, rendererParams) {
+        this.options.renderer = renderer;
+        this.options.rendererParams = { ...(rendererParams || {}) };
+        if (rendererParams && rendererParams.bands) {
+          this.options.bands = rendererParams.bands;
+        }
         this._quickOverview = null;
         this._quickOverviewPromise = null;
         this._globalStats = null;
@@ -14894,7 +14985,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
-            if (!isRgbRender && (photometric === 3 || this.geo?.colorMap || baseImg.fileDirectory?.ColorMap)) {
+            if (this.options.renderer !== 'pseudocolor' && !isRgbRender && (photometric === 3 || this.geo?.colorMap || baseImg.fileDirectory?.ColorMap)) {
               const cm = this.geo?.colorMap || _extractTiffColorMapRGBA(baseImg.fileDirectory);
               if (cm) {
                 this._globalStats = { isPalette: true, colorMap: cm };
@@ -15031,7 +15122,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             } else {
               const b0 = isArray ? rawSample[0] : rawSample;
               const sB = calcPercentiles(b0, 0, 1, numPixels);
-              stats = { isSingle: true, p2: sB.p2, p98: sB.p98, rng: sB.rng, shouldStretch: sB.shouldStretch };
+              stats = { isSingle: true, p2: sB.p2, p98: sB.p98, rng: sB.rng, minV: sB.minV, maxV: sB.maxV, shouldStretch: sB.shouldStretch };
             }
 
             this._globalStats = stats;
@@ -15142,7 +15233,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const photo = ovImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
               const colorMap = this.geo?.colorMap || _extractTiffColorMapRGBA(ovImg.fileDirectory);
               const globalStats = await this._getGlobalStats();
-              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats, colorMap);
+              const styleOpts = { renderer: this.options.renderer, ...(this.options.rendererParams || {}) };
+              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats, colorMap, styleOpts);
               const canvas = document.createElement('canvas');
               canvas.width = ovW;
               canvas.height = ovH;
@@ -15416,8 +15508,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const levelIdx = this.pyramid.levelInfo.indexOf(level);
           const isSupervised = Boolean(this.options.classification);
           const classVer = isSupervised ? (this._classificationVersion || 0) : 0;
+          const renderVer = this._renderVersion || 0;
           const bandsKey = (this.options.bands || []).join('-');
-          const wndCacheKey = `${this._layerUid}_l${levelIdx}_${wndL}_${wndT}_${windowW}_${windowH}_b${bandsKey}_cv${classVer}`;
+          const wndCacheKey = `${this._layerUid}_l${levelIdx}_${wndL}_${wndT}_${windowW}_${windowH}_b${bandsKey}_cv${classVer}_rv${renderVer}`;
 
           if (_windowRasterLRU.has(wndCacheKey)) {
             const hit = _windowRasterLRU.get(wndCacheKey);
@@ -15944,9 +16037,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
           const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
           const colorMap = this.geo?.colorMap || _extractTiffColorMapRGBA(level.fileDirectory);
+          const styleOpts = { renderer: this.options.renderer, ...(this.options.rendererParams || {}) };
           
           const pixels = await processPixelsAsync(
-            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap
+            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap, styleOpts
           );
           
           if (pixels && actualW && actualH) {
@@ -18119,6 +18213,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             opacity: layer.opacity ?? 1,
             bounds: clientBounds || clientGeo.bounds,
             bands: initialParams.bands,
+            renderer: initialRenderer,
             rendererParams: initialParams
           });
           clientTileLayer.addTo(state.map);
@@ -32088,8 +32183,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       rebuildRasterLayer(layer);
     }
 
-    function updateRasterRangeDisplay(layer) {
-      if (!layer.rasters) return;
+    async function updateRasterRangeDisplay(layer) {
+      const minEl = document.getElementById('rasterMinVal');
+      const maxEl = document.getElementById('rasterMaxVal');
+      if (!minEl || !maxEl) return;
+      if (!layer.rasters) {
+        if (layer._geotiffTileLayer && typeof layer._geotiffTileLayer._getGlobalStats === 'function') {
+          try {
+            const st = await layer._geotiffTileLayer._getGlobalStats();
+            if (st && st.minV != null && st.maxV != null && isFinite(st.minV) && isFinite(st.maxV)) {
+              minEl.textContent = Number(st.minV).toFixed(2);
+              maxEl.textContent = Number(st.maxV).toFixed(2);
+            } else if (st && st.p2 != null && st.p98 != null) {
+              minEl.textContent = Number(st.p2).toFixed(2);
+              maxEl.textContent = Number(st.p98).toFixed(2);
+            }
+          } catch (_) {}
+        }
+        return;
+      }
       const band = layer.rasters[layer.rendererParams.bands[0] || 0];
       const step = Math.max(1, Math.floor(band.length / 2000));
       let min = Infinity, max = -Infinity;
@@ -32097,16 +32209,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (band[i] < min) min = band[i];
         if (band[i] > max) max = band[i];
       }
-      document.getElementById('rasterMinVal').textContent = min.toFixed(2);
-      document.getElementById('rasterMaxVal').textContent = max.toFixed(2);
+      minEl.textContent = min.toFixed(2);
+      maxEl.textContent = max.toFixed(2);
     }
 
     function updateRasterRenderer() {
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return;
       layer.renderer = document.getElementById('propRasterRenderer').value;
+      layer.rendererParams = layer.rendererParams || {};
       if (layer.renderer === 'rgb') layer.rendererParams.bands = layer.sensor?.defaultBands || [0, 1, 2];
-      if (layer.renderer === 'multiband' && layer.rendererParams.bands.length < 3) layer.rendererParams.bands = layer.sensor?.defaultBands || [0,1,2];
+      if (layer.renderer === 'multiband' && (!layer.rendererParams.bands || layer.rendererParams.bands.length < 3)) layer.rendererParams.bands = layer.sensor?.defaultBands || [0,1,2];
+      if (layer.renderer === 'pseudocolor') {
+        if (!layer.rendererParams.colormap) layer.rendererParams.colormap = 'viridis';
+        if (!layer.rendererParams.classes) layer.rendererParams.classes = 5;
+        if (!layer.rendererParams.interpolation) layer.rendererParams.interpolation = 'linear';
+      }
       updateRasterBandUI(layer);
       rebuildRasterLayer(layer);
     }
@@ -32213,6 +32331,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     };
 
     async function rebuildRasterLayer(layer) {
+      if (layer._geotiffTileLayer) {
+        if (typeof layer._geotiffTileLayer.setStyle === 'function') {
+          layer._geotiffTileLayer.setStyle(layer.renderer, layer.rendererParams);
+        } else if (typeof layer._geotiffTileLayer.setBands === 'function') {
+          layer._geotiffTileLayer.options.renderer = layer.renderer;
+          layer._geotiffTileLayer.options.rendererParams = { ...(layer.rendererParams || {}) };
+          layer._geotiffTileLayer.setBands(layer.rendererParams?.bands);
+        }
+        if (layer.renderer === 'pseudocolor') updateRasterRangeDisplay(layer);
+        if (typeof rebuild3DRasterLayer === 'function' && document.getElementById('map3DContainer')?.style.display !== 'none') {
+          rebuild3DRasterLayer(layer, layer._tileSavedAs);
+        }
+        return;
+      }
       if (layer._tileSavedAs) {
         rebuildTileLayer(layer);
         return;
