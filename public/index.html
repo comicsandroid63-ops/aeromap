@@ -8299,6 +8299,18 @@
                 <div id="layoutMetadataResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
             </div>
 
+            <!-- Gráficas Ráster (Desactivada por defecto; visible solo si el usuario la activa) -->
+            <div id="layoutChartContainer" onclick="layoutSelectElement('rasterChart')" class="absolute cursor-move group z-35 hidden flex-col p-2.5 bg-white border-[1.5px] border-black shadow-none overflow-hidden" style="width: 78mm; height: 52mm; top: 135mm; left: 118mm; border-radius: 0px !important; display: none;">
+                <div class="flex items-center justify-between border-b border-black pb-1 mb-1.5 shrink-0 gap-1">
+                    <span contenteditable="true" spellcheck="false" id="layoutChartTitle" class="text-[9px] font-black uppercase tracking-wider text-black outline-none cursor-text truncate">Distribución de Clases (%)</span>
+                    <span id="layoutChartLayerBadge" class="text-[7px] font-mono font-bold text-zinc-500 uppercase truncate max-w-[26mm]">Ráster</span>
+                </div>
+                <div id="layoutChartBody" class="w-full flex-1 flex items-center justify-center overflow-hidden">
+                    <span class="text-[8px] text-zinc-400 italic">Cargando gráfica...</span>
+                </div>
+                <div id="layoutChartResize" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white cursor-nwse-resize z-50 rounded-sm hidden group-hover:block"></div>
+            </div>
+
             <!-- Scale Box (En esquina inferior izquierda del mapa principal) -->
             <div id="layoutScaleContainer" onclick="layoutSelectElement('scale')" class="absolute cursor-move group z-30 flex flex-col items-start justify-center p-1.5 bg-white/90 border border-black shadow-none" style="width: 58mm; height: 16mm; top: 165mm; left: 14mm; border-radius: 0px !important;">
                 <div id="layoutScale" class="flex flex-col items-start justify-center gap-1 w-full">
@@ -8457,6 +8469,34 @@
                         <button type="button" onclick="updateLayoutOverviewExtent()" class="px-2.5 py-1 bg-zinc-900 text-white rounded-lg text-[8.5px] font-bold uppercase hover:bg-black flex items-center gap-1">
                             <span class="material-symbols-outlined text-[13px]">my_location</span> Centrar en Mapa
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. GRÁFICAS DE RÁSTER PROPS -->
+            <div id="props-rasterChart" class="hidden flex-col gap-4">
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Gráfica Estadística de Ráster</span>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Capa Ráster Fuente</label>
+                        <select id="chartRasterLayerSelect" onchange="layoutUpdateChartOption('layerId', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="auto">Ráster Activo (Automático)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Tipo de Gráfica</label>
+                        <select id="chartTypeSelect" onchange="layoutUpdateChartOption('chartType', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="bar">Barras (Distribución por Clases %)</option>
+                            <option value="pie">Circular / Dona (Coberturas %)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Título de la Gráfica</label>
+                        <input type="text" id="chartTitleInput" value="Distribución de Clases (%)" oninput="layoutUpdateChartOption('title', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Mostrar Porcentajes</span>
+                        <input type="checkbox" id="chartShowValuesChk" checked onchange="layoutUpdateChartOption('showValues', this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer">
                     </div>
                 </div>
             </div>
@@ -35578,6 +35618,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             metadata: true,
             legend: true,
             overview: true,
+            rasterChart: false,
             scale: true,
             compass: true
         },
@@ -35586,6 +35627,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             legend: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
             overview: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
             metadata: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
+            rasterChart: { width: '1.5px', color: '#000000', style: 'solid', bg: '#ffffff', radius: '0px' },
             scale: { width: '1px', color: '#000000', style: 'solid', bg: 'rgba(255,255,255,0.85)', radius: '0px' }
         },
         styles: {
@@ -35602,6 +35644,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         metadata: { top: '248mm', left: '130mm', width: '70mm', height: '39mm' },
         legend: { top: '195mm', left: '10mm', width: '116mm', height: '92mm' },
         overview: { top: '195mm', left: '130mm', width: '70mm', height: '50mm' },
+        rasterChart: { top: '135mm', left: '118mm', width: '78mm', height: '52mm', chartType: 'bar', layerId: 'auto', title: 'Distribución de Clases (%)', showValues: true },
         scale: { top: '165mm', left: '14mm', width: '58mm', height: '16mm' },
         grid: { 
             enabled: true,
@@ -37523,6 +37566,191 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         layoutConfig.overview.title = val;
     }
 
+    function layoutUpdateChartOption(prop, val) {
+        if (!layoutConfig.rasterChart) {
+            layoutConfig.rasterChart = { top: '135mm', left: '118mm', width: '78mm', height: '52mm', chartType: 'bar', layerId: 'auto', title: 'Distribución de Clases (%)', showValues: true };
+        }
+        layoutConfig.rasterChart[prop] = val;
+        if (prop === 'title') {
+            const tEl = document.getElementById('layoutChartTitle');
+            if (tEl) tEl.textContent = val;
+        }
+        renderLayoutRasterChart();
+    }
+
+    async function renderLayoutRasterChart() {
+        const body = document.getElementById('layoutChartBody');
+        const badge = document.getElementById('layoutChartLayerBadge');
+        if (!body) return;
+
+        const rasters = (state.layers || []).filter(l => l.type === 'raster');
+        const sel = document.getElementById('chartRasterLayerSelect');
+        if (sel) {
+            const curVal = layoutConfig.rasterChart?.layerId || 'auto';
+            sel.innerHTML = `<option value="auto">Ráster Activo (Automático)</option>` +
+                rasters.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            sel.value = curVal;
+        }
+
+        if (rasters.length === 0) {
+            if (badge) badge.textContent = 'Sin ráster';
+            body.innerHTML = '<span class="text-[8px] text-zinc-400 italic text-center px-2">Carga una capa ráster para generar gráficas.</span>';
+            return;
+        }
+
+        const cfg = layoutConfig.rasterChart || {};
+        let target = null;
+        if (cfg.layerId && cfg.layerId !== 'auto') {
+            target = rasters.find(l => String(l.id) === String(cfg.layerId));
+        }
+        if (!target) {
+            target = rasters.find(l => l.visible !== false) || rasters[0];
+        }
+        if (badge) badge.textContent = (target.name || 'Ráster').replace(/\.(tiff?|ztif)$/i, '').slice(0, 18);
+
+        const titleEl = document.getElementById('layoutChartTitle');
+        if (titleEl && cfg.title) titleEl.textContent = cfg.title;
+
+        // Recolectar estadísticas por clase / rango
+        let entries = []; // [{ label, color, count, pct }]
+        try {
+            const clientGeo = target.clientGeo || target._geotiffTileLayer?.geo;
+            if (clientGeo && clientGeo.image) {
+                const img = clientGeo.image;
+                const w = img.getWidth(), h = img.getHeight();
+                const sDim = Math.min(96, Math.max(24, Math.min(w, h)));
+                const bandIdx = (target.rendererParams?.bands && target.rendererParams.bands[0] != null) ? target.rendererParams.bands[0] : 0;
+                const raw = await img.readRasters({ samples: [bandIdx], width: sDim, height: sDim, resampleMethod: 'nearest', interleave: false });
+                const arr = Array.isArray(raw) ? raw[0] : raw;
+                const nd = clientGeo.noDataValue;
+
+                const validVals = [];
+                for (let i = 0; i < arr.length; i++) {
+                    const v = arr[i];
+                    if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
+                    validVals.push(v);
+                }
+
+                if (validVals.length > 0) {
+                    const total = validVals.length;
+                    if (target.renderer === 'pseudocolor') {
+                        const colors = typeof _getEffectiveClassColors === 'function' ? _getEffectiveClassColors(target) : ['#440154', '#31688e', '#35b779', '#fde725'];
+                        const numCls = colors.length;
+                        let minV = Infinity, maxV = -Infinity;
+                        for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                        const span = (maxV - minV) || 1;
+                        const counts = new Array(numCls).fill(0);
+                        for (const v of validVals) {
+                            const norm = Math.max(0, Math.min(1, (v - minV) / span));
+                            const ci = Math.min(numCls - 1, Math.floor(norm * numCls));
+                            counts[ci]++;
+                        }
+                        const step = (maxV - minV) / numCls;
+                        for (let i = 0; i < numCls; i++) {
+                            if (counts[i] === 0 && numCls > 8) continue;
+                            entries.push({
+                                label: `C${i + 1} (${(minV + i * step).toFixed(1)})`,
+                                color: colors[i],
+                                count: counts[i],
+                                pct: (counts[i] / total) * 100
+                            });
+                        }
+                    } else if (clientGeo.colorMap && clientGeo.colorMap.length >= 4) {
+                        const mapCounts = new Map();
+                        for (const v of validVals) {
+                            const k = Math.round(v);
+                            mapCounts.set(k, (mapCounts.get(k) || 0) + 1);
+                        }
+                        const cm = clientGeo.colorMap;
+                        const maxIdx = (cm.length >> 2) - 1;
+                        const keys = Array.from(mapCounts.keys()).sort((a, b) => a - b).slice(0, 12);
+                        for (const k of keys) {
+                            const idx = Math.max(0, Math.min(maxIdx, k)) * 4;
+                            const hex = '#' + [cm[idx], cm[idx + 1], cm[idx + 2]].map(c => c.toString(16).padStart(2, '0')).join('');
+                            const cnt = mapCounts.get(k);
+                            entries.push({
+                                label: `Clase ${k}`,
+                                color: hex,
+                                count: cnt,
+                                pct: (cnt / total) * 100
+                            });
+                        }
+                    } else {
+                        const palette5 = ['#334155', '#0284c7', '#10b981', '#f59e0b', '#ef4444'];
+                        let minV = Infinity, maxV = -Infinity;
+                        for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                        const span = (maxV - minV) || 1;
+                        const counts = [0, 0, 0, 0, 0];
+                        for (const v of validVals) {
+                            const ci = Math.min(4, Math.floor(((v - minV) / span) * 5));
+                            counts[ci]++;
+                        }
+                        const step = (maxV - minV) / 5;
+                        for (let i = 0; i < 5; i++) {
+                            entries.push({
+                                label: `${(minV + i * step).toFixed(0)}–${(minV + (i + 1) * step).toFixed(0)}`,
+                                color: palette5[i],
+                                count: counts[i],
+                                pct: (counts[i] / total) * 100
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[LayoutChart] Error leyendo píxeles:', err);
+        }
+
+        if (entries.length === 0) {
+            body.innerHTML = '<span class="text-[8px] text-zinc-400 italic">Sin datos válidos para graficar.</span>';
+            return;
+        }
+
+        const showVals = cfg.showValues !== false;
+        const chartType = cfg.chartType || 'bar';
+
+        if (chartType === 'pie') {
+            const size = 90, r = 34, cx = 45, cy = 45;
+            const circ = 2 * Math.PI * r;
+            let offset = 0;
+            const circles = entries.map(en => {
+                const seg = (en.pct / 100) * circ;
+                const svgC = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${en.color}" stroke-width="18" stroke-dasharray="${seg.toFixed(2)} ${circ.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
+                offset += seg;
+                return svgC;
+            }).join('');
+            const legendHtml = entries.slice(0, 7).map(en => `
+                <div class="flex items-center justify-between gap-1 text-[7px] leading-tight">
+                    <div class="flex items-center gap-1 min-w-0">
+                        <span class="w-2 h-2 shrink-0 border border-black/30" style="background:${en.color}"></span>
+                        <span class="truncate font-bold text-zinc-800">${en.label}</span>
+                    </div>
+                    ${showVals ? `<span class="font-mono font-bold text-zinc-700 shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
+                </div>
+            `).join('');
+
+            body.innerHTML = `
+                <div class="w-full h-full flex items-center gap-2">
+                    <svg viewBox="0 0 ${size} ${size}" class="h-full max-h-[34mm] w-[34mm] shrink-0">${circles}</svg>
+                    <div class="flex-1 flex flex-col gap-0.5 min-w-0 overflow-hidden">${legendHtml}</div>
+                </div>`;
+        } else {
+            const maxPct = Math.max(1, ...entries.map(e => e.pct));
+            const barsHtml = entries.slice(0, 10).map(en => {
+                const wPct = Math.max(2, (en.pct / maxPct) * 100);
+                return `
+                    <div class="flex items-center gap-1.5 w-full text-[7px] leading-none">
+                        <span class="w-[15mm] truncate font-bold text-zinc-800 text-right shrink-0">${en.label}</span>
+                        <div class="flex-1 h-2.5 bg-zinc-100 border border-zinc-300 relative overflow-hidden">
+                            <div class="h-full" style="width:${wPct.toFixed(1)}%; background:${en.color};"></div>
+                        </div>
+                        ${showVals ? `<span class="w-[9mm] font-mono font-bold text-zinc-700 text-right shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
+                    </div>`;
+            }).join('');
+            body.innerHTML = `<div class="w-full h-full flex flex-col justify-center gap-1">${barsHtml}</div>`;
+        }
+    }
+
     function _rgbToHex(rgb) {
         if (!rgb || rgb === 'transparent' || rgb.includes('rgba(0, 0, 0, 0)')) return '#ffffff';
         const match = rgb.match(/\d+/g);
@@ -37538,6 +37766,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             mapFrame: 'layoutMapFrame',
             legend: 'layoutLegendContainer',
             overview: 'layoutOverviewContainer',
+            rasterChart: 'layoutChartContainer',
             metadata: 'layoutMetadataContainer',
             scale: 'layoutScaleContainer'
         };
@@ -37599,6 +37828,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             mapFrame: 'layoutMapFrame',
             legend: 'layoutLegendContainer',
             overview: 'layoutOverviewContainer',
+            rasterChart: 'layoutChartContainer',
             metadata: 'layoutMetadataContainer',
             scale: 'layoutScaleContainer'
         };
@@ -37802,6 +38032,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             metadata: 'layoutMetadataContainer',
             legend: (document.getElementById('touristLegendBox') && layoutConfig && layoutConfig.theme === 'ghibli') ? 'touristLegendBox' : 'layoutLegendContainer',
             overview: 'layoutOverviewContainer',
+            rasterChart: 'layoutChartContainer',
             scale: 'layoutScaleContainer',
             touristPoiList: 'touristPoiList',
             touristLegendBox: 'touristLegendBox',
@@ -38271,6 +38502,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             legend: { icon: 'list_alt', title: 'Leyenda Activa', subtitle: 'Diseño, columnas y colores' },
             scale: { icon: 'linear_scale', title: 'Escala Visual', subtitle: 'Regleta métrica y formato' },
             overview: { icon: 'travel_explore', title: 'Localización', subtitle: 'Mapa de contexto regional y extensión' },
+            rasterChart: { icon: 'bar_chart', title: 'Gráficas de Ráster', subtitle: 'Distribución estadística y colores de clase' },
             touristPoiList: { icon: 'format_list_numbered', title: 'Puntos de Interés (POI)', subtitle: 'Atractivos, paradas turísticas y numeración' },
             touristLegendBox: { icon: 'category', title: 'Convenciones y Servicios', subtitle: 'Iconografía y simbología del mapa' },
             touristTopLogo: { icon: 'image', title: 'Logo / Emblema Turístico', subtitle: 'Emblema montañoso, relieve y tipografía' },
@@ -38350,7 +38582,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         // Sincronizar el panel de Contorno y Marco
         const contourSec = document.getElementById('layoutContourEditorSection');
         if (contourSec) {
-            if (['mapFrame', 'legend', 'overview', 'metadata', 'scale'].includes(key)) {
+            if (['mapFrame', 'legend', 'overview', 'metadata', 'scale', 'rasterChart'].includes(key)) {
                 contourSec.classList.remove('hidden');
                 contourSec.classList.add('flex');
                 if (typeof layoutSyncBorderDrawer === 'function') layoutSyncBorderDrawer(key);
@@ -38358,6 +38590,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 contourSec.classList.add('hidden');
                 contourSec.classList.remove('flex');
             }
+        }
+        if (key === 'rasterChart' && typeof renderLayoutRasterChart === 'function') {
+            renderLayoutRasterChart();
         }
 
         // Sub-panel handling for Title
@@ -38879,6 +39114,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (visible && typeof initLayoutOverviewMap === 'function') {
                 setTimeout(initLayoutOverviewMap, 60);
             }
+        } else if (key === 'rasterChart') {
+            const ch = document.getElementById('layoutChartContainer');
+            if (ch) ch.style.display = visible ? 'flex' : 'none';
+            if (visible && typeof renderLayoutRasterChart === 'function') {
+                setTimeout(renderLayoutRasterChart, 60);
+            }
         } else if (key === 'compass') {
             document.getElementById('layoutCompass').style.display = visible ? 'flex' : 'none';
             layoutUpdateCompassDesign();
@@ -39076,6 +39317,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         { id: 'layoutMetadataContainer', resizer: 'layoutMetadataResize', key: 'metadata' },
         { id: 'layoutLegendContainer', resizer: 'layoutLegendResize', key: 'legend' },
         { id: 'layoutOverviewContainer', resizer: 'layoutOverviewResize', key: 'overview' },
+        { id: 'layoutChartContainer', resizer: 'layoutChartResize', key: 'rasterChart' },
         { id: 'layoutScaleContainer', resizer: 'layoutScaleResize', key: 'scale' }
     ];
 
@@ -39200,6 +39442,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (!layoutConfig.overview) layoutConfig.overview = {};
                 layoutConfig.overview.top = dragEl.style.top;
                 layoutConfig.overview.left = dragEl.style.left;
+            } else if (dragEl.id === 'layoutChartContainer') {
+                if (!layoutConfig.rasterChart) layoutConfig.rasterChart = {};
+                layoutConfig.rasterChart.top = dragEl.style.top;
+                layoutConfig.rasterChart.left = dragEl.style.left;
             } else if (dragEl === mapFrame) {
                 layoutConfig.mapFrame.top = dragEl.style.top;
                 layoutConfig.mapFrame.left = dragEl.style.left;
@@ -39231,6 +39477,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 layoutConfig.overview.width = resizeEl.style.width;
                 layoutConfig.overview.height = resizeEl.style.height;
                 if (window.layoutOverviewMap) window.layoutOverviewMap.invalidateSize({ animate: false });
+            } else if (resizeEl.id === 'layoutChartContainer') {
+                if (!layoutConfig.rasterChart) layoutConfig.rasterChart = {};
+                layoutConfig.rasterChart.width = resizeEl.style.width;
+                layoutConfig.rasterChart.height = resizeEl.style.height;
             } else if (resizeEl === mapFrame) {
                 layoutConfig.mapFrame.width = resizeEl.style.width;
                 layoutConfig.mapFrame.height = resizeEl.style.height;
@@ -39465,14 +39715,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                            </button>
                        </div>
                     </div>
+
+                    <!-- Gráficas Ráster (solo visible si hay capas ráster; desactivada por defecto) -->
+                    <div id="layout-elem-row-rasterChart" onclick="layoutSelectElement('rasterChart')" class="hidden items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors group cursor-pointer text-white">
+                       <div class="flex items-center gap-3">
+                           <span class="material-symbols-outlined text-[16px] text-zinc-400 group-hover:text-emerald-400 transition-colors">bar_chart</span>
+                           <span class="text-[10px] font-bold uppercase tracking-tight">Gráficas Ráster</span>
+                       </div>
+                       <div class="flex items-center gap-1">
+                           <button onclick="event.stopPropagation(); layoutToggleElementProps('rasterChart')" id="gear-btn-rasterChart" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors" title="Configuración de Gráfica">
+                               <span class="material-symbols-outlined text-[16px]">settings</span>
+                           </button>
+                           <button onclick="event.stopPropagation(); layoutToggleElement('rasterChart')" id="eye-rasterChart" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors" title="Mostrar/Ocultar">
+                               <span class="material-symbols-outlined text-[18px]">visibility_off</span>
+                           </button>
+                       </div>
+                    </div>
                 </div>
             `;
         }
 
-        // Sincronizar estado de los ojos de los 6 elementos principales
-        const mainKeys = ['mapFrame', 'title', 'metadata', 'legend', 'compass', 'scale'];
+        // Mostrar fila de Gráficas Ráster únicamente cuando existen capas ráster cargadas
+        const hasRasters = Array.isArray(state?.layers) && state.layers.some(l => l.type === 'raster');
+        const chartRow = document.getElementById('layout-elem-row-rasterChart');
+        if (chartRow) {
+            chartRow.classList.toggle('hidden', !hasRasters);
+            chartRow.classList.toggle('flex', hasRasters);
+        }
+
+        // Sincronizar estado de los ojos de los elementos principales
+        const mainKeys = ['mapFrame', 'title', 'metadata', 'legend', 'overview', 'rasterChart', 'compass', 'scale'];
         mainKeys.forEach(k => {
-            const vis = layoutConfig.elements ? layoutConfig.elements[k] !== false : true;
+            const vis = layoutConfig.elements ? (k === 'rasterChart' ? layoutConfig.elements[k] === true : layoutConfig.elements[k] !== false) : (k !== 'rasterChart');
             const eye = document.getElementById(`eye-${k}`);
             if (eye) {
                 eye.innerHTML = `<span class="material-symbols-outlined ${vis ? 'text-emerald-400' : 'text-zinc-600'} text-[18px]">${vis ? 'visibility' : 'visibility_off'}</span>`;
