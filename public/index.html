@@ -10058,12 +10058,12 @@ self.onmessage = async function(e) {
                             // HEURÍSTICA: Si no hay PRJ pero las coordenadas parecen métricas colombianas o Web Mercator
                             if (!prj && isMetric) {
                                 // Origen Nacional (9377): X ~ 5M, Y ~ 2M
-                                if (x > 4000000 && x < 6000000 && y > 1000000 && y < 3000000) {
+                                if (x > 3800000 && x < 6200000 && y > 900000 && y < 3200000) {
                                     console.log("[Worker] Heurística: Detectado Origen Nacional (EPSG:9377)");
                                     prj = 'EPSG:9377';
                                 } 
-                                // Antiguo Origen Central (3116) o similares: X ~ 1M, Y ~ 1M
-                                else if (x > 500000 && x < 1500000 && y > 500000 && y < 1500000) {
+                                // Antiguo Origen Central (3116) o similares: X ~ 1M, Y ~ 0.4M..2.0M
+                                else if (x > 400000 && x < 1600000 && y > 400000 && y < 2000000) {
                                     console.log("[Worker] Heurística: Detectado Bogotá/Central (EPSG:3116)");
                                     prj = 'EPSG:3116';
                                 }
@@ -10081,11 +10081,22 @@ self.onmessage = async function(e) {
                             if (crsName.includes('EPSG:')) {
                                 prj = 'EPSG:' + crsName.split('EPSG:')[1].split(/[^0-9]/)[0];
                             } else if (crsName.includes('CRS84')) {
+                                delete geojson.crs;
                                 return geojson; // Already WGS84
                             }
                         }
 
                         if (!prj) return geojson;
+                        if (!isMetric && /PROJCS|tmerc|utm|merc|EPSG:(9377|3114|3115|3116|3117|3118|3857|326\d+|327\d+)/i.test(String(prj))) {
+                            console.warn("[Worker] Coordenadas ya están en rango WGS84 (<=180/90); omitiendo doble reproyección.");
+                            delete geojson.crs;
+                            return geojson;
+                        }
+                        if (/Origen[_ -]?Nacional|9377/i.test(String(prj)) || (/5000000/.test(String(prj)) && /0\.9992/.test(String(prj)))) {
+                            prj = 'EPSG:9377';
+                        } else if (/MAGNA.*Bogot|3116/i.test(String(prj))) {
+                            prj = 'EPSG:3116';
+                        }
                         
                         let crsDef = (typeof shp !== 'undefined' && shp.parsePrj) ? shp.parsePrj(prj) : prj;
                         if (crsDef === 'EPSG:4326') return geojson;
@@ -10148,6 +10159,7 @@ self.onmessage = async function(e) {
                         } else if (geojson.coordinates) {
                             geojson = transform(geojson);
                         }
+                        delete geojson.crs;
                         return geojson;
                     } catch (e) { 
                         console.error("[Worker] Error en reproyección:", e);
@@ -18318,8 +18330,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             
             // HEURÍSTICA: Colombia o Web Mercator
             if (!prjString && isMetric) {
-                if (x > 4000000 && x < 6000000 && y > 1000000 && y < 3000000) prjString = 'EPSG:9377';
-                else if (x > 500000 && x < 1500000 && y > 500000 && y < 1500000) prjString = 'EPSG:3116';
+                if (x > 3800000 && x < 6200000 && y > 900000 && y < 3200000) prjString = 'EPSG:9377';
+                else if (x > 400000 && x < 1600000 && y > 400000 && y < 2000000) prjString = 'EPSG:3116';
                 else if (Math.abs(x) > 2000000 || Math.abs(y) > 2000000) prjString = 'EPSG:3857';
             }
         }
@@ -18328,10 +18340,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!prjString && geojson.crs && geojson.crs.properties && geojson.crs.properties.name) {
             const crsName = geojson.crs.properties.name;
             if (crsName.includes('EPSG:')) prjString = 'EPSG:' + crsName.split('EPSG:')[1].split(/[^0-9]/)[0];
-            else if (crsName.includes('CRS84')) return geojson;
+            else if (crsName.includes('CRS84')) { delete geojson.crs; return geojson; }
         }
 
         if (!prjString || typeof proj4 === 'undefined') return geojson;
+        if (!isMetric && /PROJCS|tmerc|utm|merc|EPSG:(9377|3114|3115|3116|3117|3118|3857|326\d+|327\d+)/i.test(String(prjString))) {
+            console.warn("[Main] Coordenadas ya están en rango WGS84 (<=180/90); omitiendo doble reproyección.");
+            delete geojson.crs;
+            return geojson;
+        }
+        if (/Origen[_ -]?Nacional|9377/i.test(String(prjString)) || (/5000000/.test(String(prjString)) && /0\.9992/.test(String(prjString)))) {
+            prjString = 'EPSG:9377';
+        } else if (/MAGNA.*Bogot|3116/i.test(String(prjString))) {
+            prjString = 'EPSG:3116';
+        }
         
         const _shp = window.shp || shp;
         let crsDef = (typeof _shp !== 'undefined' && _shp.parsePrj) ? _shp.parsePrj(prjString) : prjString;
@@ -18389,6 +18411,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (geojson.coordinates) {
           geojson = transform(geojson);
         }
+        delete geojson.crs;
         return geojson;
       } catch (e) { 
         console.error("GIS: Reprojection Failed:", e);
@@ -20576,6 +20599,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     geojson = await reprojectGeoJSON(geojson, prjText);
                 } else if (meta && meta.crs && meta.crs !== 'EPSG:4326') {
                     geojson = await reprojectGeoJSON(geojson, meta.crs);
+                } else {
+                    geojson = await reprojectGeoJSON(geojson, null);
                 }
                 if (opts.datasource) {
                     geojson = applyGeoJsonSubset(geojson, opts.datasource);
