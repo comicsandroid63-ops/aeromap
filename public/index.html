@@ -11339,7 +11339,7 @@ self.onmessage = async function(e) {
     }
 
     async function extractFeatureToLayer(layerId, originalIdx) {
-        const layer = state.layers.find(l => l.id === layerId);
+        const layer = state.layers.find(l => String(l.id) === String(layerId));
         if (!layer || !layer.geoJson) return;
 
         const feature = layer.geoJson.features[originalIdx];
@@ -11352,7 +11352,8 @@ self.onmessage = async function(e) {
             features: [newFeature]
         };
 
-        const attrName = feature.properties ? (feature.properties.name || feature.properties.NAME || feature.properties.id || "") : "";
+        const props = feature.properties || {};
+        const attrName = props.name || props.NAME || props.nombre || props.NOMBRE || props.NOM_MPIO || props.MPIO_CNMBR || props.MUNICIPIO || props.municipio || props.clase || props.id || props.ID || "";
         const finalName = attrName ? `Extraído: ${attrName}` : `Recorte_${layer.name}_${originalIdx + 1}`;
 
         // Añadir capa y forzar el guardado en la nube
