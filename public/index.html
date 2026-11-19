@@ -37611,24 +37611,54 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const titleEl = document.getElementById('layoutChartTitle');
         if (titleEl && cfg.title) titleEl.textContent = cfg.title;
 
-        // Recolectar estadísticas por clase / rango
+        // Recolectar estadísticas por clase / rango (muestreo rápido <50ms)
         let entries = []; // [{ label, color, count, pct }]
         try {
             const clientGeo = target.clientGeo || target._geotiffTileLayer?.geo;
             if (clientGeo && clientGeo.image) {
-                const img = clientGeo.image;
-                const w = img.getWidth(), h = img.getHeight();
-                const sDim = Math.min(96, Math.max(24, Math.min(w, h)));
                 const bandIdx = (target.rendererParams?.bands && target.rendererParams.bands[0] != null) ? target.rendererParams.bands[0] : 0;
-                const raw = await img.readRasters({ samples: [bandIdx], width: sDim, height: sDim, resampleMethod: 'nearest', interleave: false });
-                const arr = Array.isArray(raw) ? raw[0] : raw;
-                const nd = clientGeo.noDataValue;
+                const cacheKey = `${target.id}_b${bandIdx}`;
+                let validVals = (target._chartSampleCache && target._chartSampleCache.key === cacheKey) ? target._chartSampleCache.vals : null;
 
-                const validVals = [];
-                for (let i = 0; i < arr.length; i++) {
-                    const v = arr[i];
-                    if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
-                    validVals.push(v);
+                if (!validVals) {
+                    validVals = [];
+                    const nd = clientGeo.noDataValue;
+                    const pushArr = (arr) => {
+                        for (let i = 0; i < arr.length; i++) {
+                            const v = arr[i];
+                            if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
+                            validVals.push(v);
+                        }
+                    };
+
+                    if (clientGeo.overviews && clientGeo.overviews.length > 0) {
+                        const ovImg = clientGeo.overviews[clientGeo.overviews.length - 1];
+                        const raw = await ovImg.readRasters({ samples: [bandIdx], interleave: false });
+                        pushArr(Array.isArray(raw) ? raw[0] : raw);
+                    } else {
+                        const img = clientGeo.image;
+                        const w = img.getWidth(), h = img.getHeight();
+                        if (w * h <= 262144) {
+                            const raw = await img.readRasters({ samples: [bandIdx], interleave: false });
+                            pushArr(Array.isArray(raw) ? raw[0] : raw);
+                        } else {
+                            // Muestreo en rejilla 3x3 de ventanas 64x64 para lectura instantánea sin decodificar todo el TIFF
+                            const pts = [0.2, 0.5, 0.8];
+                            for (const gy of pts) {
+                                for (const gx of pts) {
+                                    const cx = Math.floor(w * gx);
+                                    const cy = Math.floor(h * gy);
+                                    const wx0 = Math.max(0, cx - 32), wy0 = Math.max(0, cy - 32);
+                                    const wx1 = Math.min(w, cx + 32), wy1 = Math.min(h, cy + 32);
+                                    try {
+                                        const chunk = await img.readRasters({ window: [wx0, wy0, wx1, wy1], samples: [bandIdx], interleave: false });
+                                        pushArr(Array.isArray(chunk) ? chunk[0] : chunk);
+                                    } catch (_) {}
+                                }
+                            }
+                        }
+                    }
+                    target._chartSampleCache = { key: cacheKey, vals: validVals };
                 }
 
                 if (validVals.length > 0) {
