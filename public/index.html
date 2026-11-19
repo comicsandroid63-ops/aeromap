@@ -14384,13 +14384,35 @@ class TileLRUCache {
       }
     }
     
-            let _pixelWorker = null;
+    function _extractTiffColorMapRGBA(fileDirectory) {
+      const raw = fileDirectory?.ColorMap;
+      if (!raw || !raw.length || raw.length < 3) return null;
+      const n = Math.floor(raw.length / 3);
+      let maxV = 0;
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i] > maxV) maxV = raw[i];
+      }
+      const is16Bit = maxV > 255;
+      const rgba = new Uint8ClampedArray(n * 4);
+      for (let i = 0; i < n; i++) {
+        const r = raw[i];
+        const g = raw[n + i];
+        const b = raw[2 * n + i];
+        rgba[i * 4]     = is16Bit ? (r >> 8) : r;
+        rgba[i * 4 + 1] = is16Bit ? (g >> 8) : g;
+        rgba[i * 4 + 2] = is16Bit ? (b >> 8) : b;
+        rgba[i * 4 + 3] = 255;
+      }
+      return rgba;
+    }
+
+    let _pixelWorker = null;
     function getPixelWorker() {
       if (_pixelWorker) return _pixelWorker;
       
       const workerCode = `
         self.onmessage = function(e) {
-          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats } = e.data;
+          const { id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap } = e.data;
           
           const px = width * height;
           const d = new Uint8ClampedArray(px * 4);
@@ -14622,32 +14644,51 @@ class TileLRUCache {
               }
             }
           } else {
-            // Single band (DEM / NDVI / Grayscale)
+            // Single band (Palette ColorMap / DEM / NDVI / Grayscale)
             const b0 = isArrayOfBands ? raw[0] : raw;
             const b0Arr = isByte ? new Uint8Array(b0) : ((b0 instanceof Float32Array || b0 instanceof Float64Array) ? b0 : new Float32Array(b0));
-            const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
-            const rng = sB.rng || (sB.p98 - sB.p2 || (isByte ? 1 : 1e-5));
-            const p2 = sB.p2;
-            const shouldStretch = !isByte || sB.shouldStretch;
-            for (let i = 0; i < px; i++) {
-              const v = b0Arr[i];
-              const pi = i * 4;
-              if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || (v === 0 && noDataValue === 0) || v <= -9990 || v >= 1e30) {
-                d[pi + 3] = 0;
-              } else {
-                let scaled;
-                if (shouldStretch) {
-                  let norm = (v - p2) / rng;
-                  if (norm <= 0) norm = 0;
-                  else if (norm > 0.8) {
-                    const excess = norm - 0.8;
-                    norm = 0.8 + (0.2 * excess) / (excess + 0.32);
-                  }
-                  scaled = Math.round(Math.max(0, Math.min(1, norm)) * 255);
+            const activePalette = (colorMap && colorMap.length >= 4) ? colorMap : (globalStats && globalStats.colorMap && globalStats.colorMap.length >= 4 ? globalStats.colorMap : null);
+            if ((photometric === 3 || activePalette) && activePalette) {
+              const maxIdx = (activePalette.length >> 2) - 1;
+              for (let i = 0; i < px; i++) {
+                const v = b0Arr[i];
+                const pi = i * 4;
+                if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || (v === 0 && noDataValue === 0) || v <= -9990 || v >= 1e30) {
+                  d[pi + 3] = 0;
                 } else {
-                  scaled = v;
+                  const idx = Math.max(0, Math.min(maxIdx, Math.round(v)));
+                  const ci = idx * 4;
+                  d[pi]     = activePalette[ci];
+                  d[pi + 1] = activePalette[ci + 1];
+                  d[pi + 2] = activePalette[ci + 2];
+                  d[pi + 3] = activePalette[ci + 3];
                 }
-                d[pi] = scaled; d[pi + 1] = scaled; d[pi + 2] = scaled; d[pi + 3] = 255;
+              }
+            } else {
+              const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
+              const rng = sB.rng || (sB.p98 - sB.p2 || (isByte ? 1 : 1e-5));
+              const p2 = sB.p2;
+              const shouldStretch = !isByte || sB.shouldStretch;
+              for (let i = 0; i < px; i++) {
+                const v = b0Arr[i];
+                const pi = i * 4;
+                if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || (v === 0 && noDataValue === 0) || v <= -9990 || v >= 1e30) {
+                  d[pi + 3] = 0;
+                } else {
+                  let scaled;
+                  if (shouldStretch) {
+                    let norm = (v - p2) / rng;
+                    if (norm <= 0) norm = 0;
+                    else if (norm > 0.8) {
+                      const excess = norm - 0.8;
+                      norm = 0.8 + (0.2 * excess) / (excess + 0.32);
+                    }
+                    scaled = Math.round(Math.max(0, Math.min(1, norm)) * 255);
+                  } else {
+                    scaled = v;
+                  }
+                  d[pi] = scaled; d[pi + 1] = scaled; d[pi + 2] = scaled; d[pi + 3] = 255;
+                }
               }
             }
           }
@@ -14661,7 +14702,7 @@ class TileLRUCache {
       return _pixelWorker;
     }
     
-    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats) {
+    function processPixelsAsync(raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap) {
       return new Promise((resolve) => {
         const worker = getPixelWorker();
         const id = Date.now() + Math.random();
@@ -14688,7 +14729,7 @@ class TileLRUCache {
         }
         
         worker.postMessage({
-          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats
+          id, raw, width, height, rgb, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap: colorMap || null
         }, transferables);
       });
     }
@@ -14853,6 +14894,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             const photometric = baseImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+            if (!isRgbRender && (photometric === 3 || this.geo?.colorMap || baseImg.fileDirectory?.ColorMap)) {
+              const cm = this.geo?.colorMap || _extractTiffColorMapRGBA(baseImg.fileDirectory);
+              if (cm) {
+                this._globalStats = { isPalette: true, colorMap: cm };
+                return this._globalStats;
+              }
+            }
             const isYCbCr = (photometric === 6);
             const noDataValue = this.geo.noDataValue;
 
@@ -15092,8 +15140,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               const fB = isArr ? raw[0] : raw;
               const isB = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
               const photo = ovImg.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+              const colorMap = this.geo?.colorMap || _extractTiffColorMapRGBA(ovImg.fileDirectory);
               const globalStats = await this._getGlobalStats();
-              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats);
+              const px = await processPixelsAsync(raw, ovW, ovH, isRgbRender, isB, isArr, this.geo.noDataValue, photo, globalStats, colorMap);
               const canvas = document.createElement('canvas');
               canvas.width = ovW;
               canvas.height = ovH;
@@ -15894,9 +15943,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const firstBand = isArrayOfBands ? raw[0] : raw;
           const isByte = (firstBand instanceof Uint8Array) || (firstBand instanceof Uint8ClampedArray);
           const photometric = level.fileDirectory?.PhotometricInterpretation ?? this.geo?.photometric ?? (isRgbRender ? 2 : 1);
+          const colorMap = this.geo?.colorMap || _extractTiffColorMapRGBA(level.fileDirectory);
           
           const pixels = await processPixelsAsync(
-            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats
+            raw, actualW, actualH, isRgbRender, isByte, isArrayOfBands, noDataValue, photometric, globalStats, colorMap
           );
           
           if (pixels && actualW && actualH) {
@@ -16263,8 +16313,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         sensorBadge = '🛰️ PlanetScope';
       } else if (samples === 1) {
         sensorFamily = 'single_band';
-        sensorBadge = (allText.includes('DEM') || allText.includes('MDT') || allText.includes('ELEV')) ? '⛰️ Modelo Digital (DEM)' : '📊 Monobanda';
-        sensorIcon = 'terrain';
+        if (photometric === 3 || fileDirectory?.ColorMap) {
+          sensorBadge = '🎨 Ráster Clasificado (Paleta)';
+          sensorIcon = 'palette';
+        } else {
+          sensorBadge = (allText.includes('DEM') || allText.includes('MDT') || allText.includes('ELEV')) ? '⛰️ Modelo Digital (DEM)' : '📊 Monobanda';
+          sensorIcon = 'terrain';
+        }
       } else if (isDroneOrtho && samples <= 4) {
         sensorFamily = 'orthophoto';
         sensorBadge = '🚁 Ortofoto RGB';
@@ -17062,7 +17117,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           console.log('[GeoTIFF] Loaded:', fileUrl, bounds, 'EPSG:', epsg, 'NODATA:', noDataValue);
           const photometric = image.fileDirectory?.PhotometricInterpretation ?? null;
-          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue, photometric, fileUrl: (typeof fileUrl === 'string' ? fileUrl : null) };
+          const colorMap = _extractTiffColorMapRGBA(image.fileDirectory);
+          return { tiff, image, overviews, bounds, origin, resolution, epsg, noDataValue, photometric, colorMap, fileUrl: (typeof fileUrl === 'string' ? fileUrl : null) };
         } catch(e) {
           console.warn('[GeoTIFF] Error loading', fileUrl, e.message);
           return null;
@@ -17614,11 +17670,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const fB = isArr ? raw[0] : raw;
             const isByte = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
             const photo = ovLevel.fileDirectory?.PhotometricInterpretation ?? clientGeo.photometric ?? (isRgb ? 2 : 1);
-            const px = await processPixelsAsync(raw, ovLevel.getWidth(), ovLevel.getHeight(), isRgb, isByte, isArr, clientGeo.noDataValue, photo);
+            const colorMap = clientGeo.colorMap || _extractTiffColorMapRGBA(ovLevel.fileDirectory);
+            const px = await processPixelsAsync(raw, ovLevel.getWidth(), ovLevel.getHeight(), isRgb, isByte, isArr, clientGeo.noDataValue, photo, null, colorMap);
             canvas = document.createElement('canvas');
             canvas.width = ovLevel.getWidth();
             canvas.height = ovLevel.getHeight();
             canvas.getContext('2d').putImageData(new ImageData(px, canvas.width, canvas.height), 0, 0);
+          } else if (clientGeo.colorMap || clientGeo.photometric === 3) {
+            try {
+              const baseImg = clientGeo.image;
+              const bw = baseImg.getWidth(), bh = baseImg.getHeight();
+              const maxDim = 1024;
+              const scale = Math.min(1, maxDim / Math.max(bw, bh));
+              const ovW = Math.max(1, Math.round(bw * scale));
+              const ovH = Math.max(1, Math.round(bh * scale));
+              const raw = await baseImg.readRasters({ samples: [0], width: ovW, height: ovH, resampleMethod: 'nearest', interleave: false });
+              const fB = Array.isArray(raw) ? raw[0] : raw;
+              const isByte = (fB instanceof Uint8Array || fB instanceof Uint8ClampedArray);
+              const px = await processPixelsAsync(raw, ovW, ovH, false, isByte, Array.isArray(raw), clientGeo.noDataValue, 3, null, clientGeo.colorMap);
+              canvas = document.createElement('canvas');
+              canvas.width = ovW;
+              canvas.height = ovH;
+              canvas.getContext('2d').putImageData(new ImageData(px, ovW, ovH), 0, 0);
+            } catch (_) {}
           } else {
             // Reutilizar overview precalculado si ya existe en R2 para este mosaico
             try {
@@ -17722,7 +17796,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (resp.ok) {
           const initData = await resp.json();
           const jobId = initData.savedAs || initData.id;
-          if (jobId) {
+          // En Vercel serverless, /api/import-tiff responde status='completed' con cloudUrl=null sin motor GDAL local.
+          // No entrar al polling de 5 min si no hay cloudUrl y no existe /api/import-status.
+          const isServerlessStub = (initData.status === 'completed' && !initData.cloudUrl && !initData.result?.cloudUrl);
+          if (jobId && !isServerlessStub) {
             console.log(`[COG Optimizer] Trabajo de optimización iniciado: ${jobId}. Polling de progreso...`);
             const pollStart = Date.now();
             let isDone = false;
@@ -17730,6 +17807,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               await new Promise(r => setTimeout(r, 1500));
               try {
                 const statusRes = await fetch(`/api/import-status/${encodeURIComponent(jobId)}`);
+                if (statusRes.status === 404 || statusRes.status === 405 || statusRes.status === 501) {
+                  console.log('[COG Optimizer] Endpoint /api/import-status no disponible, pasando a subida directa R2.');
+                  break;
+                }
                 if (statusRes.ok) {
                   const job = await statusRes.json();
                   if (job.status === 'processing') {
@@ -17841,6 +17922,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           } catch (_) {}
 
           if (typeof saveLayerToDatabase === 'function') await saveLayerToDatabase(layer);
+          if (typeof $cloudUploadStatus !== 'undefined' && $cloudUploadStatus) {
+            $cloudUploadStatus.textContent = `✓ Subido a la nube: ${file.name}`;
+          }
+          if (typeof listSupabaseFiles === 'function') listSupabaseFiles().catch(() => {});
           toast(`✓ Subido a Cloudflare R2 (${mb} MB)`, 'success');
         } catch (err) {
           console.error('[R2 Upload] Fallback error:', err);
@@ -17889,6 +17974,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               try { clientOverviews.push(await clientTiff.getImage(i)); } catch (_) {}
             }
             const photometric = clientImg.fileDirectory?.PhotometricInterpretation ?? (clientBands >= 3 ? 2 : 1);
+            const colorMap = _extractTiffColorMapRGBA(clientImg.fileDirectory);
             let noDataValue = null;
             try {
               const fd = clientImg.fileDirectory;
@@ -17928,7 +18014,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               resolution, 
               epsg: clientEpsg, 
               noDataValue, 
-              photometric 
+              photometric,
+              colorMap
             };
           }
         }
