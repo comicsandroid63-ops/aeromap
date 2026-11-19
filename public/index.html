@@ -29990,16 +29990,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </span>
           </div>
         </div>
-        <div class="flex items-center gap-1 text-[8px] text-zinc-400 font-bold uppercase tracking-widest flex-wrap pl-7">
+        <div class="flex items-center gap-1 text-[8px] text-zinc-400 font-bold uppercase tracking-widest flex-wrap pl-7 empty:hidden">
           ${isSelected ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-600 text-white shadow-2xs">Activa</span>' : ''}
           ${layer.isClassified ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-violet-600 text-white shadow-2xs">Clasificada</span>' : ''}
           ${(layer.isPoints || layer.isPointGroup) ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-cyan-600 text-white shadow-2xs">Puntos</span>' : ''}
           ${layer._isSolo ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-2xs">Solo</span>' : ''}
           ${layer.isMergedMosaic ? '<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 flex items-center gap-0.5 shadow-2xs" title="Mosaico unido y completo"><span class="material-symbols-outlined text-[10px]">join_inner</span>Mosaico</span>' : (layer.isDivided && layer.splitInfo ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 border border-amber-500/30 flex items-center gap-0.5 shadow-2xs" title="${layer.splitInfo.details}"><span class="material-symbols-outlined text-[10px]">content_cut</span>${layer.splitInfo.sectorName || 'Dividido'}</span>` : '')}
-          <span>${isVector ? 'Vectores' : (layer.isClassified ? 'Clasificación Temática (' + (layer.classes?.length || 5) + ' Clases)' : 'ZTIF ' + (layer.bands ? '(' + layer.bands + 'B)' : ''))}</span>
-          ${!isVector && !layer.isClassified ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 shadow-2xs" title="Formato ZTIF Lossless: 0% pérdida de calidad, teselas piramidales">ZTIF LOSSLESS</span>` : ''}
-          ${!isVector && !layer.isClassified && layer.rendererParams?.bands ? `<span class="font-mono text-indigo-600 font-black">${layer.rendererParams.bands.map(b => 'B'+(b+1)).join('-')}</span>` : ''}
-          ${!isVector && layer.sensor?.sensorBadge ? `<span class="px-1.5 py-0.5 rounded text-[7.5px] font-black tracking-wider bg-sky-50 text-sky-700 border border-sky-200/80 shadow-2xs">${layer.sensor.sensorBadge}</span>` : ''}
+          ${isVector ? '<span>Vectores</span>' : (layer.isClassified ? `<span>Clasificación Temática (${layer.classes?.length || 5} Clases)</span>` : '')}
           ${!isVector ? `<span id="cached-indicator-${layer.id}" style="${layer._isLocalCached ? 'display:inline-flex' : 'display:none'}" class="px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 items-center gap-0.5" title="Imagen TIFF en caché local (0ms de latencia)"><span class="material-symbols-outlined text-[10px]">bolt</span>0ms</span>` : ''}
         </div>
         <div class="flex items-center justify-end gap-0.5 pt-1 border-t border-zinc-100/90">
