@@ -14687,14 +14687,25 @@ class TileLRUCache {
             const activePalette = (colorMap && colorMap.length >= 4) ? colorMap : (globalStats && globalStats.colorMap && globalStats.colorMap.length >= 4 ? globalStats.colorMap : null);
             const isPseudocolor = style && style.renderer === 'pseudocolor';
             if (isPseudocolor) {
-              const cmap = WORKER_RAMPS[style.colormap || 'viridis'] || WORKER_RAMPS.viridis;
+              let cmap = WORKER_RAMPS[style.colormap || 'viridis'] || WORKER_RAMPS.viridis;
+              const hasCustom = Array.isArray(style.customColors) && style.customColors.length >= 2;
+              if (hasCustom) {
+                const cLen = style.customColors.length;
+                cmap = style.customColors.map((hex, ci) => {
+                  const h = String(hex || '#000000').replace('#', '');
+                  const r = parseInt(h.substring(0, 2), 16) || 0;
+                  const g = parseInt(h.substring(2, 4), 16) || 0;
+                  const b = parseInt(h.substring(4, 6), 16) || 0;
+                  return [cLen > 1 ? ci / (cLen - 1) : 0, r, g, b];
+                });
+              }
               const sB = (globalStats && globalStats.isSingle) ? globalStats : getBandPercentiles(b0Arr, 0, 1, px);
               const minV = (sB.minV != null && isFinite(sB.minV)) ? sB.minV : (sB.p2 || 0);
               const maxV = (sB.maxV != null && isFinite(sB.maxV)) ? sB.maxV : (sB.p98 || 255);
               const span = (maxV - minV) || 1;
               const method = style.interpolation || 'linear';
-              const numCls = Math.max(2, parseInt(style.classes || 5, 10) || 5);
-              const invert = !!style.invert;
+              const numCls = hasCustom ? style.customColors.length : Math.max(2, parseInt(style.classes || 5, 10) || 5);
+              const invert = hasCustom ? false : !!style.invert;
               for (let i = 0; i < px; i++) {
                 const v = b0Arr[i];
                 const pi = i * 4;
@@ -14703,6 +14714,12 @@ class TileLRUCache {
                 } else {
                   let norm = Math.max(0, Math.min(1, (v - minV) / span));
                   if (invert) norm = 1 - norm;
+                  if (hasCustom && (method === 'discrete' || method === 'exact')) {
+                    const clsIdx = Math.min(numCls - 1, Math.floor(norm * numCls));
+                    const st = cmap[clsIdx];
+                    d[pi] = st[1]; d[pi + 1] = st[2]; d[pi + 2] = st[3]; d[pi + 3] = 255;
+                    continue;
+                  }
                   if (method === 'discrete') {
                     const clsIdx = Math.min(numCls - 1, Math.floor(norm * numCls));
                     norm = clsIdx / (numCls - 1);
@@ -32169,17 +32186,110 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               <span>Min: <span id="rasterMinVal">...</span></span>
               <span>Max: <span id="rasterMaxVal">...</span></span>
             </div>
+            <div class="mt-2.5 pt-2 border-t border-zinc-200/80 flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <label class="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Colores de Clases</label>
+                <button type="button" onclick="resetRasterCustomColors()" class="text-[8px] font-bold text-indigo-600 hover:underline">Restablecer</button>
+              </div>
+              <div id="rasterClassColorsList" class="flex flex-col gap-1 max-h-48 overflow-y-auto custom-scrollbar pr-0.5"></div>
+            </div>
           </div>`;
         }
       }
       $container.innerHTML = html;
-      if (layer.renderer === 'pseudocolor') updateRasterRangeDisplay(layer);
+      if (layer.renderer === 'pseudocolor') {
+        renderRasterClassColorsUI(layer);
+        updateRasterRangeDisplay(layer);
+      }
+    }
+
+    function _sampleRampHex(cmapName, norm, invert) {
+      const cmap = COLOR_RAMPS[cmapName || 'viridis'] || COLOR_RAMPS.viridis;
+      const tNorm = Math.max(0, Math.min(1, invert ? 1 - norm : norm));
+      let low = cmap[0], high = cmap[cmap.length - 1];
+      for (let j = 0; j < cmap.length - 1; j++) {
+        if (tNorm >= cmap[j][0] && tNorm <= cmap[j + 1][0]) {
+          low = cmap[j]; high = cmap[j + 1]; break;
+        }
+      }
+      const rSpan = (high[0] - low[0]) || 1;
+      const t = (tNorm - low[0]) / rSpan;
+      const r = Math.round(low[1] + (high[1] - low[1]) * t);
+      const g = Math.round(low[2] + (high[2] - low[2]) * t);
+      const b = Math.round(low[3] + (high[3] - low[3]) * t);
+      return '#' + [r, g, b].map(c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0')).join('');
+    }
+
+    function _getEffectiveClassColors(layer) {
+      const numCls = Math.max(2, parseInt(layer.rendererParams?.classes || 5, 10) || 5);
+      if (Array.isArray(layer.rendererParams?.customColors) && layer.rendererParams.customColors.length === numCls) {
+        return layer.rendererParams.customColors;
+      }
+      const cmapName = layer.rendererParams?.colormap || 'viridis';
+      const invert = !!layer.rendererParams?.invert;
+      return Array.from({ length: numCls }, (_, i) => _sampleRampHex(cmapName, numCls > 1 ? i / (numCls - 1) : 0, invert));
+    }
+
+    function renderRasterClassColorsUI(layer) {
+      const listEl = document.getElementById('rasterClassColorsList');
+      if (!listEl || !layer) return;
+      const colors = _getEffectiveClassColors(layer);
+      const numCls = colors.length;
+      const minV = parseFloat(document.getElementById('rasterMinVal')?.textContent);
+      const maxV = parseFloat(document.getElementById('rasterMaxVal')?.textContent);
+      const hasRange = !isNaN(minV) && !isNaN(maxV) && maxV > minV;
+      const step = hasRange ? (maxV - minV) / numCls : 0;
+
+      listEl.innerHTML = colors.map((hex, i) => {
+        const rangeTxt = hasRange
+          ? `(${(minV + i * step).toFixed(2)} – ${(minV + (i + 1) * step).toFixed(2)})`
+          : '';
+        return `
+          <div class="flex items-center justify-between gap-2 bg-zinc-50 hover:bg-zinc-100/80 px-2 py-1 rounded border border-zinc-200/70">
+            <div class="flex items-center gap-2 min-w-0">
+              <input type="color" value="${hex}" oninput="updateRasterClassColor(${i}, this.value)"
+                class="w-6 h-5 rounded border border-zinc-300 cursor-pointer p-0 bg-transparent shrink-0" title="Cambiar color de Clase ${i + 1}">
+              <span class="text-[9px] font-bold text-zinc-700 truncate">Clase ${i + 1} <span class="text-zinc-400 font-normal">${rangeTxt}</span></span>
+            </div>
+            <span id="rasterClassHex-${i}" class="text-[8px] font-mono font-bold text-zinc-500 uppercase shrink-0">${hex}</span>
+          </div>`;
+      }).join('');
+    }
+
+    let _classColorTo = null;
+    function updateRasterClassColor(idx, hex) {
+      const layer = state.layers.find(l => l.id === state.selectedLayerId);
+      if (!layer) return;
+      layer.rendererParams = layer.rendererParams || {};
+      const numCls = Math.max(2, parseInt(layer.rendererParams.classes || 5, 10) || 5);
+      if (!Array.isArray(layer.rendererParams.customColors) || layer.rendererParams.customColors.length !== numCls) {
+        layer.rendererParams.customColors = _getEffectiveClassColors(layer).slice();
+      }
+      layer.rendererParams.customColors[idx] = hex;
+      const hexLabel = document.getElementById(`rasterClassHex-${idx}`);
+      if (hexLabel) hexLabel.textContent = hex.toUpperCase();
+      clearTimeout(_classColorTo);
+      _classColorTo = setTimeout(() => {
+        rebuildRasterLayer(layer);
+        if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
+      }, 60);
+    }
+
+    function resetRasterCustomColors() {
+      const layer = state.layers.find(l => l.id === state.selectedLayerId);
+      if (!layer) return;
+      if (layer.rendererParams) layer.rendererParams.customColors = null;
+      renderRasterClassColorsUI(layer);
+      rebuildRasterLayer(layer);
+      if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
     }
 
     function toggleInvertColormap() {
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return;
       layer.rendererParams.invert = !layer.rendererParams.invert;
+      layer.rendererParams.customColors = null;
+      renderRasterClassColorsUI(layer);
       rebuildRasterLayer(layer);
     }
 
@@ -32194,9 +32304,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (st && st.minV != null && st.maxV != null && isFinite(st.minV) && isFinite(st.maxV)) {
               minEl.textContent = Number(st.minV).toFixed(2);
               maxEl.textContent = Number(st.maxV).toFixed(2);
+              renderRasterClassColorsUI(layer);
             } else if (st && st.p2 != null && st.p98 != null) {
               minEl.textContent = Number(st.p2).toFixed(2);
               maxEl.textContent = Number(st.p98).toFixed(2);
+              renderRasterClassColorsUI(layer);
             }
           } catch (_) {}
         }
@@ -32242,6 +32354,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return;
       layer.rendererParams.colormap = cmap;
+      layer.rendererParams.customColors = null;
+      renderRasterClassColorsUI(layer);
       rebuildRasterLayer(layer);
       saveLayerToDatabase(layer); // PERSISTIR
     }
@@ -32258,7 +32372,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const layer = state.layers.find(l => l.id === state.selectedLayerId);
       if (!layer) return;
       layer.rendererParams.classes = parseInt(val);
+      layer.rendererParams.customColors = null;
       document.getElementById('rasterClassesVal').textContent = val;
+      renderRasterClassColorsUI(layer);
       rebuildRasterLayer(layer);
       saveLayerToDatabase(layer);
     }
