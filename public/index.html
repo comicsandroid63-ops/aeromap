@@ -32301,25 +32301,43 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (!listEl || !layer) return;
       const colors = _getEffectiveClassColors(layer);
       const numCls = colors.length;
+      const classNames = Array.isArray(layer.rendererParams?.classNames) ? layer.rendererParams.classNames : [];
       const minV = parseFloat(document.getElementById('rasterMinVal')?.textContent);
       const maxV = parseFloat(document.getElementById('rasterMaxVal')?.textContent);
       const hasRange = !isNaN(minV) && !isNaN(maxV) && maxV > minV;
       const step = hasRange ? (maxV - minV) / numCls : 0;
 
       listEl.innerHTML = colors.map((hex, i) => {
+        const cName = (classNames[i] && String(classNames[i]).trim()) ? classNames[i] : `Clase ${i + 1}`;
         const rangeTxt = hasRange
-          ? `(${(minV + i * step).toFixed(2)} – ${(minV + (i + 1) * step).toFixed(2)})`
+          ? `${(minV + i * step).toFixed(2)}–${(minV + (i + 1) * step).toFixed(2)}`
           : '';
         return `
-          <div class="flex items-center justify-between gap-2 bg-zinc-50 hover:bg-zinc-100/80 px-2 py-1 rounded border border-zinc-200/70">
-            <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center justify-between gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 px-2 py-1 rounded border border-zinc-200/70">
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
               <input type="color" value="${hex}" oninput="updateRasterClassColor(${i}, this.value)"
-                class="w-6 h-5 rounded border border-zinc-300 cursor-pointer p-0 bg-transparent shrink-0" title="Cambiar color de Clase ${i + 1}">
-              <span class="text-[9px] font-bold text-zinc-700 truncate">Clase ${i + 1} <span class="text-zinc-400 font-normal">${rangeTxt}</span></span>
+                class="w-6 h-5 rounded border border-zinc-300 cursor-pointer p-0 bg-transparent shrink-0" title="Cambiar color de ${cName}">
+              <input type="text" value="${cName.replace(/"/g, '&quot;')}" oninput="updateRasterClassName(${i}, this.value)"
+                placeholder="Clase ${i + 1}"
+                class="flex-1 min-w-0 bg-white/80 border border-zinc-200 rounded px-1.5 py-0.5 text-[9px] font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-indigo-500">
             </div>
-            <span id="rasterClassHex-${i}" class="text-[8px] font-mono font-bold text-zinc-500 uppercase shrink-0">${hex}</span>
+            <span class="text-[7.5px] font-mono text-zinc-400 shrink-0">${rangeTxt}</span>
           </div>`;
       }).join('');
+    }
+
+    function updateRasterClassName(idx, name) {
+      const layer = state.layers.find(l => l.id === state.selectedLayerId);
+      if (!layer) return;
+      layer.rendererParams = layer.rendererParams || {};
+      if (!Array.isArray(layer.rendererParams.classNames)) {
+        layer.rendererParams.classNames = [];
+      }
+      layer.rendererParams.classNames[idx] = name;
+      if (typeof renderLayoutRasterChart === 'function' && layoutConfig?.elements?.rasterChart) {
+        renderLayoutRasterChart();
+      }
+      if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
     }
 
     let _classColorTo = null;
@@ -32337,6 +32355,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       clearTimeout(_classColorTo);
       _classColorTo = setTimeout(() => {
         rebuildRasterLayer(layer);
+        if (typeof renderLayoutRasterChart === 'function' && layoutConfig?.elements?.rasterChart) {
+          renderLayoutRasterChart();
+        }
         if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
       }, 60);
     }
@@ -37611,118 +37632,172 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const titleEl = document.getElementById('layoutChartTitle');
         if (titleEl && cfg.title) titleEl.textContent = cfg.title;
 
-        // Recolectar estadísticas por clase / rango (muestreo rápido <50ms)
+        // Recolectar estadísticas por clase / rango respetando clases, colores y nombres del usuario
         let entries = []; // [{ label, color, count, pct }]
         try {
-            const clientGeo = target.clientGeo || target._geotiffTileLayer?.geo;
-            if (clientGeo && clientGeo.image) {
-                const bandIdx = (target.rendererParams?.bands && target.rendererParams.bands[0] != null) ? target.rendererParams.bands[0] : 0;
-                const cacheKey = `${target.id}_b${bandIdx}`;
-                let validVals = (target._chartSampleCache && target._chartSampleCache.key === cacheKey) ? target._chartSampleCache.vals : null;
+            // 1. Capa clasificada (Supervisada / No Supervisada con clases y nombres propios)
+            if (target.isClassified && Array.isArray(target.classes) && target.classes.length > 0) {
+                const clsList = target.classes;
+                const clsCounts = new Array(clsList.length).fill(0);
+                let totalPx = 0;
 
-                if (!validVals) {
-                    validVals = [];
-                    const nd = clientGeo.noDataValue;
-                    const pushArr = (arr) => {
-                        for (let i = 0; i < arr.length; i++) {
-                            const v = arr[i];
-                            if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
-                            validVals.push(v);
+                const clsCanvas = target._geotiffTileLayer?.options?.classificationCanvas || target.mapLayer?.options?.classificationCanvas || target.classificationCanvas;
+                if (clsCanvas && clsCanvas.width > 0 && clsCanvas.height > 0) {
+                    try {
+                        const cCtx = clsCanvas.getContext('2d');
+                        const imgD = cCtx.getImageData(0, 0, clsCanvas.width, clsCanvas.height).data;
+                        const clsRgb = clsList.map(c => {
+                            const h = String(c.color || '#22c55e').replace('#', '');
+                            return [parseInt(h.substring(0, 2), 16) || 0, parseInt(h.substring(2, 4), 16) || 0, parseInt(h.substring(4, 6), 16) || 0];
+                        });
+                        const stepPx = Math.max(1, Math.floor((clsCanvas.width * clsCanvas.height) / 16000));
+                        for (let i = 0; i < imgD.length; i += 4 * stepPx) {
+                            if (imgD[i + 3] === 0) continue;
+                            const r = imgD[i], g = imgD[i + 1], b = imgD[i + 2];
+                            let bestIdx = 0, bestD = Infinity;
+                            for (let c = 0; c < clsRgb.length; c++) {
+                                const dr = r - clsRgb[c][0], dg = g - clsRgb[c][1], db = b - clsRgb[c][2];
+                                const d = dr * dr + dg * dg + db * db;
+                                if (d < bestD) { bestD = d; bestIdx = c; }
+                            }
+                            clsCounts[bestIdx]++;
+                            totalPx++;
                         }
-                    };
+                    } catch (_) {}
+                }
 
-                    if (clientGeo.overviews && clientGeo.overviews.length > 0) {
-                        const ovImg = clientGeo.overviews[clientGeo.overviews.length - 1];
-                        const raw = await ovImg.readRasters({ samples: [bandIdx], interleave: false });
-                        pushArr(Array.isArray(raw) ? raw[0] : raw);
+                const hasPctProp = clsList.some(c => typeof c.percentage === 'number' || typeof c.pixelCount === 'number');
+                const sumPropPx = clsList.reduce((acc, c) => acc + (Number(c.pixelCount) || 0), 0);
+                entries = clsList.map((c, idx) => {
+                    let pct = 0;
+                    if (totalPx > 0) {
+                        pct = (clsCounts[idx] / totalPx) * 100;
+                    } else if (hasPctProp && typeof c.percentage === 'number') {
+                        pct = c.percentage;
+                    } else if (hasPctProp && sumPropPx > 0) {
+                        pct = ((Number(c.pixelCount) || 0) / sumPropPx) * 100;
                     } else {
-                        const img = clientGeo.image;
-                        const w = img.getWidth(), h = img.getHeight();
-                        if (w * h <= 262144) {
-                            const raw = await img.readRasters({ samples: [bandIdx], interleave: false });
+                        pct = 100 / clsList.length;
+                    }
+                    return {
+                        label: c.name || `Clase ${idx + 1}`,
+                        color: c.color || '#22c55e',
+                        count: totalPx > 0 ? clsCounts[idx] : (Number(c.pixelCount) || 0),
+                        pct
+                    };
+                });
+            } else {
+                const clientGeo = target.clientGeo || target._geotiffTileLayer?.geo;
+                if (clientGeo && clientGeo.image) {
+                    const bandIdx = (target.rendererParams?.bands && target.rendererParams.bands[0] != null) ? target.rendererParams.bands[0] : 0;
+                    const cacheKey = `${target.id}_b${bandIdx}`;
+                    let validVals = (target._chartSampleCache && target._chartSampleCache.key === cacheKey) ? target._chartSampleCache.vals : null;
+
+                    if (!validVals) {
+                        validVals = [];
+                        const nd = clientGeo.noDataValue;
+                        const pushArr = (arr) => {
+                            for (let i = 0; i < arr.length; i++) {
+                                const v = arr[i];
+                                if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
+                                validVals.push(v);
+                            }
+                        };
+
+                        if (clientGeo.overviews && clientGeo.overviews.length > 0) {
+                            const ovImg = clientGeo.overviews[clientGeo.overviews.length - 1];
+                            const raw = await ovImg.readRasters({ samples: [bandIdx], interleave: false });
                             pushArr(Array.isArray(raw) ? raw[0] : raw);
                         } else {
-                            // Muestreo en rejilla 3x3 de ventanas 64x64 para lectura instantánea sin decodificar todo el TIFF
-                            const pts = [0.2, 0.5, 0.8];
-                            for (const gy of pts) {
-                                for (const gx of pts) {
-                                    const cx = Math.floor(w * gx);
-                                    const cy = Math.floor(h * gy);
-                                    const wx0 = Math.max(0, cx - 32), wy0 = Math.max(0, cy - 32);
-                                    const wx1 = Math.min(w, cx + 32), wy1 = Math.min(h, cy + 32);
-                                    try {
-                                        const chunk = await img.readRasters({ window: [wx0, wy0, wx1, wy1], samples: [bandIdx], interleave: false });
-                                        pushArr(Array.isArray(chunk) ? chunk[0] : chunk);
-                                    } catch (_) {}
+                            const img = clientGeo.image;
+                            const w = img.getWidth(), h = img.getHeight();
+                            if (w * h <= 262144) {
+                                const raw = await img.readRasters({ samples: [bandIdx], interleave: false });
+                                pushArr(Array.isArray(raw) ? raw[0] : raw);
+                            } else {
+                                const pts = [0.2, 0.5, 0.8];
+                                for (const gy of pts) {
+                                    for (const gx of pts) {
+                                        const cx = Math.floor(w * gx);
+                                        const cy = Math.floor(h * gy);
+                                        const wx0 = Math.max(0, cx - 32), wy0 = Math.max(0, cy - 32);
+                                        const wx1 = Math.min(w, cx + 32), wy1 = Math.min(h, cy + 32);
+                                        try {
+                                            const chunk = await img.readRasters({ window: [wx0, wy0, wx1, wy1], samples: [bandIdx], interleave: false });
+                                            pushArr(Array.isArray(chunk) ? chunk[0] : chunk);
+                                        } catch (_) {}
+                                    }
                                 }
                             }
                         }
+                        target._chartSampleCache = { key: cacheKey, vals: validVals };
                     }
-                    target._chartSampleCache = { key: cacheKey, vals: validVals };
-                }
 
-                if (validVals.length > 0) {
-                    const total = validVals.length;
-                    if (target.renderer === 'pseudocolor') {
-                        const colors = typeof _getEffectiveClassColors === 'function' ? _getEffectiveClassColors(target) : ['#440154', '#31688e', '#35b779', '#fde725'];
-                        const numCls = colors.length;
-                        let minV = Infinity, maxV = -Infinity;
-                        for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
-                        const span = (maxV - minV) || 1;
-                        const counts = new Array(numCls).fill(0);
-                        for (const v of validVals) {
-                            const norm = Math.max(0, Math.min(1, (v - minV) / span));
-                            const ci = Math.min(numCls - 1, Math.floor(norm * numCls));
-                            counts[ci]++;
-                        }
-                        const step = (maxV - minV) / numCls;
-                        for (let i = 0; i < numCls; i++) {
-                            if (counts[i] === 0 && numCls > 8) continue;
-                            entries.push({
-                                label: `C${i + 1} (${(minV + i * step).toFixed(1)})`,
-                                color: colors[i],
-                                count: counts[i],
-                                pct: (counts[i] / total) * 100
+                    if (validVals.length > 0) {
+                        const total = validVals.length;
+                        const customNames = Array.isArray(target.rendererParams?.classNames) ? target.rendererParams.classNames : [];
+                        if (target.renderer === 'pseudocolor') {
+                            const colors = typeof _getEffectiveClassColors === 'function' ? _getEffectiveClassColors(target) : ['#440154', '#31688e', '#35b779', '#fde725'];
+                            const numCls = colors.length;
+                            let minV = Infinity, maxV = -Infinity;
+                            for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                            const span = (maxV - minV) || 1;
+                            const counts = new Array(numCls).fill(0);
+                            for (const v of validVals) {
+                                const norm = Math.max(0, Math.min(1, (v - minV) / span));
+                                const ci = Math.min(numCls - 1, Math.floor(norm * numCls));
+                                counts[ci]++;
+                            }
+                            for (let i = 0; i < numCls; i++) {
+                                const uName = (customNames[i] && String(customNames[i]).trim()) ? customNames[i] : (target.classes?.[i]?.name || `Clase ${i + 1}`);
+                                entries.push({
+                                    label: uName,
+                                    color: colors[i],
+                                    count: counts[i],
+                                    pct: (counts[i] / total) * 100
+                                });
+                            }
+                        } else if (clientGeo.colorMap && clientGeo.colorMap.length >= 4) {
+                            const mapCounts = new Map();
+                            for (const v of validVals) {
+                                const k = Math.round(v);
+                                mapCounts.set(k, (mapCounts.get(k) || 0) + 1);
+                            }
+                            const cm = clientGeo.colorMap;
+                            const maxIdx = (cm.length >> 2) - 1;
+                            const keys = Array.from(mapCounts.keys()).sort((a, b) => a - b);
+                            keys.forEach((k, i) => {
+                                const idx = Math.max(0, Math.min(maxIdx, k)) * 4;
+                                const hex = '#' + [cm[idx], cm[idx + 1], cm[idx + 2]].map(c => c.toString(16).padStart(2, '0')).join('');
+                                const cnt = mapCounts.get(k);
+                                const uName = (customNames[i] && String(customNames[i]).trim()) ? customNames[i] : (target.classes?.[i]?.name || `Clase ${k}`);
+                                entries.push({
+                                    label: uName,
+                                    color: hex,
+                                    count: cnt,
+                                    pct: (cnt / total) * 100
+                                });
                             });
-                        }
-                    } else if (clientGeo.colorMap && clientGeo.colorMap.length >= 4) {
-                        const mapCounts = new Map();
-                        for (const v of validVals) {
-                            const k = Math.round(v);
-                            mapCounts.set(k, (mapCounts.get(k) || 0) + 1);
-                        }
-                        const cm = clientGeo.colorMap;
-                        const maxIdx = (cm.length >> 2) - 1;
-                        const keys = Array.from(mapCounts.keys()).sort((a, b) => a - b).slice(0, 12);
-                        for (const k of keys) {
-                            const idx = Math.max(0, Math.min(maxIdx, k)) * 4;
-                            const hex = '#' + [cm[idx], cm[idx + 1], cm[idx + 2]].map(c => c.toString(16).padStart(2, '0')).join('');
-                            const cnt = mapCounts.get(k);
-                            entries.push({
-                                label: `Clase ${k}`,
-                                color: hex,
-                                count: cnt,
-                                pct: (cnt / total) * 100
-                            });
-                        }
-                    } else {
-                        const palette5 = ['#334155', '#0284c7', '#10b981', '#f59e0b', '#ef4444'];
-                        let minV = Infinity, maxV = -Infinity;
-                        for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
-                        const span = (maxV - minV) || 1;
-                        const counts = [0, 0, 0, 0, 0];
-                        for (const v of validVals) {
-                            const ci = Math.min(4, Math.floor(((v - minV) / span) * 5));
-                            counts[ci]++;
-                        }
-                        const step = (maxV - minV) / 5;
-                        for (let i = 0; i < 5; i++) {
-                            entries.push({
-                                label: `${(minV + i * step).toFixed(0)}–${(minV + (i + 1) * step).toFixed(0)}`,
-                                color: palette5[i],
-                                count: counts[i],
-                                pct: (counts[i] / total) * 100
-                            });
+                        } else {
+                            const palette5 = ['#334155', '#0284c7', '#10b981', '#f59e0b', '#ef4444'];
+                            let minV = Infinity, maxV = -Infinity;
+                            for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                            const span = (maxV - minV) || 1;
+                            const counts = [0, 0, 0, 0, 0];
+                            for (const v of validVals) {
+                                const ci = Math.min(4, Math.floor(((v - minV) / span) * 5));
+                                counts[ci]++;
+                            }
+                            const step = (maxV - minV) / 5;
+                            for (let i = 0; i < 5; i++) {
+                                const uName = (customNames[i] && String(customNames[i]).trim()) ? customNames[i] : `${(minV + i * step).toFixed(0)}–${(minV + (i + 1) * step).toFixed(0)}`;
+                                entries.push({
+                                    label: uName,
+                                    color: palette5[i],
+                                    count: counts[i],
+                                    pct: (counts[i] / total) * 100
+                                });
+                            }
                         }
                     }
                 }
@@ -37749,8 +37824,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 offset += seg;
                 return svgC;
             }).join('');
-            const legendHtml = entries.slice(0, 7).map(en => `
-                <div class="flex items-center justify-between gap-1 text-[7px] leading-tight">
+            const many = entries.length > 7;
+            const legendHtml = entries.map(en => `
+                <div class="flex items-center justify-between gap-1 ${many ? 'text-[6px]' : 'text-[7px]'} leading-tight">
                     <div class="flex items-center gap-1 min-w-0">
                         <span class="w-2 h-2 shrink-0 border border-black/30" style="background:${en.color}"></span>
                         <span class="truncate font-bold text-zinc-800">${en.label}</span>
@@ -37760,24 +37836,25 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             `).join('');
 
             body.innerHTML = `
-                <div class="w-full h-full flex items-center gap-2">
-                    <svg viewBox="0 0 ${size} ${size}" class="h-full max-h-[34mm] w-[34mm] shrink-0">${circles}</svg>
-                    <div class="flex-1 flex flex-col gap-0.5 min-w-0 overflow-hidden">${legendHtml}</div>
+                <div class="w-full h-full flex items-center gap-2 overflow-hidden">
+                    <svg viewBox="0 0 ${size} ${size}" class="h-full max-h-[32mm] w-[32mm] shrink-0">${circles}</svg>
+                    <div class="flex-1 ${many ? 'grid grid-cols-2 gap-x-1.5 gap-y-0.5' : 'flex flex-col gap-0.5'} min-w-0 overflow-y-auto max-h-full">${legendHtml}</div>
                 </div>`;
         } else {
             const maxPct = Math.max(1, ...entries.map(e => e.pct));
-            const barsHtml = entries.slice(0, 10).map(en => {
-                const wPct = Math.max(2, (en.pct / maxPct) * 100);
+            const compact = entries.length > 8;
+            const barsHtml = entries.map(en => {
+                const wPct = en.pct > 0 ? Math.max(2, (en.pct / maxPct) * 100) : 0;
                 return `
-                    <div class="flex items-center gap-1.5 w-full text-[7px] leading-none">
-                        <span class="w-[15mm] truncate font-bold text-zinc-800 text-right shrink-0">${en.label}</span>
-                        <div class="flex-1 h-2.5 bg-zinc-100 border border-zinc-300 relative overflow-hidden">
+                    <div class="flex items-center gap-1.5 w-full ${compact ? 'text-[6px]' : 'text-[7px]'} leading-none">
+                        <span class="w-[17mm] truncate font-bold text-zinc-800 text-right shrink-0" title="${en.label}">${en.label}</span>
+                        <div class="flex-1 ${compact ? 'h-1.5' : 'h-2.5'} bg-zinc-100 border border-zinc-300 relative overflow-hidden">
                             <div class="h-full" style="width:${wPct.toFixed(1)}%; background:${en.color};"></div>
                         </div>
                         ${showVals ? `<span class="w-[9mm] font-mono font-bold text-zinc-700 text-right shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
                     </div>`;
             }).join('');
-            body.innerHTML = `<div class="w-full h-full flex flex-col justify-center gap-1">${barsHtml}</div>`;
+            body.innerHTML = `<div class="w-full h-full flex flex-col justify-center ${compact ? 'gap-0.5' : 'gap-1'} overflow-y-auto">${barsHtml}</div>`;
         }
     }
 
