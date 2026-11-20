@@ -8486,8 +8486,12 @@
                     <div class="flex flex-col gap-1">
                         <label class="text-[8px] font-black text-zinc-500 uppercase">Tipo de Gráfica</label>
                         <select id="chartTypeSelect" onchange="layoutUpdateChartOption('chartType', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
-                            <option value="bar">Barras (Distribución por Clases)</option>
-                            <option value="pie">Circular / Dona (Coberturas)</option>
+                            <option value="bar">Barras Horizontales</option>
+                            <option value="vbar">Columnas Verticales</option>
+                            <option value="pie">Dona / Anillo</option>
+                            <option value="solidpie">Pastel Sólido</option>
+                            <option value="lollipop">Lollipop / Puntos</option>
+                            <option value="stacked">Barra Apilada + Tabla</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1">
@@ -37984,19 +37988,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const unit = cfg.unit || 'pct';
         const valColW = unit === 'pct' ? 'w-[9mm]' : 'w-[16mm]';
 
-        if (chartType === 'pie') {
-            const size = 90, r = 34, cx = 45, cy = 45;
+        if (chartType === 'pie' || chartType === 'solidpie') {
+            const isSolid = chartType === 'solidpie';
+            const size = 90, r = isSolid ? 21 : 34, sw = isSolid ? 42 : 18, cx = 45, cy = 45;
             const circ = 2 * Math.PI * r;
             let offset = 0;
             const circles = entries.map(en => {
                 const seg = (en.pct / 100) * circ;
-                const svgC = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${en.color}" stroke-width="18" stroke-dasharray="${seg.toFixed(2)} ${circ.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
+                const svgC = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${en.color}" stroke-width="${sw}" stroke-dasharray="${seg.toFixed(2)} ${circ.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
                 offset += seg;
                 return svgC;
             }).join('');
             const many = entries.length > 7;
             const legendHtml = entries.map(en => `
-                <div class="flex items-center justify-between gap-1 ${many ? 'text-[6px]' : 'text-[7px]'} leading-tight">
+                <div class="flex items-center justify-between gap-1" style="font-size:${many ? '5.8px' : '7px'}; line-height:1.15;">
                     <div class="flex items-center gap-1 min-w-0">
                         <span class="w-2 h-2 shrink-0 border border-black/30" style="background:${en.color}"></span>
                         <span class="truncate font-bold text-zinc-800">${en.label}</span>
@@ -38009,6 +38014,59 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <div class="w-full h-full flex items-center gap-2 overflow-hidden">
                     <svg viewBox="0 0 ${size} ${size}" class="h-full max-h-[32mm] w-[32mm] shrink-0">${circles}</svg>
                     <div class="flex-1 ${many ? 'grid grid-cols-2 gap-x-1.5 gap-y-0.5' : 'flex flex-col gap-0.5'} min-w-0 overflow-y-auto max-h-full">${legendHtml}</div>
+                </div>`;
+        } else if (chartType === 'vbar') {
+            const maxPct = Math.max(1, ...entries.map(e => e.pct));
+            const many = entries.length > 8;
+            const colsHtml = entries.map(en => {
+                const hPct = en.pct > 0 ? Math.max(3, (en.pct / maxPct) * 100) : 0;
+                const valTxt = unit === 'pct' ? `${en.pct.toFixed(0)}%` : _formatChartMetric(en.pct, totalAreaM2, unit).replace(/\s*(ha|km²|m²|ac)$/i, '');
+                return `
+                    <div class="flex-1 min-w-0 h-full flex flex-col items-center justify-end gap-0.5">
+                        ${showVals ? `<span class="font-mono font-bold text-zinc-700 truncate max-w-full" style="font-size:${many ? '5px' : '6px'};">${valTxt}</span>` : ''}
+                        <div class="w-full flex-1 flex items-end justify-center bg-zinc-100/80 border border-zinc-200 overflow-hidden">
+                            <div class="w-full" style="height:${hPct.toFixed(1)}%; background:${en.color};"></div>
+                        </div>
+                        <span class="font-bold text-zinc-800 truncate max-w-full text-center" style="font-size:${many ? '5px' : '6px'};" title="${en.label}">${en.label}</span>
+                    </div>`;
+            }).join('');
+            body.innerHTML = `<div class="w-full h-full flex items-end gap-1 pt-0.5">${colsHtml}</div>`;
+        } else if (chartType === 'lollipop') {
+            const maxPct = Math.max(1, ...entries.map(e => e.pct));
+            const compact = entries.length > 8;
+            const ultraCompact = entries.length > 10;
+            const fontStyle = ultraCompact ? 'font-size: 5.8px; line-height: 1.05;' : (compact ? 'font-size: 6.5px; line-height: 1.1;' : 'font-size: 7.5px; line-height: 1.15;');
+            const dotSz = ultraCompact ? '6px' : (compact ? '7px' : '9px');
+            const rowGap = ultraCompact ? '1.5px' : (compact ? '2px' : '4px');
+            const rowsHtml = entries.map(en => {
+                const wPct = en.pct > 0 ? Math.max(3, (en.pct / maxPct) * 100) : 0;
+                return `
+                    <div class="flex items-center gap-1.5 w-full" style="${fontStyle}">
+                        <span class="w-[17mm] truncate font-bold text-zinc-800 text-right shrink-0" title="${en.label}">${en.label}</span>
+                        <div class="flex-1 relative flex items-center" style="height:${dotSz};">
+                            <div class="w-full bg-zinc-200" style="height:1.5px;"></div>
+                            <div class="absolute left-0" style="width:${wPct.toFixed(1)}%; height:2px; background:${en.color};"></div>
+                            <div class="absolute rounded-full border border-black/40" style="left:calc(${wPct.toFixed(1)}% - ${parseInt(dotSz)/2}px); width:${dotSz}; height:${dotSz}; background:${en.color};"></div>
+                        </div>
+                        ${showVals ? `<span class="${valColW} font-mono font-bold text-zinc-700 text-right shrink-0">${_formatChartMetric(en.pct, totalAreaM2, unit)}</span>` : ''}
+                    </div>`;
+            }).join('');
+            body.innerHTML = `<div class="w-full h-full flex flex-col justify-center overflow-y-auto pr-1" style="gap:${rowGap};">${rowsHtml}</div>`;
+        } else if (chartType === 'stacked') {
+            const segsHtml = entries.map(en => `<div style="width:${en.pct.toFixed(2)}%; background:${en.color};" title="${en.label}: ${_formatChartMetric(en.pct, totalAreaM2, unit)}"></div>`).join('');
+            const many = entries.length > 6;
+            const listHtml = entries.map(en => `
+                <div class="flex items-center justify-between gap-1" style="font-size:${many ? '5.8px' : '6.8px'}; line-height:1.15;">
+                    <div class="flex items-center gap-1 min-w-0">
+                        <span class="w-2 h-2 shrink-0 border border-black/30" style="background:${en.color}"></span>
+                        <span class="truncate font-bold text-zinc-800">${en.label}</span>
+                    </div>
+                    ${showVals ? `<span class="font-mono font-bold text-zinc-700 shrink-0">${_formatChartMetric(en.pct, totalAreaM2, unit)}</span>` : ''}
+                </div>`).join('');
+            body.innerHTML = `
+                <div class="w-full h-full flex flex-col gap-1.5 overflow-hidden">
+                    <div class="w-full h-3.5 flex border border-black shrink-0 overflow-hidden bg-zinc-100">${segsHtml}</div>
+                    <div class="flex-1 ${many ? 'grid grid-cols-2 gap-x-2 gap-y-0.5' : 'flex flex-col gap-0.5'} overflow-y-auto min-h-0">${listHtml}</div>
                 </div>`;
         } else {
             const maxPct = Math.max(1, ...entries.map(e => e.pct));
