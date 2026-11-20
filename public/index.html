@@ -37717,7 +37717,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <div id="layoutOverviewSingleHost" class="w-full h-full"></div>
                 <div id="layoutOverviewMultiHost" class="hidden w-full h-full relative bg-zinc-100 overflow-hidden">
                     <div id="layoutOverviewMultiGrid" class="w-full h-full p-1 box-border relative"></div>
-                    <svg id="layoutOverviewMultiSvg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 450;"></svg>
+                    <svg id="layoutOverviewMultiSvg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1100;"></svg>
                 </div>`;
             singleHost = document.getElementById('layoutOverviewSingleHost');
             multiHost = document.getElementById('layoutOverviewMultiHost');
@@ -37945,7 +37945,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
             return `
                 <div id="ov-multi-card-${lvl}" data-lvl="${lvl}" data-idx="${idx}" class="ov-submap-card relative border border-black bg-white overflow-hidden shadow-sm" style="${extraStyle}">
-                    <div class="absolute top-0.5 left-0.5 z-[400] bg-white/95 border border-black px-1 py-[0.5px] font-black uppercase text-black leading-none pointer-events-none" style="font-size:5.5px;">
+                    <div class="absolute top-0.5 left-0.5 bg-white/95 border border-black px-1 py-[0.5px] font-black uppercase text-black leading-none pointer-events-none" style="font-size:5.5px; z-index:1000;">
                         ${idx + 1}. ${levelShort[lvl] || lvl}
                     </div>
                     <div id="ov-multi-map-${lvl}" class="w-full h-full"></div>
