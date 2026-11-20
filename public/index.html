@@ -8474,7 +8474,57 @@
                             <option value="continental">Continental</option>
                             <option value="mundial">Mundial / Global</option>
                             <option value="auto">Automático (Relativo al Mapa)</option>
+                            <option value="multi">Multi-Nivel Simultáneo (Cascada con Flechas)</option>
                         </select>
+                    </div>
+                    <div id="overviewMultiLevelPanel" class="hidden flex-col gap-2 p-2.5 bg-white rounded-lg border border-zinc-200">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[8px] font-black text-zinc-700 uppercase">Escalas Simultáneas</span>
+                            <button type="button" onclick="layoutOverviewSelectAllMultiLevels()" class="text-[7.5px] font-bold text-indigo-600 hover:underline">Todas (6)</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 text-[9px] font-bold text-zinc-700">
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="mundial" onchange="layoutToggleOverviewMultiLevel()"> Mundial
+                            </label>
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="continental" checked onchange="layoutToggleOverviewMultiLevel()"> Continental
+                            </label>
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="nacional" checked onchange="layoutToggleOverviewMultiLevel()"> Nacional
+                            </label>
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="regional" checked onchange="layoutToggleOverviewMultiLevel()"> Regional
+                            </label>
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="departamental" onchange="layoutToggleOverviewMultiLevel()"> Departamental
+                            </label>
+                            <label class="flex items-center gap-1.5 bg-zinc-50 px-1.5 py-1 rounded border border-zinc-200 cursor-pointer">
+                                <input type="checkbox" class="ov-multi-lvl-chk accent-black" value="municipal" checked onchange="layoutToggleOverviewMultiLevel()"> Municipal
+                            </label>
+                        </div>
+                        <div class="flex flex-col gap-1 pt-1 border-t border-zinc-100">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Disposición de Vistas</label>
+                            <select id="overviewMultiLayoutSelect" onchange="layoutUpdateOverviewOption('multiLayout', this.value)" class="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-1.5 text-[11px] font-bold text-zinc-800 outline-none">
+                                <option value="grid" selected>Cuadrícula (Mosaico 2×N)</option>
+                                <option value="horizontal">Fila Horizontal (→)</option>
+                                <option value="vertical">Columna Vertical (↓)</option>
+                                <option value="cascade">Cascada Diagonal (Escalonada)</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[8px] font-black text-zinc-500 uppercase">Conexión (Flechas y Líneas)</label>
+                            <div class="flex items-center gap-1.5">
+                                <select id="overviewConnectorStyleSelect" onchange="layoutUpdateOverviewOption('connectorStyle', this.value)" class="flex-1 bg-zinc-50 border border-zinc-200 rounded-lg p-1.5 text-[11px] font-bold text-zinc-800 outline-none">
+                                    <option value="curved" selected>Flechas Curvas (Arco)</option>
+                                    <option value="arrows">Flechas Rectas (→)</option>
+                                    <option value="callouts">Cono de Zoom + Flecha</option>
+                                    <option value="dashed">Flechas Punteadas (⇢)</option>
+                                    <option value="lines">Líneas Directas</option>
+                                    <option value="none">Sin Conectores</option>
+                                </select>
+                                <input type="color" id="overviewConnectorColorInput" value="#dc2626" oninput="layoutUpdateOverviewOption('connectorColor', this.value)" class="w-7 h-7 rounded border border-zinc-300 cursor-pointer p-0 bg-transparent shrink-0" title="Color de flechas/conectores">
+                            </div>
+                        </div>
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[8px] font-black text-zinc-500 uppercase">Mapa Base de Contexto</label>
@@ -37614,6 +37664,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     window.layoutOverviewLayersGroup = null;
     window.layoutOverviewBaseLayer = null;
     window.layoutOverviewRefLayer = null;
+    window.layoutOverviewSubMaps = {};
 
     function _getOverviewBasemapUrls(style) {
         const map = {
@@ -37646,12 +37697,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!ovContainer) return;
 
         if (!layoutConfig.overview) {
-            layoutConfig.overview = { title: 'LOCALIZACIÓN', level: 'regional', basemap: 'light', showLayers: true, showBox: true };
+            layoutConfig.overview = {
+                title: 'LOCALIZACIÓN',
+                level: 'regional',
+                basemap: 'light',
+                showLayers: true,
+                showBox: true,
+                multiLevels: ['continental', 'nacional', 'regional', 'municipal'],
+                multiLayout: 'grid',
+                connectorStyle: 'curved',
+                connectorColor: '#dc2626'
+            };
         }
 
-        if (!window.layoutOverviewMap) {
-            ovContainer.innerHTML = '';
-            window.layoutOverviewMap = L.map('layoutOverviewMap', {
+        let singleHost = document.getElementById('layoutOverviewSingleHost');
+        let multiHost = document.getElementById('layoutOverviewMultiHost');
+        if (!singleHost || !multiHost) {
+            ovContainer.innerHTML = `
+                <div id="layoutOverviewSingleHost" class="w-full h-full"></div>
+                <div id="layoutOverviewMultiHost" class="hidden w-full h-full relative bg-zinc-100 overflow-hidden">
+                    <div id="layoutOverviewMultiGrid" class="w-full h-full p-1 box-border relative"></div>
+                    <svg id="layoutOverviewMultiSvg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 450;"></svg>
+                </div>`;
+            singleHost = document.getElementById('layoutOverviewSingleHost');
+            multiHost = document.getElementById('layoutOverviewMultiHost');
+            window.layoutOverviewMap = null;
+        }
+
+        if (!window.layoutOverviewMap && singleHost) {
+            window.layoutOverviewMap = L.map('layoutOverviewSingleHost', {
                 preferCanvas: true,
                 attributionControl: false,
                 zoomControl: false,
@@ -37688,10 +37762,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }, 120);
     }
 
-    function syncLayoutOverviewLayers() {
-        if (!window.layoutOverviewMap || !window.layoutOverviewLayersGroup) return;
-        window.layoutOverviewLayersGroup.clearLayers();
-
+    function _populateOverviewLayerGroup(targetGroup) {
+        if (!targetGroup) return;
+        targetGroup.clearLayers();
         const ovCfg = layoutConfig?.overview || {};
         if (ovCfg.showLayers === false) return;
 
@@ -37716,7 +37789,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             fillOpacity: 0.9
                         })
                     });
-                    window.layoutOverviewLayersGroup.addLayer(dLayer);
+                    targetGroup.addLayer(dLayer);
                 }
             } catch (_) {}
         }
@@ -37741,7 +37814,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             });
                         }
                     });
-                    window.layoutOverviewLayersGroup.addLayer(vLayer);
+                    targetGroup.addLayer(vLayer);
                 } else if (l.type === 'raster') {
                     if (l._geotiffTileLayer?.geo || l.mapLayer?.geo) {
                         const targetGeo = l._geotiffTileLayer?.geo || l.mapLayer?.geo;
@@ -37753,7 +37826,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             rendererParams: { ...(targetOpts.rendererParams || {}), ...(l.rendererParams || {}) },
                             opacity: l.opacity ?? 1
                         });
-                        window.layoutOverviewLayersGroup.addLayer(rTile);
+                        targetGroup.addLayer(rTile);
                     } else if (l.mapLayer) {
                         if (typeof l.mapLayer.getTileUrl === 'function' && l.mapLayer._url) {
                             const rTile = L.tileLayer(l.mapLayer._url, {
@@ -37761,13 +37834,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 opacity: l.opacity ?? 1,
                                 crossOrigin: 'anonymous'
                             });
-                            window.layoutOverviewLayersGroup.addLayer(rTile);
+                            targetGroup.addLayer(rTile);
                         } else if (l.mapLayer._url && l.mapLayer._bounds) {
                             const rImg = L.imageOverlay(l.mapLayer._url, l.mapLayer._bounds, {
                                 opacity: l.opacity ?? 1,
                                 crossOrigin: 'anonymous'
                             });
-                            window.layoutOverviewLayersGroup.addLayer(rImg);
+                            targetGroup.addLayer(rImg);
                         } else if (l.mapLayer._image && l.mapLayer._image.src && l.bounds) {
                             const b = _normBounds(l.bounds);
                             if (b) {
@@ -37775,7 +37848,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     opacity: l.opacity ?? 1,
                                     crossOrigin: 'anonymous'
                                 });
-                                window.layoutOverviewLayersGroup.addLayer(rImg);
+                                targetGroup.addLayer(rImg);
                             }
                         }
                     }
@@ -37784,9 +37857,282 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 console.warn('[OverviewLayers] Error clonando capa en localización:', l.name, err);
             }
         }
-        if (window.layoutOverviewExtentRect && typeof window.layoutOverviewExtentRect.bringToFront === 'function') {
-            window.layoutOverviewExtentRect.bringToFront();
+    }
+
+    function syncLayoutOverviewLayers() {
+        if (window.layoutOverviewMap && window.layoutOverviewLayersGroup) {
+            _populateOverviewLayerGroup(window.layoutOverviewLayersGroup);
+            if (window.layoutOverviewExtentRect && typeof window.layoutOverviewExtentRect.bringToFront === 'function') {
+                window.layoutOverviewExtentRect.bringToFront();
+            }
         }
+        if (layoutConfig?.overview?.level === 'multi') {
+            renderLayoutOverviewMultiMaps();
+        }
+    }
+
+    function _destroyOverviewSubMaps() {
+        if (!window.layoutOverviewSubMaps) return;
+        for (const k of Object.keys(window.layoutOverviewSubMaps)) {
+            try { window.layoutOverviewSubMaps[k].map.remove(); } catch (_) {}
+        }
+        window.layoutOverviewSubMaps = {};
+    }
+
+    function renderLayoutOverviewMultiMaps(bounds, mainZoom) {
+        const multiHost = document.getElementById('layoutOverviewMultiHost');
+        const gridEl = document.getElementById('layoutOverviewMultiGrid');
+        if (!multiHost || !gridEl) return;
+
+        const ovCfg = layoutConfig?.overview || {};
+        const order = ['mundial', 'continental', 'nacional', 'regional', 'departamental', 'municipal'];
+        const chosen = Array.isArray(ovCfg.multiLevels) && ovCfg.multiLevels.length > 0
+            ? ovCfg.multiLevels
+            : ['continental', 'nacional', 'regional', 'municipal'];
+        const activeLevels = order.filter(k => chosen.includes(k));
+        if (activeLevels.length === 0) activeLevels.push('regional', 'municipal');
+
+        if (!bounds) {
+            if (window.layoutLeafletMap && typeof window.layoutLeafletMap.getBounds === 'function') {
+                bounds = window.layoutLeafletMap.getBounds();
+                mainZoom = window.layoutLeafletMap.getZoom() || 9;
+            } else if (state.map && typeof state.map.getBounds === 'function') {
+                bounds = state.map.getBounds();
+                mainZoom = state.map.getZoom() || 9;
+            }
+        }
+        const center = (bounds && bounds.isValid()) ? bounds.getCenter() : L.latLng(4.5, -73.2);
+        const levelZoomMap = {
+            municipal: 10,
+            departamental: 8,
+            regional: 6,
+            nacional: 5,
+            continental: 3,
+            mundial: 1
+        };
+        const levelShort = {
+            mundial: 'Mundial',
+            continental: 'Continental',
+            nacional: 'Nacional',
+            regional: 'Regional',
+            departamental: 'Dptal.',
+            municipal: 'Municipal'
+        };
+
+        const layoutMode = ovCfg.multiLayout || 'grid';
+        _destroyOverviewSubMaps();
+
+        if (layoutMode === 'horizontal') {
+            gridEl.style.cssText = 'display:flex; flex-direction:row; gap:5px; width:100%; height:100%; padding:4px; box-sizing:border-box; position:relative;';
+        } else if (layoutMode === 'vertical') {
+            gridEl.style.cssText = 'display:flex; flex-direction:column; gap:4px; width:100%; height:100%; padding:4px; box-sizing:border-box; position:relative;';
+        } else if (layoutMode === 'cascade') {
+            gridEl.style.cssText = 'display:block; width:100%; height:100%; padding:4px; box-sizing:border-box; position:relative;';
+        } else {
+            const cols = activeLevels.length <= 2 ? activeLevels.length : (activeLevels.length >= 5 ? 3 : 2);
+            gridEl.style.cssText = `display:grid; grid-template-columns:repeat(${cols}, minmax(0, 1fr)); grid-auto-rows:1fr; gap:5px; width:100%; height:100%; padding:4px; box-sizing:border-box; position:relative;`;
+        }
+
+        const n = activeLevels.length;
+        gridEl.innerHTML = activeLevels.map((lvl, idx) => {
+            let extraStyle = 'flex:1; min-width:0; min-height:0;';
+            if (layoutMode === 'cascade') {
+                const wPct = Math.max(34, Math.min(54, Math.round(82 / Math.sqrt(n))));
+                const hPct = Math.max(36, Math.min(56, Math.round(84 / Math.sqrt(n))));
+                const leftPct = n > 1 ? Math.round((idx / (n - 1)) * (96 - wPct)) + 2 : 2;
+                const topPct = n > 1 ? Math.round((idx / (n - 1)) * (96 - hPct)) + 2 : 2;
+                extraStyle = `position:absolute; left:${leftPct}%; top:${topPct}%; width:${wPct}%; height:${hPct}%; z-index:${10 + idx * 5};`;
+            }
+            return `
+                <div id="ov-multi-card-${lvl}" data-lvl="${lvl}" data-idx="${idx}" class="ov-submap-card relative border border-black bg-white overflow-hidden shadow-sm" style="${extraStyle}">
+                    <div class="absolute top-0.5 left-0.5 z-[400] bg-white/95 border border-black px-1 py-[0.5px] font-black uppercase text-black leading-none pointer-events-none" style="font-size:5.5px;">
+                        ${idx + 1}. ${levelShort[lvl] || lvl}
+                    </div>
+                    <div id="ov-multi-map-${lvl}" class="w-full h-full"></div>
+                </div>`;
+        }).join('');
+
+        const urls = _getOverviewBasemapUrls(ovCfg.basemap || 'light');
+        const showBox = ovCfg.showBox !== false;
+        const fillOp = ovCfg.showLayers !== false ? 0.08 : 0.25;
+
+        activeLevels.forEach((lvl) => {
+            const mapDiv = document.getElementById(`ov-multi-map-${lvl}`);
+            if (!mapDiv) return;
+            const z = levelZoomMap[lvl] !== undefined ? levelZoomMap[lvl] : 6;
+            const subMap = L.map(mapDiv, {
+                preferCanvas: true,
+                attributionControl: false,
+                zoomControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                touchZoom: false,
+                boxZoom: false,
+                keyboard: false
+            });
+            L.tileLayer(urls.base, { attribution: '', maxZoom: 18, crossOrigin: 'anonymous' }).addTo(subMap);
+            if (urls.ref) {
+                L.tileLayer(urls.ref, { attribution: '', maxZoom: 18, crossOrigin: 'anonymous' }).addTo(subMap);
+            }
+            const subGroup = L.layerGroup().addTo(subMap);
+            _populateOverviewLayerGroup(subGroup);
+
+            subMap.setView(center, z, { animate: false });
+            if (showBox && bounds && bounds.isValid()) {
+                L.rectangle(bounds, {
+                    color: '#dc2626',
+                    weight: 1.4,
+                    fillColor: '#ef4444',
+                    fillOpacity: fillOp
+                }).addTo(subMap);
+                if (z <= 5) {
+                    L.circleMarker(center, {
+                        radius: 3,
+                        color: '#ffffff',
+                        weight: 1,
+                        fillColor: '#dc2626',
+                        fillOpacity: 1
+                    }).addTo(subMap);
+                }
+            }
+            window.layoutOverviewSubMaps[lvl] = { map: subMap, group: subGroup };
+        });
+
+        setTimeout(() => {
+            for (const k of Object.keys(window.layoutOverviewSubMaps)) {
+                try { window.layoutOverviewSubMaps[k].map.invalidateSize({ animate: false }); } catch (_) {}
+            }
+            drawLayoutOverviewMultiConnectors(activeLevels);
+        }, 90);
+    }
+
+    function drawLayoutOverviewMultiConnectors(activeLevels) {
+        const svg = document.getElementById('layoutOverviewMultiSvg');
+        const host = document.getElementById('layoutOverviewMultiHost');
+        if (!svg || !host) return;
+
+        const ovCfg = layoutConfig?.overview || {};
+        const style = ovCfg.connectorStyle || 'curved';
+        const color = ovCfg.connectorColor || '#dc2626';
+        if (style === 'none' || !Array.isArray(activeLevels) || activeLevels.length < 2) {
+            svg.innerHTML = '';
+            return;
+        }
+
+        const hostRect = host.getBoundingClientRect();
+        const scaleX = host.offsetWidth > 0 && hostRect.width > 0 ? (host.offsetWidth / hostRect.width) : 1;
+        const scaleY = host.offsetHeight > 0 && hostRect.height > 0 ? (host.offsetHeight / hostRect.height) : 1;
+        const W = host.offsetWidth || 260;
+        const H = host.offsetHeight || 170;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+        let pathsHtml = `
+            <defs>
+                <marker id="ovMultiArrow" markerWidth="6" markerHeight="6" refX="4.8" refY="3" orient="auto">
+                    <path d="M0,0.5 L5.5,3 L0,5.5 Z" fill="${color}" />
+                </marker>
+            </defs>`;
+
+        for (let i = 0; i < activeLevels.length - 1; i++) {
+            const cardA = document.getElementById(`ov-multi-card-${activeLevels[i]}`);
+            const cardB = document.getElementById(`ov-multi-card-${activeLevels[i + 1]}`);
+            if (!cardA || !cardB) continue;
+
+            const rA = cardA.getBoundingClientRect();
+            const rB = cardB.getBoundingClientRect();
+            const ax = (rA.left - hostRect.left) * scaleX;
+            const ay = (rA.top - hostRect.top) * scaleY;
+            const aw = rA.width * scaleX;
+            const ah = rA.height * scaleY;
+
+            const bx = (rB.left - hostRect.left) * scaleX;
+            const by = (rB.top - hostRect.top) * scaleY;
+            const bw = rB.width * scaleX;
+            const bh = rB.height * scaleY;
+
+            // Punto de origen: centro del mapa A (donde está el área de estudio roja)
+            const x1 = ax + aw * 0.5;
+            const y1 = ay + ah * 0.5;
+
+            // Punto de destino: borde más cercano del mapa B hacia (x1, y1)
+            const bcx = bx + bw * 0.5;
+            const bcy = by + bh * 0.5;
+            const dx = bcx - x1;
+            const dy = bcy - y1;
+            let x2 = bcx, y2 = bcy;
+            let c1x = bx, c1y = by, c2x = bx, c2y = by + bh;
+
+            if (Math.abs(dx) * bh > Math.abs(dy) * bw) {
+                if (dx > 0) {
+                    x2 = bx + 2; y2 = bcy;
+                    c1x = bx; c1y = by + 3; c2x = bx; c2y = by + bh - 3;
+                } else {
+                    x2 = bx + bw - 2; y2 = bcy;
+                    c1x = bx + bw; c1y = by + 3; c2x = bx + bw; c2y = by + bh - 3;
+                }
+            } else {
+                if (dy > 0) {
+                    x2 = bcx; y2 = by + 2;
+                    c1x = bx + 3; c1y = by; c2x = bx + bw - 3; c2y = by;
+                } else {
+                    x2 = bcx; y2 = by + bh - 2;
+                    c1x = bx + 3; c1y = by + bh; c2x = bx + bw - 3; c2y = by + bh;
+                }
+            }
+
+            if (style === 'callouts') {
+                pathsHtml += `
+                    <polygon points="${x1.toFixed(1)},${y1.toFixed(1)} ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)}" fill="${color}" fill-opacity="0.14" stroke="none" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${c1x.toFixed(1)}" y2="${c1y.toFixed(1)}" stroke="#ffffff" stroke-width="2.2" stroke-opacity="0.85" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${c2x.toFixed(1)}" y2="${c2y.toFixed(1)}" stroke="#ffffff" stroke-width="2.2" stroke-opacity="0.85" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${c1x.toFixed(1)}" y2="${c1y.toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="3 2" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${c2x.toFixed(1)}" y2="${c2y.toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="3 2" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ovMultiArrow)" />`;
+            } else if (style === 'curved') {
+                const mx = (x1 + x2) * 0.5 - dy * 0.18;
+                const my = (y1 + y2) * 0.5 + dx * 0.18;
+                const dPath = `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+                pathsHtml += `
+                    <path d="${dPath}" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" />
+                    <path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.7" stroke-linecap="round" marker-end="url(#ovMultiArrow)" />`;
+            } else if (style === 'dashed') {
+                pathsHtml += `
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.7" stroke-dasharray="4 2.5" stroke-linecap="round" marker-end="url(#ovMultiArrow)" />`;
+            } else if (style === 'lines') {
+                pathsHtml += `
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.5" stroke-linecap="round" />`;
+            } else {
+                // 'arrows' (rectas)
+                pathsHtml += `
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" />
+                    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="1.7" stroke-linecap="round" marker-end="url(#ovMultiArrow)" />`;
+            }
+        }
+        svg.innerHTML = pathsHtml;
+    }
+
+    function layoutToggleOverviewMultiLevel() {
+        if (!layoutConfig.overview) layoutConfig.overview = {};
+        const chks = document.querySelectorAll('.ov-multi-lvl-chk');
+        const selected = [];
+        chks.forEach(c => { if (c.checked) selected.push(c.value); });
+        if (selected.length === 0) {
+            selected.push('regional', 'municipal');
+        }
+        layoutConfig.overview.multiLevels = selected;
+        updateLayoutOverviewExtent();
+    }
+
+    function layoutOverviewSelectAllMultiLevels() {
+        if (!layoutConfig.overview) layoutConfig.overview = {};
+        const allLvls = ['mundial', 'continental', 'nacional', 'regional', 'departamental', 'municipal'];
+        layoutConfig.overview.multiLevels = allLvls;
+        document.querySelectorAll('.ov-multi-lvl-chk').forEach(c => { c.checked = true; });
+        updateLayoutOverviewExtent();
     }
 
     function updateLayoutOverviewExtent() {
@@ -37796,6 +38142,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const levelSel = document.getElementById('overviewLevelSelect');
         if (levelSel) levelSel.value = level;
+        const multiPanel = document.getElementById('overviewMultiLevelPanel');
+        if (multiPanel) {
+            multiPanel.classList.toggle('hidden', level !== 'multi');
+            multiPanel.classList.toggle('flex', level === 'multi');
+        }
+        if (Array.isArray(ovCfg.multiLevels)) {
+            document.querySelectorAll('.ov-multi-lvl-chk').forEach(c => {
+                c.checked = ovCfg.multiLevels.includes(c.value);
+            });
+        }
+        const mLaySel = document.getElementById('overviewMultiLayoutSelect');
+        if (mLaySel && ovCfg.multiLayout) mLaySel.value = ovCfg.multiLayout;
+        const cStyleSel = document.getElementById('overviewConnectorStyleSelect');
+        if (cStyleSel && ovCfg.connectorStyle) cStyleSel.value = ovCfg.connectorStyle;
+        const cColInp = document.getElementById('overviewConnectorColorInput');
+        if (cColInp && ovCfg.connectorColor) cColInp.value = ovCfg.connectorColor;
+
         const bmSel = document.getElementById('overviewBasemapSelect');
         if (bmSel) bmSel.value = ovCfg.basemap || 'light';
         const showLChk = document.getElementById('overviewShowLayersChk');
@@ -37810,7 +38173,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             nacional: 'Nacional',
             continental: 'Continental',
             mundial: 'Mundial',
-            auto: 'Contexto'
+            auto: 'Contexto',
+            multi: 'Multi-Escala'
         };
         const badgeEl = document.getElementById('layoutOverviewLevelBadge');
         if (badgeEl) badgeEl.textContent = levelBadges[level] || 'Contexto';
@@ -37824,6 +38188,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             bounds = state.map.getBounds();
             mainZoom = state.map.getZoom() || 9;
         }
+
+        const singleHost = document.getElementById('layoutOverviewSingleHost');
+        const multiHost = document.getElementById('layoutOverviewMultiHost');
+
+        if (level === 'multi') {
+            if (singleHost) singleHost.classList.add('hidden');
+            if (multiHost) multiHost.classList.remove('hidden');
+            renderLayoutOverviewMultiMaps(bounds, mainZoom);
+            return;
+        }
+
+        if (multiHost) multiHost.classList.add('hidden');
+        if (singleHost) singleHost.classList.remove('hidden');
+        _destroyOverviewSubMaps();
+        window.layoutOverviewMap.invalidateSize({ animate: false });
 
         const levelZoomMap = {
             municipal: 10,
@@ -37895,7 +38274,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function layoutUpdateOverviewOption(prop, val) {
         if (!layoutConfig.overview) {
-            layoutConfig.overview = { title: 'LOCALIZACIÓN', level: 'regional', basemap: 'light', showLayers: true, showBox: true };
+            layoutConfig.overview = {
+                title: 'LOCALIZACIÓN',
+                level: 'regional',
+                basemap: 'light',
+                showLayers: true,
+                showBox: true,
+                multiLevels: ['continental', 'nacional', 'regional', 'municipal'],
+                multiLayout: 'grid',
+                connectorStyle: 'curved',
+                connectorColor: '#dc2626'
+            };
         }
         layoutConfig.overview[prop] = val;
         if (prop === 'basemap' && window.layoutOverviewMap) {
@@ -40093,6 +40482,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 layoutConfig.overview.width = resizeEl.style.width;
                 layoutConfig.overview.height = resizeEl.style.height;
                 if (window.layoutOverviewMap) window.layoutOverviewMap.invalidateSize({ animate: false });
+                if (typeof updateLayoutOverviewExtent === 'function') updateLayoutOverviewExtent();
             } else if (resizeEl.id === 'layoutChartContainer') {
                 if (!layoutConfig.rasterChart) layoutConfig.rasterChart = {};
                 layoutConfig.rasterChart.width = resizeEl.style.width;
