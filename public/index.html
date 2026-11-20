@@ -37705,7 +37705,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         };
 
                         if (clientGeo.overviews && clientGeo.overviews.length > 0) {
-                            const ovImg = clientGeo.overviews[clientGeo.overviews.length - 1];
+                            let ovImg = clientGeo.overviews[0];
+                            for (let oi = clientGeo.overviews.length - 1; oi >= 0; oi--) {
+                                const cand = clientGeo.overviews[oi];
+                                if (cand.getWidth() * cand.getHeight() >= 10000) {
+                                    ovImg = cand;
+                                    break;
+                                }
+                            }
                             const raw = await ovImg.readRasters({ samples: [bandIdx], interleave: false });
                             pushArr(Array.isArray(raw) ? raw[0] : raw);
                         } else {
@@ -37804,6 +37811,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
         } catch (err) {
             console.warn('[LayoutChart] Error leyendo píxeles:', err);
+        }
+
+        if (entries.some(e => (e.count || 0) > 0 || (e.pct || 0) > 0)) {
+            entries = entries.filter(e => (e.count || 0) > 0 || (e.pct || 0) > 0);
         }
 
         if (entries.length === 0) {
