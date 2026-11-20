@@ -16899,7 +16899,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                  const tileLayer = L.geoTIFFTileLayer(geo, {
                    tileSize: 256, maxNativeZoom: 24, maxZoom: 28,
                    opacity: layer.opacity ?? 1, bounds: geo.bounds,
-                   bands: layer.rendererParams?.bands
+                   bands: layer.rendererParams?.bands,
+                   renderer: layer.renderer,
+                   rendererParams: { ...(layer.rendererParams || {}) }
                  });
                  tileLayer.addTo(group);
                  
@@ -16993,6 +16995,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 opacity: layer.opacity ?? 1,
                 bounds: geo.bounds,
                 bands: layer.rendererParams.bands,
+                renderer: layer.renderer,
+                rendererParams: { ...(layer.rendererParams || {}) },
                 overviewUrl: overviewUrl
               });
               
@@ -32472,6 +32476,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateRasterBandUI(layer);
       rebuildRasterLayer(layer);
       if (typeof renderLayoutRasterChart === 'function' && layoutConfig?.elements?.rasterChart) renderLayoutRasterChart();
+      if (typeof saveLayerToDatabase === 'function') saveLayerToDatabase(layer);
     }
 
     function updateRasterBand(idx, bIdx) {
