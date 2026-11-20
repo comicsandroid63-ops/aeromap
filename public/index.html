@@ -3626,6 +3626,27 @@
                 <span class="text-[7px] text-zinc-400 block truncate">Triangulación puntos</span>
               </div>
             </button>
+            <button onclick="openTwoLayerSpatialModal('select_location')" class="p-2 bg-white hover:bg-amber-50 border border-zinc-200 hover:border-amber-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-amber-600 shrink-0">travel_explore</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Sel. Ubicación</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Por relación espacial</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('sampling')" class="p-2 bg-white hover:bg-lime-50 border border-zinc-200 hover:border-lime-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-lime-600 shrink-0">grid_on</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Malla / Puntos</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Hex, Grid, Aleatorios</span>
+              </div>
+            </button>
+            <button onclick="openTwoLayerSpatialModal('nearest')" class="col-span-2 p-2 bg-white hover:bg-violet-50 border border-zinc-200 hover:border-violet-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-violet-600 shrink-0">hub</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Matriz Distancia / Vecino más Cercano</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Distancias y líneas de conexión entre capas</span>
+              </div>
+            </button>
             <button onclick="openSingleVectorModal('calc_geometry')" class="col-span-2 p-2 bg-white hover:bg-indigo-50 border border-zinc-200 hover:border-indigo-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
               <span class="material-symbols-outlined text-[15px] text-indigo-600 shrink-0">calculate</span>
               <div class="truncate">
@@ -5977,6 +5998,45 @@
           </div>
         </div>
 
+        <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-violet-600 text-base">hub</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Selección Espacial, Muestreo y Proximidad</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('select_location');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">travel_explore</span> Selección por Ubicación
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Selecciona entidades de la capa A que intersecten, estén dentro, contengan o estén a cierta distancia de la capa B.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('sampling');" class="p-4 bg-zinc-50 hover:bg-lime-50/50 border border-zinc-200 hover:border-lime-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-lime-700">
+                  <span class="material-symbols-outlined text-lime-600 text-lg">grid_on</span> Puntos Aleatorios / Malla (Grid)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera puntos aleatorios o mallas regulares (hexagonal, cuadrada o puntos) dentro de polígonos para muestreo.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('nearest');" class="col-span-2 p-4 bg-zinc-50 hover:bg-violet-50/50 border border-zinc-200 hover:border-violet-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-violet-700">
+                  <span class="material-symbols-outlined text-violet-600 text-lg">hub</span> Matriz de Distancia / Vecino más Cercano
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula el vecino más cercano entre dos capas (puntos o polígonos), registra distancias en atributos y traza líneas de conexión.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 3. Medición y Atributos -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -6748,9 +6808,127 @@
           </p>
         </div>
 
+        <!-- Dynamic Option: Puntos Aleatorios / Malla Regular (Sampling & Grid) -->
+        <div id="singleVectorSamplingOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tipo de Muestreo / Malla</label>
+            <select id="singleVectorSampleType" onchange="if(typeof _toggleSamplingSubOpts==='function') _toggleSamplingSubOpts()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="random" selected>Puntos Aleatorios dentro del Polígono</option>
+              <option value="hexGrid">Malla Hexagonal (Hex Grid)</option>
+              <option value="squareGrid">Malla Rectangular / Cuadrada (Square Grid)</option>
+              <option value="pointGrid">Malla Regular de Puntos (Point Grid)</option>
+            </select>
+          </div>
+          <div id="singleVectorSampleRandomRow" class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Cantidad de Puntos</label>
+            <input type="number" id="singleVectorSampleCount" value="50" min="1" max="5000" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <div id="singleVectorSampleGridRow" class="grid grid-cols-2 gap-2.5 hidden">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tamaño de Celda</label>
+              <input type="number" id="singleVectorGridSize" value="1" min="0.01" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Unidad</label>
+              <select id="singleVectorGridUnit" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="kilometers" selected>Kilómetros (km)</option>
+                <option value="meters">Metros (m)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
+            <span class="material-symbols-outlined text-[15px]">play_arrow</span> Ejecutar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Análisis Espacial de 2 Capas (Selección por Ubicación / Vecino más Cercano) -->
+  <div id="twoLayerSpatialModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-violet-50 border border-violet-100 text-violet-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]" id="twoLayerSpatialIcon">hub</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400" id="twoLayerSpatialSub">Análisis Espacial</span>
+            <h3 class="font-bold text-base text-zinc-900" id="twoLayerSpatialTitle">Herramienta</h3>
+          </div>
+        </div>
+        <button onclick="closeTwoLayerSpatialModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <p class="text-[11px] text-zinc-600 leading-relaxed" id="twoLayerSpatialDesc"></p>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest" id="twoLayerSpatialLabelA">Capa A (Objetivo / Origen)</label>
+          <select id="twoLayerSpatialLayerA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest" id="twoLayerSpatialLabelB">Capa B (Referencia / Destino)</label>
+          <select id="twoLayerSpatialLayerB" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+        </div>
+
+        <!-- Opciones Selección por Ubicación -->
+        <div id="twoLayerSelectLocOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Relación Espacial</label>
+            <select id="twoLayerSpatialPredicate" onchange="document.getElementById('twoLayerSelectDistRow')?.classList.toggle('hidden', this.value !== 'distance')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="intersects" selected>Intersectan con Capa B</option>
+              <option value="within">Están completamente dentro de Capa B</option>
+              <option value="contains">Contienen a entidades de Capa B</option>
+              <option value="distance">Están a una distancia máxima de Capa B</option>
+            </select>
+          </div>
+          <div id="twoLayerSelectDistRow" class="grid grid-cols-2 gap-2.5 hidden">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia Máxima</label>
+              <input type="number" id="twoLayerSelectDist" value="500" min="0" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Unidad</label>
+              <select id="twoLayerSelectDistUnit" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="meters" selected>Metros (m)</option>
+                <option value="kilometers">Kilómetros (km)</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <span class="text-xs font-bold text-zinc-900">Extraer selección a una nueva capa</span>
+            <input type="checkbox" id="twoLayerSelectExtract" class="w-4 h-4 accent-amber-600 rounded cursor-pointer">
+          </label>
+        </div>
+
+        <!-- Opciones Vecino más Cercano / Matriz -->
+        <div id="twoLayerNearestOpt" class="space-y-3 hidden">
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Trazar líneas de conexión</span>
+              <span class="text-[9.5px] text-zinc-500">Crea una capa de líneas uniendo cada entidad con su vecino más cercano</span>
+            </div>
+            <input type="checkbox" id="twoLayerNearestLines" checked class="w-4 h-4 accent-violet-600 rounded cursor-pointer shrink-0">
+          </label>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Guardar distancias en tabla de Capa A</span>
+              <span class="text-[9.5px] text-zinc-500">Escribe near_dist_m, near_dist_km y near_idx en atributos</span>
+            </div>
+            <input type="checkbox" id="twoLayerNearestWriteAttrs" checked class="w-4 h-4 accent-violet-600 rounded cursor-pointer shrink-0">
+          </label>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="closeTwoLayerSpatialModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
+          <button id="twoLayerSpatialExecuteBtn" onclick="executeTwoLayerSpatialModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
             <span class="material-symbols-outlined text-[15px]">play_arrow</span> Ejecutar
           </button>
         </div>
@@ -42300,13 +42478,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const bufOpt = document.getElementById('singleVectorBufferOpt');
         const vorOpt = document.getElementById('singleVectorVoronoiOpt');
         const tinOpt = document.getElementById('singleVectorTinOpt');
+        const sampOpt = document.getElementById('singleVectorSamplingOpt');
         if (simpOpt) simpOpt.classList.add('hidden');
         if (expOpt) expOpt.classList.add('hidden');
         if (bufOpt) bufOpt.classList.add('hidden');
         if (vorOpt) vorOpt.classList.add('hidden');
         if (tinOpt) tinOpt.classList.add('hidden');
+        if (sampOpt) sampOpt.classList.add('hidden');
 
         const configs = {
+            sampling: {
+                title: 'Puntos Aleatorios / Malla (Grid)',
+                sub: 'Muestreo Espacial Turf.js',
+                icon: 'grid_on',
+                color: 'text-lime-600',
+                bg: 'bg-lime-50 border-lime-100',
+                desc: 'Genera puntos aleatorios o mallas regulares (hexagonal, cuadrada o puntos) dentro de un polígono para diseño de muestreo.',
+                opt: sampOpt
+            },
             voronoi: {
                 title: 'Polígonos de Voronoi / Thiessen',
                 sub: 'Teselación Espacial Turf.js',
@@ -42392,6 +42581,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         document.getElementById('singleVectorModal').style.display = 'flex';
     }
 
+    function _toggleSamplingSubOpts() {
+        const mode = document.getElementById('singleVectorSampleType')?.value || 'random';
+        const rRow = document.getElementById('singleVectorSampleRandomRow');
+        const gRow = document.getElementById('singleVectorSampleGridRow');
+        if (rRow) rRow.classList.toggle('hidden', mode !== 'random');
+        if (gRow) gRow.classList.toggle('hidden', mode === 'random');
+    }
+
     function _onSingleVectorLayerChange() {
         if (_currentSingleVectorTool !== 'tin') return;
         const zSel = document.getElementById('singleVectorTinZField');
@@ -42432,7 +42629,87 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'voronoi' || tool === 'tin') {
+            if (tool === 'sampling') {
+                const mode = document.getElementById('singleVectorSampleType')?.value || 'random';
+                const feats = (layer.geoJson.features && Array.isArray(layer.geoJson.features))
+                    ? layer.geoJson.features
+                    : [layer.geoJson];
+                const polys = feats.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                const bb = turf.bbox(layer.geoJson);
+
+                if (mode === 'random') {
+                    const targetCount = Math.max(1, Math.min(5000, parseInt(document.getElementById('singleVectorSampleCount')?.value || '50', 10) || 50));
+                    const collected = [];
+                    let attempts = 0;
+                    const maxAttempts = 20;
+                    while (collected.length < targetCount && attempts < maxAttempts) {
+                        attempts++;
+                        const batchSize = Math.max(targetCount * 2, 100);
+                        const rnd = turf.randomPoint(batchSize, { bbox: bb });
+                        for (const pt of rnd.features) {
+                            if (collected.length >= targetCount) break;
+                            if (polys.length === 0) {
+                                pt.properties = { sample_id: collected.length + 1 };
+                                collected.push(pt);
+                            } else {
+                                for (const poly of polys) {
+                                    try {
+                                        if (turf.booleanPointInPolygon(pt, poly)) {
+                                            pt.properties = { ...(poly.properties || {}), sample_id: collected.length + 1 };
+                                            collected.push(pt);
+                                            break;
+                                        }
+                                    } catch (_) {}
+                                }
+                            }
+                        }
+                    }
+                    if (collected.length === 0) throw new Error('No se pudieron generar puntos aleatorios dentro de los polígonos.');
+                    await addVectorLayer(turf.featureCollection(collected), `Puntos Aleatorios (${collected.length}) - ${layer.name}`, {
+                        isPoints: true,
+                        color: '#65a30d',
+                        pointSize: 6
+                    });
+                    toast(`Generados ${collected.length} puntos aleatorios de muestreo.`, 'success');
+                } else {
+                    const cellSize = parseFloat(document.getElementById('singleVectorGridSize')?.value || '1');
+                    const unit = document.getElementById('singleVectorGridUnit')?.value || 'kilometers';
+                    if (isNaN(cellSize) || cellSize <= 0) {
+                        throw new Error('Ingresa un tamaño de celda válido mayor a cero.');
+                    }
+                    const gridOpts = { units: unit };
+                    let rawGrid = null;
+                    if (mode === 'hexGrid') rawGrid = turf.hexGrid(bb, cellSize, gridOpts);
+                    else if (mode === 'squareGrid') rawGrid = turf.squareGrid(bb, cellSize, gridOpts);
+                    else rawGrid = turf.pointGrid(bb, cellSize, gridOpts);
+
+                    let outFeats = (rawGrid && rawGrid.features) ? rawGrid.features : [];
+                    if (polys.length > 0) {
+                        outFeats = outFeats.filter(cell => {
+                            for (const poly of polys) {
+                                try {
+                                    if (turf.booleanIntersects(cell, poly)) return true;
+                                } catch (_) {}
+                            }
+                            return false;
+                        });
+                    }
+                    if (outFeats.length === 0) {
+                        throw new Error('La malla no generó celdas dentro de la capa (prueba un tamaño de celda menor).');
+                    }
+                    outFeats.forEach((f, idx) => { f.properties = { ...(f.properties || {}), grid_id: idx + 1 }; });
+                    const modeNames = { hexGrid: 'Malla Hexagonal', squareGrid: 'Malla Cuadrada', pointGrid: 'Malla de Puntos' };
+                    const isPts = mode === 'pointGrid';
+                    await addVectorLayer(turf.featureCollection(outFeats), `${modeNames[mode]} - ${layer.name}`, {
+                        isPoints: isPts,
+                        color: '#65a30d',
+                        fillOpacity: isPts ? 0.85 : 0.18,
+                        strokeWidth: 1.5
+                    });
+                    toast(`${modeNames[mode]} generada: ${outFeats.length} elementos.`, 'success');
+                }
+
+            } else if (tool === 'voronoi' || tool === 'tin') {
                 const rawFeats = (layer.geoJson.features && Array.isArray(layer.geoJson.features))
                     ? layer.geoJson.features
                     : [layer.geoJson];
@@ -42759,6 +43036,198 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         for (const f of layer.geoJson.features) delete f.properties._selected;
         refreshLayerOnMap(layer);
         toast('Selección limpiada.');
+    }
+
+    let _currentTwoLayerSpatialTool = 'select_location';
+
+    function openTwoLayerSpatialModal(tool) {
+        _currentTwoLayerSpatialTool = tool || 'select_location';
+        const selA = document.getElementById('twoLayerSpatialLayerA');
+        const selB = document.getElementById('twoLayerSpatialLayerB');
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        const optsHtml = '<option value="">Seleccionar capa...</option>' +
+            vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        if (selA) selA.innerHTML = optsHtml;
+        if (selB) selB.innerHTML = optsHtml;
+
+        if (vectorLayers.length >= 1 && selA) {
+            selA.value = (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId))
+                ? state.selectedLayerId
+                : vectorLayers[0].id;
+        }
+        if (vectorLayers.length >= 2 && selB) {
+            const other = vectorLayers.find(l => String(l.id) !== String(selA?.value)) || vectorLayers[1];
+            selB.value = other.id;
+        }
+
+        const selOpt = document.getElementById('twoLayerSelectLocOpt');
+        const nearOpt = document.getElementById('twoLayerNearestOpt');
+        if (selOpt) selOpt.classList.add('hidden');
+        if (nearOpt) nearOpt.classList.add('hidden');
+
+        if (_currentTwoLayerSpatialTool === 'nearest') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'hub';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Proximidad Turf.js';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Matriz / Vecino más Cercano';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Calcula la distancia desde cada entidad de Capa A hacia su vecino más cercano en Capa B (puntos o polígonos).';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa Origen (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa Destino (B)';
+            if (nearOpt) nearOpt.classList.remove('hidden');
+        } else {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Selección por Ubicación';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Selecciona entidades de Capa A según su relación espacial o distancia respecto a Capa B.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa A (Entidades a seleccionar)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa B (Capa de referencia)';
+            if (selOpt) selOpt.classList.remove('hidden');
+        }
+        document.getElementById('twoLayerSpatialModal').style.display = 'flex';
+    }
+
+    function closeTwoLayerSpatialModal() {
+        const m = document.getElementById('twoLayerSpatialModal');
+        if (m) m.style.display = 'none';
+    }
+
+    async function executeTwoLayerSpatialModal() {
+        const idA = parseInt(document.getElementById('twoLayerSpatialLayerA')?.value);
+        const idB = parseInt(document.getElementById('twoLayerSpatialLayerB')?.value);
+        if (!idA || !idB) return toast('Selecciona Capa A y Capa B.', 'warning');
+        const layerA = state.layers.find(l => l.id === idA);
+        const layerB = state.layers.find(l => l.id === idB);
+        if (!layerA?.geoJson || !layerB?.geoJson) return toast('Una de las capas no tiene geometrías.', 'error');
+
+        closeTwoLayerSpatialModal();
+        showProgress('Ejecutando análisis espacial...', 30);
+
+        try {
+            const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
+            const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
+
+            if (_currentTwoLayerSpatialTool === 'select_location') {
+                const pred = document.getElementById('twoLayerSpatialPredicate')?.value || 'intersects';
+                const distVal = parseFloat(document.getElementById('twoLayerSelectDist')?.value || '500') || 0;
+                const distUnit = document.getElementById('twoLayerSelectDistUnit')?.value || 'meters';
+                const extract = !!document.getElementById('twoLayerSelectExtract')?.checked;
+
+                let refFeats = featsB;
+                if (pred === 'distance' && distVal > 0) {
+                    refFeats = featsB.map(fb => {
+                        try { return turf.buffer(fb, distVal, { units: distUnit, steps: 16 }); } catch (_) { return fb; }
+                    }).filter(Boolean);
+                }
+
+                let selectedCount = 0;
+                const extracted = [];
+                for (const fa of featsA) {
+                    if (!fa?.geometry) continue;
+                    fa.properties = fa.properties || {};
+                    let matched = false;
+                    for (const fb of refFeats) {
+                        if (!fb?.geometry) continue;
+                        try {
+                            if (pred === 'within') matched = turf.booleanWithin(fa, fb);
+                            else if (pred === 'contains') matched = turf.booleanContains(fa, fb);
+                            else matched = turf.booleanIntersects(fa, fb);
+                        } catch (_) {}
+                        if (matched) break;
+                    }
+                    fa.properties._selected = matched;
+                    if (matched) {
+                        selectedCount++;
+                        if (extract) {
+                            const copy = JSON.parse(JSON.stringify(fa));
+                            delete copy.properties._selected;
+                            extracted.push(copy);
+                        }
+                    }
+                }
+                refreshLayerOnMap(layerA);
+
+                if (extract && extracted.length > 0) {
+                    await addVectorLayer(turf.featureCollection(extracted), `Sel. Ubicación - ${layerA.name}`, {
+                        isPoints: layerA.isPoints,
+                        color: '#d97706',
+                        fillOpacity: 0.4,
+                        strokeWidth: 2
+                    });
+                }
+                toast(`Selección por ubicación: ${selectedCount} entidad(es) seleccionada(s) en ${layerA.name}.`, selectedCount > 0 ? 'success' : 'info');
+
+            } else {
+                const drawLines = !!document.getElementById('twoLayerNearestLines')?.checked;
+                const writeAttrs = !!document.getElementById('twoLayerNearestWriteAttrs')?.checked;
+
+                const toRepPoint = (f) => {
+                    if (!f?.geometry) return null;
+                    if (f.geometry.type === 'Point') return f;
+                    try { return turf.centroid(f); } catch (_) { return null; }
+                };
+
+                const ptsB = featsB.map((fb, idx) => ({ pt: toRepPoint(fb), idx })).filter(x => x.pt);
+                if (ptsB.length === 0) throw new Error('La Capa B no contiene geometrías válidas.');
+
+                const lineFeatures = [];
+                const distsM = [];
+                for (let i = 0; i < featsA.length; i++) {
+                    const fa = featsA[i];
+                    const ptA = toRepPoint(fa);
+                    if (!ptA) continue;
+
+                    let bestDistM = Infinity;
+                    let bestB = null;
+                    for (const itemB of ptsB) {
+                        const dM = turf.distance(ptA, itemB.pt, { units: 'meters' });
+                        if (dM < bestDistM) {
+                            bestDistM = dM;
+                            bestB = itemB;
+                        }
+                    }
+                    if (!bestB || !isFinite(bestDistM)) continue;
+                    distsM.push(bestDistM);
+                    const distKm = parseFloat((bestDistM / 1000).toFixed(4));
+                    const distMRound = parseFloat(bestDistM.toFixed(2));
+
+                    if (writeAttrs) {
+                        fa.properties = fa.properties || {};
+                        fa.properties.near_dist_m = distMRound;
+                        fa.properties.near_dist_km = distKm;
+                        fa.properties.near_idx = bestB.idx + 1;
+                    }
+                    if (drawLines) {
+                        const cA = ptA.geometry.coordinates.slice(0, 2);
+                        const cB = bestB.pt.geometry.coordinates.slice(0, 2);
+                        lineFeatures.push(turf.lineString([cA, cB], {
+                            from_idx: i + 1,
+                            to_idx: bestB.idx + 1,
+                            dist_m: distMRound,
+                            dist_km: distKm
+                        }));
+                    }
+                }
+
+                if (distsM.length === 0) throw new Error('No se pudieron calcular distancias entre las capas.');
+                if (writeAttrs) refreshLayerOnMap(layerA);
+
+                if (drawLines && lineFeatures.length > 0) {
+                    await addVectorLayer(turf.featureCollection(lineFeatures), `Vecino Cercano (${layerA.name} → ${layerB.name})`, {
+                        color: '#7c3aed',
+                        strokeWidth: 2,
+                        dashArray: [5, 4]
+                    });
+                }
+
+                const minD = Math.min(...distsM);
+                const maxD = Math.max(...distsM);
+                const avgD = distsM.reduce((s, v) => s + v, 0) / distsM.length;
+                toast(`Vecino más cercano (${distsM.length} pares): Mín ${minD.toFixed(1)} m · Prom ${avgD.toFixed(1)} m · Máx ${maxD.toFixed(1)} m.`, 'success');
+            }
+        } catch (err) {
+            toast(`Error: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
     }
 
     function selectByAttribute() {
