@@ -3605,6 +3605,13 @@
                 <span class="text-[7px] text-zinc-400 block truncate">A líneas/vértices</span>
               </div>
             </button>
+            <button onclick="openSingleVectorModal('buffer')" class="col-span-2 p-2 bg-white hover:bg-sky-50 border border-zinc-200 hover:border-sky-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-sky-600 shrink-0">adjust</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Buffer / Zona de Influencia</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Distancia m/km, disolver bordes y buffer interno</span>
+              </div>
+            </button>
             <button onclick="openSingleVectorModal('calc_geometry')" class="col-span-2 p-2 bg-white hover:bg-indigo-50 border border-zinc-200 hover:border-indigo-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
               <span class="material-symbols-outlined text-[15px] text-indigo-600 shrink-0">calculate</span>
               <div class="truncate">
@@ -5874,6 +5881,16 @@
               </div>
               <p class="text-[10px] text-zinc-500 leading-relaxed">Fusiona geométricamente las áreas de dos capas en un conjunto único.</p>
             </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('buffer');" class="col-span-2 p-4 bg-zinc-50 hover:bg-sky-50/60 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
+                  <span class="material-symbols-outlined text-sky-600 text-lg">adjust</span> Buffer / Zona de Influencia
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera zonas de amortiguamiento en metros o kilómetros, con opción de disolver bordes superpuestos y buffer interno/negativo para polígonos.</p>
+            </button>
           </div>
         </div>
 
@@ -6636,6 +6653,33 @@
             <option value="vertices" selected>Extraer todos los Vértices como Puntos</option>
             <option value="lines">Convertir Polígonos a Líneas de Contorno</option>
           </select>
+        </div>
+
+        <!-- Dynamic Option: Buffer / Zona de Influencia -->
+        <div id="singleVectorBufferOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia</label>
+              <input type="number" id="singleVectorBufferDist" value="500" step="any" placeholder="Ej: 500 o -100" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-sky-500/20">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Unidad</label>
+              <select id="singleVectorBufferUnit" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="meters" selected>Metros (m)</option>
+                <option value="kilometers">Kilómetros (km)</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-sky-50/40 transition-colors">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Disolver bordes superpuestos</span>
+              <span class="text-[9.5px] text-zinc-500">Fusiona las zonas de influencia que se tocan en un solo polígono continuo</span>
+            </div>
+            <input type="checkbox" id="singleVectorBufferDissolve" class="w-4 h-4 accent-sky-600 rounded cursor-pointer shrink-0">
+          </label>
+          <p class="text-[10px] text-sky-700 bg-sky-50 border border-sky-200/80 rounded-xl px-3 py-2 leading-relaxed">
+            <strong>Tip:</strong> Usa valores negativos (ej. <code>-100</code>) en capas de polígonos para generar un <strong>buffer interno</strong> hacia adentro.
+          </p>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -42187,10 +42231,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const simpOpt = document.getElementById('singleVectorSimplifyOpt');
         const expOpt = document.getElementById('singleVectorExplodeOpt');
+        const bufOpt = document.getElementById('singleVectorBufferOpt');
         if (simpOpt) simpOpt.classList.add('hidden');
         if (expOpt) expOpt.classList.add('hidden');
+        if (bufOpt) bufOpt.classList.add('hidden');
 
         const configs = {
+            buffer: {
+                title: 'Buffer / Zona de Influencia',
+                sub: 'Geoprocesamiento Turf.js',
+                icon: 'adjust',
+                color: 'text-sky-600',
+                bg: 'bg-sky-50 border-sky-100',
+                desc: 'Crea áreas de influencia alrededor de puntos, líneas o polígonos. Soporta distancia en metros/kilómetros, disolver bordes superpuestos y buffer interno negativo.',
+                opt: bufOpt
+            },
             simplify: {
                 title: 'Simplificar Geometría',
                 sub: 'Algoritmo Douglas-Peucker',
@@ -42263,7 +42318,84 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'simplify') {
+            if (tool === 'buffer') {
+                const distVal = parseFloat(document.getElementById('singleVectorBufferDist')?.value);
+                const unit = document.getElementById('singleVectorBufferUnit')?.value || 'meters';
+                const dissolve = !!document.getElementById('singleVectorBufferDissolve')?.checked;
+
+                if (isNaN(distVal) || distVal === 0) {
+                    hideProgress();
+                    return toast('Ingresa una distancia válida distinta de cero (ej. 500 o -100).', 'warning');
+                }
+
+                const features = (layer.geoJson.features && Array.isArray(layer.geoJson.features))
+                    ? layer.geoJson.features
+                    : [layer.geoJson];
+
+                const bufferedFeatures = [];
+                for (const f of features) {
+                    if (!f || !f.geometry) continue;
+                    const gType = f.geometry.type;
+                    if (distVal < 0 && gType !== 'Polygon' && gType !== 'MultiPolygon') continue;
+                    try {
+                        const b = turf.buffer(f, distVal, { units: unit, steps: 24 });
+                        if (b && b.geometry && b.geometry.coordinates && b.geometry.coordinates.length > 0) {
+                            if (turf.area(b) > 0) {
+                                b.properties = { ...(f.properties || {}), buffer_dist: distVal, buffer_unit: unit };
+                                bufferedFeatures.push(b);
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                if (bufferedFeatures.length === 0) {
+                    throw new Error(distVal < 0
+                        ? 'El buffer negativo es mayor que el ancho de los polígonos o la capa no contiene polígonos.'
+                        : 'No se pudieron generar geometrías de buffer para esta capa.');
+                }
+
+                let finalCollection = turf.featureCollection(bufferedFeatures);
+                if (dissolve && bufferedFeatures.length > 1) {
+                    try {
+                        const flat = turf.flatten(finalCollection);
+                        const dissolved = turf.dissolve(flat);
+                        if (dissolved && dissolved.features && dissolved.features.length > 0) {
+                            dissolved.features.forEach(df => {
+                                df.properties = { ...(df.properties || {}), buffer_dist: distVal, buffer_unit: unit, dissolved: true };
+                            });
+                            finalCollection = dissolved;
+                        }
+                    } catch (_) {
+                        // Fallback: unión secuencial con turf.union si turf.dissolve falla
+                        let merged = bufferedFeatures[0];
+                        const extras = [];
+                        for (let i = 1; i < bufferedFeatures.length; i++) {
+                            try {
+                                const u = turf.union(merged, bufferedFeatures[i]);
+                                if (u) merged = u;
+                                else extras.push(bufferedFeatures[i]);
+                            } catch (__) {
+                                extras.push(bufferedFeatures[i]);
+                            }
+                        }
+                        merged.properties = { buffer_dist: distVal, buffer_unit: unit, dissolved: true };
+                        finalCollection = turf.featureCollection([merged, ...extras]);
+                    }
+                }
+
+                const unitShort = unit === 'kilometers' ? 'km' : 'm';
+                const prefix = distVal < 0 ? 'Buffer Interno' : 'Buffer';
+                const dissTag = dissolve ? ' (Disuelto)' : '';
+                const outName = `${prefix} ${distVal} ${unitShort}${dissTag} - ${layer.name}`;
+
+                await addVectorLayer(finalCollection, outName, {
+                    color: distVal < 0 ? '#0284c7' : '#0ea5e9',
+                    fillOpacity: 0.25,
+                    strokeWidth: 2
+                });
+                toast(`${prefix} generado: ${finalCollection.features.length} entidad(es).`, 'success');
+
+            } else if (tool === 'simplify') {
                 const tol = parseFloat(document.getElementById('singleVectorTolerance').value) || 0.0005;
                 const vBefore = turf.explode(layer.geoJson).features.length;
                 const simplified = turf.simplify(layer.geoJson, { tolerance: tol, highQuality: true, mutate: false });
