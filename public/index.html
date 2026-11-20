@@ -14759,10 +14759,45 @@ class TileLRUCache {
               const method = style.interpolation || 'linear';
               const numCls = hasCustom ? style.customColors.length : Math.max(2, parseInt(style.classes || 5, 10) || 5);
               const invert = hasCustom ? false : !!style.invert;
+              const isNoDataVal = (val) => isNaN(val) || !isFinite(val) || (noDataValue != null && Math.abs(val - noDataValue) < 1e-4) || (val === 0 && noDataValue === 0) || val <= -9990 || val >= 1e30;
+              let renderArr = b0Arr;
+              if (width > 2 && height > 2) {
+                const uniq = new Set();
+                const uStep = Math.max(1, Math.floor(px / 4096));
+                for (let i = 0; i < px; i += uStep) {
+                  const val = b0Arr[i];
+                  if (!isNoDataVal(val)) {
+                    uniq.add(val);
+                    if (uniq.size >= numCls) break;
+                  }
+                }
+                if (uniq.size > 1 && uniq.size < numCls) {
+                  const smArr = new Float32Array(px);
+                  for (let y = 0; y < height; y++) {
+                    const y0 = y > 0 ? y - 1 : 0, y1 = y < height - 1 ? y + 1 : height - 1;
+                    for (let x = 0; x < width; x++) {
+                      const idx = y * width + x;
+                      const cv = b0Arr[idx];
+                      if (isNoDataVal(cv)) { smArr[idx] = NaN; continue; }
+                      const x0 = x > 0 ? x - 1 : 0, x1 = x < width - 1 ? x + 1 : width - 1;
+                      let sum = 0, cnt = 0;
+                      for (let ny = y0; ny <= y1; ny++) {
+                        const rowOff = ny * width;
+                        for (let nx = x0; nx <= x1; nx++) {
+                          const nv = b0Arr[rowOff + nx];
+                          if (!isNoDataVal(nv)) { sum += nv; cnt++; }
+                        }
+                      }
+                      smArr[idx] = cnt > 0 ? (sum / cnt) : cv;
+                    }
+                  }
+                  renderArr = smArr;
+                }
+              }
               for (let i = 0; i < px; i++) {
-                const v = b0Arr[i];
+                const v = renderArr[i];
                 const pi = i * 4;
-                if (isNaN(v) || !isFinite(v) || (noDataValue != null && Math.abs(v - noDataValue) < 1e-4) || (v === 0 && noDataValue === 0) || v <= -9990 || v >= 1e30) {
+                if (isNoDataVal(v)) {
                   d[pi + 3] = 0;
                 } else {
                   let norm = Math.max(0, Math.min(1, (v - minV) / span));
@@ -37696,15 +37731,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (clientGeo && clientGeo.image) {
                     const bandIdx = (target.rendererParams?.bands && target.rendererParams.bands[0] != null) ? target.rendererParams.bands[0] : 0;
                     const cacheKey = `${target.id}_b${bandIdx}`;
-                    let validVals = (target._chartSampleCache && target._chartSampleCache.key === cacheKey) ? target._chartSampleCache.vals : null;
+                    let cached = (target._chartSampleCache && target._chartSampleCache.key === cacheKey) ? target._chartSampleCache : null;
 
-                    if (!validVals) {
-                        validVals = [];
+                    if (!cached) {
+                        const validVals = [];
+                        const grids = [];
                         const nd = clientGeo.noDataValue;
-                        const pushArr = (arr) => {
+                        const isNd = (v) => isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30;
+                        const pushArr = (arr, gw, gh) => {
+                            if (gw > 2 && gh > 2 && arr && arr.length === gw * gh) {
+                                grids.push({ arr, w: gw, h: gh, nd });
+                            }
                             for (let i = 0; i < arr.length; i++) {
                                 const v = arr[i];
-                                if (isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30) continue;
+                                if (isNd(v)) continue;
                                 validVals.push(v);
                             }
                         };
@@ -37719,13 +37759,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 }
                             }
                             const raw = await ovImg.readRasters({ samples: [bandIdx], interleave: false });
-                            pushArr(Array.isArray(raw) ? raw[0] : raw);
+                            pushArr(Array.isArray(raw) ? raw[0] : raw, ovImg.getWidth(), ovImg.getHeight());
                         } else {
                             const img = clientGeo.image;
                             const w = img.getWidth(), h = img.getHeight();
                             if (w * h <= 262144) {
                                 const raw = await img.readRasters({ samples: [bandIdx], interleave: false });
-                                pushArr(Array.isArray(raw) ? raw[0] : raw);
+                                pushArr(Array.isArray(raw) ? raw[0] : raw, w, h);
                             } else {
                                 const pts = [0.2, 0.5, 0.8];
                                 for (const gy of pts) {
@@ -37736,26 +37776,58 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                         const wx1 = Math.min(w, cx + 32), wy1 = Math.min(h, cy + 32);
                                         try {
                                             const chunk = await img.readRasters({ window: [wx0, wy0, wx1, wy1], samples: [bandIdx], interleave: false });
-                                            pushArr(Array.isArray(chunk) ? chunk[0] : chunk);
+                                            pushArr(Array.isArray(chunk) ? chunk[0] : chunk, wx1 - wx0, wy1 - wy0);
                                         } catch (_) {}
                                     }
                                 }
                             }
                         }
-                        target._chartSampleCache = { key: cacheKey, vals: validVals };
+                        cached = { key: cacheKey, vals: validVals, grids };
+                        target._chartSampleCache = cached;
                     }
 
+                    const validVals = cached.vals;
                     if (validVals.length > 0) {
-                        const total = validVals.length;
                         const customNames = Array.isArray(target.rendererParams?.classNames) ? target.rendererParams.classNames : [];
                         if (target.renderer === 'pseudocolor') {
                             const colors = typeof _getEffectiveClassColors === 'function' ? _getEffectiveClassColors(target) : ['#440154', '#31688e', '#35b779', '#fde725'];
                             const numCls = colors.length;
                             let minV = Infinity, maxV = -Infinity;
-                            for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                            const uniq = new Set();
+                            for (const v of validVals) {
+                                if (v < minV) minV = v;
+                                if (v > maxV) maxV = v;
+                                if (uniq.size < numCls) uniq.add(v);
+                            }
+                            let evalVals = validVals;
+                            if (uniq.size > 1 && uniq.size < numCls && cached.grids && cached.grids.length > 0) {
+                                evalVals = [];
+                                for (const g of cached.grids) {
+                                    const { arr, w, h, nd } = g;
+                                    const isNd = (val) => isNaN(val) || !isFinite(val) || (nd != null && Math.abs(val - nd) < 1e-4) || (val === 0 && nd === 0) || val <= -9990 || val >= 1e30;
+                                    for (let y = 0; y < h; y++) {
+                                        const y0 = y > 0 ? y - 1 : 0, y1 = y < h - 1 ? y + 1 : h - 1;
+                                        for (let x = 0; x < w; x++) {
+                                            const cv = arr[y * w + x];
+                                            if (isNd(cv)) continue;
+                                            const x0 = x > 0 ? x - 1 : 0, x1 = x < w - 1 ? x + 1 : w - 1;
+                                            let sum = 0, cnt = 0;
+                                            for (let ny = y0; ny <= y1; ny++) {
+                                                const rOff = ny * w;
+                                                for (let nx = x0; nx <= x1; nx++) {
+                                                    const nv = arr[rOff + nx];
+                                                    if (!isNd(nv)) { sum += nv; cnt++; }
+                                                }
+                                            }
+                                            evalVals.push(cnt > 0 ? (sum / cnt) : cv);
+                                        }
+                                    }
+                                }
+                            }
+                            const total = evalVals.length || 1;
                             const span = (maxV - minV) || 1;
                             const counts = new Array(numCls).fill(0);
-                            for (const v of validVals) {
+                            for (const v of evalVals) {
                                 const norm = Math.max(0, Math.min(1, (v - minV) / span));
                                 const ci = Math.min(numCls - 1, Math.floor(norm * numCls));
                                 counts[ci]++;
@@ -37770,6 +37842,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 });
                             }
                         } else if (clientGeo.colorMap && clientGeo.colorMap.length >= 4) {
+                            const total = validVals.length;
                             const mapCounts = new Map();
                             for (const v of validVals) {
                                 const k = Math.round(v);
@@ -37791,6 +37864,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 });
                             });
                         } else {
+                            const total = validVals.length;
                             const palette5 = ['#334155', '#0284c7', '#10b981', '#f59e0b', '#ef4444'];
                             let minV = Infinity, maxV = -Infinity;
                             for (const v of validVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
