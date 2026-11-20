@@ -3612,6 +3612,20 @@
                 <span class="text-[7px] text-zinc-400 block truncate">Distancia m/km, disolver bordes y buffer interno</span>
               </div>
             </button>
+            <button onclick="openSingleVectorModal('voronoi')" class="p-2 bg-white hover:bg-fuchsia-50 border border-zinc-200 hover:border-fuchsia-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-fuchsia-600 shrink-0">hexagon</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Voronoi</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Polígonos Thiessen</span>
+              </div>
+            </button>
+            <button onclick="openSingleVectorModal('tin')" class="p-2 bg-white hover:bg-orange-50 border border-zinc-200 hover:border-orange-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
+              <span class="material-symbols-outlined text-[15px] text-orange-600 shrink-0">change_history</span>
+              <div class="truncate">
+                <span class="text-[8.5px] font-black text-zinc-800 block truncate">Delaunay TIN</span>
+                <span class="text-[7px] text-zinc-400 block truncate">Triangulación puntos</span>
+              </div>
+            </button>
             <button onclick="openSingleVectorModal('calc_geometry')" class="col-span-2 p-2 bg-white hover:bg-indigo-50 border border-zinc-200 hover:border-indigo-300 rounded-lg text-left transition-all flex items-center gap-1.5 shadow-2xs group">
               <span class="material-symbols-outlined text-[15px] text-indigo-600 shrink-0">calculate</span>
               <div class="truncate">
@@ -5940,6 +5954,26 @@
               </div>
               <p class="text-[10px] text-zinc-500 leading-relaxed">Extrae vértices individuales como puntos o polígonos a líneas.</p>
             </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('voronoi');" class="p-4 bg-zinc-50 hover:bg-fuchsia-50/50 border border-zinc-200 hover:border-fuchsia-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-fuchsia-700">
+                  <span class="material-symbols-outlined text-fuchsia-600 text-lg">hexagon</span> Polígonos de Voronoi / Thiessen
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Divide el espacio en áreas de influencia alrededor de cada punto conservando sus atributos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('tin');" class="p-4 bg-zinc-50 hover:bg-orange-50/50 border border-zinc-200 hover:border-orange-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-orange-700">
+                  <span class="material-symbols-outlined text-orange-600 text-lg">change_history</span> Triangulación de Delaunay (TIN)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Construye una malla triangular irregular (TIN) a partir de puntos con soporte opcional de campo Z.</p>
+            </button>
           </div>
         </div>
 
@@ -6631,7 +6665,7 @@
 
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial</label>
-          <select id="singleVectorLayerSelect" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-black/10">
+          <select id="singleVectorLayerSelect" onchange="if(typeof _onSingleVectorLayerChange==='function') _onSingleVectorLayerChange()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-black/10">
             <option value="">Seleccionar capa...</option>
           </select>
         </div>
@@ -6679,6 +6713,38 @@
           </label>
           <p class="text-[10px] text-sky-700 bg-sky-50 border border-sky-200/80 rounded-xl px-3 py-2 leading-relaxed">
             <strong>Tip:</strong> Usa valores negativos (ej. <code>-100</code>) en capas de polígonos para generar un <strong>buffer interno</strong> hacia adentro.
+          </p>
+        </div>
+
+        <!-- Dynamic Option: Voronoi / Thiessen -->
+        <div id="singleVectorVoronoiOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Margen de Extensión (BBox)</label>
+            <select id="singleVectorVoronoiPad" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="0">Exacto (BBox de los puntos)</option>
+              <option value="0.1" selected>Moderado (+10% alrededor)</option>
+              <option value="0.25">Amplio (+25% alrededor)</option>
+            </select>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Conservar atributos del punto</span>
+              <span class="text-[9.5px] text-zinc-500">Asigna las propiedades de cada punto a su polígono de Thiessen</span>
+            </div>
+            <input type="checkbox" id="singleVectorVoronoiKeepAttrs" checked class="w-4 h-4 accent-fuchsia-600 rounded cursor-pointer shrink-0">
+          </label>
+        </div>
+
+        <!-- Dynamic Option: Triangulación Delaunay (TIN) -->
+        <div id="singleVectorTinOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Z / Elevación (Opcional)</label>
+            <select id="singleVectorTinZField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="">Sin campo Z (Solo malla triangular)</option>
+            </select>
+          </div>
+          <p class="text-[10px] text-orange-800 bg-orange-50 border border-orange-200/80 rounded-xl px-3 py-2 leading-relaxed">
+            Requiere al menos <strong>3 puntos</strong>. Si eliges un campo numérico Z, cada triángulo incluirá <code>a, b, c</code> y el promedio <code>z_mean</code>.
           </p>
         </div>
 
@@ -42232,11 +42298,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const simpOpt = document.getElementById('singleVectorSimplifyOpt');
         const expOpt = document.getElementById('singleVectorExplodeOpt');
         const bufOpt = document.getElementById('singleVectorBufferOpt');
+        const vorOpt = document.getElementById('singleVectorVoronoiOpt');
+        const tinOpt = document.getElementById('singleVectorTinOpt');
         if (simpOpt) simpOpt.classList.add('hidden');
         if (expOpt) expOpt.classList.add('hidden');
         if (bufOpt) bufOpt.classList.add('hidden');
+        if (vorOpt) vorOpt.classList.add('hidden');
+        if (tinOpt) tinOpt.classList.add('hidden');
 
         const configs = {
+            voronoi: {
+                title: 'Polígonos de Voronoi / Thiessen',
+                sub: 'Teselación Espacial Turf.js',
+                icon: 'hexagon',
+                color: 'text-fuchsia-600',
+                bg: 'bg-fuchsia-50 border-fuchsia-100',
+                desc: 'Genera polígonos de proximidad (Thiessen) alrededor de cada punto de la capa, delimitando el área más cercana a cada estación o muestra.',
+                opt: vorOpt
+            },
+            tin: {
+                title: 'Triangulación de Delaunay (TIN)',
+                sub: 'Red Irregular de Triángulos',
+                icon: 'change_history',
+                color: 'text-orange-600',
+                bg: 'bg-orange-50 border-orange-100',
+                desc: 'Construye una malla de triángulos de Delaunay conectando los puntos más cercanos sin solapamientos, con soporte opcional de valor Z.',
+                opt: tinOpt
+            },
             buffer: {
                 title: 'Buffer / Zona de Influencia',
                 sub: 'Geoprocesamiento Turf.js',
@@ -42299,8 +42387,34 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         document.getElementById('singleVectorIcon').textContent = cfg.icon;
         document.getElementById('singleVectorDesc').textContent = cfg.desc;
         if (cfg.opt) cfg.opt.classList.remove('hidden');
+        if (typeof _onSingleVectorLayerChange === 'function') _onSingleVectorLayerChange();
 
         document.getElementById('singleVectorModal').style.display = 'flex';
+    }
+
+    function _onSingleVectorLayerChange() {
+        if (_currentSingleVectorTool !== 'tin') return;
+        const zSel = document.getElementById('singleVectorTinZField');
+        if (!zSel) return;
+        const layerId = parseInt(document.getElementById('singleVectorLayerSelect')?.value);
+        const layer = state.layers.find(l => l.id === layerId);
+        let optsHtml = '<option value="">Sin campo Z (Solo malla triangular)</option>';
+        if (layer && layer.geoJson && Array.isArray(layer.geoJson.features)) {
+            const numKeys = new Set();
+            for (const f of layer.geoJson.features.slice(0, 50)) {
+                const props = f?.properties || {};
+                for (const k of Object.keys(props)) {
+                    const v = props[k];
+                    if (v !== null && v !== '' && !isNaN(Number(v)) && isFinite(Number(v))) {
+                        numKeys.add(k);
+                    }
+                }
+            }
+            for (const k of numKeys) {
+                optsHtml += `<option value="${k}">${k}</option>`;
+            }
+        }
+        zSel.innerHTML = optsHtml;
     }
 
     function closeSingleVectorModal() {
@@ -42318,7 +42432,115 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'buffer') {
+            if (tool === 'voronoi' || tool === 'tin') {
+                const rawFeats = (layer.geoJson.features && Array.isArray(layer.geoJson.features))
+                    ? layer.geoJson.features
+                    : [layer.geoJson];
+
+                const ptFeatures = [];
+                for (const f of rawFeats) {
+                    if (!f || !f.geometry) continue;
+                    const gType = f.geometry.type;
+                    if (gType === 'Point') {
+                        ptFeatures.push(turf.point(f.geometry.coordinates.slice(0, 2), { ...(f.properties || {}) }));
+                    } else if (gType === 'MultiPoint') {
+                        for (const c of f.geometry.coordinates) {
+                            ptFeatures.push(turf.point(c.slice(0, 2), { ...(f.properties || {}) }));
+                        }
+                    } else {
+                        try {
+                            const cent = turf.centroid(f);
+                            cent.properties = { ...(f.properties || {}) };
+                            ptFeatures.push(cent);
+                        } catch (_) {}
+                    }
+                }
+
+                if (ptFeatures.length < 3) {
+                    throw new Error('Se requieren al menos 3 puntos distintos para calcular Voronoi o Delaunay (TIN).');
+                }
+                const ptsFC = turf.featureCollection(ptFeatures);
+
+                if (tool === 'voronoi') {
+                    const padPct = parseFloat(document.getElementById('singleVectorVoronoiPad')?.value ?? '0.1') || 0;
+                    const keepAttrs = !!document.getElementById('singleVectorVoronoiKeepAttrs')?.checked;
+                    const bb = turf.bbox(ptsFC);
+                    const dx = Math.max(0.001, bb[2] - bb[0]);
+                    const dy = Math.max(0.001, bb[3] - bb[1]);
+                    const paddedBbox = [
+                        bb[0] - dx * padPct,
+                        bb[1] - dy * padPct,
+                        bb[2] + dx * padPct,
+                        bb[3] + dy * padPct
+                    ];
+
+                    const vor = turf.voronoi(ptsFC, { bbox: paddedBbox });
+                    const validPolys = (vor && vor.features ? vor.features : []).filter(p => p && p.geometry && p.geometry.coordinates);
+                    if (validPolys.length === 0) {
+                        throw new Error('No se pudieron generar polígonos de Voronoi (verifica que los puntos no sean colineales).');
+                    }
+
+                    if (keepAttrs) {
+                        validPolys.forEach((poly, idx) => {
+                            let matchedProps = null;
+                            for (const pt of ptFeatures) {
+                                try {
+                                    if (turf.booleanPointInPolygon(pt, poly)) {
+                                        matchedProps = pt.properties;
+                                        break;
+                                    }
+                                } catch (_) {}
+                            }
+                            poly.properties = { ...(matchedProps || poly.properties || {}), voronoi_id: idx + 1 };
+                        });
+                    }
+
+                    const outFC = turf.featureCollection(validPolys);
+                    await addVectorLayer(outFC, `Voronoi - ${layer.name}`, {
+                        color: '#c026d3',
+                        fillOpacity: 0.22,
+                        strokeWidth: 1.8
+                    });
+                    toast(`Polígonos de Voronoi generados: ${validPolys.length} celdas.`, 'success');
+                } else {
+                    const zField = document.getElementById('singleVectorTinZField')?.value || '';
+                    if (zField) {
+                        ptFeatures.forEach(pt => {
+                            pt.properties = pt.properties || {};
+                            const n = Number(pt.properties[zField]);
+                            pt.properties[zField] = isFinite(n) ? n : 0;
+                        });
+                    }
+                    const tinRes = zField ? turf.tin(ptsFC, zField) : turf.tin(ptsFC);
+                    const validTris = (tinRes && tinRes.features ? tinRes.features : []).filter(t => t && t.geometry && t.geometry.coordinates);
+                    if (validTris.length === 0) {
+                        throw new Error('No se pudo construir la triangulación TIN (verifica que los puntos no sean colineales).');
+                    }
+
+                    validTris.forEach((tri, idx) => {
+                        tri.properties = tri.properties || {};
+                        tri.properties.tin_id = idx + 1;
+                        if (zField && tri.properties.a !== undefined && tri.properties.b !== undefined && tri.properties.c !== undefined) {
+                            const za = Number(tri.properties.a) || 0;
+                            const zb = Number(tri.properties.b) || 0;
+                            const zc = Number(tri.properties.c) || 0;
+                            tri.properties.z_min = parseFloat(Math.min(za, zb, zc).toFixed(4));
+                            tri.properties.z_max = parseFloat(Math.max(za, zb, zc).toFixed(4));
+                            tri.properties.z_mean = parseFloat(((za + zb + zc) / 3).toFixed(4));
+                        }
+                    });
+
+                    const outFC = turf.featureCollection(validTris);
+                    const outName = zField ? `TIN (${zField}) - ${layer.name}` : `TIN Delaunay - ${layer.name}`;
+                    await addVectorLayer(outFC, outName, {
+                        color: '#ea580c',
+                        fillOpacity: 0.18,
+                        strokeWidth: 1.4
+                    });
+                    toast(`Triangulación de Delaunay (TIN) generada: ${validTris.length} triángulos.`, 'success');
+                }
+
+            } else if (tool === 'buffer') {
                 const distVal = parseFloat(document.getElementById('singleVectorBufferDist')?.value);
                 const unit = document.getElementById('singleVectorBufferUnit')?.value || 'meters';
                 const dissolve = !!document.getElementById('singleVectorBufferDissolve')?.checked;
