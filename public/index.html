@@ -37856,18 +37856,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const maxPct = Math.max(1, ...entries.map(e => e.pct));
             const compact = entries.length > 8;
             const ultraCompact = entries.length > 10;
+            const fontStyle = ultraCompact ? 'font-size: 5.8px; line-height: 1.05;' : (compact ? 'font-size: 6.5px; line-height: 1.1;' : 'font-size: 7.5px; line-height: 1.15;');
+            const barH = ultraCompact ? '5px' : (compact ? '6px' : '9px');
+            const rowGap = ultraCompact ? '1.5px' : (compact ? '2px' : '4px');
             const barsHtml = entries.map(en => {
                 const wPct = en.pct > 0 ? Math.max(2, (en.pct / maxPct) * 100) : 0;
                 return `
-                    <div class="flex items-center gap-1.5 w-full ${ultraCompact ? 'text-[5.5px]' : (compact ? 'text-[6px]' : 'text-[7px]')} leading-none">
+                    <div class="flex items-center gap-1.5 w-full" style="${fontStyle}">
                         <span class="w-[17mm] truncate font-bold text-zinc-800 text-right shrink-0" title="${en.label}">${en.label}</span>
-                        <div class="flex-1 ${ultraCompact ? 'h-[5px]' : (compact ? 'h-1.5' : 'h-2.5')} bg-zinc-100 border border-zinc-300 relative overflow-hidden">
+                        <div class="flex-1 bg-zinc-100 border border-zinc-300 relative overflow-hidden" style="height:${barH};">
                             <div class="h-full" style="width:${wPct.toFixed(1)}%; background:${en.color};"></div>
                         </div>
                         ${showVals ? `<span class="w-[9mm] font-mono font-bold text-zinc-700 text-right shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
                     </div>`;
             }).join('');
-            body.innerHTML = `<div class="w-full h-full flex flex-col ${ultraCompact ? 'justify-start gap-[1.5px]' : (compact ? 'justify-center gap-0.5' : 'justify-center gap-1')} overflow-y-auto">${barsHtml}</div>`;
+            body.innerHTML = `<div class="w-full h-full flex flex-col justify-center overflow-y-auto" style="gap:${rowGap};">${barsHtml}</div>`;
         }
     }
 
