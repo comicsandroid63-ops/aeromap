@@ -8263,7 +8263,7 @@
             <div id="layoutOverviewContainer" onclick="layoutSelectElement('overview')" class="absolute cursor-move group z-30 flex flex-col bg-white border-[1.5px] border-black shadow-none overflow-hidden" style="width: 70mm; height: 50mm; top: 195mm; left: 130mm; border-radius: 0px !important;">
                 <div class="px-2.5 py-1 bg-white border-b border-black flex items-center justify-between select-none shrink-0">
                     <span contenteditable="true" spellcheck="false" id="layoutOverviewTitle" class="text-[9px] font-black uppercase tracking-wider text-black outline-none cursor-text">Localización</span>
-                    <span class="text-[7.5px] font-mono font-bold text-zinc-500 uppercase">Contexto</span>
+                    <span id="layoutOverviewLevelBadge" class="text-[7.5px] font-mono font-bold text-zinc-500 uppercase">Regional</span>
                 </div>
                 <div id="layoutOverviewMap" class="w-full flex-1 relative bg-zinc-100 overflow-hidden" style="z-index: 1;">
                     <!-- Leaflet overview inset map injected here -->
@@ -8458,11 +8458,41 @@
 
             <!-- 7. LOCALIZACIÓN (OVERVIEW INSET) PROPS -->
             <div id="props-overview" class="hidden flex-col gap-4">
-                <div class="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                <div class="flex flex-col gap-2.5 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
                     <span class="text-[9px] font-black uppercase tracking-wider text-zinc-800">Caja de Localización (Contexto)</span>
                     <div class="flex flex-col gap-1">
                         <label class="text-[8px] font-black text-zinc-500 uppercase">Título de la Caja</label>
                         <input type="text" id="overviewTitleInput" value="LOCALIZACIÓN" oninput="layoutUpdateOverviewTitle(this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Nivel de Localización</label>
+                        <select id="overviewLevelSelect" onchange="layoutUpdateOverviewOption('level', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="municipal">Municipal / Local</option>
+                            <option value="departamental">Departamental / Subregional</option>
+                            <option value="regional" selected>Regional</option>
+                            <option value="nacional">Nacional</option>
+                            <option value="continental">Continental</option>
+                            <option value="mundial">Mundial / Global</option>
+                            <option value="auto">Automático (Relativo al Mapa)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Mapa Base de Contexto</label>
+                        <select id="overviewBasemapSelect" onchange="layoutUpdateOverviewOption('basemap', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="light" selected>Gris Claro (Cartográfico)</option>
+                            <option value="topo">Topográfico / Político</option>
+                            <option value="osm">Calles y Municipios (OSM)</option>
+                            <option value="satellite">Satélite Híbrido</option>
+                            <option value="dark">Oscuro</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Mostrar Capas (Ráster/Vector)</span>
+                        <input type="checkbox" id="overviewShowLayersChk" checked onchange="layoutUpdateOverviewOption('showLayers', this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer">
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Recuadro Rojo de Extensión</span>
+                        <input type="checkbox" id="overviewShowBoxChk" checked onchange="layoutUpdateOverviewOption('showBox', this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer">
                     </div>
                     <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
                         <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Sincronizar Extensión</span>
@@ -32602,6 +32632,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           layer._geotiffTileLayer.setBands(layer.rendererParams?.bands);
         }
         if (layer.renderer === 'pseudocolor') updateRasterRangeDisplay(layer);
+        if (window.layoutLeafletMap && typeof syncLayoutMapLayers === 'function') {
+          syncLayoutMapLayers();
+        }
         if (typeof rebuild3DRasterLayer === 'function' && document.getElementById('map3DContainer')?.style.display !== 'none') {
           rebuild3DRasterLayer(layer, layer._tileSavedAs);
         }
@@ -37334,7 +37367,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (l._geotiffTileLayer?.geo || l.mapLayer?.geo) {
                         const targetGeo = l._geotiffTileLayer?.geo || l.mapLayer?.geo;
                         const targetOpts = (l._geotiffTileLayer || l.mapLayer).options || {};
-                        const rTile = L.geoTIFFTileLayer(targetGeo, { ...targetOpts, opacity: l.opacity ?? 1 });
+                        const rTile = L.geoTIFFTileLayer(targetGeo, {
+                            ...targetOpts,
+                            bands: l.rendererParams?.bands || targetOpts.bands,
+                            renderer: l.renderer || targetOpts.renderer,
+                            rendererParams: { ...(targetOpts.rendererParams || {}), ...(l.rendererParams || {}) },
+                            opacity: l.opacity ?? 1
+                        });
                         window.layoutLayersGroup.addLayer(rTile);
                     } else if (l.mapLayer) {
                         if (typeof l.mapLayer.getTileUrl === 'function' && l.mapLayer._url) {
@@ -37377,6 +37416,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         window.layoutLeafletMap.invalidateSize();
         updateLayoutZoomBadges();
+        if (typeof syncLayoutOverviewLayers === 'function') syncLayoutOverviewLayers();
     }
 
     function layoutContentZoomStep(delta) {
@@ -37570,10 +37610,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ══════════════════════════════════════════════════════════════════════════════════
     window.layoutOverviewMap = null;
     window.layoutOverviewExtentRect = null;
+    window.layoutOverviewCenterDot = null;
+    window.layoutOverviewLayersGroup = null;
+    window.layoutOverviewBaseLayer = null;
+    window.layoutOverviewRefLayer = null;
+
+    function _getOverviewBasemapUrls(style) {
+        const map = {
+            light: {
+                base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                ref: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
+            },
+            topo: {
+                base: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+                ref: null
+            },
+            osm: {
+                base: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                ref: null
+            },
+            satellite: {
+                base: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                ref: null
+            },
+            dark: {
+                base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                ref: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
+            }
+        };
+        return map[style] || map.light;
+    }
 
     function initLayoutOverviewMap() {
         const ovContainer = document.getElementById('layoutOverviewMap');
         if (!ovContainer) return;
+
+        if (!layoutConfig.overview) {
+            layoutConfig.overview = { title: 'LOCALIZACIÓN', level: 'regional', basemap: 'light', showLayers: true, showBox: true };
+        }
 
         if (!window.layoutOverviewMap) {
             ovContainer.innerHTML = '';
@@ -37589,54 +37663,257 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 keyboard: false
             });
 
-            // Basemap claro de referencia continental / nacional
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            const urls = _getOverviewBasemapUrls(layoutConfig.overview.basemap || 'light');
+            window.layoutOverviewBaseLayer = L.tileLayer(urls.base, {
                 attribution: '',
-                maxZoom: 16,
+                maxZoom: 18,
                 crossOrigin: 'anonymous'
             }).addTo(window.layoutOverviewMap);
 
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            window.layoutOverviewRefLayer = L.tileLayer(urls.ref || urls.base, {
                 attribution: '',
-                maxZoom: 16,
+                maxZoom: 18,
+                opacity: urls.ref ? 1 : 0,
                 crossOrigin: 'anonymous'
             }).addTo(window.layoutOverviewMap);
+
+            window.layoutOverviewLayersGroup = L.layerGroup().addTo(window.layoutOverviewMap);
         }
 
         setTimeout(() => {
             if (!window.layoutOverviewMap) return;
             window.layoutOverviewMap.invalidateSize({ animate: false });
+            syncLayoutOverviewLayers();
             updateLayoutOverviewExtent();
         }, 120);
     }
 
+    function syncLayoutOverviewLayers() {
+        if (!window.layoutOverviewMap || !window.layoutOverviewLayersGroup) return;
+        window.layoutOverviewLayersGroup.clearLayers();
+
+        const ovCfg = layoutConfig?.overview || {};
+        if (ovCfg.showLayers === false) return;
+
+        const visibleLayers = (state.layers || []).filter(l => l.visible !== false).slice().reverse();
+
+        if (state.drawnItems && typeof state.drawnItems.toGeoJSON === 'function') {
+            try {
+                const gj = state.drawnItems.toGeoJSON();
+                if (gj && gj.features && gj.features.length > 0) {
+                    const dLayer = L.geoJSON(gj, {
+                        style: (feat) => ({
+                            color: feat.properties?.color || feat.properties?.strokeColor || '#38bdf8',
+                            weight: 1.5,
+                            fillColor: feat.properties?.fillColor || feat.properties?.color || '#38bdf8',
+                            fillOpacity: 0.4
+                        }),
+                        pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
+                            radius: 3,
+                            fillColor: feat.properties?.fillColor || feat.properties?.color || '#38bdf8',
+                            color: '#ffffff',
+                            weight: 1,
+                            fillOpacity: 0.9
+                        })
+                    });
+                    window.layoutOverviewLayersGroup.addLayer(dLayer);
+                }
+            } catch (_) {}
+        }
+
+        for (const l of visibleLayers) {
+            try {
+                if (l.type === 'vector' && l.geoJson) {
+                    const vLayer = L.geoJSON(l.geoJson, {
+                        style: (feat) => {
+                            const st = typeof getVectorFeatureStyle === 'function' ? getVectorFeatureStyle(l, feat) : {};
+                            return { ...st, weight: Math.max(1, (st.weight || 1.5) * 0.75) };
+                        },
+                        pointToLayer: (feat, latlng) => {
+                            const st = typeof getVectorFeatureStyle === 'function' ? getVectorFeatureStyle(l, feat) : {};
+                            return L.circleMarker(latlng, {
+                                radius: Math.max(2, (l.pointRadius || 5) * 0.6),
+                                fillColor: st.fillColor || l.color || '#38bdf8',
+                                color: st.color || l.strokeColor || '#ffffff',
+                                weight: 1,
+                                opacity: st.opacity || 1,
+                                fillOpacity: st.fillOpacity ?? 0.85
+                            });
+                        }
+                    });
+                    window.layoutOverviewLayersGroup.addLayer(vLayer);
+                } else if (l.type === 'raster') {
+                    if (l._geotiffTileLayer?.geo || l.mapLayer?.geo) {
+                        const targetGeo = l._geotiffTileLayer?.geo || l.mapLayer?.geo;
+                        const targetOpts = (l._geotiffTileLayer || l.mapLayer).options || {};
+                        const rTile = L.geoTIFFTileLayer(targetGeo, {
+                            ...targetOpts,
+                            bands: l.rendererParams?.bands || targetOpts.bands,
+                            renderer: l.renderer || targetOpts.renderer,
+                            rendererParams: { ...(targetOpts.rendererParams || {}), ...(l.rendererParams || {}) },
+                            opacity: l.opacity ?? 1
+                        });
+                        window.layoutOverviewLayersGroup.addLayer(rTile);
+                    } else if (l.mapLayer) {
+                        if (typeof l.mapLayer.getTileUrl === 'function' && l.mapLayer._url) {
+                            const rTile = L.tileLayer(l.mapLayer._url, {
+                                ...l.mapLayer.options,
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            window.layoutOverviewLayersGroup.addLayer(rTile);
+                        } else if (l.mapLayer._url && l.mapLayer._bounds) {
+                            const rImg = L.imageOverlay(l.mapLayer._url, l.mapLayer._bounds, {
+                                opacity: l.opacity ?? 1,
+                                crossOrigin: 'anonymous'
+                            });
+                            window.layoutOverviewLayersGroup.addLayer(rImg);
+                        } else if (l.mapLayer._image && l.mapLayer._image.src && l.bounds) {
+                            const b = _normBounds(l.bounds);
+                            if (b) {
+                                const rImg = L.imageOverlay(l.mapLayer._image.src, b, {
+                                    opacity: l.opacity ?? 1,
+                                    crossOrigin: 'anonymous'
+                                });
+                                window.layoutOverviewLayersGroup.addLayer(rImg);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('[OverviewLayers] Error clonando capa en localización:', l.name, err);
+            }
+        }
+        if (window.layoutOverviewExtentRect && typeof window.layoutOverviewExtentRect.bringToFront === 'function') {
+            window.layoutOverviewExtentRect.bringToFront();
+        }
+    }
+
     function updateLayoutOverviewExtent() {
         if (!window.layoutOverviewMap) return;
+        const ovCfg = layoutConfig?.overview || {};
+        const level = ovCfg.level || 'regional';
+
+        const levelSel = document.getElementById('overviewLevelSelect');
+        if (levelSel) levelSel.value = level;
+        const bmSel = document.getElementById('overviewBasemapSelect');
+        if (bmSel) bmSel.value = ovCfg.basemap || 'light';
+        const showLChk = document.getElementById('overviewShowLayersChk');
+        if (showLChk) showLChk.checked = ovCfg.showLayers !== false;
+        const showBChk = document.getElementById('overviewShowBoxChk');
+        if (showBChk) showBChk.checked = ovCfg.showBox !== false;
+
+        const levelBadges = {
+            municipal: 'Municipal',
+            departamental: 'Departamental',
+            regional: 'Regional',
+            nacional: 'Nacional',
+            continental: 'Continental',
+            mundial: 'Mundial',
+            auto: 'Contexto'
+        };
+        const badgeEl = document.getElementById('layoutOverviewLevelBadge');
+        if (badgeEl) badgeEl.textContent = levelBadges[level] || 'Contexto';
+
         let bounds = null;
+        let mainZoom = 9;
         if (window.layoutLeafletMap && typeof window.layoutLeafletMap.getBounds === 'function') {
             bounds = window.layoutLeafletMap.getBounds();
+            mainZoom = window.layoutLeafletMap.getZoom() || 9;
         } else if (state.map && typeof state.map.getBounds === 'function') {
             bounds = state.map.getBounds();
+            mainZoom = state.map.getZoom() || 9;
         }
+
+        const levelZoomMap = {
+            municipal: 10,
+            departamental: 8,
+            regional: 6,
+            nacional: 5,
+            continental: 3,
+            mundial: 1,
+            auto: Math.max(1, mainZoom - 3)
+        };
+        const targetZoom = levelZoomMap[level] !== undefined ? levelZoomMap[level] : 6;
 
         if (bounds && bounds.isValid()) {
             const center = bounds.getCenter();
-            window.layoutOverviewMap.setView(center, 5, { animate: false });
+            window.layoutOverviewMap.setView(center, targetZoom, { animate: false });
 
-            if (window.layoutOverviewExtentRect) {
-                window.layoutOverviewExtentRect.setBounds(bounds);
+            const showBox = ovCfg.showBox !== false;
+            const fillOp = ovCfg.showLayers !== false ? 0.08 : 0.25;
+            if (showBox) {
+                if (window.layoutOverviewExtentRect) {
+                    window.layoutOverviewExtentRect.setBounds(bounds);
+                    window.layoutOverviewExtentRect.setStyle({ fillOpacity: fillOp, opacity: 1 });
+                    if (!window.layoutOverviewMap.hasLayer(window.layoutOverviewExtentRect)) {
+                        window.layoutOverviewExtentRect.addTo(window.layoutOverviewMap);
+                    }
+                    if (typeof window.layoutOverviewExtentRect.bringToFront === 'function') {
+                        window.layoutOverviewExtentRect.bringToFront();
+                    }
+                } else {
+                    window.layoutOverviewExtentRect = L.rectangle(bounds, {
+                        color: '#dc2626',
+                        weight: 1.8,
+                        fillColor: '#ef4444',
+                        fillOpacity: fillOp,
+                        dashArray: 'none'
+                    }).addTo(window.layoutOverviewMap);
+                }
+
+                if (targetZoom <= 4) {
+                    if (window.layoutOverviewCenterDot) {
+                        window.layoutOverviewCenterDot.setLatLng(center);
+                        if (!window.layoutOverviewMap.hasLayer(window.layoutOverviewCenterDot)) {
+                            window.layoutOverviewCenterDot.addTo(window.layoutOverviewMap);
+                        }
+                    } else {
+                        window.layoutOverviewCenterDot = L.circleMarker(center, {
+                            radius: 4,
+                            color: '#ffffff',
+                            weight: 1.5,
+                            fillColor: '#dc2626',
+                            fillOpacity: 1
+                        }).addTo(window.layoutOverviewMap);
+                    }
+                } else if (window.layoutOverviewCenterDot && window.layoutOverviewMap.hasLayer(window.layoutOverviewCenterDot)) {
+                    window.layoutOverviewMap.removeLayer(window.layoutOverviewCenterDot);
+                }
             } else {
-                window.layoutOverviewExtentRect = L.rectangle(bounds, {
-                    color: '#dc2626',
-                    weight: 2,
-                    fillColor: '#ef4444',
-                    fillOpacity: 0.28,
-                    dashArray: 'none'
-                }).addTo(window.layoutOverviewMap);
+                if (window.layoutOverviewExtentRect && window.layoutOverviewMap.hasLayer(window.layoutOverviewExtentRect)) {
+                    window.layoutOverviewMap.removeLayer(window.layoutOverviewExtentRect);
+                }
+                if (window.layoutOverviewCenterDot && window.layoutOverviewMap.hasLayer(window.layoutOverviewCenterDot)) {
+                    window.layoutOverviewMap.removeLayer(window.layoutOverviewCenterDot);
+                }
             }
         } else {
-            window.layoutOverviewMap.setView([4.5, -73.2], 5, { animate: false });
+            window.layoutOverviewMap.setView([4.5, -73.2], targetZoom, { animate: false });
         }
+    }
+
+    function layoutUpdateOverviewOption(prop, val) {
+        if (!layoutConfig.overview) {
+            layoutConfig.overview = { title: 'LOCALIZACIÓN', level: 'regional', basemap: 'light', showLayers: true, showBox: true };
+        }
+        layoutConfig.overview[prop] = val;
+        if (prop === 'basemap' && window.layoutOverviewMap) {
+            const urls = _getOverviewBasemapUrls(val);
+            if (window.layoutOverviewBaseLayer) window.layoutOverviewBaseLayer.setUrl(urls.base);
+            if (window.layoutOverviewRefLayer) {
+                if (urls.ref) {
+                    window.layoutOverviewRefLayer.setUrl(urls.ref);
+                    window.layoutOverviewRefLayer.setOpacity(1);
+                } else {
+                    window.layoutOverviewRefLayer.setOpacity(0);
+                }
+            }
+        }
+        if (prop === 'showLayers') {
+            syncLayoutOverviewLayers();
+        }
+        updateLayoutOverviewExtent();
     }
 
     function layoutUpdateOverviewTitle(val) {
