@@ -8486,8 +8486,18 @@
                     <div class="flex flex-col gap-1">
                         <label class="text-[8px] font-black text-zinc-500 uppercase">Tipo de Gráfica</label>
                         <select id="chartTypeSelect" onchange="layoutUpdateChartOption('chartType', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
-                            <option value="bar">Barras (Distribución por Clases %)</option>
-                            <option value="pie">Circular / Dona (Coberturas %)</option>
+                            <option value="bar">Barras (Distribución por Clases)</option>
+                            <option value="pie">Circular / Dona (Coberturas)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[8px] font-black text-zinc-500 uppercase">Unidad de Medida</label>
+                        <select id="chartUnitSelect" onchange="layoutUpdateChartOption('unit', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none">
+                            <option value="pct">Porcentaje (%)</option>
+                            <option value="ha">Hectáreas (ha)</option>
+                            <option value="km2">Kilómetros cuadrados (km²)</option>
+                            <option value="m2">Metros cuadrados (m²)</option>
+                            <option value="ac">Acres (ac)</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1">
@@ -8495,7 +8505,7 @@
                         <input type="text" id="chartTitleInput" value="Distribución de Clases (%)" oninput="layoutUpdateChartOption('title', this.value)" class="w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-black">
                     </div>
                     <div class="flex items-center justify-between pt-1 border-t border-zinc-200/60">
-                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Mostrar Porcentajes</span>
+                        <span class="text-[8.5px] font-bold text-zinc-600 uppercase">Mostrar Valores</span>
                         <input type="checkbox" id="chartShowValuesChk" checked onchange="layoutUpdateChartOption('showValues', this.checked)" class="w-4 h-4 accent-black rounded cursor-pointer">
                     </div>
                 </div>
@@ -37629,14 +37639,67 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function layoutUpdateChartOption(prop, val) {
         if (!layoutConfig.rasterChart) {
-            layoutConfig.rasterChart = { top: '135mm', left: '118mm', width: '78mm', height: '52mm', chartType: 'bar', layerId: 'auto', title: 'Distribución de Clases (%)', showValues: true };
+            layoutConfig.rasterChart = { top: '135mm', left: '118mm', width: '78mm', height: '52mm', chartType: 'bar', layerId: 'auto', unit: 'pct', title: 'Distribución de Clases (%)', showValues: true };
         }
         layoutConfig.rasterChart[prop] = val;
+        if (prop === 'unit') {
+            const unitSuffixes = { pct: '%', ha: 'ha', km2: 'km²', m2: 'm²', ac: 'ac' };
+            const curTitle = String(layoutConfig.rasterChart.title || '');
+            if (!curTitle || /^Distribución de Clases\s*\([^)]*\)$/i.test(curTitle.trim())) {
+                const newTitle = `Distribución de Clases (${unitSuffixes[val] || '%'})`;
+                layoutConfig.rasterChart.title = newTitle;
+                const tEl = document.getElementById('layoutChartTitle');
+                const tInp = document.getElementById('chartTitleInput');
+                if (tEl) tEl.textContent = newTitle;
+                if (tInp) tInp.value = newTitle;
+            }
+        }
         if (prop === 'title') {
             const tEl = document.getElementById('layoutChartTitle');
             if (tEl) tEl.textContent = val;
         }
         renderLayoutRasterChart();
+    }
+
+    function _computeRasterTotalAreaM2(target, validRatio) {
+        const ratio = (typeof validRatio === 'number' && isFinite(validRatio) && validRatio > 0) ? Math.min(1, validRatio) : 1;
+        const cg = target.clientGeo || target._geotiffTileLayer?.geo;
+        let bboxM2 = 0;
+        if (cg && cg.image && Array.isArray(cg.resolution) && cg.resolution.length >= 2) {
+            const rx = Math.abs(Number(cg.resolution[0]) || 0);
+            const ry = Math.abs(Number(cg.resolution[1]) || 0);
+            const epsg = Number(cg.epsg || target.epsg || 0);
+            const isGeoDeg = [4326, 4269, 4979].includes(epsg) || (rx > 0 && rx < 0.01 && ry < 0.01);
+            if (!isGeoDeg && rx > 0 && ry > 0) {
+                bboxM2 = cg.image.getWidth() * cg.image.getHeight() * rx * ry;
+            }
+        }
+        if (!bboxM2 && target.bounds) {
+            const b = typeof target.bounds.getSouth === 'function' ? target.bounds : L.latLngBounds(target.bounds);
+            const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
+            const midLatRad = ((n + s) / 2) * Math.PI / 180;
+            const mLat = Math.abs(n - s) * 111132.92;
+            const mLon = Math.abs(e - w) * 111412.84 * Math.cos(midLatRad);
+            bboxM2 = mLat * mLon;
+        }
+        return bboxM2 * ratio;
+    }
+
+    function _formatChartMetric(pct, totalAreaM2, unit) {
+        if (!unit || unit === 'pct' || !totalAreaM2) return `${pct.toFixed(1)}%`;
+        const areaM2 = totalAreaM2 * (pct / 100);
+        let val = 0, suffix = '';
+        if (unit === 'ha') { val = areaM2 / 10000; suffix = ' ha'; }
+        else if (unit === 'km2') { val = areaM2 / 1e6; suffix = ' km²'; }
+        else if (unit === 'm2') { val = areaM2; suffix = ' m²'; }
+        else if (unit === 'ac') { val = areaM2 / 4046.8564224; suffix = ' ac'; }
+        else return `${pct.toFixed(1)}%`;
+
+        let txt = '0';
+        if (val >= 1000) txt = val.toLocaleString('es-CO', { maximumFractionDigits: 1 });
+        else if (val >= 10) txt = val.toFixed(1);
+        else if (val > 0) txt = val.toFixed(2);
+        return txt + suffix;
     }
 
     async function renderLayoutRasterChart() {
@@ -37669,17 +37732,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         }
         if (badge) badge.textContent = (target.name || 'Ráster').replace(/\.(tiff?|ztif)$/i, '').slice(0, 18);
 
+        const unitSel = document.getElementById('chartUnitSelect');
+        if (unitSel) unitSel.value = cfg.unit || 'pct';
+
         const titleEl = document.getElementById('layoutChartTitle');
         if (titleEl && cfg.title) titleEl.textContent = cfg.title;
 
         // Recolectar estadísticas por clase / rango respetando clases, colores y nombres del usuario
         let entries = []; // [{ label, color, count, pct }]
+        let totalAreaM2 = 0;
         try {
             // 1. Capa clasificada (Supervisada / No Supervisada con clases y nombres propios)
             if (target.isClassified && Array.isArray(target.classes) && target.classes.length > 0) {
                 const clsList = target.classes;
                 const clsCounts = new Array(clsList.length).fill(0);
                 let totalPx = 0;
+                let visitedPx = 0;
 
                 const clsCanvas = target._geotiffTileLayer?.options?.classificationCanvas || target.mapLayer?.options?.classificationCanvas || target.classificationCanvas;
                 if (clsCanvas && clsCanvas.width > 0 && clsCanvas.height > 0) {
@@ -37692,6 +37760,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         });
                         const stepPx = Math.max(1, Math.floor((clsCanvas.width * clsCanvas.height) / 16000));
                         for (let i = 0; i < imgD.length; i += 4 * stepPx) {
+                            visitedPx++;
                             if (imgD[i + 3] === 0) continue;
                             const r = imgD[i], g = imgD[i + 1], b = imgD[i + 2];
                             let bestIdx = 0, bestD = Infinity;
@@ -37705,6 +37774,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         }
                     } catch (_) {}
                 }
+                totalAreaM2 = _computeRasterTotalAreaM2(target, visitedPx > 0 ? (totalPx / visitedPx) : 1);
 
                 const hasPctProp = clsList.some(c => typeof c.percentage === 'number' || typeof c.pixelCount === 'number');
                 const sumPropPx = clsList.reduce((acc, c) => acc + (Number(c.pixelCount) || 0), 0);
@@ -37736,12 +37806,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (!cached) {
                         const validVals = [];
                         const grids = [];
+                        let sampledTotalPx = 0;
                         const nd = clientGeo.noDataValue;
                         const isNd = (v) => isNaN(v) || !isFinite(v) || (nd != null && Math.abs(v - nd) < 1e-4) || (v === 0 && nd === 0) || v <= -9990 || v >= 1e30;
                         const pushArr = (arr, gw, gh) => {
                             if (gw > 2 && gh > 2 && arr && arr.length === gw * gh) {
                                 grids.push({ arr, w: gw, h: gh, nd });
                             }
+                            sampledTotalPx += (arr ? arr.length : 0);
                             for (let i = 0; i < arr.length; i++) {
                                 const v = arr[i];
                                 if (isNd(v)) continue;
@@ -37782,12 +37854,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                 }
                             }
                         }
-                        cached = { key: cacheKey, vals: validVals, grids };
+                        cached = { key: cacheKey, vals: validVals, grids, sampledTotalPx };
                         target._chartSampleCache = cached;
                     }
 
                     const validVals = cached.vals;
                     if (validVals.length > 0) {
+                        totalAreaM2 = _computeRasterTotalAreaM2(target, cached.sampledTotalPx > 0 ? (validVals.length / cached.sampledTotalPx) : 1);
                         const customNames = Array.isArray(target.rendererParams?.classNames) ? target.rendererParams.classNames : [];
                         if (target.renderer === 'pseudocolor') {
                             const colors = typeof _getEffectiveClassColors === 'function' ? _getEffectiveClassColors(target) : ['#440154', '#31688e', '#35b779', '#fde725'];
@@ -37903,6 +37976,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const showVals = cfg.showValues !== false;
         const chartType = cfg.chartType || 'bar';
+        const unit = cfg.unit || 'pct';
+        const valColW = unit === 'pct' ? 'w-[9mm]' : 'w-[16mm]';
 
         if (chartType === 'pie') {
             const size = 90, r = 34, cx = 45, cy = 45;
@@ -37921,7 +37996,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         <span class="w-2 h-2 shrink-0 border border-black/30" style="background:${en.color}"></span>
                         <span class="truncate font-bold text-zinc-800">${en.label}</span>
                     </div>
-                    ${showVals ? `<span class="font-mono font-bold text-zinc-700 shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
+                    ${showVals ? `<span class="font-mono font-bold text-zinc-700 shrink-0">${_formatChartMetric(en.pct, totalAreaM2, unit)}</span>` : ''}
                 </div>
             `).join('');
 
@@ -37945,7 +38020,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                         <div class="flex-1 bg-zinc-100 border border-zinc-300 relative overflow-hidden" style="height:${barH};">
                             <div class="h-full" style="width:${wPct.toFixed(1)}%; background:${en.color};"></div>
                         </div>
-                        ${showVals ? `<span class="w-[9mm] font-mono font-bold text-zinc-700 text-right shrink-0">${en.pct.toFixed(1)}%</span>` : ''}
+                        ${showVals ? `<span class="${valColW} font-mono font-bold text-zinc-700 text-right shrink-0">${_formatChartMetric(en.pct, totalAreaM2, unit)}</span>` : ''}
                     </div>`;
             }).join('');
             body.innerHTML = `<div class="w-full h-full flex flex-col justify-center overflow-y-auto" style="gap:${rowGap};">${barsHtml}</div>`;
