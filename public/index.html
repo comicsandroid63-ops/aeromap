@@ -37824,6 +37824,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                                     }
                                 }
                             }
+                            if (evalVals !== validVals && evalVals.length > 0) {
+                                minV = Infinity; maxV = -Infinity;
+                                for (const v of evalVals) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+                            }
                             const total = evalVals.length || 1;
                             const span = (maxV - minV) || 1;
                             const counts = new Array(numCls).fill(0);
