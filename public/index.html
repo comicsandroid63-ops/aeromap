@@ -18981,10 +18981,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                             const ext = extMatch[1].toLowerCase();
                             const base = path.substring(0, path.length - ext.length - 1);
                             
-                            let displayName = fileName.replace(/\.[^/.]+$/, "");
-                            if (opts.originalName) {
-                                displayName = opts.originalName.replace(/\.[^/.]+$/, "");
-                            }
+                            const displayName = fileName.replace(/\.[^/.]+$/, "");
                             
                             if (!layersMap[base]) layersMap[base] = { name: displayName, path: base, filesPresent: {} };
                             layersMap[base].filesPresent[ext] = true;
