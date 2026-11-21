@@ -10341,6 +10341,12 @@ self.onmessage = async function(e) {
                             const normalizeP = (p) => (p || '').split(String.fromCharCode(92)).join('/').replace(/^\.\//, '').toLowerCase();
                             
                             unzipper2.onfile = (f) => {
+                                const fNameOnly = f.name.split('/').pop();
+                                if (!fNameOnly || fNameOnly.startsWith('.') || f.name.indexOf('__MACOSX') !== -1) {
+                                    f.ondata = () => {};
+                                    f.start();
+                                    return;
+                                }
                                 const normF = normalizeP(f.name);
                                 let fBase = normF.substring(0, normF.length - (normF.match(/\.[^/.]+$/)?.[0].length || 0));
                                 fBase = fBase.replace(/\.classes$/i, '');
@@ -18789,11 +18795,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const [x, y] = coords;
             if (Math.abs(x) > 180 || Math.abs(y) > 90) isMetric = true;
             
-            // HEURÍSTICA: Colombia o Web Mercator
+            // HEURÍSTICA: Colombia, Web Mercator o Coordenadas Planas Locales (metros sin .prj)
             if (!prjString && isMetric) {
                 if (x > 3800000 && x < 6200000 && y > 900000 && y < 3200000) prjString = 'EPSG:9377';
                 else if (x > 400000 && x < 1600000 && y > 400000 && y < 2000000) prjString = 'EPSG:3116';
                 else if (Math.abs(x) > 2000000 || Math.abs(y) > 2000000) prjString = 'EPSG:3857';
+                else {
+                    // Coordenadas planas locales en metros sin archivo .prj (ej. ejercicios académicos / CAD)
+                    prjString = '+proj=tmerc +lat_0=0 +lon_0=-74 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs';
+                    console.warn('[Main] Sin .prj: proyectando coordenadas planas locales en metros:', x, y);
+                }
             }
         }
 
@@ -18957,7 +18968,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     const path = new TextDecoder().decode(nameBytes);
                     const fileName = path.split('/').pop();
                     
-                    if (fileName && !fileName.startsWith('.') && fileName.indexOf('__MACOSX') === -1) {
+                    if (fileName && !fileName.startsWith('.') && path.indexOf('__MACOSX') === -1) {
                         const lOffset = cdView.getUint32(pos + 42, true);
                         const compMethod = cdView.getUint16(pos + 10, true);
                         const compSize = cdView.getUint32(pos + 20, true);
