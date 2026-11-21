@@ -30574,13 +30574,57 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             : 'border-zinc-200/80 hover:border-zinc-300'
         }`;
         item.dataset.id = layer.id;
+        item.draggable = true;
+        item.addEventListener('dragstart', (e) => {
+          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+            e.preventDefault();
+            return;
+          }
+          window._draggedLayerId = layer.id;
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', String(layer.id)); } catch (_) {}
+          item.classList.add('opacity-40');
+        });
+        item.addEventListener('dragend', () => {
+          window._draggedLayerId = null;
+          item.classList.remove('opacity-40');
+          document.querySelectorAll('#layersList > div').forEach(el => {
+            el.style.boxShadow = '';
+          });
+        });
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          const dragId = window._draggedLayerId;
+          if (!dragId || String(dragId) === String(layer.id)) return;
+          const rect = item.getBoundingClientRect();
+          const insertAfter = (e.clientY - rect.top) > (rect.height / 2);
+          document.querySelectorAll('#layersList > div').forEach(el => { el.style.boxShadow = ''; });
+          item.style.boxShadow = insertAfter ? '0 3px 0 0 #4f46e5' : '0 -3px 0 0 #4f46e5';
+          item.dataset.dropPos = insertAfter ? 'after' : 'before';
+        });
+        item.addEventListener('dragleave', () => {
+          item.style.boxShadow = '';
+        });
+        item.addEventListener('drop', (e) => {
+          e.preventDefault();
+          item.style.boxShadow = '';
+          let dragId = window._draggedLayerId;
+          if (!dragId) {
+            try { dragId = e.dataTransfer.getData('text/plain'); } catch (_) {}
+          }
+          if (!dragId || String(dragId) === String(layer.id)) return;
+          const insertAfter = item.dataset.dropPos === 'after';
+          reorderLayerByDrop(dragId, layer.id, insertAfter);
+        });
 
         const isVector = layer.type === 'vector';
 
         item.innerHTML = `
       <div class="flex flex-col gap-1.5 w-full">
         <div class="flex items-center justify-between gap-2 w-full min-w-0">
-          <div class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer select-none" onclick="selectAndToggleLayer(${layer.id})">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1 cursor-pointer select-none" onclick="selectAndToggleLayer(${layer.id})">
+            <span class="material-symbols-outlined text-[15px] text-zinc-300 hover:text-zinc-600 cursor-grab active:cursor-grabbing shrink-0 -ml-1" title="Arrastrar para cambiar superposición">drag_indicator</span>
             <button class="shrink-0 flex items-center justify-center transition-colors ${layer.visible ? 'text-zinc-900' : 'text-zinc-300'} hover:scale-110 active:scale-95" 
               onclick="event.stopPropagation(); toggleVisibility(${layer.id})" title="${layer.visible ? 'Ocultar capa' : 'Mostrar capa'}">
               <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' ${layer.visible ? 1 : 0}">
@@ -31131,6 +31175,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     `;
         $layersList.appendChild(item);
       });
+    }
+
+    function reorderLayerByDrop(dragId, targetId, insertAfter = false) {
+      const fromIdx = state.layers.findIndex(l => String(l.id) === String(dragId));
+      const toIdx = state.layers.findIndex(l => String(l.id) === String(targetId));
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+
+      let destIdx = insertAfter ? toIdx + 1 : toIdx;
+      const [moved] = state.layers.splice(fromIdx, 1);
+      if (fromIdx < destIdx) destIdx--;
+      destIdx = Math.max(0, Math.min(state.layers.length, destIdx));
+      state.layers.splice(destIdx, 0, moved);
+
+      syncLayerOrder();
+      updateLayersSidebar();
+      if (window.layoutLeafletMap && typeof syncLayoutMapLayers === 'function') {
+        syncLayoutMapLayers();
+      }
+      if (typeof toast === 'function') {
+        toast(`Superposición actualizada: "${moved.name}"`, 'success');
+      }
     }
 
     // ══════════════════════════════════════════
