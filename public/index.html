@@ -10338,7 +10338,7 @@ self.onmessage = async function(e) {
                             // Re-init unzipper for second pass (selective extraction)
                             const unzipper2 = new fflate.Unzip();
                             const blobChunks = {};
-                            const normalizeP = (p) => (p || '').split(String.fromCharCode(92)).join('/').replace(/^\.\//, '').toLowerCase();
+                            const normalizeP = (p) => (p || '').split(String.fromCharCode(92)).join('/').replace(/^[.][/]/, '').toLowerCase();
                             
                             unzipper2.onfile = (f) => {
                                 const fNameOnly = f.name.split('/').pop();
