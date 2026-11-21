@@ -22109,9 +22109,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const layers = Array.isArray(res) ? res : [res];
             let count = 0;
             for (const item of layers) {
-                const layerTitle = item.fileName || (selected && selected[count] ? selected[count].name : file.name.replace(/\.zip$/i, ''));
+                const rawTitle = (item.fileName && item.fileName.split('/').pop()) || (selected && selected[count] ? selected[count].name : file.name.replace(/\.zip$/i, ''));
+                const layerTitle = rawTitle.replace(/\.shp$/i, '');
                 const geo = await reprojectGeoJSON(item);
-                await addVectorLayer(geo, layerTitle, { ...opts, subLayerPath: item.fileName });
+                const layerOpts = { ...opts, subLayerPath: item.fileName };
+                delete layerOpts.originalName;
+                await addVectorLayer(geo, layerTitle, layerOpts);
                 count++;
             }
             hideProgress();
