@@ -22275,7 +22275,46 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       });
     }
 
+    function _ensureAutoShapeGeometry(geoJson) {
+      if (!geoJson || typeof turf === 'undefined') return geoJson;
+      const features = Array.isArray(geoJson.features)
+        ? geoJson.features
+        : (geoJson.type === 'Feature' ? [geoJson] : []);
+      for (const f of features) {
+        if (!f || !f.geometry || !f.geometry.type) continue;
+        if (!f.properties || typeof f.properties !== 'object') f.properties = {};
+        const gType = f.geometry.type;
+        if (gType === 'Polygon' || gType === 'MultiPolygon') {
+          try {
+            let lenM = turf.length(f, { units: 'meters' });
+            if (!Number.isFinite(lenM) || lenM <= 0) {
+              const line = turf.polygonToLine(f);
+              lenM = turf.length(line, { units: 'meters' });
+            }
+            if (Number.isFinite(lenM)) {
+              f.properties.Shape_Length = parseFloat(lenM.toFixed(6));
+            }
+          } catch (_) {}
+          try {
+            const areaM2 = turf.area(f);
+            if (Number.isFinite(areaM2)) {
+              f.properties.Shape_Area = parseFloat(areaM2.toFixed(6));
+            }
+          } catch (_) {}
+        } else if (gType === 'LineString' || gType === 'MultiLineString') {
+          try {
+            const lenM = turf.length(f, { units: 'meters' });
+            if (Number.isFinite(lenM)) {
+              f.properties.Shape_Length = parseFloat(lenM.toFixed(6));
+            }
+          } catch (_) {}
+        }
+      }
+      return geoJson;
+    }
+
     async function addVectorLayer(geoJson, name, opts = {}) {
+      _ensureAutoShapeGeometry(geoJson);
       console.log('[MB] addVectorLayer', { name, color: opts.color, fillOpacity: opts.fillOpacity });
       const VECTOR_PALETTE = ['#38bdf8', '#818cf8', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#60a5fa', '#c084fc'];
       const rawColor = opts.color;
@@ -33620,6 +33659,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (!layer || !layer.mapLayer) return;
 
         if (layer.type === 'vector') {
+            if (layer.geoJson) _ensureAutoShapeGeometry(layer.geoJson);
             // Update styles efficiently across all features
             layer.mapLayer.setStyle(f => getVectorFeatureStyle(layer, f));
             
