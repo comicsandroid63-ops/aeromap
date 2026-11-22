@@ -10884,52 +10884,8 @@ self.onmessage = async function(e) {
                 </td>
                 ${sortedKeys.map(k => {
                     const val = row[k];
-                    let cellInner = '';
-                    if (k === 'grupo') {
-                        cellInner = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100 text-[10px]"><span class="material-symbols-outlined text-[13px]">folder</span>${val || ''}</span>`;
-                    } else if (k === 'clase') {
-                        // Recolectar todas las clases disponibles en el proyecto / capas
-                        const allProjectClasses = new Map();
-                        state.layers.filter(l => l.type === 'vector' || l.geoJson).forEach(vl => {
-                            (vl.pointClasses || vl.classes || []).forEach(c => {
-                                if (c && c.name && !allProjectClasses.has(c.name)) {
-                                    allProjectClasses.set(c.name, c.color || vl.color || '#3b82f6');
-                                }
-                            });
-                            // Si la capa es un grupo independiente, su nombre también es una opción de clase
-                            if (vl.name && !allProjectClasses.has(vl.name) && !/^capa\s*vectorial$/i.test(vl.name)) {
-                                allProjectClasses.set(vl.name, vl.color || '#3b82f6');
-                            }
-                        });
-                        // Asegurar la clase actual de la fila
-                        if (val && !allProjectClasses.has(val)) {
-                            allProjectClasses.set(val, row.color || '#3b82f6');
-                        }
-
-                        if (allProjectClasses.size > 1) {
-                            const optHtml = Array.from(allProjectClasses.entries()).map(([cName, cCol]) => `
-                                <option value="${cName}" ${String(cName).toLowerCase() === String(val || '').toLowerCase() ? 'selected' : ''}>
-                                    ${cName}
-                                </option>
-                            `).join('');
-                            cellInner = `
-                                <div class="inline-flex items-center gap-1.5" onclick="event.stopPropagation()">
-                                    <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style="background-color: ${row.color || '#3b82f6'}"></span>
-                                    <select onchange="changeFeatureClass('${row._layerId}', ${row._originalIndex}, this.value)" 
-                                            class="text-[10px] font-bold text-zinc-800 bg-white border border-zinc-200 rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs hover:border-zinc-300">
-                                        ${optHtml}
-                                    </select>
-                                </div>
-                            `;
-                        } else {
-                            cellInner = `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-white shadow-xs text-[10px]" style="background-color: ${row.color || '#3b82f6'}"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>${val || ''}</span>`;
-                        }
-                    } else if (k === 'color') {
-                        cellInner = `<div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs inline-block" style="background-color: ${val}"></span><span class="text-[10px] font-mono text-zinc-500">${val}</span></div>`;
-                    } else {
-                        const displayVal = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === undefined || val === null ? '-' : val);
-                        cellInner = `<span class="truncate block max-w-[300px]" title="${displayVal}">${displayVal}</span>`;
-                    }
+                    const displayVal = (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === undefined || val === null ? '-' : val);
+                    const cellInner = `<span class="truncate block max-w-[300px]" title="${displayVal}">${displayVal}</span>`;
                     return `<td class="px-4 py-2 border-r border-zinc-100 whitespace-nowrap min-w-[120px] max-w-[400px] text-[11px] font-medium text-zinc-700">${cellInner}</td>`;
                 }).join('')}
             </tr>
@@ -10976,27 +10932,6 @@ self.onmessage = async function(e) {
 
                 feats.forEach((f, i) => {
                     const props = f.properties || {};
-                    // Normalizar búsqueda de clase (incluyendo mayúsculas de DBF: CLASE, CLASS, etc.)
-                    let cName = props.clase || props.CLASE || props.class || props.CLASS || props.Clase || props.claseNombre;
-                    const layerClasses = layer.pointClasses || layer.classes || [];
-                    if (layerClasses.length <= 1 && String(cName || '').trim() === 'Clase 1' && vectorLayers.length > 1 && layer.name && !/^capa\s*vectorial$/i.test(layer.name)) {
-                        cName = layer.name;
-                    }
-                    if (!cName) cName = (layerClasses[0]?.name) || 'Clase 1';
-                    props.clase = String(cName).trim();
-
-                    const gName = props.grupo || props.GRUPO || props.group || props.GROUP || props.Grupo || layer.name || 'Grupo 1';
-                    props.grupo = String(gName).trim();
-                    if (!props.grupoId) props.grupoId = layer.id;
-
-                    const colVal = props.color || props.COLOR || props.Color;
-                    if (colVal) {
-                        props.color = String(colVal).trim();
-                    } else {
-                        const clList = layer.pointClasses || layer.classes || [];
-                        const foundCl = clList.find(c => String(c.name).toLowerCase() === String(props.clase).toLowerCase() || String(c.id) === String(props.claseId));
-                        props.color = foundCl ? foundCl.color : (layer.color || '#3b82f6');
-                    }
                     data.push({
                         ...props,
                         _layerId: layer.id,
@@ -11053,16 +10988,7 @@ self.onmessage = async function(e) {
                 });
             });
 
-            // Priority ordering for attributes: grupo, clase, name, lat, lng, color, timestamp, then others
-            const priorityOrder = ['grupo', 'clase', 'name', 'nombre', 'lat', 'lng', 'color', 'timestamp'];
-            const sortedKeys = Array.from(rawKeys).sort((a, b) => {
-                const idxA = priorityOrder.indexOf(a);
-                const idxB = priorityOrder.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
+            const sortedKeys = Array.from(rawKeys).sort((a, b) => a.localeCompare(b));
 
             // Sorting logic
             const sortCol = state.attrTable.sortCol;
@@ -11111,7 +11037,7 @@ self.onmessage = async function(e) {
                     <th class="px-4 py-3 text-[10px] font-black uppercase text-zinc-500 border-r border-zinc-100 bg-zinc-50 min-w-[120px] whitespace-nowrap cursor-pointer hover:bg-zinc-200 transition-colors group/header" 
                         onclick="sortAttributeTable('${k}')">
                         <div class="flex items-center justify-between gap-2">
-                            <span class="${state.attrTable.sortCol === k ? 'text-indigo-600 font-black' : ''}">${k === 'grupo' ? '📂 Grupo' : (k === 'clase' ? '🏷️ Clase' : k)}</span>
+                            <span class="${state.attrTable.sortCol === k ? 'text-indigo-600 font-black' : ''}">${k}</span>
                             <span class="material-symbols-outlined text-[14px] ${state.attrTable.sortCol === k ? 'text-indigo-500 opacity-100' : 'opacity-20 group-hover/header:opacity-50'}">
                                 ${state.attrTable.sortCol === k ? (state.attrTable.sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
                             </span>
@@ -11120,88 +11046,9 @@ self.onmessage = async function(e) {
                 `).join('')}
             `;
 
-            // Organizar las filas de la tabla de atributos limpiamente divididas por CLASE
-            const classMap = new Map();
-            data.forEach(row => {
-                const cName = String(row.clase || 'Clase 1').trim();
-                if (!classMap.has(cName)) classMap.set(cName, []);
-                classMap.get(cName).push(row);
-            });
-
-            // Si todas las filas cayeron en una sola clase (ej: "Clase 1"), verificar si provienen de grupos o colores distintos
-            if (classMap.size === 1) {
-                const distinctGroups = new Set();
-                data.forEach(r => {
-                    const g = String(r.grupo || '').trim();
-                    if (g && !/^capa\s*vectorial$/i.test(g) && !/^\w+\.shp$/i.test(g)) distinctGroups.add(g);
-                });
-                if (distinctGroups.size > 1) {
-                    classMap.clear();
-                    data.forEach(row => {
-                        const gName = String(row.grupo || 'Grupo 1').trim();
-                        row.clase = gName;
-                        if (!classMap.has(gName)) classMap.set(gName, []);
-                        classMap.get(gName).push(row);
-                    });
-                } else {
-                    const distinctColors = new Set(data.map(r => String(r.color || '').trim().toLowerCase()).filter(Boolean));
-                    if (distinctColors.size > 1) {
-                        classMap.clear();
-                        const colorClassMap = new Map();
-                        data.forEach(row => {
-                            const cHex = String(row.color || '').trim().toLowerCase();
-                            if (!colorClassMap.has(cHex)) colorClassMap.set(cHex, `Clase ${colorClassMap.size + 1}`);
-                            const cName = colorClassMap.get(cHex);
-                            row.clase = cName;
-                            if (!classMap.has(cName)) classMap.set(cName, []);
-                            classMap.get(cName).push(row);
-                        });
-                    }
-                }
-            }
-
             let bodyHtml = '';
-            let overallIdx = 0;
-            classMap.forEach((rowsInClass, cName) => {
-                const firstRow = rowsInClass[0];
-                const classColor = firstRow.color || '#3b82f6';
-                const geomType = (firstRow._featureRef && firstRow._featureRef.geometry) ? firstRow._featureRef.geometry.type : '';
-                const geomLabel = /point/i.test(geomType) ? 'puntos' : (/polygon/i.test(geomType) ? 'polígonos' : (/line/i.test(geomType) ? 'líneas' : 'entidades'));
-                const grp = firstRow.grupo || firstRow._layerName || '';
-
-                // Divider de sección de la Clase
-                bodyHtml += `
-                    <tr class="bg-indigo-50/90 border-y-2 border-indigo-200">
-                        <td colspan="100%" class="py-2.5 px-4 shadow-xs">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2.5 text-xs font-black text-indigo-950">
-                                    <span class="w-4 h-4 rounded-full border-2 border-white shadow-xs inline-block shrink-0" style="background-color: ${classColor};"></span>
-                                    <span>Clase: <strong class="text-indigo-800 uppercase tracking-wider">${cName}</strong></span>
-                                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">${rowsInClass.length} ${geomLabel}</span>
-                                    ${grp ? `<span class="px-2 py-0.5 rounded-md bg-white/90 text-zinc-600 text-[9px] font-semibold border border-zinc-200 shadow-2xs"><span class="text-zinc-400 font-normal">Capa:</span> ${grp}</span>` : ''}
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button onclick="event.stopPropagation(); deleteClassFeaturesFromAttrTable('${cName}', '${firstRow._layerId}')" 
-                                            class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all shadow-2xs cursor-pointer active:scale-95" 
-                                            title="Eliminar en grupo todos los ${geomLabel} de esta clase">
-                                        <span class="material-symbols-outlined text-[13px]">delete_sweep</span> Borrar Clase
-                                    </button>
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black text-white shadow-xs" style="background-color: ${classColor}">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
-                                        <span>${cName}</span>
-                                        <span class="bg-black/25 px-1.5 py-0.2 rounded-full text-[9px]">${rowsInClass.length}</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-
-                // Filas de esta clase
-                rowsInClass.forEach(row => {
-                    overallIdx++;
-                    bodyHtml += renderRowHtml(row, overallIdx, sortedKeys);
-                });
+            data.forEach((row, idx) => {
+                bodyHtml += renderRowHtml(row, idx + 1, sortedKeys);
             });
 
             $body.innerHTML = bodyHtml;
