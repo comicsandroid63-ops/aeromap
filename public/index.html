@@ -6087,6 +6087,55 @@
           </div>
         </div>
 
+        <!-- 2c. Conversión de Geometrías -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-cyan-600 text-base">transform</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Conversión de Geometrías</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('centroids');" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">my_location</span> Centroides / Punto Interior
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera puntos en el centro geométrico o garantizados dentro del polígono.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('poly_line_convert');" class="p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">polyline</span> Polígonos ↔ Líneas (Polygonize)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Convierte contornos de polígonos a líneas o cierra redes de líneas en polígonos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('points_to_path');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">route</span> Puntos a Ruta / Polígono
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Une puntos ordenados por fecha, ID o secuencia formando líneas o polígonos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('mean_center_ellipse');" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">blur_circular</span> Centroide Medio / Elipse SD
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula el centroide medio y la elipse de desviación estándar (1σ, 2σ, 3σ).</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -6988,6 +7037,79 @@
             <input type="number" id="singleVectorSmoothIter" value="2" min="1" max="5" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
             <p class="text-[10px] text-zinc-400">Recomendado: 1 a 3 iteraciones para suavizar esquinas sin exceso de vértices.</p>
           </div>
+        </div>
+
+        <!-- Dynamic Option: Centroides / Punto Interior -->
+        <div id="singleVectorCentroidsOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Método de Centroide</label>
+            <select id="singleVectorCentroidMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="centroid" selected>Centro Geométrico (Centroid)</option>
+              <option value="point_on_surface">Punto Garantizado Dentro (Point on Surface)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Polígonos a Líneas / Líneas a Polígonos -->
+        <div id="singleVectorPolyLineOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dirección de Conversión</label>
+            <select id="singleVectorPolyLineMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="poly_to_line" selected>Polígonos a Líneas (Contornos)</option>
+              <option value="line_to_poly">Líneas a Polígonos (Polygonize / Cerrar)</option>
+            </select>
+          </div>
+          <p class="text-[10px] text-zinc-400"><strong>Polygonize</strong> cierra redes de líneas conectadas en polígonos; si no forman red cerrada, intenta cerrar cada línea abierta.</p>
+        </div>
+
+        <!-- Dynamic Option: Puntos a Ruta / Líneas (Points to Path) -->
+        <div id="singleVectorPointsPathOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Ordenar por Campo</label>
+              <select id="singleVectorPathOrderField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Agrupar por (Opcional)</label>
+              <select id="singleVectorPathGroupField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="__ALL__">Una sola ruta</option>
+              </select>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Geometría de Salida</label>
+            <select id="singleVectorPathOutputType" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="line" selected>Línea / Ruta (LineString)</option>
+              <option value="polygon">Polígono Cerrado (Polygon)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Centroide Medio / Elipse de Desviación Estándar -->
+        <div id="singleVectorMeanEllipseOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Desviación Estándar</label>
+              <select id="singleVectorEllipseSigma" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="1" selected>1σ (~68% de puntos)</option>
+                <option value="2">2σ (~95% de puntos)</option>
+                <option value="3">3σ (~99% de puntos)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Peso (Opcional)</label>
+              <select id="singleVectorEllipseWeightField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="">Sin peso (Uniforme)</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Crear también capa de Centroide Medio</span>
+              <span class="text-[9.5px] text-zinc-500">Genera el punto del centroide medio además de la elipse de dispersión</span>
+            </div>
+            <input type="checkbox" id="singleVectorEllipseAddCenter" checked class="w-4 h-4 accent-rose-600 rounded cursor-pointer shrink-0">
+          </label>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -42909,7 +43031,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const collectOpt = document.getElementById('singleVectorCollectOpt');
         const deleteHolesOpt = document.getElementById('singleVectorDeleteHolesOpt');
         const smoothOpt = document.getElementById('singleVectorSmoothOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt].forEach(el => {
+        const centroidsOpt = document.getElementById('singleVectorCentroidsOpt');
+        const polyLineOpt = document.getElementById('singleVectorPolyLineOpt');
+        const pointsPathOpt = document.getElementById('singleVectorPointsPathOpt');
+        const meanEllipseOpt = document.getElementById('singleVectorMeanEllipseOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -42928,14 +43054,56 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const dField = document.getElementById('singleVectorDissolveField');
             const dStat = document.getElementById('singleVectorDissolveStatField');
             const cField = document.getElementById('singleVectorCollectField');
+            const pOrder = document.getElementById('singleVectorPathOrderField');
+            const pGroup = document.getElementById('singleVectorPathGroupField');
+            const eWeight = document.getElementById('singleVectorEllipseWeightField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
+            if (pOrder) pOrder.innerHTML = fieldOpts || `<option value="__INDEX__">Orden original</option>`;
+            if (pGroup) pGroup.innerHTML = `<option value="__ALL__">Una sola ruta</option>${fieldOpts}`;
+            if (eWeight) eWeight.innerHTML = `<option value="">Sin peso (Uniforme)</option>${fieldOpts}`;
         };
         sel.onchange = _syncFieldSelects;
         _syncFieldSelects();
 
         const configs = {
+            centroids: {
+                title: 'Centroides / Punto Interior',
+                sub: 'Conversión de Geometrías',
+                icon: 'my_location',
+                color: 'text-cyan-600',
+                bg: 'bg-cyan-50 border-cyan-100',
+                desc: 'Genera puntos en el centro geométrico (centroid) o garantizados dentro de cada polígono (point on surface) conservando sus atributos.',
+                opt: centroidsOpt
+            },
+            poly_line_convert: {
+                title: 'Polígonos ↔ Líneas (Polygonize)',
+                sub: 'Conversión de Contornos y Redes',
+                icon: 'polyline',
+                color: 'text-teal-600',
+                bg: 'bg-teal-50 border-teal-100',
+                desc: 'Convierte polígonos a líneas de contorno o cierra redes/líneas en polígonos (Polygonize).',
+                opt: polyLineOpt
+            },
+            points_to_path: {
+                title: 'Puntos a Ruta / Polígono',
+                sub: 'Secuencia Espacial (Points to Path)',
+                icon: 'route',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Conecta puntos ordenados por un campo (fecha, ID, orden) y opcionalmente agrupados por categoría en líneas o polígonos.',
+                opt: pointsPathOpt
+            },
+            mean_center_ellipse: {
+                title: 'Centroide Medio / Elipse SD',
+                sub: 'Distribución Espacial de Puntos',
+                icon: 'blur_circular',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Calcula el centroide medio (ponderado opcionalmente) y la elipse de desviación estándar (1σ, 2σ o 3σ) de una nube de puntos.',
+                opt: meanEllipseOpt
+            },
             dissolve: {
                 title: 'Disolver (Dissolve)',
                 sub: 'Fusión por Atributos y Estadísticas',
@@ -43132,7 +43300,231 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'dissolve') {
+            if (tool === 'centroids') {
+                const mode = document.getElementById('singleVectorCentroidMode')?.value || 'centroid';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const props = { ...(f.properties || {}) };
+                    delete props._selected;
+                    let pt = null;
+                    try {
+                        pt = (mode === 'point_on_surface') ? turf.pointOnFeature(f) : turf.centroid(f);
+                    } catch (_) {}
+                    if (pt && pt.geometry) {
+                        pt.properties = props;
+                        outFeats.push(pt);
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se pudieron generar centroides para esta capa.');
+                const label = mode === 'point_on_surface' ? 'Puntos Interiores' : 'Centroides';
+                await addVectorLayer(turf.featureCollection(outFeats), `${label} - ${layer.name}`, {
+                    isPoints: true, color: '#0891b2', pointSize: 6
+                });
+                toast(`${label} generados: ${outFeats.length} puntos.`, 'success');
+
+            } else if (tool === 'poly_line_convert') {
+                const mode = document.getElementById('singleVectorPolyLineMode')?.value || 'poly_to_line';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = [];
+                if (mode === 'poly_to_line') {
+                    for (const f of rawFeats) {
+                        if (!f?.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) continue;
+                        const props = { ...(f.properties || {}) };
+                        delete props._selected;
+                        try {
+                            const lineRes = turf.polygonToLine(f);
+                            const lines = lineRes?.type === 'FeatureCollection' ? lineRes.features : (lineRes ? [lineRes] : []);
+                            lines.forEach(lf => {
+                                lf.properties = { ...props };
+                                outFeats.push(lf);
+                            });
+                        } catch (_) {}
+                    }
+                    if (outFeats.length === 0) throw new Error('La capa no contiene polígonos convertibles a líneas.');
+                    await addVectorLayer(turf.featureCollection(outFeats), `Líneas de Contorno - ${layer.name}`, {
+                        color: '#0d9488', strokeWidth: 2
+                    });
+                    toast(`Convertido a ${outFeats.length} línea(s) de contorno.`, 'success');
+                } else {
+                    const linesOnly = rawFeats.filter(f => f?.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'));
+                    if (linesOnly.length === 0) throw new Error('La capa no contiene líneas para poligonizar.');
+                    try {
+                        const polyRes = turf.polygonize(turf.featureCollection(linesOnly));
+                        if (polyRes?.features?.length > 0) {
+                            polyRes.features.forEach((pf, idx) => {
+                                pf.properties = { poly_id: idx + 1 };
+                                outFeats.push(pf);
+                            });
+                        }
+                    } catch (_) {}
+                    if (outFeats.length === 0) {
+                        // Fallback: cerrar cada LineString con >= 3 vértices distintos
+                        for (const lf of linesOnly) {
+                            const flat = turf.flatten(lf);
+                            for (const seg of (flat?.features || [])) {
+                                const coords = seg.geometry?.coordinates || [];
+                                if (coords.length < 3) continue;
+                                const ring = [...coords];
+                                const first = ring[0], last = ring[ring.length - 1];
+                                if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
+                                if (ring.length >= 4) {
+                                    const props = { ...(lf.properties || {}) };
+                                    delete props._selected;
+                                    outFeats.push(turf.polygon([ring], props));
+                                }
+                            }
+                        }
+                    }
+                    if (outFeats.length === 0) throw new Error('Las líneas no forman polígonos cerrados válidos.');
+                    await addVectorLayer(turf.featureCollection(outFeats), `Poligonizado - ${layer.name}`, {
+                        color: '#0d9488', fillOpacity: 0.3, strokeWidth: 2
+                    });
+                    toast(`Poligonización completada: ${outFeats.length} polígono(s).`, 'success');
+                }
+
+            } else if (tool === 'points_to_path') {
+                const orderField = document.getElementById('singleVectorPathOrderField')?.value || '__INDEX__';
+                const groupField = document.getElementById('singleVectorPathGroupField')?.value || '__ALL__';
+                const outType = document.getElementById('singleVectorPathOutputType')?.value || 'line';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const pts = [];
+                rawFeats.forEach((f, idx) => {
+                    if (!f?.geometry) return;
+                    if (f.geometry.type === 'Point') {
+                        pts.push({ coord: f.geometry.coordinates.slice(0, 2), props: f.properties || {}, idx });
+                    } else if (f.geometry.type === 'MultiPoint') {
+                        f.geometry.coordinates.forEach(c => pts.push({ coord: c.slice(0, 2), props: f.properties || {}, idx }));
+                    }
+                });
+                if (pts.length < 2) throw new Error('Se requieren al menos 2 puntos para construir una ruta.');
+
+                const groups = new Map();
+                for (const p of pts) {
+                    const key = groupField === '__ALL__' ? '__ALL__' : String(p.props?.[groupField] ?? '');
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(p);
+                }
+
+                const cmpOrder = (a, b) => {
+                    if (orderField === '__INDEX__') return a.idx - b.idx;
+                    const va = a.props?.[orderField];
+                    const vb = b.props?.[orderField];
+                    const na = Number(va), nb = Number(vb);
+                    if (va !== '' && vb !== '' && Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+                    return String(va ?? '').localeCompare(String(vb ?? ''), undefined, { numeric: true });
+                };
+
+                const outFeats = [];
+                for (const [key, grp] of groups.entries()) {
+                    grp.sort(cmpOrder);
+                    const coords = grp.map(p => p.coord);
+                    if (outType === 'polygon') {
+                        if (coords.length < 3) continue;
+                        const first = coords[0], last = coords[coords.length - 1];
+                        if (first[0] !== last[0] || first[1] !== last[1]) coords.push([...first]);
+                        if (coords.length < 4) continue;
+                        const props = groupField === '__ALL__' ? { _points: grp.length } : { [groupField]: key, _points: grp.length };
+                        outFeats.push(turf.polygon([coords], props));
+                    } else {
+                        if (coords.length < 2) continue;
+                        const props = groupField === '__ALL__' ? { _points: grp.length } : { [groupField]: key, _points: grp.length };
+                        outFeats.push(turf.lineString(coords, props));
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se pudieron construir rutas/polígonos con los puntos dados.');
+                const label = outType === 'polygon' ? 'Polígono desde Puntos' : 'Ruta desde Puntos';
+                await addVectorLayer(turf.featureCollection(outFeats), `${label} - ${layer.name}`, {
+                    color: '#4f46e5', fillOpacity: 0.25, strokeWidth: 2.5
+                });
+                toast(`${label} generado: ${outFeats.length} entidad(es).`, 'success');
+
+            } else if (tool === 'mean_center_ellipse') {
+                const sigma = parseFloat(document.getElementById('singleVectorEllipseSigma')?.value || '1') || 1;
+                const weightField = document.getElementById('singleVectorEllipseWeightField')?.value || '';
+                const addCenter = document.getElementById('singleVectorEllipseAddCenter')?.checked !== false;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const pts = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    let c = null;
+                    if (f.geometry.type === 'Point') c = f.geometry.coordinates.slice(0, 2);
+                    else { try { c = turf.centroid(f).geometry.coordinates.slice(0, 2); } catch (_) {} }
+                    if (!c) continue;
+                    let w = 1;
+                    if (weightField) {
+                        const parsed = parseFloat(f.properties?.[weightField]);
+                        if (!Number.isFinite(parsed) || parsed <= 0) continue;
+                        w = parsed;
+                    }
+                    pts.push({ lon: c[0], lat: c[1], w });
+                }
+                if (pts.length < 3) throw new Error('Se requieren al menos 3 puntos para calcular la elipse de desviación estándar.');
+
+                const sumW = pts.reduce((s, p) => s + p.w, 0);
+                const meanLon = pts.reduce((s, p) => s + p.lon * p.w, 0) / sumW;
+                const meanLat = pts.reduce((s, p) => s + p.lat * p.w, 0) / sumW;
+
+                // Proyección métrica local alrededor del centroide medio
+                const mPerDegLat = 111320;
+                const mPerDegLon = 111320 * Math.cos(meanLat * Math.PI / 180);
+                const dx = pts.map(p => (p.lon - meanLon) * mPerDegLon);
+                const dy = pts.map(p => (p.lat - meanLat) * mPerDegLat);
+
+                const sxx = pts.reduce((s, p, i) => s + p.w * dx[i] * dx[i], 0) / sumW;
+                const syy = pts.reduce((s, p, i) => s + p.w * dy[i] * dy[i], 0) / sumW;
+                const sxy = pts.reduce((s, p, i) => s + p.w * dx[i] * dy[i], 0) / sumW;
+
+                // Eigenvalores y ángulo de la matriz de covarianza 2x2
+                const trace = sxx + syy;
+                const disc = Math.sqrt(Math.max(0, (sxx - syy) * (sxx - syy) + 4 * sxy * sxy));
+                const lambda1 = Math.max(1e-6, (trace + disc) / 2);
+                const lambda2 = Math.max(1e-6, (trace - disc) / 2);
+                const angleRad = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+                const semiMajor = Math.sqrt(lambda1) * sigma;
+                const semiMinor = Math.sqrt(lambda2) * sigma;
+
+                const ring = [];
+                const steps = 64;
+                const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+                for (let i = 0; i <= steps; i++) {
+                    const t = (i / steps) * 2 * Math.PI;
+                    const ex = semiMajor * Math.cos(t);
+                    const ey = semiMinor * Math.sin(t);
+                    const rx = ex * cosA - ey * sinA;
+                    const ry = ex * sinA + ey * cosA;
+                    ring.push([meanLon + rx / mPerDegLon, meanLat + ry / mPerDegLat]);
+                }
+                const ellipseFeat = turf.polygon([ring], {
+                    sigma: `${sigma}σ`,
+                    n_points: pts.length,
+                    mean_lon: parseFloat(meanLon.toFixed(6)),
+                    mean_lat: parseFloat(meanLat.toFixed(6)),
+                    semi_major_m: parseFloat(semiMajor.toFixed(2)),
+                    semi_minor_m: parseFloat(semiMinor.toFixed(2)),
+                    angle_deg: parseFloat((angleRad * 180 / Math.PI).toFixed(2))
+                });
+
+                await addVectorLayer(turf.featureCollection([ellipseFeat]), `Elipse ${sigma}σ - ${layer.name}`, {
+                    color: '#e11d48', fillOpacity: 0.22, strokeWidth: 2.5
+                });
+                if (addCenter) {
+                    const centerFeat = turf.point([meanLon, meanLat], {
+                        n_points: pts.length,
+                        mean_lon: parseFloat(meanLon.toFixed(6)),
+                        mean_lat: parseFloat(meanLat.toFixed(6)),
+                        weight_field: weightField || 'uniforme'
+                    });
+                    await addVectorLayer(turf.featureCollection([centerFeat]), `Centroide Medio - ${layer.name}`, {
+                        isPoints: true, color: '#be123c', pointSize: 7
+                    });
+                }
+                toast(`Centroide Medio y Elipse ${sigma}σ generados (${pts.length} puntos).`, 'success');
+
+            } else if (tool === 'dissolve') {
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
                 const field = document.getElementById('singleVectorDissolveField')?.value || '__ALL__';
                 const agg = document.getElementById('singleVectorDissolveAgg')?.value || 'count';
