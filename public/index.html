@@ -6136,6 +6136,45 @@
           </div>
         </div>
 
+        <!-- 2d. Análisis Espacial Avanzado y Densidad -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-orange-600 text-base">bubble_chart</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Análisis Espacial Avanzado y Densidad</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('clustering');" class="p-4 bg-zinc-50 hover:bg-orange-50/50 border border-zinc-200 hover:border-orange-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-orange-700">
+                  <span class="material-symbols-outlined text-orange-600 text-lg">bubble_chart</span> Densidad (Heatmap) / Clustering
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Agrupa puntos con DBSCAN / K-Means o genera malla de densidad espacial (KDE / Heatmap).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('multiring_buffer');" class="p-4 bg-zinc-50 hover:bg-sky-50/50 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
+                  <span class="material-symbols-outlined text-sky-600 text-lg">track_changes</span> Anillos de Buffer Múltiples
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera múltiples anillos concéntricos (ej. 100, 300, 500 m) en una sola operación.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('split_by_attribute');" class="col-span-2 p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">call_split</span> Dividir Capa por Atributo (Split Vector Layer)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Separa automáticamente la capa en múltiples capas independientes según los valores únicos de un campo.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7110,6 +7149,71 @@
             </div>
             <input type="checkbox" id="singleVectorEllipseAddCenter" checked class="w-4 h-4 accent-rose-600 rounded cursor-pointer shrink-0">
           </label>
+        </div>
+
+        <!-- Dynamic Option: Densidad (Heatmap) / Clusterización (DBSCAN / K-Means) -->
+        <div id="singleVectorClusteringOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Método de Análisis</label>
+            <select id="singleVectorClusterMode" onchange="const m=this.value; document.getElementById('singleVectorDbscanRow')?.classList.toggle('hidden', m!=='dbscan'); document.getElementById('singleVectorKmeansRow')?.classList.toggle('hidden', m!=='kmeans'); document.getElementById('singleVectorHeatmapRow')?.classList.toggle('hidden', m!=='heatmap');" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="dbscan" selected>Clusterización DBSCAN (Por distancia y densidad)</option>
+              <option value="kmeans">Clusterización K-Means (Número fijo de clusters)</option>
+              <option value="heatmap">Mapa de Calor / Densidad Espacial (Malla Hexagonal KDE)</option>
+            </select>
+          </div>
+          <div id="singleVectorDbscanRow" class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia Máx. (m)</label>
+              <input type="number" id="singleVectorDbscanDist" value="250" min="1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Mín. Puntos / Cluster</label>
+              <input type="number" id="singleVectorDbscanMinPts" value="3" min="2" max="100" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+          <div id="singleVectorKmeansRow" class="space-y-1 hidden">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Número de Clusters (K)</label>
+            <input type="number" id="singleVectorKmeansK" value="3" min="2" max="50" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <div id="singleVectorHeatmapRow" class="space-y-1 hidden">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Radio de Celda Hexagonal (m)</label>
+            <input type="number" id="singleVectorHeatmapCellM" value="250" min="10" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Anillos de Buffer Múltiples (Multi-Ring Buffer) -->
+        <div id="singleVectorMultiRingOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-3 gap-2.5">
+            <div class="col-span-2 space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancias (separadas por coma)</label>
+              <input type="text" id="singleVectorMultiRingDists" value="100, 300, 500" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Unidad</label>
+              <select id="singleVectorMultiRingUnit" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="meters" selected>Metros (m)</option>
+                <option value="kilometers">Km (km)</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <div class="flex flex-col pr-2">
+              <span class="text-xs font-bold text-zinc-900">Anillos Disjuntos (Tipo Dona)</span>
+              <span class="text-[9.5px] text-zinc-500">Resta el anillo interior para que no se solapen entre sí</span>
+            </div>
+            <input type="checkbox" id="singleVectorMultiRingDonut" checked class="w-4 h-4 accent-sky-600 rounded cursor-pointer shrink-0">
+          </label>
+        </div>
+
+        <!-- Dynamic Option: Dividir Capa por Atributo (Split Vector Layer) -->
+        <div id="singleVectorSplitAttrOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo para Dividir la Capa</label>
+            <select id="singleVectorSplitField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <p class="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2 leading-relaxed">
+            Se creará una capa vectorial independiente por cada valor único encontrado en el campo seleccionado.
+          </p>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -43035,7 +43139,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const polyLineOpt = document.getElementById('singleVectorPolyLineOpt');
         const pointsPathOpt = document.getElementById('singleVectorPointsPathOpt');
         const meanEllipseOpt = document.getElementById('singleVectorMeanEllipseOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt].forEach(el => {
+        const clusteringOpt = document.getElementById('singleVectorClusteringOpt');
+        const multiRingOpt = document.getElementById('singleVectorMultiRingOpt');
+        const splitAttrOpt = document.getElementById('singleVectorSplitAttrOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43057,17 +43164,46 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const pOrder = document.getElementById('singleVectorPathOrderField');
             const pGroup = document.getElementById('singleVectorPathGroupField');
             const eWeight = document.getElementById('singleVectorEllipseWeightField');
+            const sField = document.getElementById('singleVectorSplitField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
             if (pOrder) pOrder.innerHTML = fieldOpts || `<option value="__INDEX__">Orden original</option>`;
             if (pGroup) pGroup.innerHTML = `<option value="__ALL__">Una sola ruta</option>${fieldOpts}`;
             if (eWeight) eWeight.innerHTML = `<option value="">Sin peso (Uniforme)</option>${fieldOpts}`;
+            if (sField) sField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
         };
         sel.onchange = _syncFieldSelects;
         _syncFieldSelects();
 
         const configs = {
+            clustering: {
+                title: 'Densidad (Heatmap) / Clustering',
+                sub: 'DBSCAN, K-Means y Densidad Hexagonal',
+                icon: 'bubble_chart',
+                color: 'text-orange-600',
+                bg: 'bg-orange-50 border-orange-100',
+                desc: 'Agrupa nubes de puntos mediante DBSCAN o K-Means, o calcula una malla hexagonal de densidad espacial (KDE / Heatmap).',
+                opt: clusteringOpt
+            },
+            multiring_buffer: {
+                title: 'Anillos de Buffer Múltiples',
+                sub: 'Multi-Ring Buffer Concéntrico',
+                icon: 'track_changes',
+                color: 'text-sky-600',
+                bg: 'bg-sky-50 border-sky-100',
+                desc: 'Genera múltiples zonas concéntricas de distancia (ej. 100, 300, 500 m) en una sola capa con atributo de distancia.',
+                opt: multiRingOpt
+            },
+            split_by_attribute: {
+                title: 'Dividir Capa por Atributo',
+                sub: 'Split Vector Layer',
+                icon: 'call_split',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Separa automáticamente una capa vectorial en múltiples capas independientes según los valores únicos de un campo.',
+                opt: splitAttrOpt
+            },
             centroids: {
                 title: 'Centroides / Punto Interior',
                 sub: 'Conversión de Geometrías',
@@ -43300,7 +43436,149 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'centroids') {
+            if (tool === 'clustering') {
+                const mode = document.getElementById('singleVectorClusterMode')?.value || 'dbscan';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const ptFeats = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const p = { ...(f.properties || {}) };
+                    delete p._selected;
+                    if (f.geometry.type === 'Point') ptFeats.push(turf.point(f.geometry.coordinates.slice(0, 2), p));
+                    else { try { const c = turf.centroid(f); c.properties = p; ptFeats.push(c); } catch (_) {} }
+                }
+                if (ptFeats.length < 2) throw new Error('Se requieren al menos 2 puntos para análisis de densidad o clustering.');
+                const fcPts = turf.featureCollection(ptFeats);
+
+                if (mode === 'dbscan') {
+                    const maxDist = Math.max(1, parseFloat(document.getElementById('singleVectorDbscanDist')?.value || '250') || 250);
+                    const minPts = Math.max(2, parseInt(document.getElementById('singleVectorDbscanMinPts')?.value || '3', 10) || 3);
+                    const clustered = turf.clustersDbscan(fcPts, maxDist, { units: 'meters', minPoints: minPts });
+                    const nClusters = new Set(clustered.features.map(f => f.properties?.cluster).filter(c => c !== undefined && c >= 0)).size;
+                    await addVectorLayer(clustered, `Clusters DBSCAN - ${layer.name}`, {
+                        isPoints: true, color: '#ea580c', pointSize: 6
+                    });
+                    toast(`DBSCAN completado: ${nClusters} cluster(s) detectado(s).`, 'success');
+                } else if (mode === 'kmeans') {
+                    const k = Math.max(2, Math.min(ptFeats.length, parseInt(document.getElementById('singleVectorKmeansK')?.value || '3', 10) || 3));
+                    const clustered = turf.clustersKmeans(fcPts, { numberOfClusters: k });
+                    await addVectorLayer(clustered, `Clusters K-Means (K=${k}) - ${layer.name}`, {
+                        isPoints: true, color: '#ea580c', pointSize: 6
+                    });
+                    toast(`K-Means completado: ${k} clusters generados.`, 'success');
+                } else {
+                    const cellM = Math.max(10, parseFloat(document.getElementById('singleVectorHeatmapCellM')?.value || '250') || 250);
+                    const bb = turf.bbox(fcPts);
+                    const padDeg = (cellM / 111320) * 1.5;
+                    const paddedBb = [bb[0] - padDeg, bb[1] - padDeg, bb[2] + padDeg, bb[3] + padDeg];
+                    const grid = turf.hexGrid(paddedBb, cellM, { units: 'meters' });
+                    const heatCells = [];
+                    grid.features.forEach((cell, idx) => {
+                        const inside = turf.pointsWithinPolygon(fcPts, cell);
+                        const cnt = inside?.features?.length || 0;
+                        if (cnt > 0) {
+                            const areaKm2 = Math.max(1e-6, turf.area(cell) / 1e6);
+                            cell.properties = {
+                                hex_id: idx + 1,
+                                point_count: cnt,
+                                density_km2: parseFloat((cnt / areaKm2).toFixed(2))
+                            };
+                            heatCells.push(cell);
+                        }
+                    });
+                    if (heatCells.length === 0) throw new Error('No se encontraron puntos dentro de la malla de densidad.');
+                    await addVectorLayer(turf.featureCollection(heatCells), `Densidad / Heatmap - ${layer.name}`, {
+                        color: '#dc2626', fillOpacity: 0.45, strokeWidth: 1.5
+                    });
+                    toast(`Mapa de densidad generado: ${heatCells.length} celdas activas.`, 'success');
+                }
+
+            } else if (tool === 'multiring_buffer') {
+                const rawDists = (document.getElementById('singleVectorMultiRingDists')?.value || '100, 300, 500')
+                    .split(',').map(s => parseFloat(s.trim())).filter(n => Number.isFinite(n) && n > 0);
+                const dists = Array.from(new Set(rawDists)).sort((a, b) => a - b);
+                if (dists.length === 0) throw new Error('Ingresa al menos una distancia válida mayor a 0.');
+                const unit = document.getElementById('singleVectorMultiRingUnit')?.value || 'meters';
+                const donut = document.getElementById('singleVectorMultiRingDonut')?.checked !== false;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const mergeRing = (polyList) => {
+                    if (polyList.length === 0) return null;
+                    let acc = polyList[0];
+                    for (let i = 1; i < polyList.length; i++) {
+                        try {
+                            const u = turf.union(turf.featureCollection([acc, polyList[i]]));
+                            if (u && u.geometry) acc = u;
+                        } catch (_) {}
+                    }
+                    return acc;
+                };
+
+                const outRings = [];
+                let prevMerged = null;
+                for (let idx = 0; idx < dists.length; idx++) {
+                    const d = dists[idx];
+                    const bufParts = [];
+                    for (const f of rawFeats) {
+                        if (!f?.geometry) continue;
+                        try {
+                            const b = turf.buffer(f, d, { units: unit });
+                            if (b && b.geometry) bufParts.push(b);
+                        } catch (_) {}
+                    }
+                    const currentMerged = mergeRing(bufParts);
+                    if (!currentMerged) continue;
+
+                    let ringGeom = currentMerged;
+                    if (donut && prevMerged) {
+                        try {
+                            const diff = turf.difference(turf.featureCollection([currentMerged, prevMerged]));
+                            if (diff && diff.geometry) ringGeom = diff;
+                        } catch (_) {}
+                    }
+                    ringGeom.properties = {
+                        ring_order: idx + 1,
+                        ring_dist: d,
+                        ring_unit: unit === 'kilometers' ? 'km' : 'm',
+                        ring_label: `${d} ${unit === 'kilometers' ? 'km' : 'm'}`
+                    };
+                    outRings.push(ringGeom);
+                    prevMerged = currentMerged;
+                }
+                if (outRings.length === 0) throw new Error('No se pudieron generar los anillos de buffer.');
+                await addVectorLayer(turf.featureCollection(outRings), `Anillos Buffer (${dists.join(',')}) - ${layer.name}`, {
+                    color: '#0284c7', fillOpacity: 0.25, strokeWidth: 2
+                });
+                toast(`Anillos múltiples generados: ${outRings.length} anillos.`, 'success');
+
+            } else if (tool === 'split_by_attribute') {
+                const field = document.getElementById('singleVectorSplitField')?.value || '';
+                if (!field) throw new Error('La capa no tiene campos de atributos para dividir.');
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const groups = new Map();
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const val = f.properties?.[field];
+                    const key = (val === undefined || val === null || val === '') ? '(Vacío)' : String(val);
+                    if (!groups.has(key)) groups.set(key, []);
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    groups.get(key).push(copy);
+                }
+                if (groups.size === 0) throw new Error('No hay entidades para dividir.');
+                const palette = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#ef4444', '#84cc16'];
+                let idx = 0;
+                for (const [valKey, feats] of groups.entries()) {
+                    const col = palette[idx % palette.length];
+                    const isPts = feats.every(ft => ft.geometry.type === 'Point' || ft.geometry.type === 'MultiPoint');
+                    await addVectorLayer(turf.featureCollection(feats), `${layer.name} [${field}=${valKey}]`, {
+                        isPoints: isPts, color: col, fillOpacity: 0.32, strokeWidth: 2
+                    });
+                    idx++;
+                }
+                toast(`Capa dividida en ${groups.size} capas por "${field}".`, 'success');
+
+            } else if (tool === 'centroids') {
                 const mode = document.getElementById('singleVectorCentroidMode')?.value || 'centroid';
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
                 const outFeats = [];
