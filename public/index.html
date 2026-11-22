@@ -6969,30 +6969,19 @@
           <select id="selAttrLayerSelect" onchange="_onSelAttrLayerChange()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
         </div>
 
-        <div class="grid grid-cols-2 gap-2.5">
-          <div class="space-y-1">
-            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo / Atributo</label>
-            <select id="selAttrFieldSelect" onchange="_onSelAttrFieldChange()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
-          </div>
-          <div class="space-y-1">
-            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Operador</label>
-            <select id="selAttrOperatorSelect" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
-              <option value="eq" selected>Igual a (=)</option>
-              <option value="neq">Diferente de (≠)</option>
-              <option value="contains">Contiene texto</option>
-              <option value="gt">Mayor que (&gt;)</option>
-              <option value="gte">Mayor o igual (&gt;=)</option>
-              <option value="lt">Menor que (&lt;)</option>
-              <option value="lte">Menor o igual (&lt;=)</option>
-            </select>
-          </div>
+        <div id="selAttrCombineRow" class="hidden items-center justify-between bg-indigo-50/70 border border-indigo-200/80 rounded-xl px-3 py-2">
+          <span class="text-[10px] font-bold text-indigo-950 uppercase tracking-wider">Combinar condiciones</span>
+          <select id="selAttrCombineMode" class="bg-white border border-indigo-200 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-900 outline-none">
+            <option value="OR" selected>O (Cualquiera - OR)</option>
+            <option value="AND">Y (Todas - AND)</option>
+          </select>
         </div>
 
-        <div class="space-y-1">
-          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Valor a Buscar</label>
-          <input type="text" id="selAttrValueInput" list="selAttrValuesList" placeholder="Escribe o elige un valor..." class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500/20">
-          <datalist id="selAttrValuesList"></datalist>
-        </div>
+        <div id="selAttrConditionsList" class="space-y-2 max-h-[36vh] overflow-y-auto pr-0.5 custom-scrollbar"></div>
+
+        <button type="button" onclick="addSelAttrConditionRow(false)" class="w-full py-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 hover:bg-indigo-50 text-indigo-700 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors">
+          <span class="material-symbols-outlined text-[15px]">add</span> Agregar condición (Y / O)
+        </button>
 
         <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer hover:bg-indigo-50/40 transition-colors">
           <div class="flex flex-col pr-2">
@@ -43485,6 +43474,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         openSelectByAttributeModal();
     }
 
+    let _selAttrLayerKeys = [];
+    let _selAttrRowSeq = 0;
+
     function openSelectByAttributeModal() {
         const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson?.features?.length);
         if (vectorLayers.length === 0) return toast('No hay capas vectoriales con atributos.', 'warning');
@@ -43496,8 +43488,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 selL.value = state.selectedLayerId;
             }
         }
-        const valInp = document.getElementById('selAttrValueInput');
-        if (valInp) valInp.value = '';
         const extChk = document.getElementById('selAttrExtractChk');
         if (extChk) extChk.checked = false;
         const nameRow = document.getElementById('selAttrNewNameRow');
@@ -43512,12 +43502,62 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (m) m.style.display = 'none';
     }
 
+    function _syncSelAttrCombineVisibility() {
+        const list = document.getElementById('selAttrConditionsList');
+        const row = document.getElementById('selAttrCombineRow');
+        if (!list || !row) return;
+        const count = list.querySelectorAll('.sel-attr-row').length;
+        row.classList.toggle('hidden', count < 2);
+        row.classList.toggle('flex', count >= 2);
+    }
+
+    function addSelAttrConditionRow(reset = false) {
+        const list = document.getElementById('selAttrConditionsList');
+        if (!list) return;
+        if (reset) list.innerHTML = '';
+        const rowId = ++_selAttrRowSeq;
+        const fieldOpts = _selAttrLayerKeys.length > 0
+            ? _selAttrLayerKeys.map(k => `<option value="${k}">${k}</option>`).join('')
+            : '<option value="">Sin campos</option>';
+
+        const div = document.createElement('div');
+        div.className = 'sel-attr-row p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl space-y-2';
+        div.dataset.rowId = String(rowId);
+        div.innerHTML = `
+          <div class="flex items-center gap-2">
+            <select class="sel-attr-field flex-1 min-w-0 bg-white border border-zinc-200 rounded-lg p-2 text-xs font-semibold outline-none" onchange="_onSelAttrRowFieldChange(${rowId})">${fieldOpts}</select>
+            <select class="sel-attr-op w-[34%] bg-white border border-zinc-200 rounded-lg p-2 text-xs font-semibold outline-none">
+              <option value="eq" selected>Igual (=)</option>
+              <option value="neq">Diferente (≠)</option>
+              <option value="contains">Contiene</option>
+              <option value="in">En lista (a, b)</option>
+              <option value="gt">Mayor (&gt;)</option>
+              <option value="gte">Mayor/Igual (&gt;=)</option>
+              <option value="lt">Menor (&lt;)</option>
+              <option value="lte">Menor/Igual (&lt;=)</option>
+            </select>
+            ${!reset ? `<button type="button" onclick="removeSelAttrConditionRow(${rowId})" class="w-7 h-7 shrink-0 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 flex items-center justify-center" title="Quitar condición"><span class="material-symbols-outlined text-[15px]">close</span></button>` : ''}
+          </div>
+          <div>
+            <input type="text" list="selAttrValuesList-${rowId}" placeholder="Escribe o elige un valor..." class="sel-attr-val w-full bg-white border border-zinc-200 rounded-lg p-2 text-xs font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500/20">
+            <datalist id="selAttrValuesList-${rowId}"></datalist>
+          </div>`;
+        list.appendChild(div);
+        _onSelAttrRowFieldChange(rowId);
+        _syncSelAttrCombineVisibility();
+    }
+
+    function removeSelAttrConditionRow(rowId) {
+        const list = document.getElementById('selAttrConditionsList');
+        const el = list?.querySelector(`.sel-attr-row[data-row-id="${rowId}"]`);
+        if (el) el.remove();
+        _syncSelAttrCombineVisibility();
+    }
+
     function _onSelAttrLayerChange() {
         const layerId = parseInt(document.getElementById('selAttrLayerSelect')?.value);
         const layer = state.layers.find(l => l.id === layerId);
-        const selF = document.getElementById('selAttrFieldSelect');
         const newNameInp = document.getElementById('selAttrNewLayerName');
-        if (!selF) return;
 
         const keySet = new Set();
         if (layer?.geoJson?.features) {
@@ -43527,18 +43567,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 });
             }
         }
-        const keys = Array.from(keySet);
-        selF.innerHTML = keys.length > 0
-            ? keys.map(k => `<option value="${k}">${k}</option>`).join('')
-            : '<option value="">Sin campos</option>';
+        _selAttrLayerKeys = Array.from(keySet);
         if (newNameInp && layer) newNameInp.value = `Sel. Atributos - ${layer.name}`;
-        _onSelAttrFieldChange();
+        addSelAttrConditionRow(true);
     }
 
-    function _onSelAttrFieldChange() {
+    function _onSelAttrRowFieldChange(rowId) {
         const layerId = parseInt(document.getElementById('selAttrLayerSelect')?.value);
-        const field = document.getElementById('selAttrFieldSelect')?.value;
-        const dl = document.getElementById('selAttrValuesList');
+        const rowEl = document.querySelector(`.sel-attr-row[data-row-id="${rowId}"]`);
+        const field = rowEl?.querySelector('.sel-attr-field')?.value;
+        const dl = document.getElementById(`selAttrValuesList-${rowId}`);
         if (!dl) return;
         const layer = state.layers.find(l => l.id === layerId);
         if (!layer?.geoJson?.features || !field) { dl.innerHTML = ''; return; }
@@ -43546,17 +43584,48 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         dl.innerHTML = uniq.slice(0, 80).map(v => `<option value="${v.replace(/"/g, '&quot;')}"></option>`).join('');
     }
 
+    function _evalSelAttrCondition(props, cond) {
+        const cellVal = props[cond.field];
+        const cellStr = cellVal === undefined || cellVal === null ? '' : String(cellVal).trim();
+        const cellUpper = cellStr.toUpperCase();
+        const cellNum = Number(cellVal);
+        const rawVal = cond.val;
+        const targetUpper = String(rawVal).trim().toUpperCase();
+        const numTarget = Number(rawVal);
+
+        if (cond.op === 'eq') return cellUpper === targetUpper;
+        if (cond.op === 'neq') return cellUpper !== targetUpper;
+        if (cond.op === 'contains') return cellUpper.includes(targetUpper);
+        if (cond.op === 'in') {
+            const parts = String(rawVal).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+            return parts.includes(cellUpper);
+        }
+        if (!isNaN(numTarget) && String(rawVal).trim() !== '' && cellVal !== '' && cellVal !== null && !isNaN(cellNum)) {
+            if (cond.op === 'gt') return cellNum > numTarget;
+            if (cond.op === 'gte') return cellNum >= numTarget;
+            if (cond.op === 'lt') return cellNum < numTarget;
+            if (cond.op === 'lte') return cellNum <= numTarget;
+        }
+        return false;
+    }
+
     async function executeSelectByAttributeModal() {
         const layerId = parseInt(document.getElementById('selAttrLayerSelect')?.value);
-        const field = document.getElementById('selAttrFieldSelect')?.value;
-        const op = document.getElementById('selAttrOperatorSelect')?.value || 'eq';
-        const rawVal = document.getElementById('selAttrValueInput')?.value ?? '';
+        const combineMode = document.getElementById('selAttrCombineMode')?.value || 'OR';
         const extract = !!document.getElementById('selAttrExtractChk')?.checked;
         const customName = (document.getElementById('selAttrNewLayerName')?.value || '').trim();
 
         const layer = state.layers.find(l => l.id === layerId);
         if (!layer?.geoJson?.features?.length) return toast('Capa sin datos.', 'error');
-        if (!field) return toast('Selecciona un campo para filtrar.', 'warning');
+
+        const conditions = [];
+        document.querySelectorAll('#selAttrConditionsList .sel-attr-row').forEach(rowEl => {
+            const field = rowEl.querySelector('.sel-attr-field')?.value || '';
+            const op = rowEl.querySelector('.sel-attr-op')?.value || 'eq';
+            const val = rowEl.querySelector('.sel-attr-val')?.value ?? '';
+            if (field) conditions.push({ field, op, val });
+        });
+        if (conditions.length === 0) return toast('Agrega al menos una condición válida.', 'warning');
 
         closeSelectByAttributeModal();
         showProgress('Filtrando por atributos...', 30);
@@ -43564,25 +43633,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         try {
             let count = 0;
             const extracted = [];
-            const numTarget = Number(rawVal);
-            const targetUpper = String(rawVal).trim().toUpperCase();
 
             for (const f of layer.geoJson.features) {
                 f.properties = f.properties || {};
-                const cellVal = f.properties[field];
-                const cellStr = cellVal === undefined || cellVal === null ? '' : String(cellVal).trim();
-                const cellNum = Number(cellVal);
-                let match = false;
-
-                if (op === 'eq') match = cellStr.toUpperCase() === targetUpper;
-                else if (op === 'neq') match = cellStr.toUpperCase() !== targetUpper;
-                else if (op === 'contains') match = cellStr.toUpperCase().includes(targetUpper);
-                else if (!isNaN(numTarget) && rawVal.trim() !== '' && cellVal !== '' && cellVal !== null && !isNaN(cellNum)) {
-                    if (op === 'gt') match = cellNum > numTarget;
-                    else if (op === 'gte') match = cellNum >= numTarget;
-                    else if (op === 'lt') match = cellNum < numTarget;
-                    else if (op === 'lte') match = cellNum <= numTarget;
-                }
+                const match = combineMode === 'AND'
+                    ? conditions.every(c => _evalSelAttrCondition(f.properties, c))
+                    : conditions.some(c => _evalSelAttrCondition(f.properties, c));
 
                 f.properties._selected = match;
                 if (match) {
@@ -43599,9 +43655,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
             if (extract) {
                 if (extracted.length === 0) {
-                    toast(`0 entidades coincidieron con "${field}" ${op} "${rawVal}"; no se creó nueva capa.`, 'info');
+                    toast('0 entidades coincidieron con los criterios; no se creó nueva capa.', 'info');
                 } else {
-                    const outName = customName || `${layer.name} (${field}=${rawVal})`;
+                    const outName = customName || `Sel. Atributos - ${layer.name}`;
                     await addVectorLayer(turf.featureCollection(extracted), outName, {
                         isPoints: layer.isPoints,
                         color: '#4f46e5',
