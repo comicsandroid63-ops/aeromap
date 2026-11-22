@@ -5397,9 +5397,15 @@
               <h3 class="font-bold text-2xl text-zinc-900 leading-tight">Calculadora de Campos</h3>
             </div>
         </div>
-        <button onclick="closeCalculatedFieldModal()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-zinc-200/50 hover:bg-zinc-200 transition-all text-zinc-400 hover:text-black">
-          <span class="material-symbols-outlined text-2xl">close</span>
-        </button>
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col">
+            <span class="text-[9px] font-black uppercase tracking-widest text-zinc-400">Capa Objetivo</span>
+            <select id="calcLayerSelect" onchange="onCalcLayerChange()" class="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-emerald-500/20 min-w-[210px]"></select>
+          </div>
+          <button onclick="closeCalculatedFieldModal()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-zinc-200/50 hover:bg-zinc-200 transition-all text-zinc-400 hover:text-black">
+            <span class="material-symbols-outlined text-2xl">close</span>
+          </button>
+        </div>
       </div>
 
       <div class="flex-1 overflow-hidden flex custom-scrollbar">
@@ -5426,9 +5432,11 @@
                         </button>
                         <div id="calcGroupMath" class="pl-2 space-y-0.5 mt-1 overflow-hidden transition-all">
                             <div ondblclick="insertToExpression('abs()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">abs(x)</div>
-                            <div ondblclick="insertToExpression('round()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">round(x)</div>
+                            <div ondblclick="insertToExpression('round(, 2)')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">round(x, dec)</div>
+                            <div ondblclick="insertToExpression('floor()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">floor(x) / ceil(x)</div>
                             <div ondblclick="insertToExpression('sqrt()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">sqrt(x)</div>
-                            <div ondblclick="insertToExpression('Math.PI')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">PI</div>
+                            <div ondblclick="insertToExpression('pow(, 2)')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">pow(x, y)</div>
+                            <div ondblclick="insertToExpression('PI')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">PI</div>
                         </div>
                     </div>
                      <div class="group">
@@ -5437,9 +5445,13 @@
                             <span class="material-symbols-outlined text-xs">expand_more</span>
                         </button>
                         <div id="calcGroupString" class="pl-2 space-y-0.5 mt-1 hidden">
-                             <div ondblclick="insertToExpression('String().toUpperCase()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">MAYÚS...</div>
-                             <div ondblclick="insertToExpression('String().toLowerCase()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">minús...</div>
-                             <div ondblclick="insertToExpression('String().substring(0,5)')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">Recortar...</div>
+                             <div ondblclick="insertToExpression('upper()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">upper(txt)</div>
+                             <div ondblclick="insertToExpression('lower()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">lower(txt)</div>
+                             <div ondblclick="insertToExpression('trim()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">trim(txt)</div>
+                             <div ondblclick="insertToExpression('concat(, )')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">concat(a, b, ...)</div>
+                             <div ondblclick="insertToExpression('replace(, \"\", \"\")')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">replace(txt, a, b)</div>
+                             <div ondblclick="insertToExpression('substr(, 0, 5)')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">substr(txt, ini, len)</div>
+                             <div ondblclick="insertToExpression('len()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">len(txt)</div>
                         </div>
                     </div>
                     <div class="group">
@@ -5448,9 +5460,25 @@
                             <span class="material-symbols-outlined text-xs">expand_more</span>
                         </button>
                         <div id="calcGroupGeo" class="pl-2 space-y-0.5 mt-1 hidden">
-                            <div ondblclick="insertToExpression('$area')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$area</div>
-                            <div ondblclick="insertToExpression('$perimeter')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$perímetro</div>
-                            <div ondblclick="insertToExpression('$vertices')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$vértices</div>
+                            <div ondblclick="insertToExpression('$area')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$area (m²)</div>
+                            <div ondblclick="insertToExpression('$area_ha')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$area_ha (ha)</div>
+                            <div ondblclick="insertToExpression('$perimeter')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$perimeter (m)</div>
+                            <div ondblclick="insertToExpression('$length')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$length (m)</div>
+                            <div ondblclick="insertToExpression('$x')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$x (lon) / $y (lat)</div>
+                            <div ondblclick="insertToExpression('$vertices')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$vertices</div>
+                            <div ondblclick="insertToExpression('$id')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">$id</div>
+                        </div>
+                    </div>
+                    <div class="group">
+                        <button onclick="toggleCalcGroup('logic')" class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 text-[11px] font-bold text-zinc-600">
+                            <span>Condicional / Fechas</span>
+                            <span class="material-symbols-outlined text-xs">expand_more</span>
+                        </button>
+                        <div id="calcGroupLogic" class="pl-2 space-y-0.5 mt-1 hidden">
+                            <div ondblclick="insertToExpression('if( , , )')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">if(cond, si, no)</div>
+                            <div ondblclick="insertToExpression('coalesce( , \"N/A\")')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">coalesce(a, b)</div>
+                            <div ondblclick="insertToExpression('today()')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">today() / now()</div>
+                            <div ondblclick="insertToExpression('year(today())')" class="p-1.5 text-[10px] text-zinc-500 hover:bg-white hover:text-emerald-600 rounded cursor-pointer font-mono">year() / month()</div>
                         </div>
                     </div>
                 </div>
@@ -5518,29 +5546,35 @@
                 </div>
             </div>
 
-            <!-- Recipe Grid -->
+            <!-- Recipe Grid + Selection Filter -->
             <div class="space-y-3">
-                 <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Recetas Rápidas</label>
-                 <div class="grid grid-cols-3 gap-3">
-                    <div onclick="applyCalcRecipe('hectares')" class="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-3 group">
-                        <span class="material-symbols-outlined text-emerald-500 opacity-40 group-hover:opacity-100 transition-opacity">landscape</span>
+                 <div class="flex items-center justify-between">
+                   <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Recetas Rápidas</label>
+                   <label class="inline-flex items-center gap-2 cursor-pointer text-[11px] font-bold text-zinc-600">
+                     <input type="checkbox" id="calcOnlySelected" class="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer">
+                     <span>Aplicar solo a seleccionados (<span id="calcSelectedCountBadge">0</span>)</span>
+                   </label>
+                 </div>
+                 <div class="grid grid-cols-3 gap-2.5">
+                    <div onclick="applyCalcRecipe('hectares')" class="p-2.5 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-2.5 group">
+                        <span class="material-symbols-outlined text-emerald-500 opacity-60 group-hover:opacity-100">landscape</span>
                         <div class="flex flex-col">
-                            <span class="text-[10px] font-bold text-zinc-700">m² a Hectáreas</span>
-                            <span class="text-[8px] text-zinc-400">$area / 10000</span>
+                            <span class="text-[10px] font-bold text-zinc-700">Área (ha)</span>
+                            <span class="text-[8px] text-zinc-400">round($area_ha, 2)</span>
                         </div>
                     </div>
-                    <div onclick="applyCalcRecipe('density')" class="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-3 group">
-                        <span class="material-symbols-outlined text-emerald-500 opacity-40 group-hover:opacity-100 transition-opacity">groups</span>
+                    <div onclick="applyCalcRecipe('classify')" class="p-2.5 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-2.5 group">
+                        <span class="material-symbols-outlined text-emerald-500 opacity-60 group-hover:opacity-100">data_exploration</span>
                         <div class="flex flex-col">
-                            <span class="text-[10px] font-bold text-zinc-700">Densidad (km²)</span>
-                            <span class="text-[8px] text-zinc-400">[POB] / ($area / 1e6)</span>
+                            <span class="text-[10px] font-bold text-zinc-700">Clasificar Tamaño</span>
+                            <span class="text-[8px] text-zinc-400">if($area_ha > 10, ...)</span>
                         </div>
                     </div>
-                    <div onclick="applyCalcRecipe('classify')" class="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-3 group">
-                        <span class="material-symbols-outlined text-emerald-500 opacity-40 group-hover:opacity-100 transition-opacity">data_exploration</span>
+                    <div onclick="applyCalcRecipe('coords')" class="p-2.5 bg-zinc-50 border border-zinc-100 rounded-2xl cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/50 transition-all flex items-center gap-2.5 group">
+                        <span class="material-symbols-outlined text-emerald-500 opacity-60 group-hover:opacity-100">my_location</span>
                         <div class="flex flex-col">
-                            <span class="text-[10px] font-bold text-zinc-700">Clasificar Área</span>
-                            <span class="text-[8px] text-zinc-400">Condición ternaria</span>
+                            <span class="text-[10px] font-bold text-zinc-700">Coordenadas X,Y</span>
+                            <span class="text-[8px] text-zinc-400">concat(round($x,5), ...)</span>
                         </div>
                     </div>
                  </div>
@@ -6230,18 +6264,27 @@
             <span class="material-symbols-outlined text-indigo-600 text-base">calculate</span>
             <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Medición y Atributos</span>
           </div>
-          <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('calc_geometry');" class="w-full p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-lg">calculate</span>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('calc_geometry');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">calculate</span> Calcular Geometría
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
               </div>
-              <div>
-                <div class="text-xs font-bold text-zinc-900 group-hover:text-indigo-950">Calcular Geometría ($area, $perímetro, $longitud)</div>
-                <div class="text-[10px] text-zinc-500">Calcula hectáreas, m², km² y longitud para cada elemento y añade las columnas a la tabla de atributos</div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula hectáreas, m², km² y longitud para cada elemento y añade las columnas.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openCalculatedFieldModal();" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">variable_add</span> Calculadora de Campos
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
               </div>
-            </div>
-            <span class="material-symbols-outlined text-indigo-600 text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
-          </button>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Crea o actualiza columnas con fórmulas matemáticas, texto, fechas, condicionales y geometría.</p>
+            </button>
+          </div>
         </div>
 
         <!-- 4. Pegar / Fusionar Capas Vectoriales -->
@@ -45006,21 +45049,31 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     //  FIELD CALCULATOR (Attribute Analytics)
     // ══════════════════════════════════════════
     
-    function openCalculatedFieldModal() {
-        const layer = state.selectedAttrTableLayer || (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId) : null);
-        if (!layer || layer.type !== 'vector') {
-            return toast('Por favor, selecciona una capa vectorial o abre su tabla de atributos primero.', 'info');
+    function _getCalcTargetLayer() {
+        const sel = document.getElementById('calcLayerSelect');
+        const selId = sel && sel.value ? parseInt(sel.value, 10) : null;
+        if (selId) {
+            const found = state.layers.find(l => l.id === selId && l.type === 'vector');
+            if (found) return found;
         }
+        return state.selectedAttrTableLayer ||
+            (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId && l.type === 'vector') : null) ||
+            state.layers.find(l => l.type === 'vector' && l.geoJson);
+    }
 
-        const modal = document.getElementById('calculatedFieldModal');
+    function onCalcLayerChange() {
+        const layer = _getCalcTargetLayer();
+        if (!layer) return;
+        state.selectedAttrTableLayer = layer;
+        _populateCalcFieldsUI(layer);
+    }
+
+    function _populateCalcFieldsUI(layer) {
         const list = document.getElementById('calcAvailableFields');
-        modal.style.display = 'flex';
-        
-        // Get unique fields 
-        const features = layer.geoJson.features || [];
+        const features = layer?.geoJson?.features || [];
         const fields = new Set();
         features.forEach(f => {
-            if (f.properties) Object.keys(f.properties).forEach(k => fields.add(k));
+            if (f.properties) Object.keys(f.properties).forEach(k => { if (!k.startsWith('_')) fields.add(k); });
         });
 
         const fieldsArr = Array.from(fields);
@@ -45039,18 +45092,46 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const $updateSelect = document.getElementById('calcUpdateField');
         $updateSelect.innerHTML = fieldsArr.map(f => `<option value="${f}">${f}</option>`).join('');
 
-        state.calcPreviewIndex = 0; // Reset index
+        const selBadge = document.getElementById('calcSelectedCountBadge');
+        const selCount = features.filter(f => f?.properties?._selected).length;
+        if (selBadge) selBadge.textContent = selCount;
+        const onlySelChk = document.getElementById('calcOnlySelected');
+        if (onlySelChk) {
+            onlySelChk.disabled = selCount === 0;
+            if (selCount === 0) onlySelChk.checked = false;
+        }
+
+        state.calcPreviewIndex = 0;
         document.getElementById('calcAvailableValues').innerHTML = `
             <div class="h-full flex items-center justify-center text-[9px] font-bold text-zinc-300 uppercase px-4 text-center italic">
                 Selecciona una col. para ver valores
             </div>`;
-
         updateCalcPreview();
     }
 
+    function openCalculatedFieldModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        if (vectorLayers.length === 0) {
+            return toast('Carga al menos una capa vectorial para usar la Calculadora de Campos.', 'info');
+        }
+
+        const preferred = state.selectedAttrTableLayer ||
+            (state.selectedLayerId ? vectorLayers.find(l => l.id === state.selectedLayerId) : null) ||
+            vectorLayers[0];
+
+        const sel = document.getElementById('calcLayerSelect');
+        if (sel) {
+            sel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name} (${l.geoJson?.features?.length || 0})</option>`).join('');
+            if (preferred) sel.value = String(preferred.id);
+        }
+
+        document.getElementById('calculatedFieldModal').style.display = 'flex';
+        _populateCalcFieldsUI(preferred);
+    }
+
     function changeCalcPreview(delta) {
-        const layer = state.selectedAttrTableLayer || (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId) : null);
-        if (!layer) return;
+        const layer = _getCalcTargetLayer();
+        if (!layer || !layer.geoJson?.features?.length) return;
         const count = layer.geoJson.features.length;
         state.calcPreviewIndex = (state.calcPreviewIndex + delta + count) % count;
         updateCalcPreview();
@@ -45058,7 +45139,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function toggleCalcGroup(group) {
         const el = document.getElementById('calcGroup' + group.charAt(0).toUpperCase() + group.slice(1));
-        el.classList.toggle('hidden');
+        if (el) el.classList.toggle('hidden');
     }
 
     function toggleCalcNameInput() {
@@ -45083,71 +45164,124 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function applyCalcRecipe(recipe) {
         const editor = document.getElementById('calcFieldExpression');
-        if (recipe === 'hectares') editor.value = '$area / 10000';
-        if (recipe === 'density') editor.value = '[POBLACION] / ($area / 1000000)';
-        if (recipe === 'classify') editor.value = '$area > 50000 ? "Grande" : "Pequeño"';
+        if (recipe === 'hectares') editor.value = 'round($area_ha, 2)';
+        if (recipe === 'classify') editor.value = 'if($area_ha >= 10, "Grande", if($area_ha >= 2, "Mediano", "Pequeño"))';
+        if (recipe === 'coords') editor.value = 'concat(round($x, 5), ", ", round($y, 5))';
         updateCalcPreview();
     }
 
+    const _CALC_HELPERS = {
+        abs: Math.abs,
+        round: (v, dec = 0) => {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return 0;
+            const factor = Math.pow(10, Math.max(0, parseInt(dec, 10) || 0));
+            return Math.round(n * factor) / factor;
+        },
+        sqrt: Math.sqrt,
+        pow: Math.pow,
+        floor: Math.floor,
+        ceil: Math.ceil,
+        PI: Math.PI,
+        max: Math.max,
+        min: Math.min,
+        clamp: (v, lo, hi) => Math.min(hi, Math.max(lo, Number(v))),
+        upper: (s) => String(s ?? '').toUpperCase(),
+        lower: (s) => String(s ?? '').toLowerCase(),
+        trim: (s) => String(s ?? '').trim(),
+        len: (s) => String(s ?? '').length,
+        replace: (s, a, b) => String(s ?? '').split(String(a)).join(String(b)),
+        substr: (s, start, length) => length !== undefined ? String(s ?? '').substr(start, length) : String(s ?? '').substr(start),
+        concat: (...args) => args.map(a => a ?? '').join(''),
+        coalesce: (...args) => args.find(a => a !== null && a !== undefined && a !== ''),
+        today: () => new Date().toISOString().slice(0, 10),
+        now: () => new Date().toISOString(),
+        year: (d) => new Date(d || Date.now()).getFullYear(),
+        month: (d) => new Date(d || Date.now()).getMonth() + 1,
+        __ifFn: (cond, a, b) => (cond ? a : b)
+    };
+
+    function _evalCalcExpression(expr, f, idx) {
+        let processed = String(expr || '').trim();
+        if (!processed) return '';
+
+        // Soporte para if(cond, a, b) sin chocar con palabra reservada JS
+        processed = processed.replace(/\bif\s*\(/gi, '__ifFn(');
+
+        let areaM2 = 0, lenM = 0, verts = 0, cx = 0, cy = 0;
+        if (f?.geometry) {
+            try { areaM2 = turf.area(f) || 0; } catch (_) {}
+            try { lenM = turf.length(f, { units: 'meters' }) || 0; } catch (_) {}
+            try { verts = turf.explode(f).features.length || 0; } catch (_) {}
+            try {
+                const c = f.geometry.type === 'Point' ? f.geometry.coordinates : turf.centroid(f).geometry.coordinates;
+                cx = c[0] || 0; cy = c[1] || 0;
+            } catch (_) {}
+        }
+
+        processed = processed
+            .replace(/\$area_ha/gi, areaM2 / 10000)
+            .replace(/\$area/gi, areaM2)
+            .replace(/\$perimeter/gi, lenM)
+            .replace(/\$length/gi, lenM)
+            .replace(/\$vertices/gi, verts)
+            .replace(/\$x/gi, cx)
+            .replace(/\$y/gi, cy)
+            .replace(/\$id/gi, idx + 1);
+
+        const props = f?.properties || {};
+        processed = processed.replace(/\[([^\]]+)\]/g, (_, colName) => {
+            const colVal = props[colName];
+            if (colVal === undefined || colVal === null) return 'null';
+            if (typeof colVal === 'string') return JSON.stringify(colVal);
+            if (typeof colVal === 'object') return JSON.stringify(colVal);
+            return String(colVal);
+        });
+
+        const keys = Object.keys(_CALC_HELPERS);
+        const vals = Object.values(_CALC_HELPERS);
+        return new Function(...keys, `return (${processed})`)(...vals);
+    }
+
     function updateCalcPreview() {
-        const layer = state.selectedAttrTableLayer || (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId) : null);
-        if (!layer || !layer.geoJson.features.length) return;
+        const layer = _getCalcTargetLayer();
+        if (!layer || !layer.geoJson?.features?.length) return;
 
         const expr = document.getElementById('calcFieldExpression').value.trim();
         const $preview = document.getElementById('calcPreviewValue');
         const $name = document.getElementById('calcPreviewName');
-        
+
         const idx = state.calcPreviewIndex || 0;
         const f = layer.geoJson.features[idx];
+        const firstPropKey = Object.keys(f.properties || {}).find(k => !k.startsWith('_'));
+        const recLabel = firstPropKey ? f.properties[firstPropKey] : 'Elemento';
+        $name.textContent = `Registro ${idx + 1}/${layer.geoJson.features.length}: ${recLabel}`;
 
         if (!expr) {
             $preview.textContent = 'Escribe una expresión...';
-            $preview.className = 'text-xl font-mono font-bold text-zinc-600';
-            $name.textContent = `Registro ${idx + 1}: ${f.properties[Object.keys(f.properties)[0]] || 'Sin nombre'}`;
+            $preview.className = 'text-xl font-mono font-bold text-zinc-500';
             return;
         }
 
-        $name.textContent = `Registro ${idx + 1}: ${f.properties[Object.keys(f.properties)[0]] || 'Elemento'}`;
-
         try {
-            const MathHelpers = {
-                abs: Math.abs, round: Math.round, sqrt: Math.sqrt, 
-                floor: Math.floor, ceil: Math.ceil, PI: Math.PI,
-                max: Math.max, min: Math.min, upper: (s) => String(s).toUpperCase(), lower: (s) => String(s).toLowerCase()
-            };
-
-            let processedExpr = expr;
-            processedExpr = processedExpr.replace(/\$area/gi, turf.area(f));
-            processedExpr = processedExpr.replace(/\$perimeter/gi, turf.length(f, {units: 'meters'}));
-            processedExpr = processedExpr.replace(/\$vertices/gi, turf.explode(f).features.length);
-            processedExpr = processedExpr.replace(/\$id/gi, 1);
-
-            const colRegex = /\[([^\]]+)\]/g;
-            processedExpr = processedExpr.replace(colRegex, (match, colName) => {
-                let colVal = f.properties[colName];
-                if (colVal === undefined || colVal === null) return '0';
-                return typeof colVal === 'string' ? `"${colVal.replace(/"/g, '\\"')}"` : (typeof colVal === 'object' ? JSON.stringify(colVal) : colVal);
-            });
-
-            const result = new Function(...Object.keys(MathHelpers), `return (${processedExpr})`)(...Object.values(MathHelpers));
-            
-            $preview.textContent = typeof result === 'object' ? JSON.stringify(result) : result;
+            const result = _evalCalcExpression(expr, f, idx);
+            $preview.textContent = (result !== null && typeof result === 'object') ? JSON.stringify(result) : String(result);
             $preview.className = 'text-xl font-mono font-bold text-emerald-400';
         } catch (e) {
-            $preview.textContent = 'Error';
-            $preview.className = 'text-xl font-mono font-bold text-red-500';
+            $preview.textContent = `Error: ${e.message}`;
+            $preview.className = 'text-sm font-mono font-bold text-red-400';
         }
     }
 
     function loadCalcValues(colName) {
-        const layer = state.selectedAttrTableLayer || (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId) : null);
+        const layer = _getCalcTargetLayer();
         const listValues = document.getElementById('calcAvailableValues');
         if (!layer) return;
 
-        const vals = [...new Set(layer.geoJson.features.map(f => f.properties[colName]))]
+        const vals = [...new Set(layer.geoJson.features.map(f => f.properties?.[colName]))]
             .filter(v => v !== null && v !== undefined)
             .sort()
-            .slice(0, 50); 
+            .slice(0, 50);
 
         listValues.innerHTML = vals.map(v => {
             const display = String(v);
@@ -45176,45 +45310,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     async function applyCalculatedField() {
-        const layer = state.selectedAttrTableLayer || (state.selectedLayerId ? state.layers.find(l => l.id === state.selectedLayerId) : null);
+        const layer = _getCalcTargetLayer();
+        if (!layer || !layer.geoJson) return toast('Selecciona una capa vectorial.', 'warning');
         const updateMode = document.getElementById('calcUpdateMode').value;
         const name = updateMode === 'create' ? document.getElementById('calcFieldName').value.trim() : document.getElementById('calcUpdateField').value;
         const expression = document.getElementById('calcFieldExpression').value.trim();
         const type = document.getElementById('calcFieldType').value;
+        const onlySelected = Boolean(document.getElementById('calcOnlySelected')?.checked);
 
-        if (updateMode !== 'filter' && !name) return toast('Ingresa un nombre para la columna.', 'warning');
+        if (updateMode !== 'select' && !name) return toast('Ingresa un nombre para la columna.', 'warning');
         if (!expression) return toast('Ingresa una expresión.', 'warning');
 
-        showProgress(updateMode === 'filter' ? 'Filtrando capa...' : 'Calculando nuevos atributos...', 10);
-        
+        showProgress(updateMode === 'select' ? 'Evaluando selección...' : 'Calculando atributos...', 10);
+
         try {
-            const features = JSON.parse(JSON.stringify(layer.geoJson.features)); 
-            const MathHelpers = {
-                abs: Math.abs, round: Math.round, sqrt: Math.sqrt, 
-                floor: Math.floor, ceil: Math.ceil, PI: Math.PI,
-                max: Math.max, min: Math.min, upper: (s) => String(s).toUpperCase(), lower: (s) => String(s).toLowerCase()
-            };
+            const features = JSON.parse(JSON.stringify(layer.geoJson.features));
+            let updatedCount = 0;
 
             for (let i = 0; i < features.length; i++) {
                 const f = features[i];
-                let processedExpr = expression;
-
-                if (processedExpr.toLowerCase().includes('$area')) processedExpr = processedExpr.replace(/\$area/gi, turf.area(f));
-                if (processedExpr.toLowerCase().includes('$perimeter')) processedExpr = processedExpr.replace(/\$perimeter/gi, turf.length(f, {units: 'meters'}));
-                if (processedExpr.toLowerCase().includes('$vertices')) processedExpr = processedExpr.replace(/\$vertices/gi, turf.explode(f).features.length);
-                if (processedExpr.toLowerCase().includes('$id')) processedExpr = processedExpr.replace(/\$id/gi, i + 1);
-
-                const colRegex = /\[([^\]]+)\]/g;
-                processedExpr = processedExpr.replace(colRegex, (match, colName) => {
-                    let colVal = f.properties[colName];
-                    if (colVal === undefined || colVal === null) return '0';
-                    return typeof colVal === 'string' ? `"${colVal.replace(/"/g, '\\"')}"` : (typeof colVal === 'object' ? JSON.stringify(colVal) : colVal);
-                });
+                if (!f.properties) f.properties = {};
+                if (onlySelected && !f.properties._selected) continue;
 
                 let result;
                 try {
-                    result = new Function(...Object.keys(MathHelpers), `return (${processedExpr})`)(...Object.values(MathHelpers));
-                } catch (e) {
+                    result = _evalCalcExpression(expression, f, i);
+                } catch (_) {
                     result = null;
                 }
 
@@ -45223,15 +45344,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 } else {
                     if (type === 'number') {
                         const parsed = parseFloat(result);
-                        f.properties[name] = isNaN(parsed) ? 0 : parsed;
+                        f.properties[name] = Number.isFinite(parsed) ? parsed : 0;
                     } else if (type === 'boolean') {
                         f.properties[name] = Boolean(result);
-                    } else {
+                    } else if (type === 'json') {
                         f.properties[name] = result;
+                    } else {
+                        f.properties[name] = result === null || result === undefined ? '' : String(result);
                     }
+                    updatedCount++;
                 }
 
-                if (i % 500 === 0) showProgress(`Procesando... ${i}/${features.length}`, 10 + (i/features.length)*80);
+                if (i % 500 === 0) showProgress(`Procesando... ${i}/${features.length}`, 10 + (i / features.length) * 80);
             }
 
             layer.geoJson.features = features;
@@ -45240,14 +45364,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const selCount = features.filter(f => f.properties._selected).length;
                 toast(`Seleccionados ${selCount} elementos.`, 'success');
             } else {
-                toast(`Cálculo finalizado. Columna ${name} actualizada.`, 'success');
+                toast(`Cálculo finalizado: "${name}" actualizado en ${updatedCount} registros.`, 'success');
                 saveLayerToDatabase(layer);
             }
 
             refreshLayerOnMap(layer);
             closeCalculatedFieldModal();
             renderAttributeTable();
-            
         } catch (err) {
             console.error(err);
             toast(`Error: ${err.message}`, 'error');
