@@ -5917,14 +5917,44 @@
               <p class="text-[10px] text-zinc-500 leading-relaxed">Fusiona geométricamente las áreas de dos capas en un conjunto único.</p>
             </button>
 
-            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('buffer');" class="col-span-2 p-4 bg-zinc-50 hover:bg-sky-50/60 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+            <button onclick="closeVectorAdvancedModal(); openClipModal('symdiff');" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">join_left</span> Diferencia Simétrica
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Conserva únicamente las zonas que NO se superponen entre la capa A y B.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openClipModal('identity');" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">layers</span> Identidad (Identity)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Conserva toda la geometría de A y transfiere atributos de B donde se superponen.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openClipModal('update');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">update</span> Actualizar (Update)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Reemplaza las zonas de A que coinciden con B usando geometrías y atributos de B.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('buffer');" class="p-4 bg-zinc-50 hover:bg-sky-50/60 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
               <div class="flex items-center justify-between mb-1.5">
                 <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
                   <span class="material-symbols-outlined text-sky-600 text-lg">adjust</span> Buffer / Zona de Influencia
                 </div>
                 <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
               </div>
-              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera zonas de amortiguamiento en metros o kilómetros, con opción de disolver bordes superpuestos y buffer interno/negativo para polígonos.</p>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera zonas de amortiguamiento en metros o kilómetros, disolver o buffer interno.</p>
             </button>
           </div>
         </div>
@@ -5933,9 +5963,68 @@
         <div class="space-y-3">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-emerald-600 text-base">architecture</span>
-            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Transformación y Simplificación</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Transformación, Geoproceso y Topología</span>
           </div>
           <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('dissolve');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">merge_type</span> Disolver (Dissolve)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Fusiona polígonos o líneas por atributo común (o todo en uno) con suma, promedio o conteo.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('multipart_to_single');" class="p-4 bg-zinc-50 hover:bg-pink-50/50 border border-zinc-200 hover:border-pink-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-pink-700">
+                  <span class="material-symbols-outlined text-pink-600 text-lg">scatter_plot</span> Multiparte a Monoparte
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Separa geometrías multiparte en entidades individuales conservando atributos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('collect_geometries');" class="p-4 bg-zinc-50 hover:bg-violet-50/50 border border-zinc-200 hover:border-violet-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-violet-700">
+                  <span class="material-symbols-outlined text-violet-600 text-lg">workspaces</span> Monoparte a Multiparte
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Agrupa entidades en geometrías multiparte según un campo o en una sola.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('fix_geometries');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">build</span> Reparar Geometrías
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Corrige auto-intersecciones, cierra anillos abiertos y elimina vértices duplicados.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('delete_holes');" class="p-4 bg-zinc-50 hover:bg-lime-50/50 border border-zinc-200 hover:border-lime-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-lime-700">
+                  <span class="material-symbols-outlined text-lime-600 text-lg">cleaning_services</span> Eliminar Agujeros
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Rellena huecos internos de polígonos menores a un área límite (o todos).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('smooth');" class="p-4 bg-zinc-50 hover:bg-sky-50/50 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
+                  <span class="material-symbols-outlined text-sky-600 text-lg">gesture</span> Suavizar (Chaikin)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Suaviza esquinas de polígonos y líneas mediante iteraciones de Chaikin.</p>
+            </button>
             <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('simplify');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
               <div class="flex items-center justify-between mb-1.5">
                 <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
@@ -6845,6 +6934,59 @@
                 <option value="meters">Metros (m)</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Disolver (Dissolve) -->
+        <div id="singleVectorDissolveOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo para Disolver</label>
+            <select id="singleVectorDissolveField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="__ALL__">Disolver todos en un solo elemento</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Agregación Estadística</label>
+              <select id="singleVectorDissolveAgg" onchange="document.getElementById('singleVectorDissolveStatWrap')?.classList.toggle('hidden', this.value !== 'sum' && this.value !== 'avg')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="count" selected>Conteo (_count)</option>
+                <option value="sum">Suma de campo</option>
+                <option value="avg">Promedio de campo</option>
+                <option value="none">Sin agregación</option>
+              </select>
+            </div>
+            <div id="singleVectorDissolveStatWrap" class="space-y-1 hidden">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Numérico</label>
+              <select id="singleVectorDissolveStatField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Monoparte a Multiparte (Collect Geometries) -->
+        <div id="singleVectorCollectOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Agrupar por Campo</label>
+            <select id="singleVectorCollectField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="__ALL__">Agrupar todos en una sola multiparte</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Eliminar Agujeros (Delete Holes) -->
+        <div id="singleVectorDeleteHolesOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Área Máxima de Agujero a Eliminar (m²)</label>
+            <input type="number" id="singleVectorMinHoleArea" value="0" min="0" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            <p class="text-[10px] text-zinc-400">Usa <strong>0</strong> para eliminar todos los agujeros internos.</p>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Suavizar (Smooth Chaikin) -->
+        <div id="singleVectorSmoothOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Iteraciones de Suavizado (Chaikin)</label>
+            <input type="number" id="singleVectorSmoothIter" value="2" min="1" max="5" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            <p class="text-[10px] text-zinc-400">Recomendado: 1 a 3 iteraciones para suavizar esquinas sin exceso de vértices.</p>
           </div>
         </div>
 
@@ -42270,7 +42412,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             clip: { sub: 'Recortar Capa', title: 'Recortar (Clip)', btn: 'Ejecutar Recorte', color: '#dc2626' },
             difference: { sub: 'Diferencia Espacial (Resta)', title: 'Diferencia (Erase)', btn: 'Calcular Diferencia', color: '#d97706' },
             intersect: { sub: 'Intersección de Capas', title: 'Intersección', btn: 'Calcular Intersección', color: '#7c3aed' },
-            union: { sub: 'Unión Espacial', title: 'Unión de Capas', btn: 'Ejecutar Unión', color: '#2563eb' }
+            union: { sub: 'Unión Espacial', title: 'Unión de Capas', btn: 'Ejecutar Unión', color: '#2563eb' },
+            symdiff: { sub: 'Diferencia Simétrica (XOR)', title: 'Diferencia Simétrica', btn: 'Calcular Dif. Simétrica', color: '#e11d48' },
+            identity: { sub: 'Superposición Identidad', title: 'Identidad (Identity)', btn: 'Calcular Identidad', color: '#0891b2' },
+            update: { sub: 'Actualizar Geometrías y Atributos', title: 'Actualizar (Update)', btn: 'Ejecutar Actualización', color: '#059669' }
         };
         const cfg = titles[_clipMode] || titles.clip;
         document.getElementById('clipModalSubtitle').textContent = cfg.sub;
@@ -42582,6 +42727,123 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     if (copy.properties) delete copy.properties._selected;
                     results.push(copy);
                 });
+            } else if (mode === 'symdiff' || mode === 'identity' || mode === 'update') {
+                const isPolyFeat = (f) => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon');
+                const polysA = featuresA.filter(isPolyFeat);
+                const polysB = featuresB.filter(isPolyFeat);
+                const nonPolysA = featuresA.filter(f => !isPolyFeat(f));
+                const nonPolysB = featuresB.filter(f => !isPolyFeat(f));
+                const bboxesA = polysA.map(f => { try { return turf.bbox(f); } catch (_) { return null; } });
+                const polyBBoxesB = polysB.map(f => { try { return turf.bbox(f); } catch (_) { return null; } });
+
+                const mergeTwoProps = (propsA, propsB) => {
+                    const out = { ...(propsA || {}) };
+                    delete out._selected;
+                    const pB = propsB || {};
+                    for (const k of Object.keys(pB)) {
+                        if (k === '_selected') continue;
+                        if (Object.prototype.hasOwnProperty.call(out, k)) {
+                            out[`${k}_2`] = pB[k];
+                        } else {
+                            out[k] = pB[k];
+                        }
+                    }
+                    return out;
+                };
+
+                const subtractPolys = (targetList, targetBBoxes, cutterList, cutterBBoxes) => {
+                    const outList = [];
+                    for (let i = 0; i < targetList.length; i++) {
+                        const bbT = targetBBoxes[i];
+                        if (!bbT) continue;
+                        let curr = JSON.parse(JSON.stringify(targetList[i]));
+                        for (let j = 0; j < cutterList.length; j++) {
+                            const bbC = cutterBBoxes[j];
+                            if (!bbC || !curr) continue;
+                            if (bbC[0] > bbT[2] || bbC[2] < bbT[0] || bbC[1] > bbT[3] || bbC[3] < bbT[1]) continue;
+                            try {
+                                const diff = turf.difference(turf.featureCollection([curr, cutterList[j]]));
+                                if (diff) {
+                                    diff.properties = curr.properties;
+                                    curr = diff;
+                                } else {
+                                    curr = null;
+                                    break;
+                                }
+                            } catch (_) {}
+                        }
+                        if (curr && curr.geometry && turf.area(curr) > 0.01) {
+                            curr.properties = { ...(targetList[i].properties || {}) };
+                            delete curr.properties._selected;
+                            outList.push(curr);
+                        }
+                    }
+                    return outList;
+                };
+
+                if (mode === 'symdiff') {
+                    // (A - B) ∪ (B - A)
+                    results.push(...subtractPolys(polysA, bboxesA, polysB, polyBBoxesB));
+                    results.push(...subtractPolys(polysB, polyBBoxesB, polysA, bboxesA));
+                    nonPolysA.forEach(np => {
+                        const hitsB = featuresB.some(fB => { try { return turf.booleanIntersects(np, fB); } catch (_) { return false; } });
+                        if (!hitsB) {
+                            const copy = JSON.parse(JSON.stringify(np));
+                            if (copy.properties) delete copy.properties._selected;
+                            results.push(copy);
+                        }
+                    });
+                    nonPolysB.forEach(np => {
+                        const hitsA = featuresA.some(fA => { try { return turf.booleanIntersects(np, fA); } catch (_) { return false; } });
+                        if (!hitsA) {
+                            const copy = JSON.parse(JSON.stringify(np));
+                            if (copy.properties) delete copy.properties._selected;
+                            results.push(copy);
+                        }
+                    });
+                } else if (mode === 'identity') {
+                    // (A ∩ B con attrs A+B) ∪ (A - B con attrs A)
+                    for (let i = 0; i < polysA.length; i++) {
+                        const bbA = bboxesA[i];
+                        if (!bbA) continue;
+                        for (let j = 0; j < polysB.length; j++) {
+                            const bbB = polyBBoxesB[j];
+                            if (!bbB) continue;
+                            if (bbB[0] > bbA[2] || bbB[2] < bbA[0] || bbB[1] > bbA[3] || bbB[3] < bbA[1]) continue;
+                            try {
+                                const inter = turf.intersect(turf.featureCollection([polysA[i], polysB[j]]));
+                                if (inter && inter.geometry && turf.area(inter) > 0.01) {
+                                    inter.properties = mergeTwoProps(polysA[i].properties, polysB[j].properties);
+                                    results.push(inter);
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                    results.push(...subtractPolys(polysA, bboxesA, polysB, polyBBoxesB));
+                    nonPolysA.forEach(np => {
+                        const hitB = featuresB.find(fB => { try { return turf.booleanIntersects(np, fB); } catch (_) { return false; } });
+                        const copy = JSON.parse(JSON.stringify(np));
+                        copy.properties = hitB ? mergeTwoProps(np.properties, hitB.properties) : { ...(np.properties || {}) };
+                        delete copy.properties._selected;
+                        results.push(copy);
+                    });
+                } else if (mode === 'update') {
+                    // (A - B) + B completo
+                    results.push(...subtractPolys(polysA, bboxesA, polysB, polyBBoxesB));
+                    nonPolysA.forEach(np => {
+                        const hitsB = featuresB.some(fB => { try { return turf.booleanIntersects(np, fB); } catch (_) { return false; } });
+                        if (!hitsB) {
+                            const copy = JSON.parse(JSON.stringify(np));
+                            if (copy.properties) delete copy.properties._selected;
+                            results.push(copy);
+                        }
+                    });
+                    featuresB.forEach(fB => {
+                        const copy = JSON.parse(JSON.stringify(fB));
+                        if (copy.properties) delete copy.properties._selected;
+                        results.push(copy);
+                    });
+                }
             }
 
             if (results.length === 0) throw new Error('Sin geometrías resultantes tras la operación.');
@@ -42590,13 +42852,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 clip: `Recorte ${layerA.name}`,
                 difference: `Diferencia ${layerA.name} - ${layerB.name}`,
                 intersect: `Intersección ${layerA.name} x ${layerB.name}`,
-                union: `Unión ${layerA.name} + ${layerB.name}`
+                union: `Unión ${layerA.name} + ${layerB.name}`,
+                symdiff: `Dif. Simétrica ${layerA.name} ^ ${layerB.name}`,
+                identity: `Identidad ${layerA.name} + ${layerB.name}`,
+                update: `Actualización ${layerA.name} con ${layerB.name}`
             };
             const colors = {
                 clip: '#dc2626',
                 difference: '#d97706',
                 intersect: '#7c3aed',
-                union: '#2563eb'
+                union: '#2563eb',
+                symdiff: '#e11d48',
+                identity: '#0891b2',
+                update: '#059669'
             };
 
             const outName = names[mode] || `Procesado ${layerA.name}`;
@@ -42637,14 +42905,91 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const vorOpt = document.getElementById('singleVectorVoronoiOpt');
         const tinOpt = document.getElementById('singleVectorTinOpt');
         const sampOpt = document.getElementById('singleVectorSamplingOpt');
-        if (simpOpt) simpOpt.classList.add('hidden');
-        if (expOpt) expOpt.classList.add('hidden');
-        if (bufOpt) bufOpt.classList.add('hidden');
-        if (vorOpt) vorOpt.classList.add('hidden');
-        if (tinOpt) tinOpt.classList.add('hidden');
-        if (sampOpt) sampOpt.classList.add('hidden');
+        const dissolveOpt = document.getElementById('singleVectorDissolveOpt');
+        const collectOpt = document.getElementById('singleVectorCollectOpt');
+        const deleteHolesOpt = document.getElementById('singleVectorDeleteHolesOpt');
+        const smoothOpt = document.getElementById('singleVectorSmoothOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt].forEach(el => {
+            if (el) el.classList.add('hidden');
+        });
+
+        const _syncFieldSelects = () => {
+            const lid = parseInt(sel.value, 10);
+            const lyr = vectorLayers.find(l => l.id === lid);
+            const keys = new Set();
+            if (lyr?.geoJson?.features) {
+                lyr.geoJson.features.slice(0, 50).forEach(f => {
+                    Object.keys(f?.properties || {}).forEach(k => {
+                        if (!k.startsWith('_')) keys.add(k);
+                    });
+                });
+            }
+            const fieldOpts = Array.from(keys).map(k => `<option value="${k}">${k}</option>`).join('');
+            const dField = document.getElementById('singleVectorDissolveField');
+            const dStat = document.getElementById('singleVectorDissolveStatField');
+            const cField = document.getElementById('singleVectorCollectField');
+            if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
+            if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
+            if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
+        };
+        sel.onchange = _syncFieldSelects;
+        _syncFieldSelects();
 
         const configs = {
+            dissolve: {
+                title: 'Disolver (Dissolve)',
+                sub: 'Fusión por Atributos y Estadísticas',
+                icon: 'merge_type',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Fusiona polígonos o líneas que compartan el mismo atributo (o disuelve toda la capa en una geometría) con conteo, suma o promedio.',
+                opt: dissolveOpt
+            },
+            multipart_to_single: {
+                title: 'Multiparte a Monoparte',
+                sub: 'Separación Topológica',
+                icon: 'scatter_plot',
+                color: 'text-pink-600',
+                bg: 'bg-pink-50 border-pink-100',
+                desc: 'Convierte entidades MultiPolygon, MultiLineString o MultiPoint en entidades individuales conservando todos sus atributos.',
+                opt: null
+            },
+            collect_geometries: {
+                title: 'Monoparte a Multiparte (Collect)',
+                sub: 'Agrupación Topológica',
+                icon: 'workspaces',
+                color: 'text-violet-600',
+                bg: 'bg-violet-50 border-violet-100',
+                desc: 'Agrupa entidades separadas en geometrías multiparte según un campo común o en una única multiparte.',
+                opt: collectOpt
+            },
+            fix_geometries: {
+                title: 'Reparar Geometrías',
+                sub: 'Validación y Corrección Topológica',
+                icon: 'build',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 border-amber-100',
+                desc: 'Corrige auto-intersecciones (unkink), cierra anillos abiertos, elimina anillos degenerados y limpia vértices duplicados.',
+                opt: null
+            },
+            delete_holes: {
+                title: 'Eliminar Agujeros (Delete Holes)',
+                sub: 'Limpieza de Polígonos',
+                icon: 'cleaning_services',
+                color: 'text-lime-600',
+                bg: 'bg-lime-50 border-lime-100',
+                desc: 'Rellena huecos internos de polígonos menores a un área límite en m² (o elimina todos si el límite es 0).',
+                opt: deleteHolesOpt
+            },
+            smooth: {
+                title: 'Suavizar Geometrías (Chaikin)',
+                sub: 'Refinamiento de Contornos',
+                icon: 'gesture',
+                color: 'text-sky-600',
+                bg: 'bg-sky-50 border-sky-100',
+                desc: 'Suaviza esquinas angulosas en polígonos y líneas usando subdivisiones sucesivas de Chaikin.',
+                opt: smoothOpt
+            },
             sampling: {
                 title: 'Puntos Aleatorios / Malla (Grid)',
                 sub: 'Muestreo Espacial Turf.js',
@@ -42787,7 +43132,292 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'sampling') {
+            if (tool === 'dissolve') {
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const field = document.getElementById('singleVectorDissolveField')?.value || '__ALL__';
+                const agg = document.getElementById('singleVectorDissolveAgg')?.value || 'count';
+                const statField = document.getElementById('singleVectorDissolveStatField')?.value || '';
+
+                const groups = new Map();
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const key = field === '__ALL__' ? '__ALL__' : String(f.properties?.[field] ?? '');
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(f);
+                }
+
+                const outFeats = [];
+                for (const [key, grp] of groups.entries()) {
+                    const firstProps = { ...(grp[0].properties || {}) };
+                    delete firstProps._selected;
+                    const props = (field === '__ALL__') ? {} : { [field]: grp[0].properties?.[field] ?? key };
+                    if (field === '__ALL__') Object.assign(props, firstProps);
+
+                    if (agg !== 'none') {
+                        props._count = grp.length;
+                        if ((agg === 'sum' || agg === 'avg') && statField) {
+                            const nums = grp.map(g => parseFloat(g.properties?.[statField])).filter(n => Number.isFinite(n));
+                            const total = nums.reduce((a, b) => a + b, 0);
+                            if (agg === 'sum') props[`sum_${statField}`] = parseFloat(total.toFixed(6));
+                            else props[`avg_${statField}`] = nums.length ? parseFloat((total / nums.length).toFixed(6)) : 0;
+                        }
+                    }
+
+                    const polys = grp.filter(g => g.geometry.type === 'Polygon' || g.geometry.type === 'MultiPolygon');
+                    const lines = grp.filter(g => g.geometry.type === 'LineString' || g.geometry.type === 'MultiLineString');
+                    const pts = grp.filter(g => g.geometry.type === 'Point' || g.geometry.type === 'MultiPoint');
+
+                    if (polys.length > 0) {
+                        let merged = JSON.parse(JSON.stringify(polys[0]));
+                        const fallbackCoords = [];
+                        for (let i = 1; i < polys.length; i++) {
+                            try {
+                                const u = turf.union(turf.featureCollection([merged, polys[i]]));
+                                if (u && u.geometry) merged = u;
+                                else fallbackCoords.push(polys[i]);
+                            } catch (_) {
+                                fallbackCoords.push(polys[i]);
+                            }
+                        }
+                        if (fallbackCoords.length > 0) {
+                            const rings = [];
+                            const pushPoly = (g) => {
+                                if (g.type === 'Polygon') rings.push(g.coordinates);
+                                else if (g.type === 'MultiPolygon') g.coordinates.forEach(c => rings.push(c));
+                            };
+                            pushPoly(merged.geometry);
+                            fallbackCoords.forEach(fc => pushPoly(fc.geometry));
+                            merged = turf.multiPolygon(rings, props);
+                        } else {
+                            merged.properties = props;
+                        }
+                        outFeats.push(merged);
+                    } else if (lines.length > 0) {
+                        const lineCoords = [];
+                        lines.forEach(l => {
+                            if (l.geometry.type === 'LineString') lineCoords.push(l.geometry.coordinates);
+                            else if (l.geometry.type === 'MultiLineString') lineCoords.push(...l.geometry.coordinates);
+                        });
+                        outFeats.push(lineCoords.length === 1 ? turf.lineString(lineCoords[0], props) : turf.multiLineString(lineCoords, props));
+                    } else if (pts.length > 0) {
+                        const ptCoords = [];
+                        pts.forEach(p => {
+                            if (p.geometry.type === 'Point') ptCoords.push(p.geometry.coordinates);
+                            else if (p.geometry.type === 'MultiPoint') ptCoords.push(...p.geometry.coordinates);
+                        });
+                        outFeats.push(ptCoords.length === 1 ? turf.point(ptCoords[0], props) : turf.multiPoint(ptCoords, props));
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se pudieron disolver geometrías.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Disuelto - ${layer.name}`, {
+                    color: '#4f46e5', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Capa disuelta: ${outFeats.length} entidad(es) resultante(s).`, 'success');
+
+            } else if (tool === 'multipart_to_single') {
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const flat = turf.flatten(f);
+                    const parts = flat?.features || [];
+                    parts.forEach((pf, idx) => {
+                        const props = { ...(f.properties || {}) };
+                        delete props._selected;
+                        if (parts.length > 1) props._part = idx + 1;
+                        pf.properties = props;
+                        outFeats.push(pf);
+                    });
+                }
+                if (outFeats.length === 0) throw new Error('No hay geometrías para separar.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Monoparte - ${layer.name}`, {
+                    color: '#db2777', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Separado en ${outFeats.length} entidades monoparte.`, 'success');
+
+            } else if (tool === 'collect_geometries') {
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const field = document.getElementById('singleVectorCollectField')?.value || '__ALL__';
+                const groups = new Map();
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const key = field === '__ALL__' ? '__ALL__' : String(f.properties?.[field] ?? '');
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(f);
+                }
+                const outFeats = [];
+                for (const [key, grp] of groups.entries()) {
+                    const baseProps = (field === '__ALL__')
+                        ? { ...(grp[0].properties || {}), _parts_count: grp.length }
+                        : { [field]: grp[0].properties?.[field] ?? key, _parts_count: grp.length };
+                    delete baseProps._selected;
+
+                    const polys = grp.filter(g => g.geometry.type === 'Polygon' || g.geometry.type === 'MultiPolygon');
+                    const lines = grp.filter(g => g.geometry.type === 'LineString' || g.geometry.type === 'MultiLineString');
+                    const pts = grp.filter(g => g.geometry.type === 'Point' || g.geometry.type === 'MultiPoint');
+
+                    if (polys.length > 0) {
+                        const coords = [];
+                        polys.forEach(p => {
+                            if (p.geometry.type === 'Polygon') coords.push(p.geometry.coordinates);
+                            else coords.push(...p.geometry.coordinates);
+                        });
+                        outFeats.push(turf.multiPolygon(coords, baseProps));
+                    }
+                    if (lines.length > 0) {
+                        const coords = [];
+                        lines.forEach(l => {
+                            if (l.geometry.type === 'LineString') coords.push(l.geometry.coordinates);
+                            else coords.push(...l.geometry.coordinates);
+                        });
+                        outFeats.push(turf.multiLineString(coords, baseProps));
+                    }
+                    if (pts.length > 0) {
+                        const coords = [];
+                        pts.forEach(p => {
+                            if (p.geometry.type === 'Point') coords.push(p.geometry.coordinates);
+                            else coords.push(...p.geometry.coordinates);
+                        });
+                        outFeats.push(turf.multiPoint(coords, baseProps));
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se pudieron agrupar geometrías.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Multiparte - ${layer.name}`, {
+                    color: '#7c3aed', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Agrupado en ${outFeats.length} entidad(es) multiparte.`, 'success');
+
+            } else if (tool === 'fix_geometries') {
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const closeRing = (ring) => {
+                    if (!Array.isArray(ring) || ring.length < 3) return null;
+                    const dedup = [];
+                    for (const pt of ring) {
+                        const prev = dedup[dedup.length - 1];
+                        if (!prev || prev[0] !== pt[0] || prev[1] !== pt[1]) dedup.push(pt);
+                    }
+                    if (dedup.length < 3) return null;
+                    const first = dedup[0], last = dedup[dedup.length - 1];
+                    if (first[0] !== last[0] || first[1] !== last[1]) dedup.push([...first]);
+                    return dedup.length >= 4 ? dedup : null;
+                };
+                const outFeats = [];
+                let fixedCount = 0;
+                for (const f of rawFeats) {
+                    if (!f?.geometry) { fixedCount++; continue; }
+                    let cleaned = JSON.parse(JSON.stringify(f));
+                    if (cleaned.properties) delete cleaned.properties._selected;
+                    try { cleaned = turf.cleanCoords(cleaned); } catch (_) {}
+                    const gType = cleaned.geometry.type;
+
+                    if (gType === 'Polygon') {
+                        const fixedRings = cleaned.geometry.coordinates.map(closeRing).filter(Boolean);
+                        if (fixedRings.length === 0) { fixedCount++; continue; }
+                        if (fixedRings.length !== cleaned.geometry.coordinates.length) fixedCount++;
+                        cleaned.geometry.coordinates = fixedRings;
+                        try {
+                            const unkinked = turf.unkinkPolygon(cleaned);
+                            if (unkinked?.features?.length > 1) {
+                                fixedCount++;
+                                unkinked.features.forEach(uf => { uf.properties = { ...(cleaned.properties || {}) }; outFeats.push(uf); });
+                                continue;
+                            }
+                        } catch (_) {}
+                        outFeats.push(cleaned);
+                    } else if (gType === 'MultiPolygon') {
+                        const fixedPolys = cleaned.geometry.coordinates
+                            .map(poly => poly.map(closeRing).filter(Boolean))
+                            .filter(poly => poly.length > 0);
+                        if (fixedPolys.length === 0) { fixedCount++; continue; }
+                        cleaned.geometry.coordinates = fixedPolys;
+                        outFeats.push(cleaned);
+                    } else {
+                        outFeats.push(cleaned);
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No quedaron geometrías válidas tras reparar.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Reparada - ${layer.name}`, {
+                    color: '#d97706', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Geometrías reparadas: ${outFeats.length} válidas (${fixedCount} correcciones aplicadas).`, 'success');
+
+            } else if (tool === 'delete_holes') {
+                const maxHoleArea = Math.max(0, parseFloat(document.getElementById('singleVectorMinHoleArea')?.value || '0') || 0);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const filterPolyHoles = (rings) => {
+                    if (!Array.isArray(rings) || rings.length <= 1) return rings;
+                    const kept = [rings[0]];
+                    for (let i = 1; i < rings.length; i++) {
+                        if (maxHoleArea <= 0) continue;
+                        try {
+                            const hArea = turf.area(turf.polygon([rings[i]]));
+                            if (hArea >= maxHoleArea) kept.push(rings[i]);
+                        } catch (_) {}
+                    }
+                    return kept;
+                };
+                let removedHoles = 0;
+                const outFeats = rawFeats.map(f => {
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    if (!copy?.geometry) return copy;
+                    if (copy.geometry.type === 'Polygon') {
+                        const before = copy.geometry.coordinates.length;
+                        copy.geometry.coordinates = filterPolyHoles(copy.geometry.coordinates);
+                        removedHoles += Math.max(0, before - copy.geometry.coordinates.length);
+                    } else if (copy.geometry.type === 'MultiPolygon') {
+                        copy.geometry.coordinates = copy.geometry.coordinates.map(poly => {
+                            const before = poly.length;
+                            const filtered = filterPolyHoles(poly);
+                            removedHoles += Math.max(0, before - filtered.length);
+                            return filtered;
+                        });
+                    }
+                    return copy;
+                });
+                await addVectorLayer(turf.featureCollection(outFeats), `Sin Agujeros - ${layer.name}`, {
+                    color: '#65a30d', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Limpieza completada: ${removedHoles} agujero(s) eliminado(s).`, 'success');
+
+            } else if (tool === 'smooth') {
+                const iters = Math.max(1, Math.min(5, parseInt(document.getElementById('singleVectorSmoothIter')?.value || '2', 10) || 2));
+                const chaikinRing = (pts, closed) => {
+                    let cur = pts;
+                    for (let it = 0; it < iters; it++) {
+                        if (cur.length < 3) break;
+                        const next = [];
+                        if (!closed) next.push(cur[0]);
+                        const limit = closed ? cur.length - 1 : cur.length - 1;
+                        for (let i = 0; i < limit; i++) {
+                            const p0 = cur[i], p1 = cur[i + 1];
+                            next.push([0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]);
+                            next.push([0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]);
+                        }
+                        if (closed) next.push([...next[0]]);
+                        else next.push(cur[cur.length - 1]);
+                        cur = next;
+                    }
+                    return cur;
+                };
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = rawFeats.map(f => {
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    if (!copy?.geometry) return copy;
+                    const t = copy.geometry.type;
+                    if (t === 'LineString') copy.geometry.coordinates = chaikinRing(copy.geometry.coordinates, false);
+                    else if (t === 'MultiLineString') copy.geometry.coordinates = copy.geometry.coordinates.map(c => chaikinRing(c, false));
+                    else if (t === 'Polygon') copy.geometry.coordinates = copy.geometry.coordinates.map(r => chaikinRing(r, true));
+                    else if (t === 'MultiPolygon') copy.geometry.coordinates = copy.geometry.coordinates.map(p => p.map(r => chaikinRing(r, true)));
+                    return copy;
+                });
+                await addVectorLayer(turf.featureCollection(outFeats), `Suavizado (${iters}x) - ${layer.name}`, {
+                    color: '#0284c7', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Capa suavizada con ${iters} iteraciones de Chaikin.`, 'success');
+
+            } else if (tool === 'sampling') {
                 const mode = document.getElementById('singleVectorSampleType')?.value || 'random';
                 const feats = (layer.geoJson.features && Array.isArray(layer.geoJson.features))
                     ? layer.geoJson.features
