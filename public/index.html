@@ -42573,14 +42573,108 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     }
                 }
             } else if (mode === 'union') {
-                const combined = featuresA.concat(featuresB);
-                try {
-                    const u = turf.union(turf.featureCollection(combined));
-                    if (u) results.push(u);
-                } catch(e) {
-                    // Si union falla por tipos mixtos, agregar todos combinados
-                    combined.forEach(f => results.push(f));
+                // Unión espacial GIS real (A ∪ B): conserva todos los atributos de A y B
+                const isPolyFeat = (f) => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon');
+                const polysA = featuresA.filter(isPolyFeat);
+                const polysB = featuresB.filter(isPolyFeat);
+                const nonPolys = featuresA.filter(f => !isPolyFeat(f)).concat(featuresB.filter(f => !isPolyFeat(f)));
+
+                const mergeUnionProps = (propsA, propsB) => {
+                    const out = { ...(propsA || {}) };
+                    delete out._selected;
+                    const pB = propsB || {};
+                    for (const k of Object.keys(pB)) {
+                        if (k === '_selected') continue;
+                        if (Object.prototype.hasOwnProperty.call(out, k)) {
+                            out[`${k}_2`] = pB[k];
+                        } else {
+                            out[k] = pB[k];
+                        }
+                    }
+                    return out;
+                };
+
+                const bboxesA = polysA.map(f => { try { return turf.bbox(f); } catch (_) { return null; } });
+                const polyBBoxesB = polysB.map(f => { try { return turf.bbox(f); } catch (_) { return null; } });
+
+                // 1. Zonas de intersección (A ∩ B) con atributos combinados de A y B
+                for (let i = 0; i < polysA.length; i++) {
+                    const bbA = bboxesA[i];
+                    if (!bbA) continue;
+                    for (let j = 0; j < polysB.length; j++) {
+                        const bbB = polyBBoxesB[j];
+                        if (!bbB) continue;
+                        if (bbB[0] > bbA[2] || bbB[2] < bbA[0] || bbB[1] > bbA[3] || bbB[3] < bbA[1]) continue;
+                        try {
+                            const inter = turf.intersect(turf.featureCollection([polysA[i], polysB[j]]));
+                            if (inter && inter.geometry && turf.area(inter) > 0.01) {
+                                inter.properties = mergeUnionProps(polysA[i].properties, polysB[j].properties);
+                                results.push(inter);
+                            }
+                        } catch (_) {}
+                    }
                 }
+
+                // 2. Zonas exclusivas de A (A - B) conservando atributos de A
+                for (let i = 0; i < polysA.length; i++) {
+                    const bbA = bboxesA[i];
+                    if (!bbA) continue;
+                    let curr = JSON.parse(JSON.stringify(polysA[i]));
+                    for (let j = 0; j < polysB.length; j++) {
+                        const bbB = polyBBoxesB[j];
+                        if (!bbB || !curr) continue;
+                        if (bbB[0] > bbA[2] || bbB[2] < bbA[0] || bbB[1] > bbA[3] || bbB[3] < bbA[1]) continue;
+                        try {
+                            const diff = turf.difference(turf.featureCollection([curr, polysB[j]]));
+                            if (diff) {
+                                diff.properties = curr.properties;
+                                curr = diff;
+                            } else {
+                                curr = null;
+                                break;
+                            }
+                        } catch (_) {}
+                    }
+                    if (curr && curr.geometry && turf.area(curr) > 0.01) {
+                        curr.properties = { ...(polysA[i].properties || {}) };
+                        delete curr.properties._selected;
+                        results.push(curr);
+                    }
+                }
+
+                // 3. Zonas exclusivas de B (B - A) conservando atributos de B
+                for (let j = 0; j < polysB.length; j++) {
+                    const bbB = polyBBoxesB[j];
+                    if (!bbB) continue;
+                    let curr = JSON.parse(JSON.stringify(polysB[j]));
+                    for (let i = 0; i < polysA.length; i++) {
+                        const bbA = bboxesA[i];
+                        if (!bbA || !curr) continue;
+                        if (bbA[0] > bbB[2] || bbA[2] < bbB[0] || bbA[1] > bbB[3] || bbA[3] < bbB[1]) continue;
+                        try {
+                            const diff = turf.difference(turf.featureCollection([curr, polysA[i]]));
+                            if (diff) {
+                                diff.properties = curr.properties;
+                                curr = diff;
+                            } else {
+                                curr = null;
+                                break;
+                            }
+                        } catch (_) {}
+                    }
+                    if (curr && curr.geometry && turf.area(curr) > 0.01) {
+                        curr.properties = { ...(polysB[j].properties || {}) };
+                        delete curr.properties._selected;
+                        results.push(curr);
+                    }
+                }
+
+                // 4. Geometrías no poligonales (puntos/líneas) con sus atributos intactos
+                nonPolys.forEach(np => {
+                    const copy = JSON.parse(JSON.stringify(np));
+                    if (copy.properties) delete copy.properties._selected;
+                    results.push(copy);
+                });
             }
 
             if (results.length === 0) throw new Error('Sin geometrías resultantes tras la operación.');
