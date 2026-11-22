@@ -42515,23 +42515,54 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const results = [];
 
             if (mode === 'clip' || mode === 'intersect') {
+                const mergeInterProps = (pA, pB) => {
+                    const out = { ...(pA || {}) };
+                    delete out._selected;
+                    if (mode === 'clip') {
+                        out._recortado_con = layerB.name;
+                        return out;
+                    }
+                    const bObj = pB || {};
+                    for (const k of Object.keys(bObj)) {
+                        if (k === '_selected') continue;
+                        if (Object.prototype.hasOwnProperty.call(out, k)) {
+                            out[`${k}_2`] = bObj[k];
+                        } else {
+                            out[k] = bObj[k];
+                        }
+                    }
+                    out._interseccion = true;
+                    return out;
+                };
+
                 for (const fA of featuresA) {
+                    if (!fA?.geometry) continue;
                     let bboxA;
                     try { bboxA = turf.bbox(fA); } catch(e) { continue; }
                     const [minXA, minYA, maxXA, maxYA] = bboxA;
+                    const isPolyA = fA.geometry.type === 'Polygon' || fA.geometry.type === 'MultiPolygon';
 
                     for (let j = 0; j < featuresB.length; j++) {
+                        const fB = featuresB[j];
                         const bb = bboxesB[j];
-                        if (!bb) continue;
+                        if (!bb || !fB?.geometry) continue;
                         if (bb[0] > maxXA || bb[2] < minXA || bb[1] > maxYA || bb[3] < minYA) continue;
 
                         try {
-                            const r = turf.intersect(turf.featureCollection([fA, featuresB[j]]));
-                            if (r) {
-                                r.properties = mode === 'clip'
-                                    ? { ...fA.properties, _recortado_con: layerB.name }
-                                    : { ...fA.properties, ...featuresB[j].properties, _interseccion: true };
-                                results.push(r);
+                            if (!turf.booleanIntersects(fA, fB)) continue;
+                            const isPolyB = fB.geometry.type === 'Polygon' || fB.geometry.type === 'MultiPolygon';
+
+                            if (isPolyA && isPolyB) {
+                                const r = turf.intersect(turf.featureCollection([fA, fB]));
+                                if (r && r.geometry && turf.area(r) > 0.01) {
+                                    r.properties = mergeInterProps(fA.properties, fB.properties);
+                                    results.push(r);
+                                }
+                            } else {
+                                // Puntos o líneas que realmente intersectan con B: conservar solo los datos que interceptan
+                                const copy = JSON.parse(JSON.stringify(fA));
+                                copy.properties = mergeInterProps(fA.properties, fB.properties);
+                                results.push(copy);
                             }
                         } catch(e) {}
                     }
