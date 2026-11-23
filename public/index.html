@@ -45097,8 +45097,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         if (selBadge) selBadge.textContent = selCount;
         const onlySelChk = document.getElementById('calcOnlySelected');
         if (onlySelChk) {
-            onlySelChk.disabled = selCount === 0;
-            if (selCount === 0) onlySelChk.checked = false;
+            onlySelChk.checked = false;
+            onlySelChk.disabled = selCount === 0 || document.getElementById('calcUpdateMode')?.value === 'select';
         }
 
         state.calcPreviewIndex = 0;
@@ -45147,6 +45147,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const nameContainer = document.getElementById('calcNameContainer');
         const updateContainer = document.getElementById('calcUpdateContainer');
         const typeContainer = document.getElementById('calcTypeContainer');
+        const onlySelChk = document.getElementById('calcOnlySelected');
+        if (onlySelChk) {
+            if (mode === 'select') {
+                onlySelChk.checked = false;
+                onlySelChk.disabled = true;
+            } else {
+                const layer = _getCalcTargetLayer();
+                const selCount = (layer?.geoJson?.features || []).filter(f => f?.properties?._selected).length;
+                onlySelChk.disabled = selCount === 0;
+            }
+        }
         if (mode === 'create') {
             nameContainer.classList.remove('hidden');
             updateContainer.classList.add('hidden');
@@ -45330,7 +45341,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             for (let i = 0; i < features.length; i++) {
                 const f = features[i];
                 if (!f.properties) f.properties = {};
-                if (onlySelected && !f.properties._selected) continue;
+                if (updateMode !== 'select' && onlySelected && !f.properties._selected) continue;
 
                 let result;
                 try {
@@ -45359,11 +45370,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }
 
             if (layer.mapLayer && typeof layer.mapLayer.eachLayer === 'function') {
+                let mapIdx = 0;
                 layer.mapLayer.eachLayer(l => {
-                    const idx = l.feature?._originalIndex;
-                    if (idx !== undefined && features[idx]) {
+                    const idx = l.feature?._originalIndex ?? mapIdx;
+                    if (features[idx]) {
                         l.feature = features[idx];
                     }
+                    mapIdx++;
                 });
             }
             state.selectedAttrTableLayer = layer;
