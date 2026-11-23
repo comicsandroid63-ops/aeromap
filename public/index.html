@@ -6284,6 +6284,56 @@
               </div>
               <p class="text-[10px] text-zinc-500 leading-relaxed">Crea o actualiza columnas con fórmulas matemáticas, texto, fechas, condicionales y geometría.</p>
             </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('count_points');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">pin_drop</span> Contar Puntos en Polígono
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Cuenta puntos dentro de cada polígono y agrega suma, promedio, mínimo o máximo.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTableJoinModal();" class="p-4 bg-zinc-50 hover:bg-blue-50/50 border border-zinc-200 hover:border-blue-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-blue-700">
+                  <span class="material-symbols-outlined text-blue-600 text-lg">table_rows</span> Unión Tabular (Table Join)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Une columnas desde un archivo CSV o desde otra capa usando un campo clave común.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openCategoryStatsModal();" class="p-4 bg-zinc-50 hover:bg-purple-50/50 border border-zinc-200 hover:border-purple-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-purple-700">
+                  <span class="material-symbols-outlined text-purple-600 text-lg">bar_chart</span> Estadísticas por Categoría
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Tabla resumen (Group By) con conteo, suma, media, mín, máx y desviación exportable a CSV.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('delete_duplicates');" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">filter_none</span> Eliminar Duplicados
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Limpia geometrías idénticas o registros duplicados según un campo clave.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openRefactorFieldsModal();" class="col-span-2 p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">view_column</span> Refactorizar / Renombrar / Eliminar Campos
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Renombra, reordena o elimina múltiples columnas de la tabla de atributos en lote.</p>
+            </button>
           </div>
         </div>
 
@@ -7259,6 +7309,21 @@
           </p>
         </div>
 
+        <!-- Dynamic Option: Eliminar Duplicados -->
+        <div id="singleVectorDeleteDupsOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Criterio de Duplicado</label>
+            <select id="singleVectorDupMode" onchange="document.getElementById('singleVectorDupFieldWrap')?.classList.toggle('hidden', this.value !== 'attribute')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="geometry" selected>Geometrías idénticas (coordenadas iguales)</option>
+              <option value="attribute">Valor repetido en un campo de atributos</option>
+            </select>
+          </div>
+          <div id="singleVectorDupFieldWrap" class="space-y-1 hidden">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Clave</label>
+            <select id="singleVectorDupField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -7347,11 +7412,208 @@
           </label>
         </div>
 
+        <!-- Opciones Contar Puntos en Polígono -->
+        <div id="twoLayerCountPtsOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Nombre de Columna de Conteo</label>
+            <input type="text" id="twoLayerCountFieldName" value="NUMPOINTS" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Estadística Adicional</label>
+              <select id="twoLayerCountStatOp" onchange="document.getElementById('twoLayerCountStatFieldWrap')?.classList.toggle('hidden', this.value === 'none')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="none" selected>Solo conteo</option>
+                <option value="sum">Suma (sum)</option>
+                <option value="avg">Promedio (avg)</option>
+                <option value="min">Mínimo (min)</option>
+                <option value="max">Máximo (max)</option>
+              </select>
+            </div>
+            <div id="twoLayerCountStatFieldWrap" class="space-y-1 hidden">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Numérico (Capa B)</label>
+              <select id="twoLayerCountStatField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeTwoLayerSpatialModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="twoLayerSpatialExecuteBtn" onclick="executeTwoLayerSpatialModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
             <span class="material-symbols-outlined text-[15px]">play_arrow</span> Ejecutar
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Unión Tabular (Table Join) -->
+  <div id="tableJoinModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">table_rows</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Análisis Tabular</span>
+            <h3 class="font-bold text-base text-zinc-900">Unión Tabular (Table Join)</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('tableJoinModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Destino (A)</label>
+            <select id="tableJoinLayerA" onchange="_syncTableJoinFields()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Clave (A)</label>
+            <select id="tableJoinKeyA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Origen de Tabla (B)</label>
+          <select id="tableJoinSourceType" onchange="_toggleTableJoinSource()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+            <option value="layer" selected>Otra Capa Vectorial del Proyecto</option>
+            <option value="csv">Archivo CSV (.csv / .txt)</option>
+          </select>
+        </div>
+
+        <div id="tableJoinLayerBWrap" class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Origen (B)</label>
+            <select id="tableJoinLayerB" onchange="_syncTableJoinFields()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Clave (B)</label>
+            <select id="tableJoinKeyB" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+
+        <div id="tableJoinCsvWrap" class="space-y-2.5 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Seleccionar Archivo CSV</label>
+            <input type="file" id="tableJoinCsvFile" accept=".csv,.txt" onchange="_handleTableJoinCsvUpload(this)" class="w-full text-xs bg-zinc-50 border border-zinc-200 rounded-xl p-2">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Clave del CSV</label>
+            <select id="tableJoinCsvKey" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="">Carga un CSV primero...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Prefijo de Columnas (Opcional)</label>
+            <input type="text" id="tableJoinPrefix" placeholder="ej: j_" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+          </div>
+          <label class="flex items-center gap-2 pt-5 cursor-pointer text-xs font-bold text-zinc-700">
+            <input type="checkbox" id="tableJoinNewLayer" checked class="w-4 h-4 accent-blue-600 rounded">
+            <span>Crear como nueva capa</span>
+          </label>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="document.getElementById('tableJoinModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeTableJoin()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm">Ejecutar Unión Tabular</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Estadísticas por Categoría (Summary / Group By) -->
+  <div id="categoryStatsModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-zinc-100 flex flex-col max-h-[88vh]">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">bar_chart</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Resumen Agrupado</span>
+            <h3 class="font-bold text-base text-zinc-900">Estadísticas por Categoría (Group By)</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('categoryStatsModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial</label>
+            <select id="catStatsLayer" onchange="_syncCategoryStatsFields()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Agrupar por Categoría</label>
+            <select id="catStatsGroupField" onchange="computeCategoryStats()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Numérico</label>
+            <select id="catStatsValueField" onchange="computeCategoryStats()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+
+        <div class="border border-zinc-200 rounded-2xl overflow-hidden">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-zinc-50 border-b border-zinc-200 text-[10px] font-black uppercase text-zinc-500">
+              <tr>
+                <th class="px-3 py-2.5">Categoría</th>
+                <th class="px-3 py-2.5 text-right">Conteo (N)</th>
+                <th class="px-3 py-2.5 text-right">Suma</th>
+                <th class="px-3 py-2.5 text-right">Promedio</th>
+                <th class="px-3 py-2.5 text-right">Mínimo</th>
+                <th class="px-3 py-2.5 text-right">Máximo</th>
+                <th class="px-3 py-2.5 text-right">Desv. Est.</th>
+              </tr>
+            </thead>
+            <tbody id="catStatsTableBody" class="divide-y divide-zinc-100"></tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-1">
+          <button onclick="exportCategoryStatsCsv()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 flex items-center gap-1.5 shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">download</span> Exportar CSV
+          </button>
+          <button onclick="document.getElementById('categoryStatsModal').style.display='none'" class="px-4 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Refactorizar / Renombrar / Eliminar Campos -->
+  <div id="refactorFieldsModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-zinc-100 flex flex-col max-h-[88vh]">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">view_column</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Esquema de Atributos</span>
+            <h3 class="font-bold text-base text-zinc-900">Refactorizar / Renombrar / Eliminar Campos</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('refactorFieldsModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial</label>
+          <select id="refactorFieldsLayer" onchange="_renderRefactorFieldsList()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+        </div>
+
+        <div id="refactorFieldsList" class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1"></div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="document.getElementById('refactorFieldsModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeRefactorFields()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-sm">Aplicar Cambios</button>
         </div>
       </div>
     </div>
@@ -43185,7 +43447,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const clusteringOpt = document.getElementById('singleVectorClusteringOpt');
         const multiRingOpt = document.getElementById('singleVectorMultiRingOpt');
         const splitAttrOpt = document.getElementById('singleVectorSplitAttrOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt].forEach(el => {
+        const deleteDupsOpt = document.getElementById('singleVectorDeleteDupsOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43208,6 +43471,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const pGroup = document.getElementById('singleVectorPathGroupField');
             const eWeight = document.getElementById('singleVectorEllipseWeightField');
             const sField = document.getElementById('singleVectorSplitField');
+            const dupField = document.getElementById('singleVectorDupField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
@@ -43215,11 +43479,21 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (pGroup) pGroup.innerHTML = `<option value="__ALL__">Una sola ruta</option>${fieldOpts}`;
             if (eWeight) eWeight.innerHTML = `<option value="">Sin peso (Uniforme)</option>${fieldOpts}`;
             if (sField) sField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
+            if (dupField) dupField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
         };
         sel.onchange = _syncFieldSelects;
         _syncFieldSelects();
 
         const configs = {
+            delete_duplicates: {
+                title: 'Eliminar Duplicados',
+                sub: 'Limpieza Geométrica y Tabular',
+                icon: 'filter_none',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Elimina entidades con geometrías idénticas o registros duplicados por un campo clave.',
+                opt: deleteDupsOpt
+            },
             clustering: {
                 title: 'Densidad (Heatmap) / Clustering',
                 sub: 'DBSCAN, K-Means y Densidad Hexagonal',
@@ -43479,7 +43753,44 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'clustering') {
+            if (tool === 'delete_duplicates') {
+                const mode = document.getElementById('singleVectorDupMode')?.value || 'geometry';
+                const dupField = document.getElementById('singleVectorDupField')?.value || '';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const roundCoords = (c) => Array.isArray(c)
+                    ? (typeof c[0] === 'number' ? c.slice(0, 2).map(n => Number(n.toFixed(6))) : c.map(roundCoords))
+                    : c;
+
+                const seen = new Set();
+                const uniqueFeats = [];
+                let removed = 0;
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    let key = '';
+                    if (mode === 'attribute') {
+                        if (!dupField) throw new Error('Selecciona un campo clave para detectar duplicados.');
+                        key = String(f.properties?.[dupField] ?? '__NULL__').trim().toLowerCase();
+                    } else {
+                        key = `${f.geometry.type}:${JSON.stringify(roundCoords(f.geometry.coordinates))}`;
+                    }
+                    if (seen.has(key)) {
+                        removed++;
+                        continue;
+                    }
+                    seen.add(key);
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    uniqueFeats.push(copy);
+                }
+
+                await addVectorLayer(turf.featureCollection(uniqueFeats), `Sin Duplicados - ${layer.name}`, {
+                    isPoints: layer.isPoints, color: '#e11d48', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Duplicados eliminados: ${removed} removidos, ${uniqueFeats.length} conservados.`, 'success');
+
+            } else if (tool === 'clustering') {
                 const mode = document.getElementById('singleVectorClusterMode')?.value || 'dbscan';
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
                 const ptFeats = [];
@@ -44563,8 +44874,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         const selOpt = document.getElementById('twoLayerSelectLocOpt');
         const nearOpt = document.getElementById('twoLayerNearestOpt');
+        const countOpt = document.getElementById('twoLayerCountPtsOpt');
         if (selOpt) selOpt.classList.add('hidden');
         if (nearOpt) nearOpt.classList.add('hidden');
+        if (countOpt) countOpt.classList.add('hidden');
+
+        const _syncCountStatFields = () => {
+            const idB = parseInt(selB?.value || '0', 10);
+            const lB = vectorLayers.find(l => l.id === idB);
+            const keys = new Set();
+            (lB?.geoJson?.features || []).slice(0, 50).forEach(f => {
+                Object.keys(f?.properties || {}).forEach(k => { if (!k.startsWith('_')) keys.add(k); });
+            });
+            const statSel = document.getElementById('twoLayerCountStatField');
+            if (statSel) statSel.innerHTML = Array.from(keys).map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
+        };
+        if (selB) selB.onchange = _syncCountStatFields;
+        _syncCountStatFields();
 
         if (_currentTwoLayerSpatialTool === 'nearest') {
             document.getElementById('twoLayerSpatialIcon').textContent = 'hub';
@@ -44574,6 +44900,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa Origen (A)';
             document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa Destino (B)';
             if (nearOpt) nearOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'count_points') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'pin_drop';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Conteo Espacial';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Contar Puntos en Polígono';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Cuenta cuántos puntos de Capa B caen dentro de cada polígono de Capa A y calcula opcionalmente suma, promedio, mínimo o máximo.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Polígonos (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Puntos (B)';
+            if (countOpt) countOpt.classList.remove('hidden');
         } else {
             document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
             document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
@@ -44606,7 +44940,53 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
             const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
 
-            if (_currentTwoLayerSpatialTool === 'select_location') {
+            if (_currentTwoLayerSpatialTool === 'count_points') {
+                const countField = (document.getElementById('twoLayerCountFieldName')?.value || 'NUMPOINTS').trim() || 'NUMPOINTS';
+                const statOp = document.getElementById('twoLayerCountStatOp')?.value || 'none';
+                const statField = document.getElementById('twoLayerCountStatField')?.value || '';
+
+                const ptsB = [];
+                for (const fb of featsB) {
+                    if (!fb?.geometry) continue;
+                    if (fb.geometry.type === 'Point') ptsB.push(fb);
+                    else { try { const c = turf.centroid(fb); c.properties = fb.properties || {}; ptsB.push(c); } catch (_) {} }
+                }
+                const fcPtsB = turf.featureCollection(ptsB);
+                const outPolys = [];
+
+                for (const fa of featsA) {
+                    if (!fa?.geometry || (fa.geometry.type !== 'Polygon' && fa.geometry.type !== 'MultiPolygon')) continue;
+                    const copy = JSON.parse(JSON.stringify(fa));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+
+                    let inside = [];
+                    try {
+                        inside = turf.pointsWithinPolygon(fcPtsB, copy)?.features || [];
+                    } catch (_) {}
+                    copy.properties[countField] = inside.length;
+
+                    if (statOp !== 'none' && statField) {
+                        const nums = inside.map(pt => parseFloat(pt.properties?.[statField])).filter(n => Number.isFinite(n));
+                        let val = 0;
+                        if (nums.length > 0) {
+                            if (statOp === 'sum') val = nums.reduce((a, b) => a + b, 0);
+                            else if (statOp === 'avg') val = nums.reduce((a, b) => a + b, 0) / nums.length;
+                            else if (statOp === 'min') val = Math.min(...nums);
+                            else if (statOp === 'max') val = Math.max(...nums);
+                        }
+                        copy.properties[`${statOp}_${statField}`] = parseFloat(val.toFixed(6));
+                    }
+                    outPolys.push(copy);
+                }
+
+                if (outPolys.length === 0) throw new Error('Capa A no contiene polígonos válidos.');
+                await addVectorLayer(turf.featureCollection(outPolys), `Conteo Puntos - ${layerA.name}`, {
+                    color: '#d97706', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Conteo completado en ${outPolys.length} polígonos.`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'select_location') {
                 const pred = document.getElementById('twoLayerSpatialPredicate')?.value || 'intersects';
                 const distVal = parseFloat(document.getElementById('twoLayerSelectDist')?.value || '500') || 0;
                 const distUnit = document.getElementById('twoLayerSelectDistUnit')?.value || 'meters';
@@ -44983,6 +45363,327 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 toast('Error al disolver geometrías.', 'error');
             }
         }, 100);
+    }
+
+    // ══════════════════════════════════════════
+    //  TABULAR & ATTRIBUTE TOOLS (Table Join, Category Stats, Refactor Fields)
+    // ══════════════════════════════════════════
+    let _tableJoinCsvRows = [];
+    let _tableJoinCsvHeaders = [];
+    let _lastCategoryStatsRows = [];
+    let _refactorFieldsState = [];
+
+    function _getLayerPropKeys(layer) {
+        const keys = new Set();
+        (layer?.geoJson?.features || []).slice(0, 100).forEach(f => {
+            Object.keys(f?.properties || {}).forEach(k => { if (!k.startsWith('_')) keys.add(k); });
+        });
+        return Array.from(keys);
+    }
+
+    function _parseSimpleCsv(text) {
+        const lines = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim() !== '');
+        if (lines.length < 2) return { headers: [], rows: [] };
+        const delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+        const splitLine = (line) => {
+            const out = [];
+            let cur = '', inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') { inQ = !inQ; continue; }
+                if (ch === delim && !inQ) { out.push(cur.trim()); cur = ''; continue; }
+                cur += ch;
+            }
+            out.push(cur.trim());
+            return out;
+        };
+        const headers = splitLine(lines[0]).map(h => h.replace(/^\uFEFF/, ''));
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const vals = splitLine(lines[i]);
+            const obj = {};
+            headers.forEach((h, idx) => {
+                const raw = vals[idx] ?? '';
+                const num = Number(raw);
+                obj[h] = (raw !== '' && Number.isFinite(num) && !/^0\d+/.test(raw)) ? num : raw;
+            });
+            rows.push(obj);
+        }
+        return { headers, rows };
+    }
+
+    function openTableJoinModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        if (vectorLayers.length === 0) return toast('Carga al menos una capa vectorial primero.', 'info');
+        const opts = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        const selA = document.getElementById('tableJoinLayerA');
+        const selB = document.getElementById('tableJoinLayerB');
+        if (selA) selA.innerHTML = opts;
+        if (selB) selB.innerHTML = opts;
+        if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) selA.value = state.selectedLayerId;
+        if (vectorLayers.length >= 2) {
+            const other = vectorLayers.find(l => String(l.id) !== String(selA.value)) || vectorLayers[1];
+            selB.value = other.id;
+        }
+        _tableJoinCsvRows = [];
+        _tableJoinCsvHeaders = [];
+        _toggleTableJoinSource();
+        _syncTableJoinFields();
+        document.getElementById('tableJoinModal').style.display = 'flex';
+    }
+
+    function _toggleTableJoinSource() {
+        const src = document.getElementById('tableJoinSourceType')?.value || 'layer';
+        document.getElementById('tableJoinLayerBWrap')?.classList.toggle('hidden', src !== 'layer');
+        document.getElementById('tableJoinCsvWrap')?.classList.toggle('hidden', src !== 'csv');
+    }
+
+    function _syncTableJoinFields() {
+        const idA = parseInt(document.getElementById('tableJoinLayerA')?.value || '0', 10);
+        const idB = parseInt(document.getElementById('tableJoinLayerB')?.value || '0', 10);
+        const lA = state.layers.find(l => l.id === idA);
+        const lB = state.layers.find(l => l.id === idB);
+        const keysA = _getLayerPropKeys(lA);
+        const keysB = _getLayerPropKeys(lB);
+        const selKeyA = document.getElementById('tableJoinKeyA');
+        const selKeyB = document.getElementById('tableJoinKeyB');
+        if (selKeyA) selKeyA.innerHTML = keysA.map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
+        if (selKeyB) selKeyB.innerHTML = keysB.map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
+    }
+
+    function _handleTableJoinCsvUpload(input) {
+        const file = input?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const parsed = _parseSimpleCsv(e.target.result);
+            _tableJoinCsvHeaders = parsed.headers;
+            _tableJoinCsvRows = parsed.rows;
+            const csvKeySel = document.getElementById('tableJoinCsvKey');
+            if (csvKeySel) {
+                csvKeySel.innerHTML = parsed.headers.map(h => `<option value="${h}">${h}</option>`).join('') || '<option value="">CSV sin encabezados</option>';
+            }
+            toast(`CSV cargado: ${parsed.rows.length} filas, ${parsed.headers.length} columnas.`, 'success');
+        };
+        reader.readAsText(file, 'utf-8');
+    }
+
+    async function executeTableJoin() {
+        const idA = parseInt(document.getElementById('tableJoinLayerA')?.value || '0', 10);
+        const keyA = document.getElementById('tableJoinKeyA')?.value || '';
+        const srcType = document.getElementById('tableJoinSourceType')?.value || 'layer';
+        const prefix = (document.getElementById('tableJoinPrefix')?.value || '').trim();
+        const asNewLayer = Boolean(document.getElementById('tableJoinNewLayer')?.checked);
+        const layerA = state.layers.find(l => l.id === idA);
+        if (!layerA || !keyA) return toast('Selecciona capa destino y campo clave A.', 'warning');
+
+        let lookup = new Map();
+        let keyB = '';
+        if (srcType === 'csv') {
+            keyB = document.getElementById('tableJoinCsvKey')?.value || '';
+            if (!_tableJoinCsvRows.length || !keyB) return toast('Carga un CSV válido y elige su campo clave.', 'warning');
+            for (const row of _tableJoinCsvRows) {
+                const k = String(row[keyB] ?? '').trim().toLowerCase();
+                if (k && !lookup.has(k)) lookup.set(k, row);
+            }
+        } else {
+            const idB = parseInt(document.getElementById('tableJoinLayerB')?.value || '0', 10);
+            keyB = document.getElementById('tableJoinKeyB')?.value || '';
+            const layerB = state.layers.find(l => l.id === idB);
+            if (!layerB || !keyB) return toast('Selecciona capa origen B y campo clave B.', 'warning');
+            for (const f of (layerB.geoJson?.features || [])) {
+                const p = f?.properties || {};
+                const k = String(p[keyB] ?? '').trim().toLowerCase();
+                if (k && !lookup.has(k)) lookup.set(k, p);
+            }
+        }
+
+        const outFeats = asNewLayer ? JSON.parse(JSON.stringify(layerA.geoJson.features || [])) : (layerA.geoJson.features || []);
+        let matched = 0;
+        for (const f of outFeats) {
+            if (!f.properties) f.properties = {};
+            if (asNewLayer) delete f.properties._selected;
+            const k = String(f.properties[keyA] ?? '').trim().toLowerCase();
+            const matchObj = lookup.get(k);
+            if (matchObj) {
+                matched++;
+                for (const [col, val] of Object.entries(matchObj)) {
+                    if (col.startsWith('_') || col === keyB) continue;
+                    const outCol = prefix ? `${prefix}${col}` : (Object.prototype.hasOwnProperty.call(f.properties, col) ? `${col}_join` : col);
+                    f.properties[outCol] = val;
+                }
+            }
+        }
+
+        document.getElementById('tableJoinModal').style.display = 'none';
+        if (asNewLayer) {
+            await addVectorLayer(turf.featureCollection(outFeats), `Unión Tabular - ${layerA.name}`, {
+                isPoints: layerA.isPoints, color: '#2563eb', fillOpacity: 0.35, strokeWidth: 2
+            });
+        } else {
+            refreshLayerOnMap(layerA);
+            renderAttributeTable();
+        }
+        toast(`Unión tabular completada: ${matched}/${outFeats.length} registros emparejados.`, 'success');
+    }
+
+    function openCategoryStatsModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        if (vectorLayers.length === 0) return toast('Carga al menos una capa vectorial primero.', 'info');
+        const sel = document.getElementById('catStatsLayer');
+        if (sel) {
+            sel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) sel.value = state.selectedLayerId;
+        }
+        _syncCategoryStatsFields();
+        document.getElementById('categoryStatsModal').style.display = 'flex';
+    }
+
+    function _syncCategoryStatsFields() {
+        const lid = parseInt(document.getElementById('catStatsLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        const keys = _getLayerPropKeys(layer);
+        const gSel = document.getElementById('catStatsGroupField');
+        const vSel = document.getElementById('catStatsValueField');
+        if (gSel) gSel.innerHTML = `<option value="__ALL__">(Todas las entidades)</option>` + keys.map(k => `<option value="${k}">${k}</option>`).join('');
+        if (vSel) vSel.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
+        // Elegir un campo numérico por defecto si existe
+        const sample = layer?.geoJson?.features?.[0]?.properties || {};
+        const numKey = keys.find(k => typeof sample[k] === 'number' && !k.startsWith('Shape_')) || keys.find(k => typeof sample[k] === 'number');
+        if (vSel && numKey) vSel.value = numKey;
+        computeCategoryStats();
+    }
+
+    function computeCategoryStats() {
+        const lid = parseInt(document.getElementById('catStatsLayer')?.value || '0', 10);
+        const gField = document.getElementById('catStatsGroupField')?.value || '__ALL__';
+        const vField = document.getElementById('catStatsValueField')?.value || '';
+        const layer = state.layers.find(l => l.id === lid);
+        const tbody = document.getElementById('catStatsTableBody');
+        if (!layer || !tbody) return;
+
+        const groups = new Map();
+        for (const f of (layer.geoJson?.features || [])) {
+            const p = f?.properties || {};
+            const key = gField === '__ALL__' ? 'Total General' : String(p[gField] ?? '(Vacío)');
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(p[vField]);
+        }
+
+        const rows = [];
+        for (const [cat, vals] of groups.entries()) {
+            const nums = vals.map(v => parseFloat(v)).filter(n => Number.isFinite(n));
+            const n = vals.length;
+            const sum = nums.reduce((a, b) => a + b, 0);
+            const avg = nums.length ? sum / nums.length : 0;
+            const min = nums.length ? Math.min(...nums) : 0;
+            const max = nums.length ? Math.max(...nums) : 0;
+            const variance = nums.length > 1 ? nums.reduce((s, x) => s + (x - avg) * (x - avg), 0) / nums.length : 0;
+            const std = Math.sqrt(variance);
+            rows.push({
+                category: cat, count: n,
+                sum: parseFloat(sum.toFixed(4)),
+                avg: parseFloat(avg.toFixed(4)),
+                min: parseFloat(min.toFixed(4)),
+                max: parseFloat(max.toFixed(4)),
+                std: parseFloat(std.toFixed(4))
+            });
+        }
+        _lastCategoryStatsRows = rows;
+        tbody.innerHTML = rows.map(r => `
+            <tr class="hover:bg-purple-50/40">
+                <td class="px-3 py-2 font-bold text-zinc-800">${r.category}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.count}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.sum}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.avg}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.min}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.max}</td>
+                <td class="px-3 py-2 text-right font-mono">${r.std}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="7" class="p-6 text-center text-zinc-400">Sin datos</td></tr>';
+    }
+
+    function exportCategoryStatsCsv() {
+        if (!_lastCategoryStatsRows.length) return toast('No hay estadísticas para exportar.', 'warning');
+        const header = 'Categoria,Conteo,Suma,Promedio,Minimo,Maximo,Desv_Estandar\n';
+        const body = _lastCategoryStatsRows.map(r => `"${String(r.category).replace(/"/g, '""')}",${r.count},${r.sum},${r.avg},${r.min},${r.max},${r.std}`).join('\n');
+        const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'estadisticas_por_categoria.csv';
+        a.click();
+        toast('Resumen exportado a estadisticas_por_categoria.csv', 'success');
+    }
+
+    function openRefactorFieldsModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        if (vectorLayers.length === 0) return toast('Carga al menos una capa vectorial primero.', 'info');
+        const sel = document.getElementById('refactorFieldsLayer');
+        if (sel) {
+            sel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) sel.value = state.selectedLayerId;
+        }
+        _renderRefactorFieldsList();
+        document.getElementById('refactorFieldsModal').style.display = 'flex';
+    }
+
+    function _renderRefactorFieldsList(preserveState = false) {
+        const lid = parseInt(document.getElementById('refactorFieldsLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        const listEl = document.getElementById('refactorFieldsList');
+        if (!layer || !listEl) return;
+
+        if (!preserveState) {
+            _refactorFieldsState = _getLayerPropKeys(layer).map(k => ({ oldName: k, newName: k, keep: true }));
+        }
+        listEl.innerHTML = _refactorFieldsState.map((item, idx) => `
+            <div class="flex items-center gap-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl">
+                <input type="checkbox" ${item.keep ? 'checked' : ''} onchange="_refactorFieldsState[${idx}].keep = this.checked" class="w-4 h-4 accent-teal-600 rounded cursor-pointer">
+                <span class="text-[10px] font-mono text-zinc-400 w-28 truncate" title="${item.oldName}">${item.oldName}</span>
+                <span class="text-zinc-300 text-xs">→</span>
+                <input type="text" value="${item.newName}" oninput="_refactorFieldsState[${idx}].newName = this.value.trim()" class="flex-1 bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-teal-500/20">
+                <button onclick="_moveRefactorField(${idx}, -1)" class="w-7 h-7 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-600 text-xs font-bold" title="Subir">↑</button>
+                <button onclick="_moveRefactorField(${idx}, 1)" class="w-7 h-7 rounded-lg bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-600 text-xs font-bold" title="Bajar">↓</button>
+            </div>
+        `).join('');
+    }
+
+    function _moveRefactorField(idx, delta) {
+        const next = idx + delta;
+        if (next < 0 || next >= _refactorFieldsState.length) return;
+        const tmp = _refactorFieldsState[idx];
+        _refactorFieldsState[idx] = _refactorFieldsState[next];
+        _refactorFieldsState[next] = tmp;
+        _renderRefactorFieldsList(true);
+    }
+
+    function executeRefactorFields() {
+        const lid = parseInt(document.getElementById('refactorFieldsLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        if (!layer?.geoJson?.features) return;
+
+        const kept = _refactorFieldsState.filter(x => x.keep && x.newName);
+        if (kept.length === 0) return toast('Debes conservar al menos un campo.', 'warning');
+
+        for (const f of layer.geoJson.features) {
+            const oldProps = f.properties || {};
+            const newProps = {};
+            for (const item of kept) {
+                newProps[item.newName] = oldProps[item.oldName];
+            }
+            // Preservar banderas internas (_selected, etc.)
+            for (const [k, v] of Object.entries(oldProps)) {
+                if (k.startsWith('_')) newProps[k] = v;
+            }
+            f.properties = newProps;
+        }
+
+        state.selectedAttrTableLayer = layer;
+        state.attrTable.layerId = layer.id;
+        refreshLayerOnMap(layer);
+        renderAttributeTable();
+        document.getElementById('refactorFieldsModal').style.display = 'none';
+        toast(`Esquema refactorizado: ${kept.length} campo(s) activos en "${layer.name}".`, 'success');
     }
 
     function applyCentroids() {
