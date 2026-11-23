@@ -45324,7 +45324,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress(updateMode === 'select' ? 'Evaluando selección...' : 'Calculando atributos...', 10);
 
         try {
-            const features = JSON.parse(JSON.stringify(layer.geoJson.features));
+            const features = layer.geoJson.features || [];
             let updatedCount = 0;
 
             for (let i = 0; i < features.length; i++) {
@@ -45358,7 +45358,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 if (i % 500 === 0) showProgress(`Procesando... ${i}/${features.length}`, 10 + (i / features.length) * 80);
             }
 
-            layer.geoJson.features = features;
+            if (layer.mapLayer && typeof layer.mapLayer.eachLayer === 'function') {
+                layer.mapLayer.eachLayer(l => {
+                    const idx = l.feature?._originalIndex;
+                    if (idx !== undefined && features[idx]) {
+                        l.feature = features[idx];
+                    }
+                });
+            }
+            state.selectedAttrTableLayer = layer;
+            state.attrTable.layerId = layer.id;
 
             if (updateMode === 'select') {
                 const selCount = features.filter(f => f.properties._selected).length;
