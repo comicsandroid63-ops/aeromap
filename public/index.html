@@ -6289,6 +6289,75 @@
           </div>
         </div>
 
+        <!-- 2f. Morfometría, Envolventes Avanzadas y Geometría Lineal -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-fuchsia-600 text-base">pentagon</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Morfometría, Envolventes Avanzadas y Geometría Lineal</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('concave_hull');" class="p-4 bg-zinc-50 hover:bg-fuchsia-50/50 border border-zinc-200 hover:border-fuchsia-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-fuchsia-700">
+                  <span class="material-symbols-outlined text-fuchsia-600 text-lg">draw_abstract</span> Envolvente Cóncava (Alpha Shape)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Contorno ajustado a la silueta real de los puntos respetando bahías y concavidades.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('ombb_circle');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">crop_rotate</span> Rectángulo Orientado / Círculo Mín.
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula OMBB o círculo mínimo con largo, ancho, elongación y azimut real.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('centerline');" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">timeline</span> Eje Central (Centerline)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Extrae automáticamente el esqueleto / línea media de ríos, vías dobles o predios alargados.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('eliminate_slivers');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">auto_fix_high</span> Eliminar Slivers (Micro-polígonos)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Fusiona polígonos residuales menores a X m² con el vecino de mayor lindero o área.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('densify');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">grain</span> Densificar por Intervalo
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Inserta vértices nuevos cada X metros sobre segmentos rectos largos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('line_edit_ops');" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">published_with_changes</span> Invertir / Extender / Recortar Líneas
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Invierte dirección de flujo o extiende/recorta extremos sueltos (undershoot/overshoot).</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7494,6 +7563,79 @@
             <span>Nodos colgantes en líneas (Dangles)</span>
             <input type="checkbox" id="topoCheckDangles" checked class="w-4 h-4 accent-rose-600 rounded">
           </label>
+        </div>
+
+        <!-- Dynamic Option: Envolvente Cóncava (Concave Hull / Alpha Shape) -->
+        <div id="singleVectorConcaveOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Longitud Máxima de Arista / Alpha (m)</label>
+            <input type="number" id="singleVectorConcaveMaxEdge" value="400" min="5" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            <p class="text-[10px] text-zinc-400">Valores menores ajustan más las concavidades; valores mayores se acercan al Convex Hull.</p>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Rectángulo Mínimo Orientado / Círculo Mínimo -->
+        <div id="singleVectorOmbbOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Geometría Envolvente por Entidad</label>
+            <select id="singleVectorOmbbMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="ombb" selected>Rectángulo Mínimo Orientado (OMBB: largo, ancho, azimut)</option>
+              <option value="mbc">Círculo Mínimo Envolvente (radio, diámetro, compacidad)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Eje Central (Centerline / Medial Axis) -->
+        <div id="singleVectorCenterlineOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Densidad de Muestreo del Borde</label>
+            <select id="singleVectorCenterlineSamples" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="60">Estándar (60 vértices - rápido)</option>
+              <option value="100" selected>Alta precisión (100 vértices)</option>
+              <option value="160">Ultra detalle (160 vértices)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Eliminar Slivers -->
+        <div id="singleVectorSliversOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Área Máx. Sliver (m²)</label>
+              <input type="number" id="singleVectorSliverArea" value="500" min="0.01" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Fusionar con Vecino de</label>
+              <select id="singleVectorSliverMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="longest_border" selected>Mayor lindero compartido</option>
+                <option value="largest_area">Mayor área total</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Densificar por Intervalo -->
+        <div id="singleVectorDensifyOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Intervalo Máximo entre Vértices (m)</label>
+            <input type="number" id="singleVectorDensifyStepM" value="50" min="0.5" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Invertir / Extender / Recortar Líneas -->
+        <div id="singleVectorLineOpsOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Operación Lineal</label>
+            <select id="singleVectorLineOpMode" onchange="document.getElementById('singleVectorLineOpTolWrap')?.classList.toggle('hidden', this.value === 'reverse')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="reverse" selected>Invertir Dirección de Líneas (Reverse)</option>
+              <option value="extend">Extender Extremos hasta otra Línea (Extend Undershoot)</option>
+              <option value="trim">Recortar Excesos Colgantes (Trim Overshoot)</option>
+            </select>
+          </div>
+          <div id="singleVectorLineOpTolWrap" class="space-y-1 hidden">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia / Tolerancia Máxima (m)</label>
+            <input type="number" id="singleVectorLineOpTolM" value="30" min="0.1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -43650,7 +43792,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const offsetOpt = document.getElementById('singleVectorOffsetOpt');
         const affineOpt = document.getElementById('singleVectorAffineOpt');
         const topoCheckOpt = document.getElementById('singleVectorTopoCheckOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt].forEach(el => {
+        const concaveOpt = document.getElementById('singleVectorConcaveOpt');
+        const ombbOpt = document.getElementById('singleVectorOmbbOpt');
+        const centerlineOpt = document.getElementById('singleVectorCenterlineOpt');
+        const sliversOpt = document.getElementById('singleVectorSliversOpt');
+        const densifyOpt = document.getElementById('singleVectorDensifyOpt');
+        const lineOpsOpt = document.getElementById('singleVectorLineOpsOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43687,6 +43835,60 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _syncFieldSelects();
 
         const configs = {
+            concave_hull: {
+                title: 'Envolvente Cóncava (Alpha Shape)',
+                sub: 'Contorno No Convexo',
+                icon: 'draw_abstract',
+                color: 'text-fuchsia-600',
+                bg: 'bg-fuchsia-50 border-fuchsia-100',
+                desc: 'Construye el polígono envolvente cóncavo ajustado a la nube de puntos/vértices según la arista máxima (Alpha).',
+                opt: concaveOpt
+            },
+            ombb_circle: {
+                title: 'Rectángulo Orientado / Círculo Mín.',
+                sub: 'Morfometría y Orientación',
+                icon: 'crop_rotate',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Calcula el Rectángulo Mínimo Orientado (OMBB: largo, ancho, elongación, azimut) o el Círculo Mínimo Envolvente por entidad.',
+                opt: ombbOpt
+            },
+            centerline: {
+                title: 'Eje Central de Polígonos',
+                sub: 'Esqueleto / Medial Axis (Voronoi)',
+                icon: 'timeline',
+                color: 'text-cyan-600',
+                bg: 'bg-cyan-50 border-cyan-100',
+                desc: 'Extrae automáticamente la línea central continua de polígonos alargados (ríos, vías dobles, corredores).',
+                opt: centerlineOpt
+            },
+            eliminate_slivers: {
+                title: 'Eliminar Slivers (Micro-polígonos)',
+                sub: 'Generalización Catastral',
+                icon: 'auto_fix_high',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 border-amber-100',
+                desc: 'Fusiona automáticamente polígonos residuales menores al área indicada con el vecino adyacente de mayor lindero o mayor área.',
+                opt: sliversOpt
+            },
+            densify: {
+                title: 'Densificar por Intervalo',
+                sub: 'Refinamiento de Segmentos',
+                icon: 'grain',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Inserta vértices adicionales cada X metros a lo largo de tramos rectos en líneas o polígonos.',
+                opt: densifyOpt
+            },
+            line_edit_ops: {
+                title: 'Invertir / Extender / Recortar Líneas',
+                sub: 'Limpieza de Redes Lineales',
+                icon: 'published_with_changes',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Invierte el sentido de líneas o corrige undershoots (extender) y overshoots (recortar) contra otras líneas.',
+                opt: lineOpsOpt
+            },
             equal_area_split: {
                 title: 'Subdividir en Áreas Iguales',
                 sub: 'Parcelación Catastral Exacta',
@@ -44000,7 +44202,510 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'equal_area_split') {
+            if (tool === 'concave_hull') {
+                const maxEdgeM = Math.max(5, parseFloat(document.getElementById('singleVectorConcaveMaxEdge')?.value || '400') || 400);
+                const rawExploded = turf.explode(layer.geoJson)?.features || [];
+                const seenPt = new Set();
+                const uniquePts = [];
+                for (const pt of rawExploded) {
+                    const c = pt.geometry?.coordinates;
+                    if (!c) continue;
+                    const k = `${c[0].toFixed(7)},${c[1].toFixed(7)}`;
+                    if (!seenPt.has(k)) {
+                        seenPt.add(k);
+                        uniquePts.push(turf.point([c[0], c[1]]));
+                    }
+                }
+                if (uniquePts.length < 3) throw new Error('Se requieren al menos 3 puntos distintos para la envolvente cóncava.');
+                const fcPts = turf.featureCollection(uniquePts);
+
+                let hull = null;
+                try { hull = turf.concave(fcPts, { maxEdge: maxEdgeM, units: 'meters' }); } catch (_) {}
+
+                // Alpha-shape exacto vía Delaunay TIN cuando turf.concave devuelve null
+                if (!hull || !hull.geometry) {
+                    const tin = turf.tin(fcPts);
+                    const triMaxEdge = (tri) => {
+                        const r = tri.geometry.coordinates[0];
+                        return Math.max(
+                            turf.distance(r[0], r[1], { units: 'meters' }),
+                            turf.distance(r[1], r[2], { units: 'meters' }),
+                            turf.distance(r[2], r[0], { units: 'meters' })
+                        );
+                    };
+                    let kept = (tin?.features || []).filter(t => triMaxEdge(t) <= maxEdgeM);
+                    if (kept.length === 0 && tin?.features?.length) {
+                        const edges = tin.features.map(triMaxEdge).sort((a, b) => a - b);
+                        const fallbackMax = edges[Math.min(edges.length - 1, Math.floor(edges.length * 0.75))];
+                        kept = tin.features.filter(t => triMaxEdge(t) <= fallbackMax);
+                    }
+                    if (kept.length > 0) {
+                        hull = kept[0];
+                        for (let i = 1; i < kept.length; i++) {
+                            try {
+                                const u = turf.union(turf.featureCollection([hull, kept[i]]));
+                                if (u && u.geometry) hull = u;
+                            } catch (_) {}
+                        }
+                    }
+                }
+                if (!hull || !hull.geometry) hull = turf.convex(fcPts);
+                if (!hull || !hull.geometry) throw new Error('No se pudo construir la envolvente cóncava.');
+                hull.properties = { max_edge_m: maxEdgeM, n_points: uniquePts.length };
+                await addVectorLayer(turf.featureCollection([hull]), `Envolvente Cóncava (${maxEdgeM}m) - ${layer.name}`, {
+                    color: '#c026d3', fillOpacity: 0.28, strokeWidth: 2.5
+                });
+                toast(`Envolvente cóncava generada (${uniquePts.length} puntos).`, 'success');
+
+            } else if (tool === 'ombb_circle') {
+                const mode = document.getElementById('singleVectorOmbbMode')?.value || 'ombb';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = [];
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const coords = turf.coordAll(f);
+                    if (coords.length < 2) continue;
+                    const baseProps = { ...(f.properties || {}) };
+                    delete baseProps._selected;
+
+                    const cLon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+                    const cLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+                    const mLat = 111320;
+                    const mLon = 111320 * Math.cos(cLat * Math.PI / 180);
+                    const xy = coords.map(c => [(c[0] - cLon) * mLon, (c[1] - cLat) * mLat]);
+
+                    if (mode === 'ombb') {
+                        const angles = [];
+                        for (let deg = 0; deg < 180; deg += 1) angles.push(deg * Math.PI / 180);
+                        for (let i = 0; i < xy.length - 1; i++) {
+                            const dx = xy[i + 1][0] - xy[i][0], dy = xy[i + 1][1] - xy[i][1];
+                            if (dx !== 0 || dy !== 0) angles.push(Math.atan2(dy, dx));
+                        }
+
+                        let best = null;
+                        for (const ang of angles) {
+                            const cosA = Math.cos(ang), sinA = Math.sin(ang);
+                            let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+                            for (const [x, y] of xy) {
+                                const u = x * cosA + y * sinA;
+                                const v = -x * sinA + y * cosA;
+                                if (u < minU) minU = u;
+                                if (u > maxU) maxU = u;
+                                if (v < minV) minV = v;
+                                if (v > maxV) maxV = v;
+                            }
+                            const wU = Math.max(0.01, maxU - minU);
+                            const wV = Math.max(0.01, maxV - minV);
+                            const area = wU * wV;
+                            if (!best || area < best.area) {
+                                best = { ang, cosA, sinA, minU, maxU, minV, maxV, wU, wV, area };
+                            }
+                        }
+
+                        const toLonLat = (u, v) => {
+                            const x = u * best.cosA - v * best.sinA;
+                            const y = u * best.sinA + v * best.cosA;
+                            return [cLon + x / mLon, cLat + y / mLat];
+                        };
+                        const ring = [
+                            toLonLat(best.minU, best.minV),
+                            toLonLat(best.maxU, best.minV),
+                            toLonLat(best.maxU, best.maxV),
+                            toLonLat(best.minU, best.maxV),
+                            toLonLat(best.minU, best.minV)
+                        ];
+                        const lengthM = Math.max(best.wU, best.wV);
+                        const widthM = Math.min(best.wU, best.wV);
+                        const vecE = best.wU >= best.wV ? best.cosA : -best.sinA;
+                        const vecN = best.wU >= best.wV ? best.sinA : best.cosA;
+                        const azDeg = ((Math.atan2(vecE, vecN) * 180 / Math.PI) % 180 + 180) % 180;
+
+                        outFeats.push(turf.polygon([ring], {
+                            ...baseProps,
+                            length_m: parseFloat(lengthM.toFixed(2)),
+                            width_m: parseFloat(widthM.toFixed(2)),
+                            elongation: parseFloat((lengthM / Math.max(0.01, widthM)).toFixed(3)),
+                            azimuth_deg: parseFloat(azDeg.toFixed(2))
+                        }));
+                    } else {
+                        // Círculo Mínimo Envolvente (itterativo exacto + circumcircle)
+                        let cx = 0, cy = 0, r = 0;
+                        let maxD2 = -1, pA = xy[0], pB = xy[1];
+                        for (let i = 0; i < xy.length; i++) {
+                            for (let j = i + 1; j < xy.length; j++) {
+                                const d2 = (xy[i][0] - xy[j][0]) ** 2 + (xy[i][1] - xy[j][1]) ** 2;
+                                if (d2 > maxD2) { maxD2 = d2; pA = xy[i]; pB = xy[j]; }
+                            }
+                        }
+                        cx = (pA[0] + pB[0]) / 2;
+                        cy = (pA[1] + pB[1]) / 2;
+                        r = Math.sqrt(Math.max(0, maxD2)) / 2;
+                        for (let pass = 0; pass < 3; pass++) {
+                            for (const [px, py] of xy) {
+                                const d = Math.hypot(px - cx, py - cy);
+                                if (d > r + 1e-6) {
+                                    const nr = (r + d) / 2;
+                                    const k = (d - nr) / d;
+                                    cx += (px - cx) * k;
+                                    cy += (py - cy) * k;
+                                    r = nr;
+                                }
+                            }
+                        }
+                        const centerLonLat = [cLon + cx / mLon, cLat + cy / mLat];
+                        const radM = Math.max(0.5, r);
+                        const circ = turf.circle(centerLonLat, radM, { steps: 64, units: 'meters' });
+                        const origArea = (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') ? turf.area(f) : 0;
+                        circ.properties = {
+                            ...baseProps,
+                            radius_m: parseFloat(radM.toFixed(2)),
+                            diameter_m: parseFloat((radM * 2).toFixed(2)),
+                            compactness: origArea > 0 ? parseFloat((origArea / (Math.PI * radM * radM)).toFixed(4)) : null
+                        };
+                        outFeats.push(circ);
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se pudieron calcular envolventes morfométricas.');
+                const lbl = mode === 'ombb' ? 'OMBB Orientado' : 'Círculo Mínimo';
+                await addVectorLayer(turf.featureCollection(outFeats), `${lbl} - ${layer.name}`, {
+                    color: '#4f46e5', fillOpacity: 0.22, strokeWidth: 2
+                });
+                toast(`${lbl} generado para ${outFeats.length} entidad(es).`, 'success');
+
+            } else if (tool === 'centerline') {
+                const nSamples = Math.max(40, parseInt(document.getElementById('singleVectorCenterlineSamples')?.value || '100', 10) || 100);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outAxes = [];
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) continue;
+                    const baseProps = { ...(f.properties || {}) };
+                    delete baseProps._selected;
+
+                    for (const pf of turf.flatten(f).features) {
+                        const extRing = pf.geometry.coordinates[0];
+                        if (!extRing || extRing.length < 4) continue;
+                        const extLine = turf.lineString(extRing);
+                        const perimM = turf.length(extLine, { units: 'meters' });
+                        if (perimM <= 1) continue;
+
+                        const step = perimM / nSamples;
+                        const bPts = [];
+                        for (let i = 0; i < nSamples; i++) {
+                            bPts.push(turf.along(extLine, i * step, { units: 'meters' }));
+                        }
+                        const bb = turf.bbox(pf);
+                        const pad = Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.2;
+                        const vor = turf.voronoi(turf.featureCollection(bPts), {
+                            bbox: [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad]
+                        });
+                        if (!vor?.features?.length) continue;
+
+                        // Construir grafo de aristas de Voronoi estrictamente interiores al polígono
+                        const nodes = new Map();
+                        const adj = new Map();
+                        const seenEdge = new Set();
+                        const keyOf = (c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
+
+                        for (const cell of vor.features) {
+                            const ring = cell?.geometry?.coordinates?.[0];
+                            if (!ring) continue;
+                            for (let i = 0; i < ring.length - 1; i++) {
+                                const a = ring[i], b = ring[i + 1];
+                                const ka = keyOf(a), kb = keyOf(b);
+                                if (ka === kb) continue;
+                                const ek = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+                                if (seenEdge.has(ek)) continue;
+                                seenEdge.add(ek);
+
+                                const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+                                try {
+                                    if (!turf.booleanPointInPolygon(a, pf) || !turf.booleanPointInPolygon(b, pf) || !turf.booleanPointInPolygon(mid, pf)) continue;
+                                } catch (_) { continue; }
+
+                                const w = turf.distance(a, b, { units: 'meters' });
+                                nodes.set(ka, a);
+                                nodes.set(kb, b);
+                                if (!adj.has(ka)) adj.set(ka, []);
+                                if (!adj.has(kb)) adj.set(kb, []);
+                                adj.get(ka).push({ to: kb, w });
+                                adj.get(kb).push({ to: ka, w });
+                            }
+                        }
+                        if (nodes.size < 2) continue;
+
+                        // Camino más largo (diámetro del esqueleto medial) mediante doble barrido Dijkstra
+                        const farthestFrom = (startKey) => {
+                            const dist = new Map([[startKey, 0]]);
+                            const prev = new Map();
+                            const visited = new Set();
+                            const queue = [startKey];
+                            while (queue.length > 0) {
+                                queue.sort((x, y) => (dist.get(x) || 0) - (dist.get(y) || 0));
+                                const u = queue.shift();
+                                if (visited.has(u)) continue;
+                                visited.add(u);
+                                for (const { to, w } of (adj.get(u) || [])) {
+                                    const nd = (dist.get(u) || 0) + w;
+                                    if (nd < (dist.get(to) ?? Infinity)) {
+                                        dist.set(to, nd);
+                                        prev.set(to, u);
+                                        queue.push(to);
+                                    }
+                                }
+                            }
+                            let bestK = startKey, bestD = 0;
+                            for (const [k, d] of dist.entries()) {
+                                if (d > bestD) { bestD = d; bestK = k; }
+                            }
+                            return { bestK, bestD, prev, visited };
+                        };
+
+                        // Evaluar la componente conexa principal
+                        let bestPathCoords = [];
+                        let bestLen = 0;
+                        const globalVisited = new Set();
+                        for (const startNode of nodes.keys()) {
+                            if (globalVisited.has(startNode)) continue;
+                            const s1 = farthestFrom(startNode);
+                            s1.visited.forEach(v => globalVisited.add(v));
+                            const s2 = farthestFrom(s1.bestK);
+                            if (s2.bestD > bestLen) {
+                                bestLen = s2.bestD;
+                                const path = [];
+                                let cur = s2.bestK;
+                                while (cur) {
+                                    path.push(nodes.get(cur));
+                                    cur = s2.prev.get(cur);
+                                }
+                                bestPathCoords = path;
+                            }
+                        }
+                        if (bestPathCoords.length >= 2) {
+                            outAxes.push(turf.lineString(bestPathCoords, {
+                                ...baseProps,
+                                axis_length_m: parseFloat(bestLen.toFixed(2))
+                            }));
+                        }
+                    }
+                }
+                if (outAxes.length === 0) throw new Error('No se pudo extraer el eje central de los polígonos.');
+                await addVectorLayer(turf.featureCollection(outAxes), `Eje Central - ${layer.name}`, {
+                    color: '#0891b2', strokeWidth: 3
+                });
+                toast(`Eje central extraído para ${outAxes.length} polígono(s).`, 'success');
+
+            } else if (tool === 'eliminate_slivers') {
+                const maxArea = Math.max(0.01, parseFloat(document.getElementById('singleVectorSliverArea')?.value || '500') || 500);
+                const crit = document.getElementById('singleVectorSliverMode')?.value || 'longest_border';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const polys = rawFeats
+                    .filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
+                    .map(f => {
+                        const c = JSON.parse(JSON.stringify(f));
+                        if (c.properties) delete c.properties._selected;
+                        return c;
+                    });
+                const majors = polys.filter(p => turf.area(p) > maxArea);
+                const slivers = polys.filter(p => turf.area(p) <= maxArea);
+                if (majors.length === 0) throw new Error('Ningún polígono supera el área máxima de sliver indicada.');
+
+                let mergedCount = 0;
+                const unmerged = [];
+                for (const slv of slivers) {
+                    const slvBuf = turf.buffer(slv, 0.5, { units: 'meters' }) || slv;
+                    const slvPerim = turf.length(slv, { units: 'meters' });
+                    let bestIdx = -1, bestScore = -1;
+
+                    for (let j = 0; j < majors.length; j++) {
+                        try {
+                            if (!turf.booleanIntersects(slvBuf, majors[j])) continue;
+                            const u = turf.union(turf.featureCollection([majors[j], slv]));
+                            if (!u || !u.geometry) continue;
+                            let score = 0;
+                            if (crit === 'largest_area') {
+                                score = turf.area(majors[j]);
+                            } else {
+                                const majPerim = turf.length(majors[j], { units: 'meters' });
+                                const uPerim = turf.length(u, { units: 'meters' });
+                                score = Math.max(0.001, (majPerim + slvPerim - uPerim) / 2);
+                            }
+                            if (score > bestScore) { bestScore = score; bestIdx = j; }
+                        } catch (_) {}
+                    }
+
+                    if (bestIdx >= 0) {
+                        const keepProps = { ...(majors[bestIdx].properties || {}) };
+                        const u = turf.union(turf.featureCollection([majors[bestIdx], slv]));
+                        if (u && u.geometry) {
+                            u.properties = keepProps;
+                            majors[bestIdx] = u;
+                            mergedCount++;
+                        } else {
+                            unmerged.push(slv);
+                        }
+                    } else {
+                        unmerged.push(slv);
+                    }
+                }
+
+                const outAll = [...majors, ...unmerged];
+                await addVectorLayer(turf.featureCollection(outAll), `Sin Slivers (<${maxArea}m²) - ${layer.name}`, {
+                    color: '#d97706', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Slivers eliminados: ${mergedCount} micro-polígono(s) fusionado(s).`, 'success');
+
+            } else if (tool === 'densify') {
+                const stepM = Math.max(0.5, parseFloat(document.getElementById('singleVectorDensifyStepM')?.value || '50') || 50);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                let insertedVerts = 0;
+
+                const densifyRing = (coords, closed) => {
+                    if (!Array.isArray(coords) || coords.length < 2) return coords;
+                    const out = [coords[0]];
+                    for (let i = 0; i < coords.length - 1; i++) {
+                        const p0 = coords[i], p1 = coords[i + 1];
+                        const d = turf.distance(p0, p1, { units: 'meters' });
+                        const n = Math.max(1, Math.ceil(d / stepM));
+                        if (n > 1) {
+                            for (let k = 1; k < n; k++) {
+                                const t = k / n;
+                                out.push([p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1])]);
+                                insertedVerts++;
+                            }
+                        }
+                        out.push(p1);
+                    }
+                    if (closed && out.length >= 2) out[out.length - 1] = [...out[0]];
+                    return out;
+                };
+
+                const outFeats = rawFeats.map(f => {
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    if (!copy?.geometry) return copy;
+                    const t = copy.geometry.type;
+                    if (t === 'LineString') copy.geometry.coordinates = densifyRing(copy.geometry.coordinates, false);
+                    else if (t === 'MultiLineString') copy.geometry.coordinates = copy.geometry.coordinates.map(r => densifyRing(r, false));
+                    else if (t === 'Polygon') copy.geometry.coordinates = copy.geometry.coordinates.map(r => densifyRing(r, true));
+                    else if (t === 'MultiPolygon') copy.geometry.coordinates = copy.geometry.coordinates.map(p => p.map(r => densifyRing(r, true)));
+                    return copy;
+                });
+
+                await addVectorLayer(turf.featureCollection(outFeats), `Densificado (${stepM}m) - ${layer.name}`, {
+                    color: '#059669', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Densificación completada: +${insertedVerts} vértices insertados.`, 'success');
+
+            } else if (tool === 'line_edit_ops') {
+                const op = document.getElementById('singleVectorLineOpMode')?.value || 'reverse';
+                const tolM = Math.max(0.1, parseFloat(document.getElementById('singleVectorLineOpTolM')?.value || '30') || 30);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const lines = [];
+                rawFeats.forEach(f => {
+                    if (!f?.geometry) return;
+                    if (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString') {
+                        turf.flatten(f).features.forEach(lf => {
+                            const props = { ...(f.properties || {}) };
+                            delete props._selected;
+                            lf.properties = props;
+                            lines.push(lf);
+                        });
+                    }
+                });
+                if (lines.length === 0) throw new Error('La capa no contiene líneas (LineString).');
+
+                let editedCount = 0;
+                const outLines = [];
+
+                if (op === 'reverse') {
+                    for (const lf of lines) {
+                        const rev = lf.geometry.coordinates.slice().reverse();
+                        const az = rev.length >= 2 ? ((turf.bearing(rev[0], rev[1]) + 360) % 360) : 0;
+                        outLines.push(turf.lineString(rev, {
+                            ...lf.properties,
+                            reversed: true,
+                            start_azimuth_deg: parseFloat(az.toFixed(2))
+                        }));
+                        editedCount++;
+                    }
+                } else if (op === 'extend') {
+                    for (let i = 0; i < lines.length; i++) {
+                        const coords = lines[i].geometry.coordinates.map(c => [...c]);
+                        if (coords.length < 2) { outLines.push(lines[i]); continue; }
+
+                        // Extender inicio y fin a lo largo de su rumbo tangente
+                        const tryExtendEnd = (atStart) => {
+                            const pTip = atStart ? coords[0] : coords[coords.length - 1];
+                            const pPrev = atStart ? coords[1] : coords[coords.length - 2];
+                            const brg = turf.bearing(pPrev, pTip);
+                            const rayEnd = turf.destination(pTip, tolM, brg, { units: 'meters' }).geometry.coordinates;
+                            const ray = turf.lineString([pTip, rayEnd]);
+                            let bestPt = null, bestD = tolM;
+                            for (let j = 0; j < lines.length; j++) {
+                                if (i === j) continue;
+                                try {
+                                    // Si ya toca la otra línea, no extender
+                                    if (turf.pointToLineDistance(pTip, lines[j], { units: 'meters' }) <= 0.05) return null;
+                                    const hits = turf.lineIntersect(ray, lines[j])?.features || [];
+                                    for (const h of hits) {
+                                        const d = turf.distance(pTip, h, { units: 'meters' });
+                                        if (d > 0.05 && d <= bestD) { bestD = d; bestPt = h.geometry.coordinates; }
+                                    }
+                                } catch (_) {}
+                            }
+                            return bestPt;
+                        };
+
+                        const extStart = tryExtendEnd(true);
+                        if (extStart) { coords.unshift(extStart); editedCount++; }
+                        const extEnd = tryExtendEnd(false);
+                        if (extEnd) { coords.push(extEnd); editedCount++; }
+                        outLines.push(turf.lineString(coords, { ...lines[i].properties }));
+                    }
+                } else {
+                    // Trim overshoots
+                    for (let i = 0; i < lines.length; i++) {
+                        let curLine = lines[i];
+                        const totalLen = turf.length(curLine, { units: 'meters' });
+                        let trimStartDist = 0;
+                        let trimEndDist = totalLen;
+
+                        for (let j = 0; j < lines.length; j++) {
+                            if (i === j) continue;
+                            try {
+                                const hits = turf.lineIntersect(curLine, lines[j])?.features || [];
+                                for (const h of hits) {
+                                    const loc = turf.nearestPointOnLine(curLine, h, { units: 'meters' })?.properties?.location;
+                                    if (!Number.isFinite(loc)) continue;
+                                    if (loc > 0.05 && loc <= tolM && loc > trimStartDist) trimStartDist = loc;
+                                    if ((totalLen - loc) > 0.05 && (totalLen - loc) <= tolM && loc < trimEndDist) trimEndDist = loc;
+                                }
+                            } catch (_) {}
+                        }
+                        if ((trimStartDist > 0 || trimEndDist < totalLen) && trimEndDist - trimStartDist > 0.1) {
+                            const pStart = turf.along(curLine, trimStartDist, { units: 'meters' });
+                            const pEnd = turf.along(curLine, trimEndDist, { units: 'meters' });
+                            const sliced = turf.lineSlice(pStart, pEnd, curLine);
+                            sliced.properties = { ...curLine.properties, trimmed: true };
+                            outLines.push(sliced);
+                            editedCount++;
+                        } else {
+                            outLines.push(curLine);
+                        }
+                    }
+                }
+
+                const opTitles = { reverse: 'Dirección Invertida', extend: `Extendida (${tolM}m)`, trim: `Recortada (${tolM}m)` };
+                await addVectorLayer(turf.featureCollection(outLines), `${opTitles[op]} - ${layer.name}`, {
+                    color: '#e11d48', strokeWidth: 2.5
+                });
+                toast(`${opTitles[op]}: ${editedCount} modificación(es) aplicada(s).`, 'success');
+
+            } else if (tool === 'equal_area_split') {
                 const nParts = Math.max(2, Math.min(50, parseInt(document.getElementById('singleVectorEqualParts')?.value || '4', 10) || 4));
                 const dir = document.getElementById('singleVectorEqualDir')?.value || 'auto';
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
