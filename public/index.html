@@ -6397,6 +6397,65 @@
           </div>
         </div>
 
+        <!-- 2h. Multicriterio (MCDA/AHP), Puente Ráster-Vector y Flujos -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-600 text-base">balance</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Multicriterio (MCDA/AHP), Puente Ráster-Vector y Flujos</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openMcdaModal();" class="col-span-2 p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">balance</span> Análisis Multicriterio (MCDA / AHP — Suma Ponderada)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Pondera múltiples campos o distancias a capas (vías, ríos, pendiente) para calcular el índice de aptitud territorial (0–100).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSampleRasterModal();" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">colorize</span> Muestrear Ráster en Puntos
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Extrae el valor exacto del píxel de uno o varios rásters hacia la tabla de puntos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openElevationProfileModal();" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">area_chart</span> Perfil Topográfico sobre Línea
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Gráfico interactivo de elevación, pendiente y desnivel a lo largo de una línea sobre un DEM.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('wedges_sectors');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">radar</span> Cuñas / Sectores Direccionales
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera abanicos por azimut, apertura angular y radio (antenas, cámaras, viento).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('xy_to_line');" class="p-4 bg-zinc-50 hover:bg-fuchsia-50/50 border border-zinc-200 hover:border-fuchsia-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-fuchsia-700">
+                  <span class="material-symbols-outlined text-fuchsia-600 text-lg">share</span> Líneas de Flujo (XY to Line / Spider)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Traza líneas rectas o geodésicas desde coordenadas origen-destino en atributos.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7726,6 +7785,65 @@
           </div>
         </div>
 
+        <!-- Dynamic Option: Cuñas / Sectores Direccionales (Wedges) -->
+        <div id="singleVectorWedgesOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Azimut Central (° Norte)</label>
+              <input type="number" id="singleVectorWedgeAzimuth" value="45" min="0" max="360" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">O Campo Azimut (Opcional)</label>
+              <select id="singleVectorWedgeAzField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Apertura (°)</label>
+              <input type="number" id="singleVectorWedgeSpanDeg" value="90" min="1" max="360" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Radio Ext. (m)</label>
+              <input type="number" id="singleVectorWedgeRadiusM" value="500" min="1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Radio Int. (m)</label>
+              <input type="number" id="singleVectorWedgeInnerM" value="0" min="0" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Líneas de Flujo / XY to Line (Spider Diagram) -->
+        <div id="singleVectorXyLineOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lon / X Origen</label>
+              <select id="singleVectorXyStartLon" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lat / Y Origen</label>
+              <select id="singleVectorXyStartLat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lon / X Destino</label>
+              <select id="singleVectorXyEndLon" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lat / Y Destino</label>
+              <select id="singleVectorXyEndLat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tipo de Trazo</label>
+            <select id="singleVectorXyLineType" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="planar" selected>Recta Directa (Spider Diagram)</option>
+              <option value="geodesic">Arco Geodésico (Gran Círculo)</option>
+            </select>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -8083,6 +8201,134 @@
         <div class="flex gap-3 pt-2">
           <button onclick="document.getElementById('refactorFieldsModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
           <button onclick="executeRefactorFields()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-sm">Aplicar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Análisis Multicriterio Vectorial (MCDA / AHP — Suma Ponderada) -->
+  <div id="mcdaModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-zinc-100 flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">balance</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Toma de Decisiones Espaciales</span>
+            <h3 class="font-bold text-base text-zinc-900">Análisis Multicriterio (MCDA / AHP — Suma Ponderada)</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('mcdaModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa de Evaluación (Unidades / Predios / Malla)</label>
+          <select id="mcdaBaseLayer" onchange="_resetMcdaCriteria()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase tracking-widest text-zinc-600">Criterios y Pesos (AHP / %)</span>
+          <div class="flex gap-2">
+            <button onclick="_addMcdaCriterionRow('field')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold">+ Campo Atributo</button>
+            <button onclick="_addMcdaCriterionRow('dist')" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold">+ Distancia a Capa</button>
+            <button onclick="_normalizeMcdaWeights()" class="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold">Normalizar 100%</button>
+          </div>
+        </div>
+
+        <div id="mcdaCriteriaList" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1"></div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="document.getElementById('mcdaModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeMcdaAnalysis()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm">Calcular Índice de Aptitud</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Muestrear Valores Ráster en Puntos (Sample Raster Values) -->
+  <div id="sampleRasterModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">colorize</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Puente Ráster → Vector</span>
+            <h3 class="font-bold text-base text-zinc-900">Muestrear Valores Ráster en Puntos</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('sampleRasterModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Vectorial de Muestreo</label>
+          <select id="sampleRasterVecLayer" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capas Ráster a Extraer</label>
+          <div id="sampleRasterCheckList" class="bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1.5 text-xs"></div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Prefijo de Columnas</label>
+          <input type="text" id="sampleRasterPrefix" value="ras_" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button onclick="document.getElementById('sampleRasterModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeSampleRasterValues()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-sm">Extraer Valores</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Perfil Topográfico sobre Línea (Elevation Profile) -->
+  <div id="elevationProfileModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-zinc-100 flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 text-cyan-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">area_chart</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Análisis Altimétrico</span>
+            <h3 class="font-bold text-base text-zinc-900">Perfil Topográfico sobre Línea (DEM)</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('elevationProfileModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa de Línea / Ruta</label>
+            <select id="elevProfLineLayer" onchange="computeElevationProfile()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Capa Ráster (DEM)</label>
+            <select id="elevProfRasterLayer" onchange="computeElevationProfile()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Puntos de Muestreo</label>
+            <input type="number" id="elevProfSamples" value="80" min="10" max="400" onchange="computeElevationProfile()" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+        </div>
+
+        <div id="elevProfStatsRow" class="grid grid-cols-5 gap-2 text-center"></div>
+
+        <div class="bg-zinc-950 rounded-2xl p-4 border border-zinc-800">
+          <canvas id="elevProfCanvas" width="760" height="240" class="w-full h-[220px] block"></canvas>
+        </div>
+
+        <div class="flex justify-end gap-2.5">
+          <button onclick="exportElevationProfilePoints()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200">Crear Capa de Puntos</button>
+          <button onclick="exportElevationProfileCsv()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-700">Exportar CSV</button>
+          <button onclick="document.getElementById('elevationProfileModal').style.display='none'" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cerrar</button>
         </div>
       </div>
     </div>
@@ -43930,7 +44176,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const lineOpsOpt = document.getElementById('singleVectorLineOpsOpt');
         const spatialStatsOpt = document.getElementById('singleVectorSpatialStatsOpt');
         const idwOpt = document.getElementById('singleVectorIdwOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt].forEach(el => {
+        const wedgesOpt = document.getElementById('singleVectorWedgesOpt');
+        const xyLineOpt = document.getElementById('singleVectorXyLineOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43956,6 +44204,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const dupField = document.getElementById('singleVectorDupField');
             const stField = document.getElementById('singleVectorStatsField');
             const idwField = document.getElementById('singleVectorIdwField');
+            const wAzField = document.getElementById('singleVectorWedgeAzField');
+            const xySLon = document.getElementById('singleVectorXyStartLon');
+            const xySLat = document.getElementById('singleVectorXyStartLat');
+            const xyELon = document.getElementById('singleVectorXyEndLon');
+            const xyELat = document.getElementById('singleVectorXyEndLat');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
@@ -43966,6 +44219,17 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (dupField) dupField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
             if (stField) stField.innerHTML = fieldOpts || `<option value="">Sin campos numéricos</option>`;
             if (idwField) idwField.innerHTML = fieldOpts || `<option value="">Sin campos Z</option>`;
+            if (wAzField) wAzField.innerHTML = `<option value="">Usar valor fijo arriba</option>${fieldOpts}`;
+            if (xySLon) xySLon.innerHTML = `<option value="__GEOM__">(Usar X/Lon del punto actual)</option>${fieldOpts}`;
+            if (xySLat) xySLat.innerHTML = `<option value="__GEOM__">(Usar Y/Lat del punto actual)</option>${fieldOpts}`;
+            if (xyELon) xyELon.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
+            if (xyELat) xyELat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
+            const kArr = Array.from(keys);
+            const findCol = (re) => kArr.find(k => re.test(k));
+            const destX = findCol(/dest.*lon|dest.*x|lon_d|x_dest|x2|lng_d/i);
+            const destY = findCol(/dest.*lat|dest.*y|lat_d|y_dest|y2/i);
+            if (xyELon && destX) xyELon.value = destX;
+            if (xyELat && destY) xyELat.value = destY;
             // Auto-seleccionar primer campo numérico que no sea Shape_*
             const sample = lyr?.geoJson?.features?.[0]?.properties || {};
             const numKey = Array.from(keys).find(k => typeof sample[k] === 'number' && !k.startsWith('Shape_')) || Array.from(keys).find(k => typeof sample[k] === 'number');
@@ -43978,6 +44242,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _syncFieldSelects();
 
         const configs = {
+            wedges_sectors: {
+                title: 'Cuñas / Sectores Direccionales',
+                sub: 'Abanicos de Cobertura (Wedges)',
+                icon: 'radar',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Construye sectores angulares desde cada punto según azimut, apertura en grados y radios interno/externo (antenas, cámaras, viento).',
+                opt: wedgesOpt
+            },
+            xy_to_line: {
+                title: 'Líneas de Flujo (XY to Line)',
+                sub: 'Diagrama Araña / Origen-Destino',
+                icon: 'share',
+                color: 'text-fuchsia-600',
+                bg: 'bg-fuchsia-50 border-fuchsia-100',
+                desc: 'Conecta coordenadas de origen y destino almacenadas en columnas de la tabla mediante trazos rectos o arcos geodésicos.',
+                opt: xyLineOpt
+            },
             spatial_stats: {
                 title: 'Hotspots (Gi*) / Moran I / Índice R',
                 sub: 'Estadística Espacial Inferencial',
@@ -44363,7 +44645,122 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'spatial_stats') {
+            if (tool === 'wedges_sectors') {
+                const fixedAz = parseFloat(document.getElementById('singleVectorWedgeAzimuth')?.value || '45') || 0;
+                const azField = document.getElementById('singleVectorWedgeAzField')?.value || '';
+                const spanDeg = Math.max(1, Math.min(360, parseFloat(document.getElementById('singleVectorWedgeSpanDeg')?.value || '90') || 90));
+                const rOutM = Math.max(1, parseFloat(document.getElementById('singleVectorWedgeRadiusM')?.value || '500') || 500);
+                const rInM = Math.max(0, Math.min(rOutM - 0.5, parseFloat(document.getElementById('singleVectorWedgeInnerM')?.value || '0') || 0));
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outSectors = [];
+                const steps = Math.max(12, Math.ceil(spanDeg / 3));
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const ctr = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    const baseProps = { ...(f.properties || {}) };
+                    delete baseProps._selected;
+
+                    let az = fixedAz;
+                    if (azField && Number.isFinite(parseFloat(baseProps[azField]))) {
+                        az = parseFloat(baseProps[azField]);
+                    }
+                    const startAng = az - spanDeg / 2;
+                    const endAng = az + spanDeg / 2;
+
+                    if (spanDeg >= 359.9 && rInM <= 0) {
+                        const fullCirc = turf.circle(ctr, rOutM, { steps: 64, units: 'meters' });
+                        fullCirc.properties = { ...baseProps, azimuth_deg: az, span_deg: 360, radius_m: rOutM };
+                        outSectors.push(fullCirc);
+                        continue;
+                    }
+
+                    const ring = [];
+                    if (rInM <= 0) {
+                        ring.push([...ctr]);
+                        for (let s = 0; s <= steps; s++) {
+                            const brg = startAng + (s / steps) * (endAng - startAng);
+                            ring.push(turf.destination(ctr, rOutM, brg, { units: 'meters' }).geometry.coordinates);
+                        }
+                        ring.push([...ctr]);
+                    } else {
+                        for (let s = 0; s <= steps; s++) {
+                            const brg = startAng + (s / steps) * (endAng - startAng);
+                            ring.push(turf.destination(ctr, rOutM, brg, { units: 'meters' }).geometry.coordinates);
+                        }
+                        for (let s = steps; s >= 0; s--) {
+                            const brg = startAng + (s / steps) * (endAng - startAng);
+                            ring.push(turf.destination(ctr, rInM, brg, { units: 'meters' }).geometry.coordinates);
+                        }
+                        ring.push([...ring[0]]);
+                    }
+                    outSectors.push(turf.polygon([ring], {
+                        ...baseProps,
+                        azimuth_deg: parseFloat(az.toFixed(2)),
+                        span_deg: spanDeg,
+                        radius_m: rOutM,
+                        inner_radius_m: rInM
+                    }));
+                }
+                if (outSectors.length === 0) throw new Error('No se pudieron generar sectores direccionales.');
+                await addVectorLayer(turf.featureCollection(outSectors), `Sectores (${spanDeg}°, ${rOutM}m) - ${layer.name}`, {
+                    color: '#4f46e5', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Generados ${outSectors.length} sectores direccionales.`, 'success');
+
+            } else if (tool === 'xy_to_line') {
+                const sLonCol = document.getElementById('singleVectorXyStartLon')?.value || '__GEOM__';
+                const sLatCol = document.getElementById('singleVectorXyStartLat')?.value || '__GEOM__';
+                const eLonCol = document.getElementById('singleVectorXyEndLon')?.value || '';
+                const eLatCol = document.getElementById('singleVectorXyEndLat')?.value || '';
+                const lineType = document.getElementById('singleVectorXyLineType')?.value || 'planar';
+                if (!eLonCol || !eLatCol) throw new Error('Selecciona las columnas de longitud y latitud de destino.');
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFlows = [];
+
+                for (const f of rawFeats) {
+                    const p = f?.properties || {};
+                    let c0 = null;
+                    if (sLonCol === '__GEOM__' || sLatCol === '__GEOM__') {
+                        if (!f?.geometry) continue;
+                        c0 = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    } else {
+                        const x0 = parseFloat(p[sLonCol]), y0 = parseFloat(p[sLatCol]);
+                        if (Number.isFinite(x0) && Number.isFinite(y0)) c0 = [x0, y0];
+                    }
+                    const x1 = parseFloat(p[eLonCol]), y1 = parseFloat(p[eLatCol]);
+                    if (!c0 || !Number.isFinite(x1) || !Number.isFinite(y1)) continue;
+                    const c1 = [x1, y1];
+                    const dM = turf.distance(c0, c1, { units: 'meters' });
+                    if (dM < 0.01) continue;
+                    const az = (turf.bearing(c0, c1) + 360) % 360;
+                    const baseProps = { ...p };
+                    delete baseProps._selected;
+
+                    let lineFeat = null;
+                    if (lineType === 'geodesic') {
+                        try { lineFeat = turf.greatCircle(c0, c1, { npoints: 32 }); } catch (_) {}
+                    }
+                    if (!lineFeat || !lineFeat.geometry) {
+                        lineFeat = turf.lineString([c0, c1]);
+                    }
+                    lineFeat.properties = {
+                        ...baseProps,
+                        flow_dist_m: parseFloat(dM.toFixed(2)),
+                        flow_dist_km: parseFloat((dM / 1000).toFixed(3)),
+                        flow_azimuth_deg: parseFloat(az.toFixed(2))
+                    };
+                    outFlows.push(lineFeat);
+                }
+                if (outFlows.length === 0) throw new Error('No se encontraron pares de coordenadas origen-destino válidos.');
+                await addVectorLayer(turf.featureCollection(outFlows), `Flujos OD - ${layer.name}`, {
+                    color: '#c026d3', strokeWidth: 2.5
+                });
+                toast(`Líneas de flujo generadas: ${outFlows.length} conexiones.`, 'success');
+
+            } else if (tool === 'spatial_stats') {
                 const mode = document.getElementById('singleVectorStatsMode')?.value || 'gi_star';
                 const field = document.getElementById('singleVectorStatsField')?.value || '';
                 let distM = Math.max(10, parseFloat(document.getElementById('singleVectorStatsDistM')?.value || '500') || 500);
@@ -47757,6 +48154,437 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         renderAttributeTable();
         document.getElementById('refactorFieldsModal').style.display = 'none';
         toast(`Esquema refactorizado: ${kept.length} campo(s) activos en "${layer.name}".`, 'success');
+    }
+
+    // ══════════════════════════════════════════
+    //  MCDA / AHP, SAMPLE RASTER VALUES & ELEVATION PROFILE
+    // ══════════════════════════════════════════
+    let _mcdaCriteria = [];
+    let _lastElevProfileData = [];
+
+    function openMcdaModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        if (vectorLayers.length === 0) return toast('Carga al menos una capa vectorial primero.', 'info');
+        const sel = document.getElementById('mcdaBaseLayer');
+        if (sel) {
+            sel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name} (${l.geoJson?.features?.length || 0})</option>`).join('');
+            if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) sel.value = state.selectedLayerId;
+        }
+        _resetMcdaCriteria();
+        document.getElementById('mcdaModal').style.display = 'flex';
+    }
+
+    function _resetMcdaCriteria() {
+        const lid = parseInt(document.getElementById('mcdaBaseLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        const keys = _getLayerPropKeys(layer);
+        const sample = layer?.geoJson?.features?.[0]?.properties || {};
+        const numKeys = keys.filter(k => typeof sample[k] === 'number' && !k.startsWith('Shape_'));
+        _mcdaCriteria = [];
+        if (numKeys.length > 0) {
+            numKeys.slice(0, 3).forEach(k => _mcdaCriteria.push({ type: 'field', target: k, direction: 'benefit', weight: Math.round(100 / Math.min(3, numKeys.length)) }));
+        } else {
+            _mcdaCriteria.push({ type: 'field', target: keys[0] || '', direction: 'benefit', weight: 100 });
+        }
+        _renderMcdaCriteria();
+    }
+
+    function _addMcdaCriterionRow(type) {
+        const lid = parseInt(document.getElementById('mcdaBaseLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        const keys = _getLayerPropKeys(layer);
+        const others = state.layers.filter(l => l.type === 'vector' && l.geoJson && l.id !== lid);
+        if (type === 'dist' && others.length === 0) {
+            return toast('Carga otra capa vectorial para usar distancia como criterio.', 'info');
+        }
+        _mcdaCriteria.push({
+            type,
+            target: type === 'field' ? (keys[0] || '') : String(others[0]?.id || ''),
+            direction: type === 'dist' ? 'cost' : 'benefit',
+            weight: 25
+        });
+        _renderMcdaCriteria();
+    }
+
+    function _normalizeMcdaWeights() {
+        const sum = _mcdaCriteria.reduce((s, c) => s + Math.max(0, parseFloat(c.weight) || 0), 0);
+        if (sum <= 0) {
+            const eq = _mcdaCriteria.length ? (100 / _mcdaCriteria.length) : 0;
+            _mcdaCriteria.forEach(c => c.weight = parseFloat(eq.toFixed(2)));
+        } else {
+            _mcdaCriteria.forEach(c => c.weight = parseFloat(((Math.max(0, parseFloat(c.weight) || 0) / sum) * 100).toFixed(2)));
+        }
+        _renderMcdaCriteria();
+    }
+
+    function _renderMcdaCriteria() {
+        const lid = parseInt(document.getElementById('mcdaBaseLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        const keys = _getLayerPropKeys(layer);
+        const others = state.layers.filter(l => l.type === 'vector' && l.geoJson && l.id !== lid);
+        const listEl = document.getElementById('mcdaCriteriaList');
+        if (!listEl) return;
+
+        listEl.innerHTML = _mcdaCriteria.map((c, idx) => {
+            const targetOpts = c.type === 'field'
+                ? keys.map(k => `<option value="${k}" ${k === c.target ? 'selected' : ''}>Campo: ${k}</option>`).join('')
+                : others.map(l => `<option value="${l.id}" ${String(l.id) === String(c.target) ? 'selected' : ''}>Dist. a: ${l.name}</option>`).join('');
+            return `
+                <div class="grid grid-cols-12 gap-2 items-center p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl">
+                    <select onchange="_mcdaCriteria[${idx}].target = this.value" class="col-span-5 bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs font-semibold outline-none">${targetOpts}</select>
+                    <select onchange="_mcdaCriteria[${idx}].direction = this.value" class="col-span-4 bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs font-semibold outline-none">
+                        <option value="benefit" ${c.direction === 'benefit' ? 'selected' : ''}>Mayor es mejor (+)</option>
+                        <option value="cost" ${c.direction === 'cost' ? 'selected' : ''}>Menor es mejor (-)</option>
+                    </select>
+                    <input type="number" value="${c.weight}" min="0" step="any" oninput="_mcdaCriteria[${idx}].weight = parseFloat(this.value) || 0" class="col-span-2 bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs font-bold text-center outline-none" title="Peso %">
+                    <button onclick="_mcdaCriteria.splice(${idx}, 1); _renderMcdaCriteria();" class="col-span-1 text-rose-500 hover:text-rose-700 font-bold text-sm">✕</button>
+                </div>
+            `;
+        }).join('') || '<div class="text-xs text-zinc-400 text-center py-4">Añade al menos un criterio arriba.</div>';
+    }
+
+    async function executeMcdaAnalysis() {
+        const lid = parseInt(document.getElementById('mcdaBaseLayer')?.value || '0', 10);
+        const layer = state.layers.find(l => l.id === lid);
+        if (!layer?.geoJson?.features?.length) return toast('Capa sin entidades.', 'warning');
+        if (_mcdaCriteria.length === 0) return toast('Añade al menos un criterio.', 'warning');
+
+        const wSum = _mcdaCriteria.reduce((s, c) => s + Math.max(0, parseFloat(c.weight) || 0), 0);
+        if (wSum <= 0) return toast('La suma de pesos debe ser mayor a 0.', 'warning');
+
+        const feats = layer.geoJson.features;
+        const ctrs = feats.map(f => f?.geometry ? (f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2)) : null);
+
+        // Calcular valores crudos por criterio y normalizar [0, 1]
+        const normMatrix = _mcdaCriteria.map((crit) => {
+            const rawVals = feats.map((f, i) => {
+                if (crit.type === 'field') {
+                    const v = parseFloat(f?.properties?.[crit.target]);
+                    return Number.isFinite(v) ? v : 0;
+                } else {
+                    const refLayer = state.layers.find(l => String(l.id) === String(crit.target));
+                    const cA = ctrs[i];
+                    if (!refLayer?.geoJson?.features?.length || !cA) return 0;
+                    let minD = Infinity;
+                    for (const fb of refLayer.geoJson.features) {
+                        if (!fb?.geometry) continue;
+                        const cB = fb.geometry.type === 'Point' ? fb.geometry.coordinates.slice(0, 2) : turf.centroid(fb).geometry.coordinates.slice(0, 2);
+                        const d = turf.distance(cA, cB, { units: 'meters' });
+                        if (d < minD) minD = d;
+                    }
+                    return Number.isFinite(minD) ? minD : 0;
+                }
+            });
+            const mn = Math.min(...rawVals), mx = Math.max(...rawVals);
+            const span = mx - mn;
+            return rawVals.map(v => {
+                if (span < 1e-9) return 1;
+                const norm = (v - mn) / span;
+                return crit.direction === 'cost' ? (1 - norm) : norm;
+            });
+        });
+
+        const ramp = ['#dc2626', '#f97316', '#eab308', '#84cc16', '#10b981'];
+        const outFeats = feats.map((f, i) => {
+            const copy = JSON.parse(JSON.stringify(f));
+            if (!copy.properties) copy.properties = {};
+            delete copy.properties._selected;
+            let score = 0;
+            _mcdaCriteria.forEach((crit, cIdx) => {
+                const wNorm = Math.max(0, parseFloat(crit.weight) || 0) / wSum;
+                score += wNorm * normMatrix[cIdx][i];
+            });
+            const score100 = parseFloat((score * 100).toFixed(2));
+            let aptClass = 'Muy Baja', col = ramp[0];
+            if (score100 >= 80) { aptClass = 'Muy Alta'; col = ramp[4]; }
+            else if (score100 >= 60) { aptClass = 'Alta'; col = ramp[3]; }
+            else if (score100 >= 40) { aptClass = 'Media'; col = ramp[2]; }
+            else if (score100 >= 20) { aptClass = 'Baja'; col = ramp[1]; }
+            copy.properties.mcda_score = score100;
+            copy.properties.aptitud = aptClass;
+            copy.properties.color = col;
+            return copy;
+        });
+
+        document.getElementById('mcdaModal').style.display = 'none';
+        await addVectorLayer(turf.featureCollection(outFeats), `Aptitud MCDA - ${layer.name}`, {
+            isPoints: layer.isPoints, color: '#10b981', fillOpacity: 0.55, strokeWidth: 2
+        });
+        toast(`Análisis Multicriterio completado en ${outFeats.length} entidades.`, 'success');
+    }
+
+    async function _buildRasterSampler(rLayer) {
+        const bounds = getNormalizedLayerBounds ? getNormalizedLayerBounds(rLayer) : L.latLngBounds(rLayer.bounds);
+        if (!bounds) return null;
+
+        // 1. Intentar GeoTIFF real (georaster o file)
+        try {
+            let tiff = null;
+            if (rLayer.file && typeof GeoTIFF !== 'undefined') tiff = await GeoTIFF.fromBlob(rLayer.file);
+            else if (rLayer._geotiffFileUrl && typeof GeoTIFF !== 'undefined') tiff = await GeoTIFF.fromUrl(rLayer._geotiffFileUrl);
+            if (tiff) {
+                const image = await tiff.getImage();
+                const width = image.getWidth();
+                const height = image.getHeight();
+                const rasters = await image.readRasters();
+                const band0 = rasters[0];
+                const n = bounds.getNorth(), s = bounds.getSouth(), w = bounds.getWest(), e = bounds.getEast();
+                return (lng, lat) => {
+                    if (lat > n || lat < s || lng < w || lng > e) return null;
+                    const px = Math.min(width - 1, Math.max(0, Math.floor(((lng - w) / (e - w)) * width)));
+                    const py = Math.min(height - 1, Math.max(0, Math.floor(((n - lat) / (n - s)) * height)));
+                    const v = band0[py * width + px];
+                    return Number.isFinite(v) ? parseFloat(Number(v).toFixed(4)) : null;
+                };
+            }
+        } catch (_) {}
+
+        // 2. Fallback: imageUrl / canvas overlay (raster procesado o demo)
+        if (rLayer.imageUrl) {
+            try {
+                const img = await new Promise((resolve, reject) => {
+                    const im = new Image();
+                    im.crossOrigin = 'anonymous';
+                    im.onload = () => resolve(im);
+                    im.onerror = reject;
+                    im.src = rLayer.imageUrl;
+                });
+                const c = document.createElement('canvas');
+                c.width = img.width;
+                c.height = img.height;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const data = ctx.getImageData(0, 0, c.width, c.height).data;
+                const n = bounds.getNorth(), s = bounds.getSouth(), w = bounds.getWest(), e = bounds.getEast();
+                return (lng, lat) => {
+                    if (lat > n || lat < s || lng < w || lng > e) return null;
+                    const px = Math.min(c.width - 1, Math.max(0, Math.floor(((lng - w) / (e - w)) * c.width)));
+                    const py = Math.min(c.height - 1, Math.max(0, Math.floor(((n - lat) / (n - s)) * c.height)));
+                    const idx = (py * c.width + px) * 4;
+                    return data[idx]; // canal R (elevación o intensidad)
+                };
+            } catch (_) {}
+        }
+        return null;
+    }
+
+    function openSampleRasterModal() {
+        const vectorLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson);
+        const rasterLayers = state.layers.filter(l => l.type === 'raster');
+        if (vectorLayers.length === 0 || rasterLayers.length === 0) {
+            return toast('Se requiere al menos 1 capa vectorial y 1 capa ráster cargadas.', 'info');
+        }
+        const vSel = document.getElementById('sampleRasterVecLayer');
+        if (vSel) {
+            vSel.innerHTML = vectorLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            if (state.selectedLayerId && vectorLayers.find(l => l.id == state.selectedLayerId)) vSel.value = state.selectedLayerId;
+        }
+        const rList = document.getElementById('sampleRasterCheckList');
+        if (rList) {
+            rList.innerHTML = rasterLayers.map((r, i) => `
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" class="sample-raster-chk w-4 h-4 accent-amber-600 rounded" value="${r.id}" ${i === 0 ? 'checked' : ''}>
+                    <span class="font-semibold text-zinc-800 truncate">${r.name}</span>
+                </label>
+            `).join('');
+        }
+        document.getElementById('sampleRasterModal').style.display = 'flex';
+    }
+
+    async function executeSampleRasterValues() {
+        const vecId = parseInt(document.getElementById('sampleRasterVecLayer')?.value || '0', 10);
+        const prefix = (document.getElementById('sampleRasterPrefix')?.value || 'ras_').trim();
+        const rIds = Array.from(document.querySelectorAll('.sample-raster-chk:checked')).map(el => parseInt(el.value, 10));
+        const vecLayer = state.layers.find(l => l.id === vecId);
+        if (!vecLayer?.geoJson?.features?.length) return toast('Capa vectorial sin entidades.', 'warning');
+        if (rIds.length === 0) return toast('Selecciona al menos un ráster.', 'warning');
+
+        document.getElementById('sampleRasterModal').style.display = 'none';
+        showProgress('Muestreando valores ráster...', 25);
+
+        try {
+            const samplers = [];
+            for (const rid of rIds) {
+                const rLayer = state.layers.find(l => l.id === rid);
+                if (!rLayer) continue;
+                const fn = await _buildRasterSampler(rLayer);
+                if (fn) {
+                    const cleanCol = `${prefix}${rLayer.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').slice(0, 18)}`;
+                    samplers.push({ col: cleanCol, fn });
+                }
+            }
+            if (samplers.length === 0) throw new Error('No se pudieron leer los píxeles del ráster seleccionado.');
+
+            let sampledHits = 0;
+            const outFeats = vecLayer.geoJson.features.map(f => {
+                const copy = JSON.parse(JSON.stringify(f));
+                if (!copy.properties) copy.properties = {};
+                delete copy.properties._selected;
+                if (copy.geometry) {
+                    const c = copy.geometry.type === 'Point' ? copy.geometry.coordinates.slice(0, 2) : turf.centroid(copy).geometry.coordinates.slice(0, 2);
+                    for (const s of samplers) {
+                        const val = s.fn(c[0], c[1]);
+                        copy.properties[s.col] = val;
+                        if (val !== null) sampledHits++;
+                    }
+                }
+                return copy;
+            });
+
+            await addVectorLayer(turf.featureCollection(outFeats), `Muestreo Ráster - ${vecLayer.name}`, {
+                isPoints: vecLayer.isPoints, color: '#d97706', fillOpacity: 0.4, pointSize: 6
+            });
+            toast(`Muestreo completado: ${sampledHits} lecturas de píxel extraídas.`, 'success');
+        } catch (err) {
+            toast(`Error: ${err.message}`, 'error');
+        } finally {
+            hideProgress();
+        }
+    }
+
+    function openElevationProfileModal() {
+        const lineLayers = state.layers.filter(l => l.type === 'vector' && l.geoJson?.features?.some(f => /line/i.test(f?.geometry?.type || '')));
+        const rasterLayers = state.layers.filter(l => l.type === 'raster');
+        if (lineLayers.length === 0 || rasterLayers.length === 0) {
+            return toast('Se requiere al menos 1 capa vectorial con líneas y 1 capa ráster (DEM).', 'info');
+        }
+        document.getElementById('elevProfLineLayer').innerHTML = lineLayers.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        document.getElementById('elevProfRasterLayer').innerHTML = rasterLayers.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        document.getElementById('elevationProfileModal').style.display = 'flex';
+        computeElevationProfile();
+    }
+
+    async function computeElevationProfile() {
+        const lineId = parseInt(document.getElementById('elevProfLineLayer')?.value || '0', 10);
+        const rasId = parseInt(document.getElementById('elevProfRasterLayer')?.value || '0', 10);
+        const nSamples = Math.max(10, Math.min(400, parseInt(document.getElementById('elevProfSamples')?.value || '80', 10) || 80));
+        const lineLayer = state.layers.find(l => l.id === lineId);
+        const rasLayer = state.layers.find(l => l.id === rasId);
+        if (!lineLayer || !rasLayer) return;
+
+        const sampler = await _buildRasterSampler(rasLayer);
+        if (!sampler) return toast('No se pudo leer el ráster DEM.', 'error');
+
+        const lineFeat = turf.flatten(lineLayer.geoJson).features.find(f => f?.geometry?.type === 'LineString');
+        if (!lineFeat) return;
+
+        const totalM = turf.length(lineFeat, { units: 'meters' });
+        const pts = [];
+        for (let i = 0; i <= nSamples; i++) {
+            const distM = (i / nSamples) * totalM;
+            const pt = turf.along(lineFeat, distM, { units: 'meters' });
+            const c = pt.geometry.coordinates;
+            const z = sampler(c[0], c[1]);
+            pts.push({ distM: parseFloat(distM.toFixed(2)), lon: c[0], lat: c[1], z: z ?? 0, valid: z !== null });
+        }
+        _lastElevProfileData = pts;
+
+        const zs = pts.map(p => p.z);
+        const zMin = Math.min(...zs), zMax = Math.max(...zs);
+        let gain = 0, maxSlopePct = 0;
+        for (let i = 1; i < pts.length; i++) {
+            const dz = pts[i].z - pts[i - 1].z;
+            const dd = Math.max(0.1, pts[i].distM - pts[i - 1].distM);
+            if (dz > 0) gain += dz;
+            const slp = Math.abs(dz / dd) * 100;
+            if (slp > maxSlopePct) maxSlopePct = slp;
+        }
+
+        const statsEl = document.getElementById('elevProfStatsRow');
+        if (statsEl) {
+            const cards = [
+                ['Distancia', `${totalM.toFixed(0)} m`],
+                ['Cota Mín.', `${zMin.toFixed(1)}`],
+                ['Cota Máx.', `${zMax.toFixed(1)}`],
+                ['Ascenso (+)', `${gain.toFixed(1)}`],
+                ['Pend. Máx.', `${maxSlopePct.toFixed(1)} %`]
+            ];
+            statsEl.innerHTML = cards.map(([lbl, val]) => `
+                <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-200">
+                    <div class="text-[9px] font-bold uppercase text-zinc-400">${lbl}</div>
+                    <div class="text-xs font-black text-zinc-900">${val}</div>
+                </div>
+            `).join('');
+        }
+
+        const canvas = document.getElementById('elevProfCanvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+            ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = '#09090b';
+            ctx.fillRect(0, 0, W, H);
+
+            const padL = 48, padR = 16, padT = 18, padB = 28;
+            const pw = W - padL - padR, ph = H - padT - padB;
+            const spanZ = Math.max(1, zMax - zMin);
+
+            // Grid
+            ctx.strokeStyle = '#27272a';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#71717a';
+            ctx.font = '10px monospace';
+            for (let g = 0; g <= 4; g++) {
+                const y = padT + (g / 4) * ph;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                const zLbl = (zMax - (g / 4) * spanZ).toFixed(0);
+                ctx.fillText(zLbl, 6, y + 3);
+            }
+
+            // Area fill
+            const grad = ctx.createLinearGradient(0, padT, 0, padT + ph);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0.55)');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0.05)');
+            ctx.beginPath();
+            pts.forEach((p, idx) => {
+                const x = padL + (p.distM / Math.max(1, totalM)) * pw;
+                const y = padT + ph - ((p.z - zMin) / spanZ) * ph;
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.lineTo(padL + pw, padT + ph);
+            ctx.lineTo(padL, padT + ph);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Profile stroke
+            ctx.beginPath();
+            pts.forEach((p, idx) => {
+                const x = padL + (p.distM / Math.max(1, totalM)) * pw;
+                const y = padT + ph - ((p.z - zMin) / spanZ) * ph;
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+        }
+    }
+
+    async function exportElevationProfilePoints() {
+        if (!_lastElevProfileData.length) return toast('Calcula primero el perfil.', 'warning');
+        const feats = _lastElevProfileData.map((p, idx) => turf.point([p.lon, p.lat], {
+            station: idx + 1,
+            dist_m: p.distM,
+            elevation: p.z
+        }));
+        await addVectorLayer(turf.featureCollection(feats), `Estaciones Perfil (${feats.length})`, {
+            isPoints: true, color: '#06b6d4', pointSize: 5
+        });
+        toast(`Capa de puntos del perfil creada (${feats.length} estaciones).`, 'success');
+    }
+
+    function exportElevationProfileCsv() {
+        if (!_lastElevProfileData.length) return toast('No hay perfil para exportar.', 'warning');
+        const header = 'Distancia_m,Longitud,Latitud,Elevacion\n';
+        const body = _lastElevProfileData.map(p => `${p.distM},${p.lon},${p.lat},${p.z}`).join('\n');
+        const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'perfil_topografico.csv';
+        a.click();
+        toast('Perfil exportado a perfil_topografico.csv', 'success');
     }
 
     function applyCentroids() {
