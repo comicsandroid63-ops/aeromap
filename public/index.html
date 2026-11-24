@@ -2439,7 +2439,7 @@
           </div>
         </div>
 
-        <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json" multiple onchange="handleDashboardProjectFileSelect(event)" onclick="event.stopPropagation()">
+        <input type="file" id="dashboardProjectInput" class="hidden" accept=".qgz,.qgs,.zip,.shp,.dbf,.prj,.shx,.gpkg,.tif,.tiff,.geojson,.json,.csv,.xlsx,.xls" multiple onchange="handleDashboardProjectFileSelect(event)" onclick="event.stopPropagation()">
         <input type="file" id="dashboardProjectFolderInput" class="hidden" webkitdirectory directory multiple onchange="handleDashboardFolderFileSelect(event)" onclick="event.stopPropagation()">
         <div id="dashboardProjectDropZone"
              ondragover="handleDashboardDragOver(event)"
@@ -3403,7 +3403,7 @@
       <div
         class="group relative bg-white/40 border border-zinc-200 rounded-lg p-4 text-center hover:bg-white transition-all cursor-pointer"
         id="dropZone">
-        <input type="file" id="fileInput" accept=".tif,.tiff,.ztif,.img,.shp,.gpkg,.geojson,.kml,.gpx,.zip,.qgz,.qgs,*" multiple
+        <input type="file" id="fileInput" accept=".tif,.tiff,.ztif,.img,.shp,.gpkg,.geojson,.json,.kml,.gpx,.zip,.qgz,.qgs,.csv,.xlsx,.xls" multiple
           class="absolute inset-0 opacity-0 cursor-pointer z-10" />
         <span
           class="material-symbols-outlined text-2xl text-zinc-400 group-hover:text-primary transition-colors block">upload_file</span>
@@ -5298,6 +5298,7 @@
 
       <div class="p-6 bg-zinc-50 border-t border-zinc-100 flex gap-3">
         <button onclick="closeExcelModal()" class="flex-1 py-3 text-[11px] font-bold uppercase text-zinc-500 hover:bg-zinc-200 rounded-xl transition-colors">Cancelar</button>
+        <button onclick="sendPendingExcelToTableJoin()" class="flex-[1.5] py-3 bg-blue-600 text-white text-[11px] font-bold uppercase rounded-xl hover:bg-blue-700 transition-all shadow-sm">Usar en Unión Tabular</button>
         <button onclick="confirmExcelImport()" class="flex-[2] py-3 bg-black text-white text-[11px] font-bold uppercase rounded-xl hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10">Importar Capa</button>
       </div>
     </div>
@@ -7496,8 +7497,8 @@
 
         <div id="tableJoinCsvWrap" class="space-y-2.5 hidden">
           <div class="space-y-1">
-            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Seleccionar Archivo CSV</label>
-            <input type="file" id="tableJoinCsvFile" accept=".csv,.txt" onchange="_handleTableJoinCsvUpload(this)" class="w-full text-xs bg-zinc-50 border border-zinc-200 rounded-xl p-2">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Seleccionar Archivo CSV / Excel</label>
+            <input type="file" id="tableJoinCsvFile" accept=".csv,.txt,.xlsx,.xls" onchange="_handleTableJoinCsvUpload(this)" class="w-full text-xs bg-zinc-50 border border-zinc-200 rounded-xl p-2">
           </div>
           <div class="space-y-1">
             <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Clave del CSV</label>
@@ -45454,18 +45455,49 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     function _handleTableJoinCsvUpload(input) {
         const file = input?.files?.[0];
         if (!file) return;
+        const isExcel = /\.(xlsx|xls)$/i.test(file.name);
         const reader = new FileReader();
         reader.onload = (e) => {
-            const parsed = _parseSimpleCsv(e.target.result);
-            _tableJoinCsvHeaders = parsed.headers;
-            _tableJoinCsvRows = parsed.rows;
+            let headers = [], rows = [];
+            if (isExcel && typeof XLSX !== 'undefined') {
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                rows = XLSX.utils.sheet_to_json(sheet);
+                headers = rows.length ? Object.keys(rows[0]) : [];
+            } else {
+                const parsed = _parseSimpleCsv(e.target.result);
+                headers = parsed.headers;
+                rows = parsed.rows;
+            }
+            _tableJoinCsvHeaders = headers;
+            _tableJoinCsvRows = rows;
             const csvKeySel = document.getElementById('tableJoinCsvKey');
             if (csvKeySel) {
-                csvKeySel.innerHTML = parsed.headers.map(h => `<option value="${h}">${h}</option>`).join('') || '<option value="">CSV sin encabezados</option>';
+                csvKeySel.innerHTML = headers.map(h => `<option value="${h}">${h}</option>`).join('') || '<option value="">Archivo sin encabezados</option>';
             }
-            toast(`CSV cargado: ${parsed.rows.length} filas, ${parsed.headers.length} columnas.`, 'success');
+            toast(`Tabla cargada: ${rows.length} filas, ${headers.length} columnas.`, 'success');
         };
-        reader.readAsText(file, 'utf-8');
+        if (isExcel) reader.readAsArrayBuffer(file);
+        else reader.readAsText(file, 'utf-8');
+    }
+
+    function sendPendingExcelToTableJoin() {
+        if (!state.pendingExcel || !state.pendingExcel.json?.length) {
+            return toast('No hay datos tabulares pendientes.', 'warning');
+        }
+        const { json, keys, file } = state.pendingExcel;
+        closeExcelModal();
+        openTableJoinModal();
+        const srcSel = document.getElementById('tableJoinSourceType');
+        if (srcSel) srcSel.value = 'csv';
+        _toggleTableJoinSource();
+        _tableJoinCsvHeaders = keys || Object.keys(json[0]);
+        _tableJoinCsvRows = json;
+        const csvKeySel = document.getElementById('tableJoinCsvKey');
+        if (csvKeySel) {
+            csvKeySel.innerHTML = _tableJoinCsvHeaders.map(h => `<option value="${h}">${h}</option>`).join('');
+        }
+        toast(`"${file?.name || 'Tabla'}" lista para Unión Tabular (${json.length} filas).`, 'success');
     }
 
     async function executeTableJoin() {
