@@ -12629,6 +12629,7 @@ self.onmessage = async function(e) {
 
     function _detectAttrMeasureType(colName) {
         const c = String(colName || '');
+        if (/valor|precio|costo|rate|tarifa/i.test(c)) return null;
         if (/area|superficie|_ha$|_m2$|_km2$|hectarea/i.test(c)) return 'area';
         if (/length|leng$|perim|dist_m|len_m|len_km|flow_dist/i.test(c)) return 'length';
         return null;
