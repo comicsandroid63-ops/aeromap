@@ -6525,6 +6525,85 @@
           </div>
         </div>
 
+        <!-- 2j. Topografía Legal, Redes Dirigidas y Cartografía Temática -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-amber-600 text-base">explore</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Topografía Legal, Redes Dirigidas y Cartografía Temática</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('topographic_survey');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">explore</span> Cartera Topográfica (Rumbos)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Extrae mojones (M1, M2...), coordenadas, rumbo (N/S E/O), azimut y distancia a CSV.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('spatial_sort');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">sort</span> Ordenar / Numerar Espacialmente
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Reasigna IDs consecutivos ordenados por ubicación (N→S, O→E o serpentina).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('aggregate_polygons');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">workspaces</span> Agregar Polígonos Cercanos
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Une polígonos separados a menos de X metros en una envolvente común (perímetros).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('network_trace');" class="p-4 bg-zinc-50 hover:bg-cyan-50/50 border border-zinc-200 hover:border-cyan-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-cyan-700">
+                  <span class="material-symbols-outlined text-cyan-600 text-lg">account_tree</span> Trazado Aguas Arriba / Abajo
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">En redes dirigidas (ríos, tuberías), extrae todo el ramal aguas arriba o abajo.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('sum_line_lengths');" class="p-4 bg-zinc-50 hover:bg-sky-50/50 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
+                  <span class="material-symbols-outlined text-sky-600 text-lg">stacked_line_chart</span> Densidad Lineal en Polígonos
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula longitud total de vías/ríos (km) y densidad (km/km²) dentro de cada polígono.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('cartogram');" class="p-4 bg-zinc-50 hover:bg-fuchsia-50/50 border border-zinc-200 hover:border-fuchsia-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-fuchsia-700">
+                  <span class="material-symbols-outlined text-fuchsia-600 text-lg">zoom_out_map</span> Cartograma Proporcional
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Escala el tamaño de cada polígono proporcionalmente a un atributo numérico.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('split_by_ratios');" class="col-span-2 p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">pie_chart</span> Dividir Polígonos por Porcentajes / Áreas Exactas
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Parte un predio según proporciones personalizadas (ej. 20, 30, 50 %) con precisión exacta.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7993,6 +8072,96 @@
               <option value="1.5" selected>Amplio (+150% alrededor del área)</option>
               <option value="world">Marco Global (Todo el mapa)</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Cartera Topográfica (Rumbos, Distancias y Mojones) -->
+        <div id="singleVectorTopoSurveyOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">CRS para Coordenadas Planas (Norte / Este)</label>
+            <select id="singleVectorTopoSurveyCrs" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="EPSG:9377" selected>MAGNA-SIRGAS Origen Nacional (EPSG:9377)</option>
+              <option value="EPSG:3116">MAGNA-SIRGAS Bogotá (EPSG:3116)</option>
+              <option value="EPSG:32618">WGS84 UTM 18N (EPSG:32618)</option>
+            </select>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <span class="text-xs font-bold text-zinc-900">Descargar cartera automáticamente (.csv)</span>
+            <input type="checkbox" id="singleVectorTopoSurveyCsv" checked class="w-4 h-4 accent-amber-600 rounded cursor-pointer">
+          </label>
+        </div>
+
+        <!-- Dynamic Option: Ordenar / Numerar Espacialmente -->
+        <div id="singleVectorSpatialSortOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dirección de Orden</label>
+              <select id="singleVectorSortDir" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="ns_we" selected>Norte → Sur, Oeste → Este</option>
+                <option value="sn_we">Sur → Norte, Oeste → Este</option>
+                <option value="we_ns">Oeste → Este, Norte → Sur</option>
+                <option value="serpentine">Serpentina (Zig-Zag N→S)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Prefijo de Código</label>
+              <input type="text" id="singleVectorSortPrefix" value="L-" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Agregar Polígonos Cercanos -->
+        <div id="singleVectorAggPolysOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia Máxima de Agrupación (m)</label>
+            <input type="number" id="singleVectorAggDistM" value="100" min="1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Trazado Aguas Arriba / Abajo -->
+        <div id="singleVectorNetTraceOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dirección de Trazado</label>
+              <select id="singleVectorTraceDir" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="upstream" selected>Aguas Arriba (Upstream)</option>
+                <option value="downstream">Aguas Abajo (Downstream)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tolerancia Nodo (m)</label>
+              <input type="number" id="singleVectorTraceTolM" value="5" min="0.1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tramo Semilla (# de registro, 1..N)</label>
+            <input type="number" id="singleVectorTraceSeedIdx" value="1" min="1" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Cartograma Proporcional -->
+        <div id="singleVectorCartogramOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Numérico de Peso</label>
+            <select id="singleVectorCartoField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Dividir Polígonos por Porcentajes -->
+        <div id="singleVectorSplitRatiosOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Porcentajes (separados por coma)</label>
+              <input type="text" id="singleVectorRatioList" value="20, 30, 50" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dirección de Corte</label>
+              <select id="singleVectorRatioDir" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="auto" selected>Automática (Eje mayor)</option>
+                <option value="vertical">Cortes Norte-Sur</option>
+                <option value="horizontal">Cortes Este-Oeste</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -44379,7 +44548,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const reprojOpt = document.getElementById('singleVectorReprojectOpt');
         const gridIdxOpt = document.getElementById('singleVectorGridIndexOpt');
         const invMaskOpt = document.getElementById('singleVectorInvertedMaskOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt, gridIdxOpt, invMaskOpt].forEach(el => {
+        const topoSurvOpt = document.getElementById('singleVectorTopoSurveyOpt');
+        const spSortOpt = document.getElementById('singleVectorSpatialSortOpt');
+        const aggPolysOpt = document.getElementById('singleVectorAggPolysOpt');
+        const netTraceOpt = document.getElementById('singleVectorNetTraceOpt');
+        const cartoOpt = document.getElementById('singleVectorCartogramOpt');
+        const splitRatiosOpt = document.getElementById('singleVectorSplitRatiosOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt, gridIdxOpt, invMaskOpt, topoSurvOpt, spSortOpt, aggPolysOpt, netTraceOpt, cartoOpt, splitRatiosOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -44411,6 +44586,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const xyELon = document.getElementById('singleVectorXyEndLon');
             const xyELat = document.getElementById('singleVectorXyEndLat');
             const rasValF = document.getElementById('singleVectorRasterValField');
+            const cartoF = document.getElementById('singleVectorCartoField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
@@ -44427,6 +44603,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (xyELon) xyELon.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (xyELat) xyELat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (rasValF) rasValF.innerHTML = `<option value="__PRESENCE__">Presencia (1 / 0)</option>${fieldOpts}`;
+            if (cartoF) cartoF.innerHTML = fieldOpts || `<option value="">Sin campos numéricos</option>`;
             const kArr = Array.from(keys);
             const findCol = (re) => kArr.find(k => re.test(k));
             const destX = findCol(/dest.*lon|dest.*x|lon_d|x_dest|x2|lng_d/i);
@@ -44439,12 +44616,67 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (numKey) {
                 if (stField) stField.value = numKey;
                 if (idwField) idwField.value = numKey;
+                if (cartoF) cartoF.value = numKey;
             }
         };
         sel.onchange = _syncFieldSelects;
         _syncFieldSelects();
 
         const configs = {
+            topographic_survey: {
+                title: 'Cartera Topográfica (Rumbos y Mojones)',
+                sub: 'Topografía Legal y Linderos',
+                icon: 'explore',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 border-amber-100',
+                desc: 'Extrae cada vértice (M1, M2...) con coordenadas geográficas, planas (Norte/Este), rumbo (N/S E/O), azimut y distancia al siguiente mojón.',
+                opt: topoSurvOpt
+            },
+            spatial_sort: {
+                title: 'Ordenar y Numerar Espacialmente',
+                sub: 'Indexación Geográfica (Spatial Sort)',
+                icon: 'sort',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Ordena las entidades de la capa según su posición geográfica y asigna sort_id y sort_code consecutivos.',
+                opt: spSortOpt
+            },
+            aggregate_polygons: {
+                title: 'Agregar Polígonos Cercanos',
+                sub: 'Fusión por Proximidad',
+                icon: 'workspaces',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Agrupa y fusiona polígonos separados a menos de X metros en envolventes comunes (útil para perímetros urbanos).',
+                opt: aggPolysOpt
+            },
+            network_trace: {
+                title: 'Trazado Aguas Arriba / Abajo',
+                sub: 'Análisis de Redes Dirigidas',
+                icon: 'account_tree',
+                color: 'text-cyan-600',
+                bg: 'bg-cyan-50 border-cyan-100',
+                desc: 'En redes lineales dirigidas (ríos, acueducto, alcantarillado), traza todo el ramal conectado aguas arriba o aguas abajo desde un tramo semilla.',
+                opt: netTraceOpt
+            },
+            cartogram: {
+                title: 'Cartograma Proporcional',
+                sub: 'Cartografía Temática Cuantitativa',
+                icon: 'zoom_out_map',
+                color: 'text-fuchsia-600',
+                bg: 'bg-fuchsia-50 border-fuchsia-100',
+                desc: 'Escala cada polígono alrededor de su centroide proporcionalmente a un atributo numérico.',
+                opt: cartoOpt
+            },
+            split_by_ratios: {
+                title: 'Dividir Polígonos por Porcentajes',
+                sub: 'Parcelación Proporcional Exacta',
+                icon: 'pie_chart',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Subdivide cada polígono según porcentajes personalizados (ej. 20, 30, 50 %) mediante búsqueda binaria geométrica.',
+                opt: splitRatiosOpt
+            },
             grid_index: {
                 title: 'Índice de Cuadrícula (A1, B2...)',
                 sub: 'Malla Cartográfica para Atlas',
@@ -44893,7 +45125,296 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'grid_index') {
+            if (tool === 'topographic_survey') {
+                const crs = document.getElementById('singleVectorTopoSurveyCrs')?.value || 'EPSG:9377';
+                const dlCsv = Boolean(document.getElementById('singleVectorTopoSurveyCsv')?.checked);
+                if (typeof proj4 !== 'undefined') {
+                    proj4.defs('EPSG:9377', '+proj=tmerc +lat_0=4.0 +lon_0=-73.0 +k=0.9992 +x_0=5000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+                    proj4.defs('EPSG:3116', '+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+                    proj4.defs('EPSG:32618', '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs');
+                }
+                const azToRumbo = (az) => {
+                    const a = ((az % 360) + 360) % 360;
+                    const fmt = (deg) => {
+                        const d = Math.floor(deg);
+                        const mFloat = (deg - d) * 60;
+                        const m = Math.floor(mFloat);
+                        const s = Math.round((mFloat - m) * 60);
+                        return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}"`;
+                    };
+                    if (a <= 90) return `N ${fmt(a)} E`;
+                    if (a <= 180) return `S ${fmt(180 - a)} E`;
+                    if (a <= 270) return `S ${fmt(a - 180)} O`;
+                    return `N ${fmt(360 - a)} O`;
+                };
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const mojones = [];
+                rawFeats.forEach((f, fIdx) => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    const rings = [];
+                    if (t === 'Polygon') rings.push(f.geometry.coordinates[0]);
+                    else if (t === 'MultiPolygon') f.geometry.coordinates.forEach(p => rings.push(p[0]));
+                    else if (t === 'LineString') rings.push(f.geometry.coordinates);
+                    else if (t === 'MultiLineString') f.geometry.coordinates.forEach(l => rings.push(l));
+
+                    rings.forEach((ring, rIdx) => {
+                        if (!ring || ring.length < 2) return;
+                        const isClosed = (t === 'Polygon' || t === 'MultiPolygon');
+                        const nVerts = isClosed ? ring.length - 1 : ring.length;
+                        for (let i = 0; i < nVerts; i++) {
+                            const cur = ring[i];
+                            const nxt = (i + 1 < nVerts) ? ring[i + 1] : (isClosed ? ring[0] : null);
+                            const distM = nxt ? turf.distance(cur, nxt, { units: 'meters' }) : 0;
+                            const az = nxt ? ((turf.bearing(cur, nxt) + 360) % 360) : 0;
+                            const rumbo = nxt ? azToRumbo(az) : '-';
+                            let este = null, norte = null;
+                            if (typeof proj4 !== 'undefined') {
+                                const pr = proj4('EPSG:4326', crs, [cur[0], cur[1]]);
+                                este = parseFloat(pr[0].toFixed(3));
+                                norte = parseFloat(pr[1].toFixed(3));
+                            }
+                            const ptLabel = `M${i + 1}`;
+                            const nextLabel = nxt ? `M${((i + 1) % nVerts) + 1}` : '-';
+                            mojones.push(turf.point([cur[0], cur[1]], {
+                                predio_idx: fIdx + 1,
+                                parte: rIdx + 1,
+                                mojon: ptLabel,
+                                lindero: nxt ? `${ptLabel} -> ${nextLabel}` : ptLabel,
+                                azimut_deg: parseFloat(az.toFixed(2)),
+                                rumbo: rumbo,
+                                dist_m: parseFloat(distM.toFixed(3)),
+                                lon: parseFloat(cur[0].toFixed(6)),
+                                lat: parseFloat(cur[1].toFixed(6)),
+                                este_m: este,
+                                norte_m: norte,
+                                crs: crs
+                            }));
+                        }
+                    });
+                });
+                if (mojones.length === 0) throw new Error('No se encontraron polígonos o líneas para extraer cartera.');
+                await addVectorLayer(turf.featureCollection(mojones), `Cartera Mojones - ${layer.name}`, {
+                    isPoints: true, color: '#d97706', pointSize: 6, showLabels: true, labelField: 'mojon'
+                });
+                if (dlCsv) {
+                    const hdr = 'Predio,Parte,Mojon,Lindero,Azimut_Deg,Rumbo,Distancia_m,Longitud,Latitud,Este_m,Norte_m,CRS\n';
+                    const csvBody = mojones.map(m => {
+                        const p = m.properties;
+                        return `${p.predio_idx},${p.parte},${p.mojon},"${p.lindero}",${p.azimut_deg},"${p.rumbo}",${p.dist_m},${p.lon},${p.lat},${p.este_m ?? ''},${p.norte_m ?? ''},${p.crs}`;
+                    }).join('\n');
+                    const blob = new Blob([hdr + csvBody], { type: 'text/csv;charset=utf-8;' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `cartera_topografica_${layer.name.replace(/[^a-zA-Z0-9_-]+/g, '_')}.csv`;
+                    a.click();
+                }
+                toast(`Cartera topográfica generada: ${mojones.length} mojones extraídos.`, 'success');
+
+            } else if (tool === 'spatial_sort') {
+                const dir = document.getElementById('singleVectorSortDir')?.value || 'ns_we';
+                const prefix = (document.getElementById('singleVectorSortPrefix')?.value || 'L-').trim();
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const items = rawFeats.filter(f => f?.geometry).map(f => {
+                    const c = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    return { f, x: c[0], y: c[1] };
+                });
+                if (dir === 'ns_we') items.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+                else if (dir === 'sn_we') items.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+                else if (dir === 'we_ns') items.sort((a, b) => (a.x - b.x) || (b.y - a.y));
+                else {
+                    // Serpentina N->S en franjas
+                    const ys = items.map(it => it.y);
+                    const minY = Math.min(...ys), maxY = Math.max(...ys);
+                    const bandH = Math.max(1e-5, (maxY - minY) / Math.max(2, Math.round(Math.sqrt(items.length))));
+                    items.sort((a, b) => {
+                        const rA = Math.floor((maxY - a.y) / bandH);
+                        const rB = Math.floor((maxY - b.y) / bandH);
+                        if (rA !== rB) return rA - rB;
+                        return (rA % 2 === 0) ? (a.x - b.x) : (b.x - a.x);
+                    });
+                }
+
+                const padLen = String(items.length).length;
+                const outFeats = items.map((it, idx) => {
+                    const copy = JSON.parse(JSON.stringify(it.f));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+                    copy.properties.sort_id = idx + 1;
+                    copy.properties.sort_code = `${prefix}${String(idx + 1).padStart(Math.max(2, padLen), '0')}`;
+                    return copy;
+                });
+                await addVectorLayer(turf.featureCollection(outFeats), `Ordenado - ${layer.name}`, {
+                    isPoints: layer.isPoints, color: '#4f46e5', fillOpacity: 0.35, showLabels: true, labelField: 'sort_code'
+                });
+                toast(`Entidades ordenadas y numeradas (${outFeats.length}).`, 'success');
+
+            } else if (tool === 'aggregate_polygons') {
+                const distM = Math.max(1, parseFloat(document.getElementById('singleVectorAggDistM')?.value || '100') || 100);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const polys = rawFeats.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                if (polys.length === 0) throw new Error('La capa no contiene polígonos.');
+
+                const halfBuf = distM / 2;
+                const bufs = polys.map(p => turf.buffer(p, halfBuf, { units: 'meters' })).filter(Boolean);
+                let unionBuf = bufs[0];
+                for (let i = 1; i < bufs.length; i++) {
+                    try {
+                        const u = turf.union(turf.featureCollection([unionBuf, bufs[i]]));
+                        if (u && u.geometry) unionBuf = u;
+                    } catch (_) {}
+                }
+                const closed = turf.buffer(unionBuf, -halfBuf, { units: 'meters' });
+                const parts = turf.flatten(closed).features.filter(p => turf.area(p) > 0.1);
+                const outGroups = parts.map((gp, idx) => {
+                    let cnt = 0;
+                    polys.forEach(p => { try { if (turf.booleanIntersects(gp, p)) cnt++; } catch (_) {} });
+                    gp.properties = { agg_group: idx + 1, parts_count: cnt, agg_dist_m: distM };
+                    return gp;
+                });
+                await addVectorLayer(turf.featureCollection(outGroups), `Agregado (${distM}m) - ${layer.name}`, {
+                    color: '#059669', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Agregación completada: ${polys.length} polígonos -> ${outGroups.length} grupo(s).`, 'success');
+
+            } else if (tool === 'network_trace') {
+                const dir = document.getElementById('singleVectorTraceDir')?.value || 'upstream';
+                const tolM = Math.max(0.1, parseFloat(document.getElementById('singleVectorTraceTolM')?.value || '5') || 5);
+                const seedIdx = Math.max(1, parseInt(document.getElementById('singleVectorTraceSeedIdx')?.value || '1', 10) || 1) - 1;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const segs = [];
+                rawFeats.forEach((f, idx) => {
+                    if (!f?.geometry) return;
+                    if (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString') {
+                        turf.flatten(f).features.forEach(lf => {
+                            const c = lf.geometry.coordinates;
+                            if (c.length >= 2) segs.push({ feat: lf, start: c[0], end: c[c.length - 1], origIdx: idx + 1 });
+                        });
+                    }
+                });
+                if (segs.length === 0) throw new Error('La capa no contiene líneas (LineString).');
+                const startIdx = Math.min(segs.length - 1, seedIdx);
+
+                const visited = new Set([startIdx]);
+                const queue = [startIdx];
+                while (queue.length > 0) {
+                    const cur = queue.shift();
+                    const sCur = segs[cur];
+                    for (let j = 0; j < segs.length; j++) {
+                        if (visited.has(j)) continue;
+                        const sNxt = segs[j];
+                        // Aguas arriba: tramos cuyo fin (end) conecta al inicio (start) del tramo actual
+                        // Aguas abajo: tramos cuyo inicio (start) conecta al fin (end) del tramo actual
+                        const d = (dir === 'upstream')
+                            ? turf.distance(sNxt.end, sCur.start, { units: 'meters' })
+                            : turf.distance(sCur.end, sNxt.start, { units: 'meters' });
+                        if (d <= tolM) {
+                            visited.add(j);
+                            queue.push(j);
+                        }
+                    }
+                }
+
+                const traced = Array.from(visited).map((idx, order) => {
+                    const copy = JSON.parse(JSON.stringify(segs[idx].feat));
+                    copy.properties = { ...(copy.properties || {}), trace_dir: dir, trace_order: order + 1, is_seed: idx === startIdx };
+                    delete copy.properties._selected;
+                    return copy;
+                });
+                await addVectorLayer(turf.featureCollection(traced), `Trazado ${dir === 'upstream' ? 'Aguas Arriba' : 'Aguas Abajo'} - ${layer.name}`, {
+                    color: '#0891b2', strokeWidth: 3.5
+                });
+                toast(`Trazado completado: ${traced.length} tramo(s) conectados.`, 'success');
+
+            } else if (tool === 'cartogram') {
+                const field = document.getElementById('singleVectorCartoField')?.value || '';
+                if (!field) throw new Error('Selecciona un campo numérico para escalar el cartograma.');
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const polys = rawFeats.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                if (polys.length === 0) throw new Error('La capa no contiene polígonos.');
+
+                const vals = polys.map(p => Math.max(0.01, parseFloat(p.properties?.[field]) || 0.01));
+                const meanVal = vals.reduce((a, b) => a + b, 0) / vals.length;
+                const outCarto = polys.map((p, idx) => {
+                    const scale = Math.max(0.15, Math.min(3.5, Math.sqrt(vals[idx] / meanVal)));
+                    const ctr = turf.centroid(p).geometry.coordinates;
+                    let scaled = JSON.parse(JSON.stringify(p));
+                    try { scaled = turf.transformScale(scaled, scale, { origin: ctr }); } catch (_) {}
+                    scaled.properties = { ...(p.properties || {}), carto_field: field, carto_scale: parseFloat(scale.toFixed(3)) };
+                    delete scaled.properties._selected;
+                    return scaled;
+                });
+                await addVectorLayer(turf.featureCollection(outCarto), `Cartograma (${field}) - ${layer.name}`, {
+                    color: '#c026d3', fillOpacity: 0.45, strokeWidth: 2
+                });
+                toast(`Cartograma proporcional generado (${outCarto.length} polígonos).`, 'success');
+
+            } else if (tool === 'split_by_ratios') {
+                const rawRatios = (document.getElementById('singleVectorRatioList')?.value || '20, 30, 50')
+                    .split(',').map(s => parseFloat(s.trim())).filter(n => Number.isFinite(n) && n > 0);
+                if (rawRatios.length < 2) throw new Error('Ingresa al menos 2 porcentajes positivos separados por coma.');
+                const rSum = rawRatios.reduce((a, b) => a + b, 0);
+                const fracs = rawRatios.map(r => r / rSum);
+                const dir = document.getElementById('singleVectorRatioDir')?.value || 'auto';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outLots = [];
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) continue;
+                    const totalArea = turf.area(f);
+                    if (totalArea <= 0.1) continue;
+                    const baseProps = { ...(f.properties || {}) };
+                    delete baseProps._selected;
+
+                    let rem = JSON.parse(JSON.stringify(f));
+                    const fullBb = turf.bbox(rem);
+                    const cutVertical = dir === 'vertical' || (dir === 'auto' && (fullBb[2] - fullBb[0]) >= (fullBb[3] - fullBb[1]));
+                    const pad = 0.05;
+
+                    for (let k = 0; k < fracs.length - 1; k++) {
+                        if (!rem || !rem.geometry) break;
+                        const remBb = turf.bbox(rem);
+                        const wantArea = totalArea * fracs[k];
+                        let lo = cutVertical ? remBb[0] : remBb[1];
+                        let hi = cutVertical ? remBb[2] : remBb[3];
+                        const makeClip = (mid) => cutVertical
+                            ? turf.bboxPolygon([fullBb[0] - pad, fullBb[1] - pad, mid, fullBb[3] + pad])
+                            : turf.bboxPolygon([fullBb[0] - pad, fullBb[1] - pad, fullBb[2] + pad, mid]);
+
+                        for (let it = 0; it < 32; it++) {
+                            const mid = (lo + hi) / 2;
+                            let piece = null;
+                            try { piece = turf.intersect(turf.featureCollection([rem, makeClip(mid)])); } catch (_) {}
+                            const a = piece ? turf.area(piece) : 0;
+                            if (a < wantArea) lo = mid;
+                            else hi = mid;
+                        }
+                        const finalClip = makeClip((lo + hi) / 2);
+                        let leftPiece = null, rightRem = null;
+                        try { leftPiece = turf.intersect(turf.featureCollection([rem, finalClip])); } catch (_) {}
+                        try { rightRem = turf.difference(turf.featureCollection([rem, finalClip])); } catch (_) {}
+                        if (leftPiece && leftPiece.geometry) {
+                            leftPiece.properties = { ...baseProps, lot_num: k + 1, target_pct: parseFloat((fracs[k] * 100).toFixed(2)) };
+                            outLots.push(leftPiece);
+                        }
+                        rem = rightRem;
+                    }
+                    if (rem && rem.geometry) {
+                        const lastF = fracs[fracs.length - 1];
+                        rem.properties = { ...baseProps, lot_num: fracs.length, target_pct: parseFloat((lastF * 100).toFixed(2)) };
+                        outLots.push(rem);
+                    }
+                }
+                if (outLots.length === 0) throw new Error('No se pudieron dividir los polígonos.');
+                await addVectorLayer(turf.featureCollection(outLots), `División (${rawRatios.join('/')}) - ${layer.name}`, {
+                    color: '#e11d48', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Subdivisión por porcentajes completada: ${outLots.length} lotes.`, 'success');
+
+            } else if (tool === 'grid_index') {
                 const cols = Math.max(1, Math.min(26, parseInt(document.getElementById('singleVectorGridCols')?.value || '4', 10) || 4));
                 const rows = Math.max(1, Math.min(50, parseInt(document.getElementById('singleVectorGridRows')?.value || '4', 10) || 4));
                 const clipToLayer = Boolean(document.getElementById('singleVectorGridClipToLayer')?.checked);
@@ -47616,6 +48137,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa Objetivo (A - conserva geometría)';
             document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Unión (B - aporta atributos)';
             if (advJoinOpt) advJoinOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'sum_line_lengths') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'stacked_line_chart';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Densidad de Red Lineal';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Densidad Lineal en Polígonos';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Calcula la longitud total (m y km) y la densidad lineal (km/km²) de las líneas de Capa B dentro de cada polígono de Capa A.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Polígonos / Malla (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Líneas / Vías / Ríos (B)';
         } else {
             document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
             document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
@@ -47648,7 +48176,55 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
             const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
 
-            if (_currentTwoLayerSpatialTool === 'adv_spatial_join') {
+            if (_currentTwoLayerSpatialTool === 'sum_line_lengths') {
+                const polysA = featsA.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                const linesB = [];
+                featsB.forEach(fb => {
+                    if (!fb?.geometry) return;
+                    if (fb.geometry.type === 'LineString' || fb.geometry.type === 'MultiLineString') {
+                        turf.flatten(fb).features.forEach(lf => linesB.push(lf));
+                    }
+                });
+                if (polysA.length === 0) throw new Error('Capa A debe contener polígonos.');
+                if (linesB.length === 0) throw new Error('Capa B debe contener líneas (LineString).');
+
+                const lineBBoxes = linesB.map(l => turf.bbox(l));
+                const outPolys = polysA.map(pa => {
+                    const copy = JSON.parse(JSON.stringify(pa));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+                    const bbA = turf.bbox(pa);
+                    const areaKm2 = Math.max(1e-6, turf.area(pa) / 1e6);
+                    let totalM = 0;
+
+                    for (let j = 0; j < linesB.length; j++) {
+                        const bbB = lineBBoxes[j];
+                        if (bbB[0] > bbA[2] || bbB[2] < bbA[0] || bbB[1] > bbA[3] || bbB[3] < bbA[1]) continue;
+                        try {
+                            if (!turf.booleanIntersects(pa, linesB[j])) continue;
+                            // Muestrear por segmentos finos o booleanWithin para medir longitud interior exacta
+                            const lenL = turf.length(linesB[j], { units: 'meters' });
+                            const nSteps = Math.max(20, Math.min(200, Math.ceil(lenL / 10)));
+                            const segM = lenL / nSteps;
+                            for (let s = 0; s < nSteps; s++) {
+                                const midPt = turf.along(linesB[j], (s + 0.5) * segM, { units: 'meters' });
+                                if (turf.booleanPointInPolygon(midPt, pa)) totalM += segM;
+                            }
+                        } catch (_) {}
+                    }
+                    const km = totalM / 1000;
+                    copy.properties.line_len_m = parseFloat(totalM.toFixed(2));
+                    copy.properties.line_len_km = parseFloat(km.toFixed(4));
+                    copy.properties.density_km_km2 = parseFloat((km / areaKm2).toFixed(4));
+                    return copy;
+                });
+
+                await addVectorLayer(turf.featureCollection(outPolys), `Densidad Lineal - ${layerA.name}`, {
+                    color: '#0284c7', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Densidad lineal calculada en ${outPolys.length} polígonos.`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'adv_spatial_join') {
                 const pred = document.getElementById('twoLayerJoinPredicate')?.value || 'intersects';
                 const aggMode = document.getElementById('twoLayerJoinAggMode')?.value || 'summary';
                 const numStat = document.getElementById('twoLayerJoinNumStat')?.value || 'sum';
