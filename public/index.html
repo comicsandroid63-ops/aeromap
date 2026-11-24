@@ -50442,7 +50442,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const startPt = coords[0];
             const endPt = coords[coords.length - 1];
             const misclosureM = turf.distance(startPt, endPt, { units: 'meters' });
-            if (misclosureM > 0.001) coords.push([startPt[0], startPt[1]]);
+            if (endPt[0] !== startPt[0] || endPt[1] !== startPt[1]) {
+                if (misclosureM <= 0.5) {
+                    coords[coords.length - 1] = [startPt[0], startPt[1]];
+                } else {
+                    coords.push([startPt[0], startPt[1]]);
+                }
+            }
             feat = turf.polygon([coords], {
                 cogo_tramos: legs.length,
                 perim_cogo_m: parseFloat(totalPerim.toFixed(2)),
