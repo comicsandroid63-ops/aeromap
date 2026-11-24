@@ -6456,6 +6456,55 @@
           </div>
         </div>
 
+        <!-- 2i. Conversión Vector → Ráster, Proyección y Geocodificación -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-blue-600 text-base">grid_4x4</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Vector → Ráster, Proyección y Geocodificación</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('vector_to_raster');" class="p-4 bg-zinc-50 hover:bg-blue-50/50 border border-zinc-200 hover:border-blue-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-blue-700">
+                  <span class="material-symbols-outlined text-blue-600 text-lg">grid_4x4</span> Rasterizar Vector (Vector → Ráster)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Quema atributos numéricos o categorías en una nueva capa Ráster de resolución configurable.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('topo_simplify');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">polyhedron</span> Simplificación Topológica
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Simplifica bordes compartidos entre polígonos vecinos como grafo único sin crear brechas.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('reproject_layer');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">public</span> Reproyectar Capa (CRS)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Transforma entre WGS84, Web Mercator, UTM 18N/19N y MAGNA-SIRGAS (3116 / 9377).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openBatchGeocodeModal();" class="p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">location_searching</span> Geocodificación por Lotes
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Convierte un CSV o lista de direcciones y lugares en una capa de puntos georreferenciada.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7844,6 +7893,59 @@
           </div>
         </div>
 
+        <!-- Dynamic Option: Rasterizar Vector (Vector to Raster) -->
+        <div id="singleVectorToRasterOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo de Valor / Categoría</label>
+              <select id="singleVectorRasterValField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="__PRESENCE__">Presencia (1 / 0)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Resolución (px)</label>
+              <select id="singleVectorRasterRes" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="256">256 × 256 px (Rápido)</option>
+                <option value="512" selected>512 × 512 px (Estándar)</option>
+                <option value="1024">1024 × 1024 px (Alta res.)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Simplificación Topológica Compartida -->
+        <div id="singleVectorTopoSimpOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tolerancia de Simplificación (metros)</label>
+            <input type="number" id="singleVectorTopoSimpTolM" value="15" min="0.5" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            <p class="text-[10px] text-zinc-400">Simplifica arcos compartidos como grafo único para mantener bordes perfectamente sellados entre vecinos.</p>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Reproyectar Capa (CRS) -->
+        <div id="singleVectorReprojectOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">CRS de Destino (Proyección)</label>
+              <select id="singleVectorReprojTarget" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="EPSG:9377" selected>MAGNA-SIRGAS Origen Nacional (EPSG:9377)</option>
+                <option value="EPSG:3116">MAGNA-SIRGAS Colombia Bogotá (EPSG:3116)</option>
+                <option value="EPSG:32618">WGS84 UTM Zona 18N (EPSG:32618)</option>
+                <option value="EPSG:32619">WGS84 UTM Zona 19N (EPSG:32619)</option>
+                <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
+                <option value="EPSG:4326">WGS84 Geográficas (EPSG:4326)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Acción</label>
+              <select id="singleVectorReprojAction" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="compute_attrs" selected>Calcular proj_x / proj_y (metros) y registrar CRS</option>
+                <option value="fix_from_source">Corregir capa asumiendo que venía en ese CRS → WGS84</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -8389,6 +8491,50 @@
           <button id="selAttrExecuteBtn" onclick="executeSelectByAttributeModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
             <span class="material-symbols-outlined text-[15px]">filter_alt</span> Seleccionar
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Geocodificación por Lotes (Batch Geocoding) -->
+  <div id="batchGeocodeModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">location_searching</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Tabla / Direcciones → Puntos</span>
+            <h3 class="font-bold text-base text-zinc-900">Geocodificación por Lotes</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('batchGeocodeModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Cargar CSV de Direcciones (Opcional)</label>
+          <input type="file" id="batchGeoCsvFile" accept=".csv,.txt" onchange="_handleBatchGeoCsv(this)" class="w-full text-xs bg-zinc-50 border border-zinc-200 rounded-xl p-2">
+        </div>
+        <div id="batchGeoColWrap" class="grid grid-cols-2 gap-2.5 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Columna Dirección</label>
+            <select id="batchGeoAddrCol" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Ciudad / País (Opcional)</label>
+            <select id="batchGeoCityCol" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">O pega una lista de direcciones / lugares (una por línea)</label>
+          <textarea id="batchGeoTextarea" rows="4" placeholder="Plaza de Bolivar, Bogota, Colombia&#10;Parque El Poblado, Medellin, Colombia" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-mono outline-none"></textarea>
+        </div>
+        <div class="flex gap-3 pt-1">
+          <button onclick="document.getElementById('batchGeocodeModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeBatchGeocode()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm">Geocodificar Puntos</button>
         </div>
       </div>
     </div>
@@ -44178,7 +44324,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const idwOpt = document.getElementById('singleVectorIdwOpt');
         const wedgesOpt = document.getElementById('singleVectorWedgesOpt');
         const xyLineOpt = document.getElementById('singleVectorXyLineOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt].forEach(el => {
+        const toRasterOpt = document.getElementById('singleVectorToRasterOpt');
+        const topoSimpOpt = document.getElementById('singleVectorTopoSimpOpt');
+        const reprojOpt = document.getElementById('singleVectorReprojectOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -44209,6 +44358,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const xySLat = document.getElementById('singleVectorXyStartLat');
             const xyELon = document.getElementById('singleVectorXyEndLon');
             const xyELat = document.getElementById('singleVectorXyEndLat');
+            const rasValF = document.getElementById('singleVectorRasterValField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
@@ -44224,6 +44374,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (xySLat) xySLat.innerHTML = `<option value="__GEOM__">(Usar Y/Lat del punto actual)</option>${fieldOpts}`;
             if (xyELon) xyELon.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (xyELat) xyELat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
+            if (rasValF) rasValF.innerHTML = `<option value="__PRESENCE__">Presencia (1 / 0)</option>${fieldOpts}`;
             const kArr = Array.from(keys);
             const findCol = (re) => kArr.find(k => re.test(k));
             const destX = findCol(/dest.*lon|dest.*x|lon_d|x_dest|x2|lng_d/i);
@@ -44242,6 +44393,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _syncFieldSelects();
 
         const configs = {
+            vector_to_raster: {
+                title: 'Rasterizar Vector (Vector → Ráster)',
+                sub: 'Conversión a Malla Píxel',
+                icon: 'grid_4x4',
+                color: 'text-blue-600',
+                bg: 'bg-blue-50 border-blue-100',
+                desc: 'Quema atributos numéricos, categorías o presencia geométrica en una nueva capa Ráster de resolución configurable.',
+                opt: toRasterOpt
+            },
+            topo_simplify: {
+                title: 'Simplificación Topológica Compartida',
+                sub: 'Grafo de Arcos Compartidos',
+                icon: 'polyhedron',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Simplifica bordes compartidos entre polígonos o líneas vecinas como un grafo único para evitar brechas (gaps) y solapamientos.',
+                opt: topoSimpOpt
+            },
+            reproject_layer: {
+                title: 'Reproyectar Capa (CRS)',
+                sub: 'Transformación de Coordenadas Proj4',
+                icon: 'public',
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50 border-indigo-100',
+                desc: 'Calcula coordenadas proyectadas (MAGNA-SIRGAS, UTM, Web Mercator) o corrige una capa importada en CRS plano hacia WGS84.',
+                opt: reprojOpt
+            },
             wedges_sectors: {
                 title: 'Cuñas / Sectores Direccionales',
                 sub: 'Abanicos de Cobertura (Wedges)',
@@ -44645,7 +44823,249 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'wedges_sectors') {
+            if (tool === 'vector_to_raster') {
+                const valField = document.getElementById('singleVectorRasterValField')?.value || '__PRESENCE__';
+                const resPx = Math.max(64, Math.min(2048, parseInt(document.getElementById('singleVectorRasterRes')?.value || '512', 10) || 512));
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                if (rawFeats.length === 0) throw new Error('Capa sin entidades para rasterizar.');
+
+                const bb = turf.bbox(layer.geoJson);
+                const padX = Math.max(1e-5, (bb[2] - bb[0]) * 0.03);
+                const padY = Math.max(1e-5, (bb[3] - bb[1]) * 0.03);
+                const w = bb[0] - padX, s = bb[1] - padY, e = bb[2] + padX, n = bb[3] + padY;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = resPx;
+                canvas.height = resPx;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, resPx, resPx);
+
+                const toPx = (lon, lat) => [
+                    ((lon - w) / Math.max(1e-9, e - w)) * resPx,
+                    ((n - lat) / Math.max(1e-9, n - s)) * resPx
+                ];
+
+                // Determinar escala numérica o categórica
+                let isNumeric = false, minV = Infinity, maxV = -Infinity;
+                const catMap = new Map();
+                const catPalette = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+                if (valField !== '__PRESENCE__') {
+                    const vals = rawFeats.map(f => f?.properties?.[valField]).filter(v => v !== null && v !== undefined && v !== '');
+                    isNumeric = vals.length > 0 && vals.every(v => Number.isFinite(Number(v)));
+                    if (isNumeric) {
+                        vals.forEach(v => { const nv = Number(v); if (nv < minV) minV = nv; if (nv > maxV) maxV = nv; });
+                        if (maxV - minV < 1e-9) maxV = minV + 1;
+                    } else {
+                        vals.forEach(v => { const k = String(v); if (!catMap.has(k)) catMap.set(k, catPalette[catMap.size % catPalette.length]); });
+                    }
+                }
+                const ramp = ['#2563eb', '#06b6d4', '#10b981', '#eab308', '#f97316', '#dc2626'];
+                const pickFeatColor = (f) => {
+                    if (valField === '__PRESENCE__') return '#3b82f6';
+                    const raw = f?.properties?.[valField];
+                    if (isNumeric && Number.isFinite(Number(raw))) {
+                        const t = (Number(raw) - minV) / (maxV - minV);
+                        return ramp[Math.min(ramp.length - 1, Math.max(0, Math.floor(t * (ramp.length - 0.001))))];
+                    }
+                    return catMap.get(String(raw)) || '#64748b';
+                };
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const col = pickFeatColor(f);
+                    ctx.fillStyle = col;
+                    ctx.strokeStyle = col;
+                    ctx.lineWidth = Math.max(2, Math.round(resPx / 180));
+                    const gType = f.geometry.type;
+
+                    const drawRing = (ring) => {
+                        ring.forEach((pt, idx) => {
+                            const [px, py] = toPx(pt[0], pt[1]);
+                            if (idx === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        });
+                    };
+
+                    if (gType === 'Polygon') {
+                        ctx.beginPath();
+                        f.geometry.coordinates.forEach(r => { drawRing(r); ctx.closePath(); });
+                        ctx.fill('evenodd');
+                    } else if (gType === 'MultiPolygon') {
+                        ctx.beginPath();
+                        f.geometry.coordinates.forEach(poly => poly.forEach(r => { drawRing(r); ctx.closePath(); }));
+                        ctx.fill('evenodd');
+                    } else if (gType === 'LineString') {
+                        ctx.beginPath(); drawRing(f.geometry.coordinates); ctx.stroke();
+                    } else if (gType === 'MultiLineString') {
+                        ctx.beginPath(); f.geometry.coordinates.forEach(drawRing); ctx.stroke();
+                    } else if (gType === 'Point') {
+                        const [px, py] = toPx(f.geometry.coordinates[0], f.geometry.coordinates[1]);
+                        ctx.beginPath(); ctx.arc(px, py, Math.max(3, resPx / 80), 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+
+                const rasBounds = [[s, w], [n, e]];
+                const imgUrl = canvas.toDataURL('image/png');
+                const newRasLayer = {
+                    id: ++idCounter,
+                    name: `Rasterizado - ${layer.name}`,
+                    type: 'raster',
+                    visible: true,
+                    opacity: 0.8,
+                    bounds: rasBounds,
+                    width: resPx,
+                    height: resPx,
+                    bands: 3,
+                    format: 'Raster',
+                    imageUrl: imgUrl,
+                    mapLayer: L.imageOverlay(imgUrl, rasBounds, { opacity: 0.8 }).addTo(state.map)
+                };
+                state.layers.unshift(newRasLayer);
+                if (typeof updateLayersSidebar === 'function') updateLayersSidebar();
+                toast(`Capa rasterizada (${resPx}×${resPx} px) añadida al proyecto.`, 'success');
+
+            } else if (tool === 'topo_simplify') {
+                const tolM = Math.max(0.5, parseFloat(document.getElementById('singleVectorTopoSimpTolM')?.value || '15') || 15);
+                const tolDeg = tolM / 111320;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                // Paso 1: Contar adyacencia de vértices y segmentos para detectar nodos topológicos compartidos
+                const keyOf = (c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
+                const vertNeighbors = new Map();
+                const addEdge = (a, b) => {
+                    const ka = keyOf(a), kb = keyOf(b);
+                    if (ka === kb) return;
+                    if (!vertNeighbors.has(ka)) vertNeighbors.set(ka, new Set());
+                    if (!vertNeighbors.has(kb)) vertNeighbors.set(kb, new Set());
+                    vertNeighbors.get(ka).add(kb);
+                    vertNeighbors.get(kb).add(ka);
+                };
+
+                rawFeats.forEach(f => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    const scanRing = (r) => { for (let i = 0; i < r.length - 1; i++) addEdge(r[i], r[i + 1]); };
+                    if (t === 'LineString') scanRing(f.geometry.coordinates);
+                    else if (t === 'MultiLineString') f.geometry.coordinates.forEach(scanRing);
+                    else if (t === 'Polygon') f.geometry.coordinates.forEach(scanRing);
+                    else if (t === 'MultiPolygon') f.geometry.coordinates.forEach(p => p.forEach(scanRing));
+                });
+
+                const isJunction = (pt) => {
+                    const nb = vertNeighbors.get(keyOf(pt));
+                    return !nb || nb.size !== 2;
+                };
+
+                // Cache de arcos simplificados compartidos entre vecinos (clave canónica independiente del sentido)
+                const arcCache = new Map();
+                const simplifyArc = (arcCoords) => {
+                    if (arcCoords.length <= 2) return arcCoords;
+                    const k0 = keyOf(arcCoords[0]), k1 = keyOf(arcCoords[arcCoords.length - 1]);
+                    const forward = k0 <= k1;
+                    const ordered = forward ? arcCoords : arcCoords.slice().reverse();
+                    const midKey = ordered.map(keyOf).join(';');
+                    if (arcCache.has(midKey)) {
+                        const cached = arcCache.get(midKey);
+                        return forward ? cached : cached.slice().reverse();
+                    }
+                    let simp = ordered;
+                    try {
+                        const ls = turf.simplify(turf.lineString(ordered), { tolerance: tolDeg, highQuality: true });
+                        if (ls?.geometry?.coordinates?.length >= 2) simp = ls.geometry.coordinates;
+                    } catch (_) {}
+                    // Garantizar extremos anclados
+                    simp[0] = [...ordered[0]];
+                    simp[simp.length - 1] = [...ordered[ordered.length - 1]];
+                    arcCache.set(midKey, simp);
+                    return forward ? simp : simp.slice().reverse();
+                };
+
+                const simplifyRingOrLine = (coords, closed) => {
+                    if (!Array.isArray(coords) || coords.length < 3) return coords;
+                    const work = closed ? coords.slice(0, -1) : coords.slice();
+                    if (work.length < 3) return coords;
+
+                    let startIdx = work.findIndex(isJunction);
+                    if (startIdx === -1) startIdx = 0;
+                    const rotated = closed ? [...work.slice(startIdx), ...work.slice(0, startIdx), work[startIdx]] : work;
+
+                    const out = [];
+                    let curArc = [rotated[0]];
+                    for (let i = 1; i < rotated.length; i++) {
+                        curArc.push(rotated[i]);
+                        if (i === rotated.length - 1 || isJunction(rotated[i])) {
+                            const sArc = simplifyArc(curArc);
+                            if (out.length === 0) out.push(...sArc);
+                            else out.push(...sArc.slice(1));
+                            curArc = [rotated[i]];
+                        }
+                    }
+                    if (closed && out.length >= 3) out[out.length - 1] = [...out[0]];
+                    return (closed && out.length < 4) ? coords : out;
+                };
+
+                const outFeats = rawFeats.map(f => {
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (copy.properties) delete copy.properties._selected;
+                    if (!copy?.geometry) return copy;
+                    const t = copy.geometry.type;
+                    if (t === 'LineString') copy.geometry.coordinates = simplifyRingOrLine(copy.geometry.coordinates, false);
+                    else if (t === 'MultiLineString') copy.geometry.coordinates = copy.geometry.coordinates.map(r => simplifyRingOrLine(r, false));
+                    else if (t === 'Polygon') copy.geometry.coordinates = copy.geometry.coordinates.map(r => simplifyRingOrLine(r, true));
+                    else if (t === 'MultiPolygon') copy.geometry.coordinates = copy.geometry.coordinates.map(p => p.map(r => simplifyRingOrLine(r, true)));
+                    return copy;
+                });
+
+                await addVectorLayer(turf.featureCollection(outFeats), `Simplif. Topológica (${tolM}m) - ${layer.name}`, {
+                    color: '#059669', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Simplificación topológica completada (${arcCache.size} arcos compartidos preservados).`, 'success');
+
+            } else if (tool === 'reproject_layer') {
+                const targetCrs = document.getElementById('singleVectorReprojTarget')?.value || 'EPSG:9377';
+                const action = document.getElementById('singleVectorReprojAction')?.value || 'compute_attrs';
+
+                if (typeof proj4 !== 'undefined') {
+                    proj4.defs('EPSG:9377', '+proj=tmerc +lat_0=4.0 +lon_0=-73.0 +k=0.9992 +x_0=5000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+                    proj4.defs('EPSG:3116', '+proj=tmerc +lat_0=4.596200416666666 +lon_0=-74.07750791666666 +k=1 +x_0=1000000 +y_0=1000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+                    proj4.defs('EPSG:32618', '+proj=utm +zone=18 +datum=WGS84 +units=m +no_defs');
+                    proj4.defs('EPSG:32619', '+proj=utm +zone=19 +datum=WGS84 +units=m +no_defs');
+                }
+                if (typeof proj4 === 'undefined') throw new Error('Librería proj4 no disponible.');
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = JSON.parse(JSON.stringify(rawFeats));
+
+                const mapCoords = (c, fn) => typeof c[0] === 'number' ? fn(c) : c.map(sub => mapCoords(sub, fn));
+
+                for (const f of outFeats) {
+                    if (!f?.geometry) continue;
+                    if (!f.properties) f.properties = {};
+                    delete f.properties._selected;
+
+                    if (action === 'fix_from_source') {
+                        f.geometry.coordinates = mapCoords(f.geometry.coordinates, (pt) => {
+                            const res = proj4(targetCrs, 'EPSG:4326', [pt[0], pt[1]]);
+                            return [res[0], res[1], ...pt.slice(2)];
+                        });
+                        f.properties.crs_source = targetCrs;
+                        f.properties.crs_map = 'EPSG:4326';
+                    } else {
+                        const ctr = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                        const projPt = proj4('EPSG:4326', targetCrs, ctr);
+                        f.properties.proj_crs = targetCrs;
+                        f.properties.proj_x = parseFloat(projPt[0].toFixed(3));
+                        f.properties.proj_y = parseFloat(projPt[1].toFixed(3));
+                    }
+                }
+
+                const outLayer = await addVectorLayer(turf.featureCollection(outFeats), `Reproyectada (${targetCrs}) - ${layer.name}`, {
+                    isPoints: layer.isPoints, color: '#4f46e5', fillOpacity: 0.35, strokeWidth: 2
+                });
+                if (outLayer) outLayer.coordInfo = action === 'fix_from_source' ? `WGS84 (desde ${targetCrs})` : `${targetCrs} (sobre mapa WGS84)`;
+                toast(`Capa reproyectada con ${targetCrs}.`, 'success');
+
+            } else if (tool === 'wedges_sectors') {
                 const fixedAz = parseFloat(document.getElementById('singleVectorWedgeAzimuth')?.value || '45') || 0;
                 const azField = document.getElementById('singleVectorWedgeAzField')?.value || '';
                 const spanDeg = Math.max(1, Math.min(360, parseFloat(document.getElementById('singleVectorWedgeSpanDeg')?.value || '90') || 90));
@@ -48585,6 +49005,97 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         a.download = 'perfil_topografico.csv';
         a.click();
         toast('Perfil exportado a perfil_topografico.csv', 'success');
+    }
+
+    // ══════════════════════════════════════════
+    //  BATCH GEOCODING (CSV / Lista -> Puntos)
+    // ══════════════════════════════════════════
+    let _batchGeoCsvRows = [];
+
+    function openBatchGeocodeModal() {
+        _batchGeoCsvRows = [];
+        document.getElementById('batchGeoColWrap')?.classList.add('hidden');
+        const ta = document.getElementById('batchGeoTextarea');
+        if (ta && !ta.value.trim()) {
+            ta.value = 'Plaza de Bolivar, Bogota, Colombia\nParque El Poblado, Medellin, Colombia';
+        }
+        document.getElementById('batchGeocodeModal').style.display = 'flex';
+    }
+
+    function _handleBatchGeoCsv(input) {
+        const file = input?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const parsed = _parseSimpleCsv(e.target.result);
+            _batchGeoCsvRows = parsed.rows;
+            const addrSel = document.getElementById('batchGeoAddrCol');
+            const citySel = document.getElementById('batchGeoCityCol');
+            const opts = parsed.headers.map(h => `<option value="${h}">${h}</option>`).join('');
+            if (addrSel) addrSel.innerHTML = opts;
+            if (citySel) citySel.innerHTML = `<option value="">(Ninguna)</option>${opts}`;
+            const addrGuess = parsed.headers.find(h => /dir|addr|lugar|place|nombre|name|sitio/i.test(h));
+            const cityGuess = parsed.headers.find(h => /ciudad|city|muni|pais|country|depto/i.test(h));
+            if (addrSel && addrGuess) addrSel.value = addrGuess;
+            if (citySel && cityGuess) citySel.value = cityGuess;
+            document.getElementById('batchGeoColWrap')?.classList.remove('hidden');
+            toast(`CSV cargado: ${parsed.rows.length} direcciones listas para geocodificar.`, 'success');
+        };
+        reader.readAsText(file, 'utf-8');
+    }
+
+    async function executeBatchGeocode() {
+        const items = [];
+        if (_batchGeoCsvRows.length > 0) {
+            const addrCol = document.getElementById('batchGeoAddrCol')?.value || '';
+            const cityCol = document.getElementById('batchGeoCityCol')?.value || '';
+            _batchGeoCsvRows.forEach(r => {
+                const q = [r[addrCol], cityCol ? r[cityCol] : ''].filter(Boolean).join(', ').trim();
+                if (q) items.push({ query: q, props: { ...r } });
+            });
+        } else {
+            const lines = (document.getElementById('batchGeoTextarea')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+            lines.forEach((line, idx) => items.push({ query: line, props: { id: idx + 1, direccion: line } }));
+        }
+
+        if (items.length === 0) return toast('Carga un CSV o escribe al menos una dirección.', 'warning');
+        document.getElementById('batchGeocodeModal').style.display = 'none';
+        showProgress(`Geocodificando ${items.length} direcciones...`, 5);
+
+        const outPts = [];
+        let okCount = 0;
+        for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            showProgress(`Geocodificando ${i + 1}/${items.length}: ${it.query}`, 5 + Math.round(((i + 1) / items.length) * 90));
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(it.query)}`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                        okCount++;
+                        outPts.push(turf.point([lon, lat], {
+                            ...it.props,
+                            query_geocoded: it.query,
+                            display_name: data[0].display_name || it.query,
+                            lat: parseFloat(lat.toFixed(6)),
+                            lon: parseFloat(lon.toFixed(6)),
+                            geocode_status: 'OK'
+                        }));
+                    }
+                }
+            } catch (_) {}
+            if (i < items.length - 1) await new Promise(r => setTimeout(r, 900));
+        }
+        hideProgress();
+
+        if (outPts.length === 0) return toast('No se pudo geocodificar ninguna dirección.', 'error');
+        await addVectorLayer(turf.featureCollection(outPts), `Geocodificados (${okCount}/${items.length})`, {
+            isPoints: true, color: '#e11d48', pointSize: 7
+        });
+        toast(`Geocodificación completada: ${okCount} de ${items.length} ubicaciones encontradas.`, 'success');
     }
 
     function applyCentroids() {
