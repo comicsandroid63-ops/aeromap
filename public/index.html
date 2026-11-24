@@ -6210,6 +6210,85 @@
           </div>
         </div>
 
+        <!-- 2e. Topología, Catastro y Geometrías Especializadas -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-teal-600 text-base">square_foot</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Topología, Catastro y Geometrías Especializadas</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('split_poly_by_lines');" class="p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">carpenter</span> Dividir Polígonos con Líneas
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Corta polígonos usando una capa de líneas (vías, ríos, linderos) conservando atributos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('equal_area_split');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">view_module</span> Subdividir en Áreas Iguales
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Divide cada polígono en N lotes de área equivalente para parcelación y catastro.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('batch_snap');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">ads_click</span> Ajuste Topológico (Batch Snap)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Alinea vértices de toda una capa hacia otra dentro de una tolerancia en metros para cerrar brechas.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('points_along_lines');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">linear_scale</span> Puntos en Línea / Abscisado
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera estaciones equidistantes cada X metros sobre vías o ríos (PK 0+000, 0+100...).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('offset_lines');" class="p-4 bg-zinc-50 hover:bg-sky-50/50 border border-zinc-200 hover:border-sky-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-sky-700">
+                  <span class="material-symbols-outlined text-sky-600 text-lg">swap_calls</span> Líneas Paralelas (Offset)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Desplaza líneas una distancia fija a izquierda, derecha o ambos lados (franjas/ejes).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('affine_transform');" class="p-4 bg-zinc-50 hover:bg-violet-50/50 border border-zinc-200 hover:border-violet-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-violet-700">
+                  <span class="material-symbols-outlined text-violet-600 text-lg">open_with</span> Transformación Afín
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Traslada (ΔX, ΔY en metros), rota en grados o escala geometrías con precisión.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('topology_checker');" class="col-span-2 p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">rule</span> Verificar Topología (Topology Checker)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Detecta y genera una capa de errores con solapamientos (overlaps), brechas (gaps), auto-intersecciones y nodos colgantes (dangles).</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7325,6 +7404,98 @@
           </div>
         </div>
 
+        <!-- Dynamic Option: Subdividir Polígono en Áreas Iguales -->
+        <div id="singleVectorEqualSplitOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Número de Partes (N)</label>
+              <input type="number" id="singleVectorEqualParts" value="4" min="2" max="50" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dirección de Corte</label>
+              <select id="singleVectorEqualDir" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="auto" selected>Automática (Eje mayor)</option>
+                <option value="vertical">Cortes Norte-Sur (Franjas E-O)</option>
+                <option value="horizontal">Cortes Este-Oeste (Franjas N-S)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Puntos a lo largo de Líneas (Abscisado) -->
+        <div id="singleVectorPointsAlongOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Intervalo / Equidistancia (metros)</label>
+            <input type="number" id="singleVectorAlongStepM" value="100" min="0.5" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <span class="text-xs font-bold text-zinc-900">Incluir punto final exacto de cada línea</span>
+            <input type="checkbox" id="singleVectorAlongIncludeEnd" checked class="w-4 h-4 accent-amber-600 rounded cursor-pointer">
+          </label>
+        </div>
+
+        <!-- Dynamic Option: Líneas Paralelas / Offset -->
+        <div id="singleVectorOffsetOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Distancia Offset (m)</label>
+              <input type="number" id="singleVectorOffsetDistM" value="15" min="0.1" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lado de Desplazamiento</label>
+              <select id="singleVectorOffsetSide" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="right" selected>Derecha (+)</option>
+                <option value="left">Izquierda (-)</option>
+                <option value="both">Ambos lados (Par paralelo)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Transformación Afín -->
+        <div id="singleVectorAffineOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Mover ΔX Este-Oeste (m)</label>
+              <input type="number" id="singleVectorAffineDx" value="50" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Mover ΔY Norte-Sur (m)</label>
+              <input type="number" id="singleVectorAffineDy" value="0" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Rotación (° horario)</label>
+              <input type="number" id="singleVectorAffineRot" value="0" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Escala (1 = igual)</label>
+              <input type="number" id="singleVectorAffineScale" value="1" min="0.01" step="0.05" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Verificar Topología (Topology Checker) -->
+        <div id="singleVectorTopoCheckOpt" class="space-y-2 hidden">
+          <label class="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer text-xs font-bold text-zinc-800">
+            <span>Solapamientos internos (Overlaps)</span>
+            <input type="checkbox" id="topoCheckOverlaps" checked class="w-4 h-4 accent-rose-600 rounded">
+          </label>
+          <label class="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer text-xs font-bold text-zinc-800">
+            <span>Brechas entre polígonos (Gaps)</span>
+            <input type="checkbox" id="topoCheckGaps" checked class="w-4 h-4 accent-rose-600 rounded">
+          </label>
+          <label class="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer text-xs font-bold text-zinc-800">
+            <span>Auto-intersecciones (Self-Intersections)</span>
+            <input type="checkbox" id="topoCheckSelf" checked class="w-4 h-4 accent-rose-600 rounded">
+          </label>
+          <label class="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer text-xs font-bold text-zinc-800">
+            <span>Nodos colgantes en líneas (Dangles)</span>
+            <input type="checkbox" id="topoCheckDangles" checked class="w-4 h-4 accent-rose-600 rounded">
+          </label>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -7435,6 +7606,31 @@
               <select id="twoLayerCountStatField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
             </div>
           </div>
+        </div>
+
+        <!-- Opciones Dividir Polígonos con Líneas -->
+        <div id="twoLayerSplitLinesOpt" class="space-y-2 hidden">
+          <p class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200/80 rounded-xl px-3 py-2 leading-relaxed">
+            Corta cada polígono de <strong>Capa A</strong> donde sea atravesado por las líneas de <strong>Capa B</strong>, conservando sus atributos originales y numerando cada parte (<code>_part</code>).
+          </p>
+        </div>
+
+        <!-- Opciones Ajuste Topológico por Lotes (Batch Snap) -->
+        <div id="twoLayerBatchSnapOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tolerancia Snap (m)</label>
+              <input type="number" id="twoLayerSnapTolM" value="10" min="0.01" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Modo de Ajuste</label>
+              <select id="twoLayerSnapMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="vertices_and_edges" selected>Vértices y Segmentos</option>
+                <option value="vertices">Solo Vértices</option>
+              </select>
+            </div>
+          </div>
+          <p class="text-[10px] text-zinc-400">Puedes elegir la misma capa en A y B para auto-ajustar brechas internas.</p>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -43449,7 +43645,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const multiRingOpt = document.getElementById('singleVectorMultiRingOpt');
         const splitAttrOpt = document.getElementById('singleVectorSplitAttrOpt');
         const deleteDupsOpt = document.getElementById('singleVectorDeleteDupsOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt].forEach(el => {
+        const equalSplitOpt = document.getElementById('singleVectorEqualSplitOpt');
+        const pointsAlongOpt = document.getElementById('singleVectorPointsAlongOpt');
+        const offsetOpt = document.getElementById('singleVectorOffsetOpt');
+        const affineOpt = document.getElementById('singleVectorAffineOpt');
+        const topoCheckOpt = document.getElementById('singleVectorTopoCheckOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43486,6 +43687,51 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _syncFieldSelects();
 
         const configs = {
+            equal_area_split: {
+                title: 'Subdividir en Áreas Iguales',
+                sub: 'Parcelación Catastral Exacta',
+                icon: 'view_module',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Divide cada polígono en N lotes de área equivalente mediante búsqueda binaria geométrica.',
+                opt: equalSplitOpt
+            },
+            points_along_lines: {
+                title: 'Puntos en Línea / Abscisado',
+                sub: 'Estaciones Equidistantes (PK)',
+                icon: 'linear_scale',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 border-amber-100',
+                desc: 'Genera puntos cada X metros a lo largo de vías, tuberías o ríos con etiqueta de abscisa (PK 0+000).',
+                opt: pointsAlongOpt
+            },
+            offset_lines: {
+                title: 'Líneas Paralelas (Offset)',
+                sub: 'Desplazamiento Lateral',
+                icon: 'swap_calls',
+                color: 'text-sky-600',
+                bg: 'bg-sky-50 border-sky-100',
+                desc: 'Genera líneas paralelas a una distancia fija en metros hacia la izquierda, derecha o ambos lados.',
+                opt: offsetOpt
+            },
+            affine_transform: {
+                title: 'Transformación Afín',
+                sub: 'Traslación, Rotación y Escala',
+                icon: 'open_with',
+                color: 'text-violet-600',
+                bg: 'bg-violet-50 border-violet-100',
+                desc: 'Desplaza (ΔX, ΔY en metros), rota en grados o escala todas las geometrías de la capa.',
+                opt: affineOpt
+            },
+            topology_checker: {
+                title: 'Verificar Topología',
+                sub: 'Auditoría Topológica GIS',
+                icon: 'rule',
+                color: 'text-rose-600',
+                bg: 'bg-rose-50 border-rose-100',
+                desc: 'Analiza la capa y marca en una nueva capa los errores de solapamiento, brechas, auto-intersecciones y nodos colgantes.',
+                opt: topoCheckOpt
+            },
             delete_duplicates: {
                 title: 'Eliminar Duplicados',
                 sub: 'Limpieza Geométrica y Tabular',
@@ -43754,7 +44000,340 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'delete_duplicates') {
+            if (tool === 'equal_area_split') {
+                const nParts = Math.max(2, Math.min(50, parseInt(document.getElementById('singleVectorEqualParts')?.value || '4', 10) || 4));
+                const dir = document.getElementById('singleVectorEqualDir')?.value || 'auto';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outLots = [];
+
+                for (const f of rawFeats) {
+                    if (!f?.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) continue;
+                    const totalArea = turf.area(f);
+                    if (totalArea <= 0.1) continue;
+                    const baseProps = { ...(f.properties || {}) };
+                    delete baseProps._selected;
+
+                    let rem = JSON.parse(JSON.stringify(f));
+                    const fullBb = turf.bbox(rem);
+                    const cutVertical = dir === 'vertical' || (dir === 'auto' && (fullBb[2] - fullBb[0]) >= (fullBb[3] - fullBb[1]));
+                    const pad = 0.05;
+
+                    for (let k = 1; k < nParts; k++) {
+                        if (!rem || !rem.geometry) break;
+                        const remBb = turf.bbox(rem);
+                        const remArea = turf.area(rem);
+                        const wantArea = remArea / (nParts - k + 1);
+                        let lo = cutVertical ? remBb[0] : remBb[1];
+                        let hi = cutVertical ? remBb[2] : remBb[3];
+
+                        const makeClip = (mid) => cutVertical
+                            ? turf.bboxPolygon([fullBb[0] - pad, fullBb[1] - pad, mid, fullBb[3] + pad])
+                            : turf.bboxPolygon([fullBb[0] - pad, fullBb[1] - pad, fullBb[2] + pad, mid]);
+
+                        for (let it = 0; it < 32; it++) {
+                            const mid = (lo + hi) / 2;
+                            let piece = null;
+                            try { piece = turf.intersect(turf.featureCollection([rem, makeClip(mid)])); } catch (_) {}
+                            const a = piece ? turf.area(piece) : 0;
+                            if (a < wantArea) lo = mid;
+                            else hi = mid;
+                        }
+
+                        const finalMid = (lo + hi) / 2;
+                        const finalClip = makeClip(finalMid);
+                        let leftPiece = null, rightRem = null;
+                        try { leftPiece = turf.intersect(turf.featureCollection([rem, finalClip])); } catch (_) {}
+                        try { rightRem = turf.difference(turf.featureCollection([rem, finalClip])); } catch (_) {}
+
+                        if (leftPiece && leftPiece.geometry) {
+                            leftPiece.properties = { ...baseProps, lot_num: k, target_area_m2: parseFloat((totalArea / nParts).toFixed(2)) };
+                            outLots.push(leftPiece);
+                        }
+                        rem = rightRem;
+                    }
+                    if (rem && rem.geometry) {
+                        rem.properties = { ...baseProps, lot_num: nParts, target_area_m2: parseFloat((totalArea / nParts).toFixed(2)) };
+                        outLots.push(rem);
+                    }
+                }
+                if (outLots.length === 0) throw new Error('La capa no contiene polígonos válidos para subdividir.');
+                await addVectorLayer(turf.featureCollection(outLots), `Subdivisión (${nParts} partes) - ${layer.name}`, {
+                    color: '#059669', fillOpacity: 0.3, strokeWidth: 2
+                });
+                toast(`Subdivisión completada: ${outLots.length} lotes de área equivalente.`, 'success');
+
+            } else if (tool === 'points_along_lines') {
+                const stepM = Math.max(0.5, parseFloat(document.getElementById('singleVectorAlongStepM')?.value || '100') || 100);
+                const includeEnd = document.getElementById('singleVectorAlongIncludeEnd')?.checked !== false;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const fmtPk = (distM) => {
+                    let km = Math.floor(distM / 1000);
+                    let m = Math.round(distM - km * 1000);
+                    if (m >= 1000) { km += 1; m -= 1000; }
+                    return `PK ${km}+${String(m).padStart(3, '0')}`;
+                };
+
+                const lineFeats = [];
+                rawFeats.forEach(f => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    if (t === 'LineString' || t === 'MultiLineString') {
+                        turf.flatten(f).features.forEach(lf => { lf.properties = f.properties || {}; lineFeats.push(lf); });
+                    } else if (t === 'Polygon' || t === 'MultiPolygon') {
+                        try {
+                            const lr = turf.polygonToLine(f);
+                            const arr = lr.type === 'FeatureCollection' ? lr.features : [lr];
+                            arr.forEach(l => turf.flatten(l).features.forEach(lf => { lf.properties = f.properties || {}; lineFeats.push(lf); }));
+                        } catch (_) {}
+                    }
+                });
+                if (lineFeats.length === 0) throw new Error('La capa no contiene líneas ni contornos válidos.');
+
+                const stations = [];
+                lineFeats.forEach((lf, lineIdx) => {
+                    const totalM = turf.length(lf, { units: 'meters' });
+                    const baseProps = { ...(lf.properties || {}) };
+                    delete baseProps._selected;
+                    let d = 0;
+                    let stIdx = 0;
+                    while (d <= totalM + 1e-6) {
+                        const clamped = Math.min(d, totalM);
+                        const pt = turf.along(lf, clamped, { units: 'meters' });
+                        pt.properties = {
+                            ...baseProps,
+                            line_id: lineIdx + 1,
+                            station_idx: ++stIdx,
+                            dist_m: parseFloat(clamped.toFixed(2)),
+                            abscisa_pk: fmtPk(clamped)
+                        };
+                        stations.push(pt);
+                        d += stepM;
+                    }
+                    if (includeEnd && totalM > 0 && (totalM - (d - stepM)) > 0.05) {
+                        const endPt = turf.along(lf, totalM, { units: 'meters' });
+                        endPt.properties = {
+                            ...baseProps,
+                            line_id: lineIdx + 1,
+                            station_idx: ++stIdx,
+                            dist_m: parseFloat(totalM.toFixed(2)),
+                            abscisa_pk: fmtPk(totalM)
+                        };
+                        stations.push(endPt);
+                    }
+                });
+
+                await addVectorLayer(turf.featureCollection(stations), `Abscisado (${stepM}m) - ${layer.name}`, {
+                    isPoints: true, color: '#d97706', pointSize: 5
+                });
+                toast(`Abscisado generado: ${stations.length} estaciones creadas.`, 'success');
+
+            } else if (tool === 'offset_lines') {
+                const distM = Math.max(0.1, parseFloat(document.getElementById('singleVectorOffsetDistM')?.value || '15') || 15);
+                const side = document.getElementById('singleVectorOffsetSide')?.value || 'right';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const lineFeats = [];
+                rawFeats.forEach(f => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    if (t === 'LineString' || t === 'MultiLineString') {
+                        turf.flatten(f).features.forEach(lf => { lf.properties = f.properties || {}; lineFeats.push(lf); });
+                    } else if (t === 'Polygon' || t === 'MultiPolygon') {
+                        try {
+                            const lr = turf.polygonToLine(f);
+                            const arr = lr.type === 'FeatureCollection' ? lr.features : [lr];
+                            arr.forEach(l => turf.flatten(l).features.forEach(lf => { lf.properties = f.properties || {}; lineFeats.push(lf); }));
+                        } catch (_) {}
+                    }
+                });
+                if (lineFeats.length === 0) throw new Error('La capa no contiene líneas para desplazar.');
+
+                const offsets = side === 'right' ? [distM] : (side === 'left' ? [-distM] : [-distM, distM]);
+                const outLines = [];
+                for (const lf of lineFeats) {
+                    const baseProps = { ...(lf.properties || {}) };
+                    delete baseProps._selected;
+                    for (const d of offsets) {
+                        try {
+                            const off = turf.lineOffset(lf, d, { units: 'meters' });
+                            if (off && off.geometry) {
+                                off.properties = { ...baseProps, offset_m: Math.abs(d), offset_side: d > 0 ? 'derecha' : 'izquierda' };
+                                outLines.push(off);
+                            }
+                        } catch (_) {}
+                    }
+                }
+                if (outLines.length === 0) throw new Error('No se pudieron generar las líneas paralelas.');
+                await addVectorLayer(turf.featureCollection(outLines), `Offset (${distM}m) - ${layer.name}`, {
+                    color: '#0284c7', strokeWidth: 2.5
+                });
+                toast(`Líneas paralelas generadas: ${outLines.length} entidad(es).`, 'success');
+
+            } else if (tool === 'affine_transform') {
+                const dxM = parseFloat(document.getElementById('singleVectorAffineDx')?.value || '0') || 0;
+                const dyM = parseFloat(document.getElementById('singleVectorAffineDy')?.value || '0') || 0;
+                const rotDeg = parseFloat(document.getElementById('singleVectorAffineRot')?.value || '0') || 0;
+                const scaleF = Math.max(0.01, parseFloat(document.getElementById('singleVectorAffineScale')?.value || '1') || 1);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const center = turf.centroid(layer.geoJson).geometry.coordinates;
+                const mPerDegLat = 111320;
+                const mPerDegLon = 111320 * Math.cos(center[1] * Math.PI / 180);
+                const dLon = dxM / mPerDegLon;
+                const dLat = dyM / mPerDegLat;
+
+                const shiftCoords = (c) => typeof c[0] === 'number'
+                    ? [c[0] + dLon, c[1] + dLat, ...c.slice(2)]
+                    : c.map(shiftCoords);
+
+                const outFeats = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    let cur = JSON.parse(JSON.stringify(f));
+                    if (cur.properties) delete cur.properties._selected;
+                    if (scaleF !== 1) {
+                        try { cur = turf.transformScale(cur, scaleF, { origin: center }); } catch (_) {}
+                    }
+                    if (rotDeg !== 0) {
+                        try { cur = turf.transformRotate(cur, rotDeg, { pivot: center }); } catch (_) {}
+                    }
+                    if (dxM !== 0 || dyM !== 0) {
+                        cur.geometry.coordinates = shiftCoords(cur.geometry.coordinates);
+                    }
+                    outFeats.push(cur);
+                }
+                await addVectorLayer(turf.featureCollection(outFeats), `Transformado - ${layer.name}`, {
+                    isPoints: layer.isPoints, color: '#7c3aed', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Transformación afín aplicada (ΔX=${dxM}m, ΔY=${dyM}m, Rot=${rotDeg}°, Esc=${scaleF}).`, 'success');
+
+            } else if (tool === 'topology_checker') {
+                const chkOverlaps = Boolean(document.getElementById('topoCheckOverlaps')?.checked);
+                const chkGaps = Boolean(document.getElementById('topoCheckGaps')?.checked);
+                const chkSelf = Boolean(document.getElementById('topoCheckSelf')?.checked);
+                const chkDangles = Boolean(document.getElementById('topoCheckDangles')?.checked);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const errors = [];
+                const polys = [];
+                const lines = [];
+                rawFeats.forEach((f, idx) => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    if (t === 'Polygon' || t === 'MultiPolygon') {
+                        turf.flatten(f).features.forEach(pf => { pf._featIdx = idx + 1; polys.push(pf); });
+                    } else if (t === 'LineString' || t === 'MultiLineString') {
+                        turf.flatten(f).features.forEach(lf => { lf._featIdx = idx + 1; lines.push(lf); });
+                    }
+                });
+
+                // 1. Auto-intersecciones
+                if (chkSelf) {
+                    for (const f of [...polys, ...lines]) {
+                        try {
+                            const k = turf.kinks(f);
+                            (k?.features || []).forEach(kp => {
+                                kp.properties = { error_type: 'Auto-intersección', feature_id: f._featIdx };
+                                errors.push(kp);
+                            });
+                        } catch (_) {}
+                    }
+                }
+
+                // 2. Solapamientos (Overlaps)
+                if (chkOverlaps && polys.length >= 2) {
+                    const bbs = polys.map(p => turf.bbox(p));
+                    for (let i = 0; i < polys.length; i++) {
+                        for (let j = i + 1; j < polys.length; j++) {
+                            const a = bbs[i], b = bbs[j];
+                            if (b[0] > a[2] || b[2] < a[0] || b[1] > a[3] || b[3] < a[1]) continue;
+                            try {
+                                const inter = turf.intersect(turf.featureCollection([polys[i], polys[j]]));
+                                if (inter && inter.geometry && turf.area(inter) > 0.05) {
+                                    inter.properties = {
+                                        error_type: 'Solapamiento (Overlap)',
+                                        pair: `${polys[i]._featIdx}-${polys[j]._featIdx}`,
+                                        area_m2: parseFloat(turf.area(inter).toFixed(2))
+                                    };
+                                    errors.push(inter);
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                }
+
+                // 3. Brechas (Gaps) entre polígonos cercanos
+                if (chkGaps && polys.length >= 2) {
+                    try {
+                        let unionOrig = polys[0];
+                        for (let i = 1; i < polys.length; i++) {
+                            const u = turf.union(turf.featureCollection([unionOrig, polys[i]]));
+                            if (u && u.geometry) unionOrig = u;
+                        }
+                        // Cierre morfológico suave (12m) para detectar tanto brechas cerradas como rendijas (slivers) entre predios vecinos
+                        const gapRadiusM = 12;
+                        const buffered = polys.map(p => turf.buffer(p, gapRadiusM, { units: 'meters' })).filter(Boolean);
+                        let unionBuf = buffered[0];
+                        for (let i = 1; i < buffered.length; i++) {
+                            const u = turf.union(turf.featureCollection([unionBuf, buffered[i]]));
+                            if (u && u.geometry) unionBuf = u;
+                        }
+                        const closedHull = turf.buffer(unionBuf, -gapRadiusM, { units: 'meters' });
+                        if (closedHull && unionOrig) {
+                            const gapDiff = turf.difference(turf.featureCollection([closedHull, unionOrig]));
+                            if (gapDiff && gapDiff.geometry) {
+                                turf.flatten(gapDiff).features.forEach(gf => {
+                                    const ga = turf.area(gf);
+                                    if (ga > 0.1) {
+                                        gf.properties = { error_type: 'Brecha (Gap)', area_m2: parseFloat(ga.toFixed(2)) };
+                                        errors.push(gf);
+                                    }
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                // 4. Nodos colgantes (Dangles) en redes de líneas
+                if (chkDangles && lines.length >= 1) {
+                    for (let i = 0; i < lines.length; i++) {
+                        const coords = lines[i].geometry.coordinates;
+                        if (coords.length < 2) continue;
+                        const ends = [coords[0], coords[coords.length - 1]];
+                        const isClosedLoop = turf.distance(ends[0], ends[1], { units: 'meters' }) <= 0.5;
+                        if (isClosedLoop) continue;
+
+                        ends.forEach((ep, epIdx) => {
+                            let connected = false;
+                            for (let j = 0; j < lines.length; j++) {
+                                if (i === j) continue;
+                                try {
+                                    const d = turf.pointToLineDistance(ep, lines[j], { units: 'meters' });
+                                    if (d <= 0.5) { connected = true; break; }
+                                } catch (_) {}
+                            }
+                            if (!connected) {
+                                errors.push(turf.point(ep, {
+                                    error_type: 'Nodo Colgante (Dangle)',
+                                    line_id: lines[i]._featIdx,
+                                    extremo: epIdx === 0 ? 'inicio' : 'fin'
+                                }));
+                            }
+                        });
+                    }
+                }
+
+                if (errors.length === 0) {
+                    toast('¡Topología limpia! No se detectaron errores en la capa.', 'success');
+                } else {
+                    await addVectorLayer(turf.featureCollection(errors), `Errores Topológicos (${errors.length}) - ${layer.name}`, {
+                        color: '#dc2626', fillOpacity: 0.55, strokeWidth: 3, pointSize: 7
+                    });
+                    toast(`Auditoría completada: ${errors.length} error(es) topológico(s) detectado(s).`, 'warning');
+                }
+
+            } else if (tool === 'delete_duplicates') {
                 const mode = document.getElementById('singleVectorDupMode')?.value || 'geometry';
                 const dupField = document.getElementById('singleVectorDupField')?.value || '';
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
@@ -44876,9 +45455,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const selOpt = document.getElementById('twoLayerSelectLocOpt');
         const nearOpt = document.getElementById('twoLayerNearestOpt');
         const countOpt = document.getElementById('twoLayerCountPtsOpt');
-        if (selOpt) selOpt.classList.add('hidden');
-        if (nearOpt) nearOpt.classList.add('hidden');
-        if (countOpt) countOpt.classList.add('hidden');
+        const splitLinesOpt = document.getElementById('twoLayerSplitLinesOpt');
+        const batchSnapOpt = document.getElementById('twoLayerBatchSnapOpt');
+        [selOpt, nearOpt, countOpt, splitLinesOpt, batchSnapOpt].forEach(el => { if (el) el.classList.add('hidden'); });
 
         const _syncCountStatFields = () => {
             const idB = parseInt(selB?.value || '0', 10);
@@ -44909,6 +45488,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Polígonos (A)';
             document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Puntos (B)';
             if (countOpt) countOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'split_poly_by_lines') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'carpenter';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Corte Catastral';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Dividir Polígonos con Líneas';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Divide polígonos de Capa A usando las líneas de corte de Capa B (vías, ríos, linderos).';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Polígonos a Cortar (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Líneas de Corte (B)';
+            if (splitLinesOpt) splitLinesOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'batch_snap') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'ads_click';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Alineación de Vértices';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Ajuste Topológico (Batch Snap)';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Ajusta automáticamente los vértices de Capa A hacia vértices o bordes de Capa B dentro de la tolerancia indicada.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa a Ajustar (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Referencia (B)';
+            if (batchSnapOpt) batchSnapOpt.classList.remove('hidden');
         } else {
             document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
             document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
@@ -44941,7 +45536,165 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
             const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
 
-            if (_currentTwoLayerSpatialTool === 'count_points') {
+            if (_currentTwoLayerSpatialTool === 'split_poly_by_lines') {
+                const linesB = [];
+                for (const fb of featsB) {
+                    if (!fb?.geometry) continue;
+                    const gType = fb.geometry.type;
+                    if (gType === 'LineString' || gType === 'MultiLineString') {
+                        turf.flatten(fb).features.forEach(lf => linesB.push(lf));
+                    } else if (gType === 'Polygon' || gType === 'MultiPolygon') {
+                        try {
+                            const lRes = turf.polygonToLine(fb);
+                            const arr = lRes.type === 'FeatureCollection' ? lRes.features : [lRes];
+                            arr.forEach(lf => turf.flatten(lf).features.forEach(s => linesB.push(s)));
+                        } catch (_) {}
+                    }
+                }
+                if (linesB.length === 0) throw new Error('Capa B no contiene líneas válidas para cortar.');
+                const blades = linesB.map(lf => {
+                    try { return { line: lf, bb: turf.bbox(lf), blade: turf.buffer(lf, 0.005, { units: 'meters' }) }; }
+                    catch (_) { return null; }
+                }).filter(b => b && b.blade);
+
+                const outFeats = [];
+                for (const fa of featsA) {
+                    if (!fa?.geometry || (fa.geometry.type !== 'Polygon' && fa.geometry.type !== 'MultiPolygon')) continue;
+                    const bbA = turf.bbox(fa);
+                    const origPartsCount = turf.flatten(fa).features.length;
+                    let curr = JSON.parse(JSON.stringify(fa));
+                    let touched = false;
+
+                    for (const b of blades) {
+                        if (b.bb[0] > bbA[2] || b.bb[2] < bbA[0] || b.bb[1] > bbA[3] || b.bb[3] < bbA[1]) continue;
+                        try {
+                            if (!turf.booleanIntersects(curr, b.line)) continue;
+                            const diff = turf.difference(turf.featureCollection([curr, b.blade]));
+                            if (diff && diff.geometry) {
+                                curr = diff;
+                                touched = true;
+                            }
+                        } catch (_) {}
+                    }
+
+                    const splitParts = touched ? turf.flatten(curr).features.filter(p => turf.area(p) > 0.05) : [];
+                    if (splitParts.length > origPartsCount) {
+                        splitParts.forEach((sp, idx) => {
+                            const props = { ...(fa.properties || {}), _part: idx + 1 };
+                            delete props._selected;
+                            sp.properties = props;
+                            outFeats.push(sp);
+                        });
+                    } else {
+                        const copy = JSON.parse(JSON.stringify(fa));
+                        if (copy.properties) delete copy.properties._selected;
+                        outFeats.push(copy);
+                    }
+                }
+                if (outFeats.length === 0) throw new Error('No se generaron polígonos tras el corte.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Dividido con Líneas - ${layerA.name}`, {
+                    color: '#0d9488', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Corte completado: ${outFeats.length} polígonos resultantes.`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'batch_snap') {
+                const tolM = Math.max(0.01, parseFloat(document.getElementById('twoLayerSnapTolM')?.value || '10') || 10);
+                const snapMode = document.getElementById('twoLayerSnapMode')?.value || 'vertices_and_edges';
+                const sameLayer = (layerA.id === layerB.id);
+
+                const extractVertsAndLines = (featList) => {
+                    const verts = [];
+                    const lines = [];
+                    for (const f of featList) {
+                        if (!f?.geometry) continue;
+                        try {
+                            turf.coordAll(f).forEach(c => verts.push(c.slice(0, 2)));
+                            const t = f.geometry.type;
+                            if (t === 'LineString' || t === 'MultiLineString') {
+                                turf.flatten(f).features.forEach(l => lines.push(l));
+                            } else if (t === 'Polygon' || t === 'MultiPolygon') {
+                                const lr = turf.polygonToLine(f);
+                                const arr = lr.type === 'FeatureCollection' ? lr.features : [lr];
+                                arr.forEach(l => turf.flatten(l).features.forEach(s => lines.push(s)));
+                            }
+                        } catch (_) {}
+                    }
+                    return { verts, lines };
+                };
+
+                const tolDegApprox = (tolM / 111000) * 1.5;
+                let snappedCount = 0;
+
+                const snapCoord = (pt, refVerts, refLines) => {
+                    let bestCoord = null;
+                    let bestDist = tolM;
+                    for (const rv of refVerts) {
+                        if (Math.abs(rv[0] - pt[0]) > tolDegApprox || Math.abs(rv[1] - pt[1]) > tolDegApprox) continue;
+                        const d = turf.distance(pt, rv, { units: 'meters' });
+                        if (d > 1e-6 && d <= bestDist) {
+                            bestDist = d;
+                            bestCoord = [rv[0], rv[1]];
+                        }
+                    }
+                    if (!bestCoord && snapMode === 'vertices_and_edges') {
+                        for (const rl of refLines) {
+                            try {
+                                const bb = turf.bbox(rl);
+                                if (pt[0] < bb[0] - tolDegApprox || pt[0] > bb[2] + tolDegApprox || pt[1] < bb[1] - tolDegApprox || pt[1] > bb[3] + tolDegApprox) continue;
+                                const np = turf.nearestPointOnLine(rl, pt, { units: 'meters' });
+                                const d = np?.properties?.dist;
+                                if (Number.isFinite(d) && d > 1e-6 && d <= bestDist) {
+                                    bestDist = d;
+                                    bestCoord = np.geometry.coordinates.slice(0, 2);
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                    if (bestCoord) {
+                        snappedCount++;
+                        return bestCoord;
+                    }
+                    return pt;
+                };
+
+                const mapGeomCoords = (geom, refVerts, refLines) => {
+                    const t = geom.type;
+                    if (t === 'Point') geom.coordinates = snapCoord(geom.coordinates, refVerts, refLines);
+                    else if (t === 'MultiPoint' || t === 'LineString') geom.coordinates = geom.coordinates.map(c => snapCoord(c, refVerts, refLines));
+                    else if (t === 'MultiLineString') geom.coordinates = geom.coordinates.map(r => r.map(c => snapCoord(c, refVerts, refLines)));
+                    else if (t === 'Polygon') {
+                        geom.coordinates = geom.coordinates.map(ring => {
+                            const out = ring.slice(0, -1).map(c => snapCoord(c, refVerts, refLines));
+                            if (out.length > 0) out.push([...out[0]]);
+                            return out;
+                        });
+                    } else if (t === 'MultiPolygon') {
+                        geom.coordinates = geom.coordinates.map(poly => poly.map(ring => {
+                            const out = ring.slice(0, -1).map(c => snapCoord(c, refVerts, refLines));
+                            if (out.length > 0) out.push([...out[0]]);
+                            return out;
+                        }));
+                    }
+                };
+
+                const fullRef = sameLayer ? null : extractVertsAndLines(featsB);
+                const outFeats = [];
+                for (let i = 0; i < featsA.length; i++) {
+                    const copy = JSON.parse(JSON.stringify(featsA[i]));
+                    if (copy.properties) delete copy.properties._selected;
+                    if (copy?.geometry) {
+                        const ref = sameLayer ? extractVertsAndLines(outFeats) : fullRef;
+                        if (ref.verts.length > 0) mapGeomCoords(copy.geometry, ref.verts, ref.lines);
+                    }
+                    outFeats.push(copy);
+                }
+
+                await addVectorLayer(turf.featureCollection(outFeats), `Snap (${tolM}m) - ${layerA.name}`, {
+                    isPoints: layerA.isPoints, color: '#4f46e5', fillOpacity: 0.32, strokeWidth: 2
+                });
+                toast(`Ajuste topológico completado: ${snappedCount} vértice(s) alineado(s).`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'count_points') {
                 const countField = (document.getElementById('twoLayerCountFieldName')?.value || 'NUMPOINTS').trim() || 'NUMPOINTS';
                 const statOp = document.getElementById('twoLayerCountStatOp')?.value || 'none';
                 const statField = document.getElementById('twoLayerCountStatField')?.value || '';
