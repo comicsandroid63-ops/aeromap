@@ -6502,6 +6502,26 @@
               </div>
               <p class="text-[10px] text-zinc-500 leading-relaxed">Convierte un CSV o lista de direcciones y lugares en una capa de puntos georreferenciada.</p>
             </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('grid_index');" class="p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">grid_view</span> Índice de Cuadrícula (A1, B2...)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Malla cartográfica etiquetada por filas y columnas (A1, A2, B1...) para atlas o planos.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('inverted_mask');" class="p-4 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-400 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-zinc-950">
+                  <span class="material-symbols-outlined text-zinc-700 text-lg">vignette</span> Máscara Invertida (Inverted Polygon)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Polígono exterior perforado con el área de estudio para sombrear el entorno circundante.</p>
+            </button>
           </div>
         </div>
 
@@ -7943,6 +7963,36 @@
                 <option value="fix_from_source">Corregir capa asumiendo que venía en ese CRS → WGS84</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Índice de Cuadrícula Cartográfica (Grid Index A1, B2...) -->
+        <div id="singleVectorGridIndexOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Columnas (Letras A, B, C...)</label>
+              <input type="number" id="singleVectorGridCols" value="4" min="1" max="26" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Filas (Números 1, 2, 3...)</label>
+              <input type="number" id="singleVectorGridRows" value="4" min="1" max="50" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <span class="text-xs font-bold text-zinc-900">Conservar solo celdas que intersectan la capa</span>
+            <input type="checkbox" id="singleVectorGridClipToLayer" class="w-4 h-4 accent-teal-600 rounded cursor-pointer">
+          </label>
+        </div>
+
+        <!-- Dynamic Option: Máscara Invertida (Inverted Polygon) -->
+        <div id="singleVectorInvertedMaskOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Extensión del Marco Exterior</label>
+            <select id="singleVectorMaskExtent" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="0.5">Moderado (+50% alrededor del área)</option>
+              <option value="1.5" selected>Amplio (+150% alrededor del área)</option>
+              <option value="world">Marco Global (Todo el mapa)</option>
+            </select>
           </div>
         </div>
 
@@ -44327,7 +44377,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const toRasterOpt = document.getElementById('singleVectorToRasterOpt');
         const topoSimpOpt = document.getElementById('singleVectorTopoSimpOpt');
         const reprojOpt = document.getElementById('singleVectorReprojectOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt].forEach(el => {
+        const gridIdxOpt = document.getElementById('singleVectorGridIndexOpt');
+        const invMaskOpt = document.getElementById('singleVectorInvertedMaskOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt, gridIdxOpt, invMaskOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -44393,6 +44445,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         _syncFieldSelects();
 
         const configs = {
+            grid_index: {
+                title: 'Índice de Cuadrícula (A1, B2...)',
+                sub: 'Malla Cartográfica para Atlas',
+                icon: 'grid_view',
+                color: 'text-teal-600',
+                bg: 'bg-teal-50 border-teal-100',
+                desc: 'Genera una cuadrícula rectangular etiquetada por columnas (A, B, C...) y filas (1, 2, 3...) sobre la extensión de la capa.',
+                opt: gridIdxOpt
+            },
+            inverted_mask: {
+                title: 'Máscara Invertida (Inverted Polygon)',
+                sub: 'Enmascarado Cartográfico',
+                icon: 'vignette',
+                color: 'text-zinc-700',
+                bg: 'bg-zinc-100 border-zinc-200',
+                desc: 'Crea un polígono exterior perforado exactamente con los polígonos de la capa para sombrear todo lo que queda fuera.',
+                opt: invMaskOpt
+            },
             vector_to_raster: {
                 title: 'Rasterizar Vector (Vector → Ráster)',
                 sub: 'Conversión a Malla Píxel',
@@ -44823,7 +44893,80 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'vector_to_raster') {
+            if (tool === 'grid_index') {
+                const cols = Math.max(1, Math.min(26, parseInt(document.getElementById('singleVectorGridCols')?.value || '4', 10) || 4));
+                const rows = Math.max(1, Math.min(50, parseInt(document.getElementById('singleVectorGridRows')?.value || '4', 10) || 4));
+                const clipToLayer = Boolean(document.getElementById('singleVectorGridClipToLayer')?.checked);
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const bb = turf.bbox(layer.geoJson);
+                const dx = (bb[2] - bb[0]) / cols;
+                const dy = (bb[3] - bb[1]) / rows;
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                const cells = [];
+                let page = 0;
+
+                for (let r = 0; r < rows; r++) {
+                    const yTop = bb[3] - r * dy;
+                    const yBot = bb[3] - (r + 1) * dy;
+                    for (let c = 0; c < cols; c++) {
+                        const xL = bb[0] + c * dx;
+                        const xR = bb[0] + (c + 1) * dx;
+                        const cellPoly = turf.bboxPolygon([xL, yBot, xR, yTop]);
+                        if (clipToLayer) {
+                            const hits = rawFeats.some(f => { try { return turf.booleanIntersects(cellPoly, f); } catch (_) { return false; } });
+                            if (!hits) continue;
+                        }
+                        page++;
+                        const colLabel = letters[c] || String(c + 1);
+                        const rowLabel = r + 1;
+                        const code = `${colLabel}${rowLabel}`;
+                        cellPoly.properties = {
+                            grid_code: code,
+                            grid_col: colLabel,
+                            grid_row: rowLabel,
+                            atlas_page: page
+                        };
+                        cells.push(cellPoly);
+                    }
+                }
+                if (cells.length === 0) throw new Error('No se generaron celdas de cuadrícula.');
+                await addVectorLayer(turf.featureCollection(cells), `Cuadrícula (${cols}×${rows}) - ${layer.name}`, {
+                    color: '#0d9488', fillOpacity: 0.12, strokeWidth: 1.5, showLabels: true, labelField: 'grid_code'
+                });
+                toast(`Índice de cuadrícula generado: ${cells.length} celdas (${letters[0]}1–${letters[cols - 1]}${rows}).`, 'success');
+
+            } else if (tool === 'inverted_mask') {
+                const extOpt = document.getElementById('singleVectorMaskExtent')?.value || '1.5';
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const polys = rawFeats.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                if (polys.length === 0) throw new Error('La capa debe contener polígonos para generar una máscara invertida.');
+
+                let outerBox;
+                if (extOpt === 'world') {
+                    outerBox = turf.bboxPolygon([-179.9, -85, 179.9, 85]);
+                } else {
+                    const padMult = parseFloat(extOpt) || 1.5;
+                    const bb = turf.bbox(layer.geoJson);
+                    const padX = Math.max(0.005, (bb[2] - bb[0]) * padMult);
+                    const padY = Math.max(0.005, (bb[3] - bb[1]) * padMult);
+                    outerBox = turf.bboxPolygon([bb[0] - padX, bb[1] - padY, bb[2] + padX, bb[3] + padY]);
+                }
+
+                let mask = outerBox;
+                for (const p of polys) {
+                    try {
+                        const diff = turf.difference(turf.featureCollection([mask, p]));
+                        if (diff && diff.geometry) mask = diff;
+                    } catch (_) {}
+                }
+                mask.properties = { mask_for: layer.name, extent: extOpt, holes_count: polys.length };
+                await addVectorLayer(turf.featureCollection([mask]), `Máscara Invertida - ${layer.name}`, {
+                    color: '#18181b', fillOpacity: 0.55, strokeWidth: 2
+                });
+                toast(`Máscara invertida creada perforando ${polys.length} polígono(s).`, 'success');
+
+            } else if (tool === 'vector_to_raster') {
                 const valField = document.getElementById('singleVectorRasterValField')?.value || '__PRESENCE__';
                 const resPx = Math.max(64, Math.min(2048, parseInt(document.getElementById('singleVectorRasterRes')?.value || '512', 10) || 512));
                 const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
