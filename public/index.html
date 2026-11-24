@@ -6358,6 +6358,45 @@
           </div>
         </div>
 
+        <!-- 2g. Geoestadística, Interpolación y Unión Espacial 1:N -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-red-600 text-base">query_stats</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Geoestadística, Interpolación y Spatial Join 1:N</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('spatial_stats');" class="p-4 bg-zinc-50 hover:bg-red-50/50 border border-zinc-200 hover:border-red-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-red-700">
+                  <span class="material-symbols-outlined text-red-600 text-lg">local_fire_department</span> Hotspots (Gi*) / Moran I / Índice R
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Detecta hotspots/coldspots (z-score, p-valor), autocorrelación I de Moran y patrón R de Clark-Evans.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('idw_contours');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">waves</span> Interpolación IDW / Isolíneas
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Genera curvas isolíneas o contornos rellenos (isobandas) interpolando un atributo Z con IDW.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('adv_spatial_join');" class="col-span-2 p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">join_full</span> Unión Espacial Avanzada (Spatial Join 1:N)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Transfiere atributos por intersección, contención, mayor solapamiento o cercanía con resumen 1:N (suma, media, mín, máx, moda y concatenación).</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -7638,6 +7677,55 @@
           </div>
         </div>
 
+        <!-- Dynamic Option: Estadística Espacial Inferencial (Getis-Ord Gi* / Moran I / NNI R) -->
+        <div id="singleVectorSpatialStatsOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Prueba Estadística</label>
+            <select id="singleVectorStatsMode" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+              <option value="gi_star" selected>Hotspots Getis-Ord Gi* (+ I de Moran y R global)</option>
+              <option value="lisa_moran">Clusters LISA Local + Índice I de Moran + Índice R</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Numérico</label>
+              <select id="singleVectorStatsField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Radio Vecindad (m)</label>
+              <input type="number" id="singleVectorStatsDistM" value="500" min="10" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Interpolación IDW / Isolíneas / Isobandas -->
+        <div id="singleVectorIdwOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Z a Interpolar</label>
+              <select id="singleVectorIdwField" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tipo de Salida</label>
+              <select id="singleVectorIdwOutput" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="isobands" selected>Contornos Rellenos (Isobandas)</option>
+                <option value="isolines">Curvas de Nivel / Isolíneas</option>
+                <option value="grid">Malla Hexagonal IDW</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Clases / Niveles</label>
+              <input type="number" id="singleVectorIdwBreaks" value="6" min="3" max="20" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Potencia IDW (p)</label>
+              <input type="number" id="singleVectorIdwPower" value="2" min="0.5" max="6" step="0.5" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+          </div>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -7773,6 +7861,48 @@
             </div>
           </div>
           <p class="text-[10px] text-zinc-400">Puedes elegir la misma capa en A y B para auto-ajustar brechas internas.</p>
+        </div>
+
+        <!-- Opciones Unión Espacial Avanzada (Spatial Join 1:N) -->
+        <div id="twoLayerAdvJoinOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Relación Espacial</label>
+              <select id="twoLayerJoinPredicate" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="intersects" selected>Intersecta con B</option>
+                <option value="within">Dentro de B (Within)</option>
+                <option value="contains">Contiene a B (Contains)</option>
+                <option value="largest_overlap">Mayor Solapamiento (1:1)</option>
+                <option value="nearest">Más Cercano (Nearest 1:1)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Modo de Unión</label>
+              <select id="twoLayerJoinAggMode" onchange="document.getElementById('twoLayerJoinSummaryRow')?.classList.toggle('hidden', this.value !== 'summary')" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="summary" selected>Resumen 1:N (Agregar todos)</option>
+                <option value="first">Uno a Uno (Primer match)</option>
+              </select>
+            </div>
+          </div>
+          <div id="twoLayerJoinSummaryRow" class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campos Numéricos</label>
+              <select id="twoLayerJoinNumStat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="sum" selected>Suma (sum)</option>
+                <option value="avg">Promedio (avg)</option>
+                <option value="min">Mínimo (min)</option>
+                <option value="max">Máximo (max)</option>
+                <option value="all">Todos (sum, avg, min, max)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campos de Texto</label>
+              <select id="twoLayerJoinTxtStat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="mode" selected>Moda (Más frecuente)</option>
+                <option value="concat">Concatenar únicos (; )</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -43798,7 +43928,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const sliversOpt = document.getElementById('singleVectorSliversOpt');
         const densifyOpt = document.getElementById('singleVectorDensifyOpt');
         const lineOpsOpt = document.getElementById('singleVectorLineOpsOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt].forEach(el => {
+        const spatialStatsOpt = document.getElementById('singleVectorSpatialStatsOpt');
+        const idwOpt = document.getElementById('singleVectorIdwOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -43822,6 +43954,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const eWeight = document.getElementById('singleVectorEllipseWeightField');
             const sField = document.getElementById('singleVectorSplitField');
             const dupField = document.getElementById('singleVectorDupField');
+            const stField = document.getElementById('singleVectorStatsField');
+            const idwField = document.getElementById('singleVectorIdwField');
             if (dField) dField.innerHTML = `<option value="__ALL__">Disolver todos en un solo elemento</option>${fieldOpts}`;
             if (dStat) dStat.innerHTML = fieldOpts || `<option value="">Sin campos</option>`;
             if (cField) cField.innerHTML = `<option value="__ALL__">Agrupar todos en una sola multiparte</option>${fieldOpts}`;
@@ -43830,11 +43964,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (eWeight) eWeight.innerHTML = `<option value="">Sin peso (Uniforme)</option>${fieldOpts}`;
             if (sField) sField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
             if (dupField) dupField.innerHTML = fieldOpts || `<option value="">Sin campos disponibles</option>`;
+            if (stField) stField.innerHTML = fieldOpts || `<option value="">Sin campos numéricos</option>`;
+            if (idwField) idwField.innerHTML = fieldOpts || `<option value="">Sin campos Z</option>`;
+            // Auto-seleccionar primer campo numérico que no sea Shape_*
+            const sample = lyr?.geoJson?.features?.[0]?.properties || {};
+            const numKey = Array.from(keys).find(k => typeof sample[k] === 'number' && !k.startsWith('Shape_')) || Array.from(keys).find(k => typeof sample[k] === 'number');
+            if (numKey) {
+                if (stField) stField.value = numKey;
+                if (idwField) idwField.value = numKey;
+            }
         };
         sel.onchange = _syncFieldSelects;
         _syncFieldSelects();
 
         const configs = {
+            spatial_stats: {
+                title: 'Hotspots (Gi*) / Moran I / Índice R',
+                sub: 'Estadística Espacial Inferencial',
+                icon: 'local_fire_department',
+                color: 'text-red-600',
+                bg: 'bg-red-50 border-red-100',
+                desc: 'Calcula z-score y p-valor para Getis-Ord Gi* (Hotspots/Coldspots), LISA Local, Índice I de Moran Global e Índice R de Vecino más Cercano.',
+                opt: spatialStatsOpt
+            },
+            idw_contours: {
+                title: 'Interpolación IDW / Isolíneas',
+                sub: 'Superficie Continua desde Puntos',
+                icon: 'waves',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50 border-amber-100',
+                desc: 'Interpola un atributo numérico Z mediante Inverso de la Distancia Ponderada (IDW) y extrae isobandas rellenas, isolíneas o malla.',
+                opt: idwOpt
+            },
             concave_hull: {
                 title: 'Envolvente Cóncava (Alpha Shape)',
                 sub: 'Contorno No Convexo',
@@ -44202,7 +44363,284 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'concave_hull') {
+            if (tool === 'spatial_stats') {
+                const mode = document.getElementById('singleVectorStatsMode')?.value || 'gi_star';
+                const field = document.getElementById('singleVectorStatsField')?.value || '';
+                let distM = Math.max(10, parseFloat(document.getElementById('singleVectorStatsDistM')?.value || '500') || 500);
+                if (!field) throw new Error('Selecciona un campo numérico para el análisis espacial.');
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const items = [];
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const val = parseFloat(f.properties?.[field]);
+                    if (!Number.isFinite(val)) continue;
+                    const c = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    items.push({ feat: f, c, val });
+                }
+                const n = items.length;
+                if (n < 4) throw new Error('Se requieren al menos 4 entidades con valores numéricos válidos.');
+
+                // p-valor normal bilateral (aprox. Abramowitz & Stegun)
+                const normTwoTailP = (z) => {
+                    const az = Math.abs(z);
+                    const t = 1 / (1 + 0.2316419 * az);
+                    const d = 0.3989422804 * Math.exp(-az * az / 2);
+                    const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                    return Math.min(1, Math.max(0, 2 * prob));
+                };
+
+                // Matriz de distancias (m) y Vecino más Cercano (Clark-Evans R)
+                const dMat = Array.from({ length: n }, () => new Float64Array(n));
+                let sumNearest = 0;
+                let maxNearest = 0;
+                for (let i = 0; i < n; i++) {
+                    let minD = Infinity;
+                    for (let j = 0; j < n; j++) {
+                        if (i === j) continue;
+                        const d = turf.distance(items[i].c, items[j].c, { units: 'meters' });
+                        dMat[i][j] = d;
+                        if (d < minD) minD = d;
+                    }
+                    if (Number.isFinite(minD)) {
+                        sumNearest += minD;
+                        if (minD > maxNearest) maxNearest = minD;
+                    }
+                }
+                if (distM < maxNearest * 0.5) distM = Math.max(distM, maxNearest * 1.05);
+
+                const bbPoly = turf.bboxPolygon(turf.bbox(layer.geoJson));
+                const studyAreaM2 = Math.max(1, turf.area(bbPoly));
+                const dObs = sumNearest / n;
+                const dExp = 0.5 / Math.sqrt(n / studyAreaM2);
+                const seR = 0.26136 / Math.sqrt((n * n) / studyAreaM2);
+                const nniR = dExp > 0 ? dObs / dExp : 1;
+                const nniZ = seR > 0 ? (dObs - dExp) / seR : 0;
+                const pattern = nniZ < -1.96 ? 'Agrupado' : (nniZ > 1.96 ? 'Disperso' : 'Aleatorio');
+
+                const meanX = items.reduce((s, it) => s + it.val, 0) / n;
+                const s2 = items.reduce((s, it) => s + (it.val - meanX) ** 2, 0) / n;
+                const stdS = Math.sqrt(Math.max(1e-12, s2));
+
+                // Índice I de Moran Global (pesos binarios w_ij con i != j)
+                let S0 = 0, numMoran = 0;
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        if (i === j) continue;
+                        if (dMat[i][j] <= distM) {
+                            S0 += 1;
+                            numMoran += (items[i].val - meanX) * (items[j].val - meanX);
+                        }
+                    }
+                }
+                const denomMoran = items.reduce((s, it) => s + (it.val - meanX) ** 2, 0);
+                const moranI = (S0 > 0 && denomMoran > 0) ? (n / S0) * (numMoran / denomMoran) : 0;
+                const eI = -1 / (n - 1);
+                const varI = Math.max(1e-9, 1 / (n + 1)); // aprox bajo normalidad para z orientativo
+                const moranZ = (moranI - eI) / Math.sqrt(varI);
+                const moranP = normTwoTailP(moranZ);
+
+                const outFeats = items.map((it, i) => {
+                    const copy = JSON.parse(JSON.stringify(it.feat));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+
+                    if (mode === 'gi_star') {
+                        // Getis-Ord Gi* incluye i == j cuando d <= distM
+                        let wi = 0, sumWX = 0;
+                        for (let j = 0; j < n; j++) {
+                            if (dMat[i][j] <= distM) {
+                                wi += 1;
+                                sumWX += items[j].val;
+                            }
+                        }
+                        const denom = stdS * Math.sqrt(Math.max(1e-12, (n * wi - wi * wi) / (n - 1)));
+                        const giZ = denom > 1e-9 ? (sumWX - meanX * wi) / denom : 0;
+                        const giP = normTwoTailP(giZ);
+                        let cls = 'No Significativo', col = '#9ca3af';
+                        if (giZ >= 2.58) { cls = 'Hotspot 99%'; col = '#b91c1c'; }
+                        else if (giZ >= 1.96) { cls = 'Hotspot 95%'; col = '#ef4444'; }
+                        else if (giZ >= 1.65) { cls = 'Hotspot 90%'; col = '#f97316'; }
+                        else if (giZ <= -2.58) { cls = 'Coldspot 99%'; col = '#1d4ed8'; }
+                        else if (giZ <= -1.96) { cls = 'Coldspot 95%'; col = '#3b82f6'; }
+                        else if (giZ <= -1.65) { cls = 'Coldspot 90%'; col = '#60a5fa'; }
+
+                        Object.assign(copy.properties, {
+                            gi_zscore: parseFloat(giZ.toFixed(4)),
+                            gi_pvalue: parseFloat(giP.toFixed(4)),
+                            gi_class: cls,
+                            moran_I: parseFloat(moranI.toFixed(4)),
+                            nni_R: parseFloat(nniR.toFixed(4)),
+                            pattern: pattern,
+                            color: col
+                        });
+                    } else {
+                        // LISA Local Moran I_i
+                        const zi = (it.val - meanX) / stdS;
+                        let lag = 0, cnt = 0;
+                        for (let j = 0; j < n; j++) {
+                            if (i !== j && dMat[i][j] <= distM) {
+                                lag += (items[j].val - meanX) / stdS;
+                                cnt++;
+                            }
+                        }
+                        const wLag = cnt > 0 ? lag / cnt : 0;
+                        const localI = zi * lag;
+                        let quad = 'No Significativo', col = '#9ca3af';
+                        if (Math.abs(localI) >= 1.0) {
+                            if (zi >= 0 && wLag >= 0) { quad = 'Alto-Alto (HH)'; col = '#dc2626'; }
+                            else if (zi < 0 && wLag < 0) { quad = 'Bajo-Bajo (LL)'; col = '#2563eb'; }
+                            else if (zi >= 0 && wLag < 0) { quad = 'Alto-Bajo (HL)'; col = '#f59e0b'; }
+                            else { quad = 'Bajo-Alto (LH)'; col = '#38bdf8'; }
+                        }
+                        Object.assign(copy.properties, {
+                            lisa_I: parseFloat(localI.toFixed(4)),
+                            lisa_cluster: quad,
+                            moran_I: parseFloat(moranI.toFixed(4)),
+                            moran_p: parseFloat(moranP.toFixed(4)),
+                            nni_R: parseFloat(nniR.toFixed(4)),
+                            pattern: pattern,
+                            color: col
+                        });
+                    }
+                    return copy;
+                });
+
+                const outTitle = mode === 'gi_star' ? `Hotspots Gi* (${field}) - ${layer.name}` : `LISA / Moran (${field}) - ${layer.name}`;
+                await addVectorLayer(turf.featureCollection(outFeats), outTitle, {
+                    isPoints: layer.isPoints, color: '#dc2626', fillOpacity: 0.6, pointSize: 7
+                });
+                toast(`Moran I=${moranI.toFixed(3)} | Índice R=${nniR.toFixed(3)} (${pattern}).`, 'success');
+
+            } else if (tool === 'idw_contours') {
+                const zField = document.getElementById('singleVectorIdwField')?.value || '';
+                const outMode = document.getElementById('singleVectorIdwOutput')?.value || 'isobands';
+                const nBreaks = Math.max(3, Math.min(20, parseInt(document.getElementById('singleVectorIdwBreaks')?.value || '6', 10) || 6));
+                const power = Math.max(0.5, parseFloat(document.getElementById('singleVectorIdwPower')?.value || '2') || 2);
+                if (!zField) throw new Error('Selecciona el campo numérico Z a interpolar.');
+
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const samples = [];
+                let zMin = Infinity, zMax = -Infinity;
+                for (const f of rawFeats) {
+                    if (!f?.geometry) continue;
+                    const z = parseFloat(f.properties?.[zField]);
+                    if (!Number.isFinite(z)) continue;
+                    const c = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    samples.push({ c, z });
+                    if (z < zMin) zMin = z;
+                    if (z > zMax) zMax = z;
+                }
+                if (samples.length < 3) throw new Error('Se requieren al menos 3 puntos con valores Z válidos.');
+                if (zMax - zMin < 1e-9) zMax = zMin + 1;
+
+                const evalIdw = (lonLat) => {
+                    let num = 0, den = 0;
+                    for (const s of samples) {
+                        const d = turf.distance(lonLat, s.c, { units: 'meters' });
+                        if (d < 0.01) return s.z;
+                        const w = 1 / Math.pow(d, power);
+                        num += w * s.z;
+                        den += w;
+                    }
+                    return den > 0 ? num / den : zMin;
+                };
+
+                const ramp = ['#2563eb', '#06b6d4', '#10b981', '#84cc16', '#eab308', '#f97316', '#dc2626'];
+                const pickColor = (t) => ramp[Math.min(ramp.length - 1, Math.max(0, Math.floor(t * (ramp.length - 0.001))))];
+
+                const bb = turf.bbox(layer.geoJson);
+                const spanX = Math.max(0.002, bb[2] - bb[0]);
+                const spanY = Math.max(0.002, bb[3] - bb[1]);
+                const padX = spanX * 0.12, padY = spanY * 0.12;
+                const extBb = [bb[0] - padX, bb[1] - padY, bb[2] + padX, bb[3] + padY];
+
+                const breaks = [];
+                for (let k = 0; k <= nBreaks; k++) {
+                    breaks.push(parseFloat((zMin + (k / nBreaks) * (zMax - zMin)).toFixed(4)));
+                }
+
+                if (outMode === 'grid') {
+                    const diagM = turf.distance([extBb[0], extBb[1]], [extBb[2], extBb[3]], { units: 'meters' });
+                    const cellM = Math.max(15, diagM / 22);
+                    const hexFc = turf.hexGrid(extBb, cellM, { units: 'meters' });
+                    hexFc.features.forEach((cell, idx) => {
+                        const ctr = turf.centroid(cell).geometry.coordinates;
+                        const zv = evalIdw(ctr);
+                        const norm = (zv - zMin) / (zMax - zMin);
+                        cell.properties = {
+                            cell_id: idx + 1,
+                            [`idw_${zField}`]: parseFloat(zv.toFixed(3)),
+                            color: pickColor(norm)
+                        };
+                    });
+                    await addVectorLayer(hexFc, `Malla IDW (${zField}) - ${layer.name}`, {
+                        color: '#f59e0b', fillOpacity: 0.55, strokeWidth: 1
+                    });
+                    toast(`Malla IDW generada: ${hexFc.features.length} celdas.`, 'success');
+                } else {
+                    const nx = 28, ny = 28;
+                    const gridPts = [];
+                    for (let ix = 0; ix <= nx; ix++) {
+                        for (let iy = 0; iy <= ny; iy++) {
+                            const lon = extBb[0] + (ix / nx) * (extBb[2] - extBb[0]);
+                            const lat = extBb[1] + (iy / ny) * (extBb[3] - extBb[1]);
+                            gridPts.push(turf.point([lon, lat], { z_val: evalIdw([lon, lat]) }));
+                        }
+                    }
+                    const ptGridFc = turf.featureCollection(gridPts);
+                    if (outMode === 'isolines') {
+                        const innerBreaks = breaks.slice(1, -1);
+                        const iso = turf.isolines(ptGridFc, innerBreaks.length ? innerBreaks : breaks, { zProperty: 'z_val' });
+                        const valid = (iso?.features || []).filter(f => f?.geometry && f.geometry.coordinates?.length > 0);
+                        valid.forEach((f, idx) => {
+                            const zv = parseFloat(f.properties?.z_val ?? breaks[idx] ?? zMin);
+                            const norm = (zv - zMin) / (zMax - zMin);
+                            f.properties = { cota_z: zv, campo: zField, color: pickColor(norm) };
+                        });
+                        if (valid.length === 0) throw new Error('No se generaron isolíneas en el rango actual.');
+                        await addVectorLayer(turf.featureCollection(valid), `Isolíneas IDW (${zField}) - ${layer.name}`, {
+                            color: '#d97706', strokeWidth: 2.5
+                        });
+                        toast(`Isolíneas IDW generadas: ${valid.length} curvas.`, 'success');
+                    } else {
+                        // Isobandas rellenas (con margen extra en extremos para cubrir 100% de la malla)
+                        const bandBreaks = [zMin - 1, ...breaks.slice(1, -1), zMax + 1];
+                        let bands = null;
+                        try { bands = turf.isobands(ptGridFc, bandBreaks, { zProperty: 'z_val' }); } catch (_) {}
+                        let valid = (bands?.features || []).filter(f => f?.geometry && f.geometry.coordinates?.length > 0);
+                        if (valid.length > 0) {
+                            valid.forEach((f, idx) => {
+                                const norm = valid.length > 1 ? idx / (valid.length - 1) : 0.5;
+                                const rawRange = String(f.properties?.z_val || `${breaks[idx]}-${breaks[idx + 1]}`);
+                                f.properties = {
+                                    clase_id: idx + 1,
+                                    rango_z: rawRange,
+                                    campo: zField,
+                                    color: pickColor(norm)
+                                };
+                            });
+                            await addVectorLayer(turf.featureCollection(valid), `Isobandas IDW (${zField}) - ${layer.name}`, {
+                                color: '#f97316', fillOpacity: 0.5, strokeWidth: 1.5
+                            });
+                            toast(`Isobandas IDW generadas: ${valid.length} contornos rellenos.`, 'success');
+                        } else {
+                            // Fallback seguro a malla cuadrada IDW si turf.isobands devuelve vacío
+                            const diagM = turf.distance([extBb[0], extBb[1]], [extBb[2], extBb[3]], { units: 'meters' });
+                            const sqFc = turf.squareGrid(extBb, Math.max(15, diagM / 20), { units: 'meters' });
+                            sqFc.features.forEach((cell, idx) => {
+                                const zv = evalIdw(turf.centroid(cell).geometry.coordinates);
+                                cell.properties = { cell_id: idx + 1, [`idw_${zField}`]: parseFloat(zv.toFixed(3)), color: pickColor((zv - zMin) / (zMax - zMin)) };
+                            });
+                            await addVectorLayer(sqFc, `Isobandas IDW (${zField}) - ${layer.name}`, {
+                                color: '#f97316', fillOpacity: 0.5, strokeWidth: 1
+                            });
+                            toast(`Superficie IDW generada: ${sqFc.features.length} celdas.`, 'success');
+                        }
+                    }
+                }
+
+            } else if (tool === 'concave_hull') {
                 const maxEdgeM = Math.max(5, parseFloat(document.getElementById('singleVectorConcaveMaxEdge')?.value || '400') || 400);
                 const rawExploded = turf.explode(layer.geoJson)?.features || [];
                 const seenPt = new Set();
@@ -46162,7 +46600,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const countOpt = document.getElementById('twoLayerCountPtsOpt');
         const splitLinesOpt = document.getElementById('twoLayerSplitLinesOpt');
         const batchSnapOpt = document.getElementById('twoLayerBatchSnapOpt');
-        [selOpt, nearOpt, countOpt, splitLinesOpt, batchSnapOpt].forEach(el => { if (el) el.classList.add('hidden'); });
+        const advJoinOpt = document.getElementById('twoLayerAdvJoinOpt');
+        [selOpt, nearOpt, countOpt, splitLinesOpt, batchSnapOpt, advJoinOpt].forEach(el => { if (el) el.classList.add('hidden'); });
 
         const _syncCountStatFields = () => {
             const idB = parseInt(selB?.value || '0', 10);
@@ -46209,6 +46648,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa a Ajustar (A)';
             document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Referencia (B)';
             if (batchSnapOpt) batchSnapOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'adv_spatial_join') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'join_full';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Unión por Relación Espacial 1:N';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Unión Espacial Avanzada (Spatial Join)';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Transfiere atributos de Capa B hacia Capa A conservando la geometría de A, con soporte de resumen estadístico 1:N.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa Objetivo (A - conserva geometría)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Unión (B - aporta atributos)';
+            if (advJoinOpt) advJoinOpt.classList.remove('hidden');
         } else {
             document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
             document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
@@ -46241,7 +46688,143 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
             const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
 
-            if (_currentTwoLayerSpatialTool === 'split_poly_by_lines') {
+            if (_currentTwoLayerSpatialTool === 'adv_spatial_join') {
+                const pred = document.getElementById('twoLayerJoinPredicate')?.value || 'intersects';
+                const aggMode = document.getElementById('twoLayerJoinAggMode')?.value || 'summary';
+                const numStat = document.getElementById('twoLayerJoinNumStat')?.value || 'sum';
+                const txtStat = document.getElementById('twoLayerJoinTxtStat')?.value || 'mode';
+
+                const bItems = featsB.filter(f => f?.geometry).map(f => ({
+                    feat: f,
+                    bb: turf.bbox(f),
+                    ctr: f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2),
+                    props: f.properties || {}
+                }));
+                if (bItems.length === 0) throw new Error('Capa B no contiene entidades válidas.');
+
+                // Detectar esquema de columnas de B (excluyendo internas y Shape_*)
+                const bKeys = [];
+                const bIsNum = {};
+                for (const b of bItems) {
+                    for (const [k, v] of Object.entries(b.props)) {
+                        if (k.startsWith('_') || k.startsWith('Shape_')) continue;
+                        if (!bKeys.includes(k)) bKeys.push(k);
+                        if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) && typeof v !== 'boolean') {
+                            if (bIsNum[k] === undefined) bIsNum[k] = true;
+                        } else if (v !== null && v !== undefined && v !== '') {
+                            bIsNum[k] = false;
+                        }
+                    }
+                }
+
+                const outFeats = [];
+                let totalMatchedA = 0;
+
+                for (const fa of featsA) {
+                    if (!fa?.geometry) continue;
+                    const copy = JSON.parse(JSON.stringify(fa));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+                    const bbA = turf.bbox(fa);
+                    const ctrA = fa.geometry.type === 'Point' ? fa.geometry.coordinates.slice(0, 2) : turf.centroid(fa).geometry.coordinates.slice(0, 2);
+
+                    let matches = [];
+                    if (pred === 'nearest') {
+                        let bestB = null, bestD = Infinity;
+                        for (const b of bItems) {
+                            const d = turf.distance(ctrA, b.ctr, { units: 'meters' });
+                            if (d < bestD) { bestD = d; bestB = b; }
+                        }
+                        if (bestB) {
+                            matches = [bestB];
+                            copy.properties.join_dist_m = parseFloat(bestD.toFixed(2));
+                        }
+                    } else if (pred === 'largest_overlap') {
+                        let bestB = null, bestScore = 0;
+                        const isPolyA = fa.geometry.type === 'Polygon' || fa.geometry.type === 'MultiPolygon';
+                        for (const b of bItems) {
+                            if (b.bb[0] > bbA[2] || b.bb[2] < bbA[0] || b.bb[1] > bbA[3] || b.bb[3] < bbA[1]) continue;
+                            try {
+                                if (!turf.booleanIntersects(fa, b.feat)) continue;
+                                let score = 1;
+                                const isPolyB = b.feat.geometry.type === 'Polygon' || b.feat.geometry.type === 'MultiPolygon';
+                                if (isPolyA && isPolyB) {
+                                    const inter = turf.intersect(turf.featureCollection([fa, b.feat]));
+                                    score = inter ? turf.area(inter) : 0;
+                                }
+                                if (score > bestScore) { bestScore = score; bestB = b; }
+                            } catch (_) {}
+                        }
+                        if (bestB) matches = [bestB];
+                    } else {
+                        for (const b of bItems) {
+                            if (b.bb[0] > bbA[2] || b.bb[2] < bbA[0] || b.bb[1] > bbA[3] || b.bb[3] < bbA[1]) continue;
+                            try {
+                                let ok = false;
+                                if (pred === 'within') ok = turf.booleanWithin(fa, b.feat);
+                                else if (pred === 'contains') ok = turf.booleanContains(fa, b.feat);
+                                else ok = turf.booleanIntersects(fa, b.feat);
+                                if (ok) matches.push(b);
+                            } catch (_) {}
+                        }
+                    }
+
+                    copy.properties.join_count = matches.length;
+                    if (matches.length > 0) {
+                        totalMatchedA++;
+                        if (aggMode === 'first' || pred === 'nearest' || pred === 'largest_overlap') {
+                            const m0 = matches[0].props;
+                            for (const k of bKeys) {
+                                const outK = Object.prototype.hasOwnProperty.call(copy.properties, k) ? `j_${k}` : k;
+                                copy.properties[outK] = m0[k] ?? null;
+                            }
+                        } else {
+                            // Agregación 1:N completa
+                            for (const k of bKeys) {
+                                if (bIsNum[k]) {
+                                    const nums = matches.map(m => parseFloat(m.props[k])).filter(n => Number.isFinite(n));
+                                    const sum = nums.reduce((s, x) => s + x, 0);
+                                    const avg = nums.length ? sum / nums.length : 0;
+                                    const mn = nums.length ? Math.min(...nums) : 0;
+                                    const mx = nums.length ? Math.max(...nums) : 0;
+                                    if (numStat === 'all') {
+                                        copy.properties[`sum_${k}`] = parseFloat(sum.toFixed(4));
+                                        copy.properties[`avg_${k}`] = parseFloat(avg.toFixed(4));
+                                        copy.properties[`min_${k}`] = parseFloat(mn.toFixed(4));
+                                        copy.properties[`max_${k}`] = parseFloat(mx.toFixed(4));
+                                    } else {
+                                        const valMap = { sum, avg, min: mn, max: mx };
+                                        copy.properties[`${numStat}_${k}`] = parseFloat((valMap[numStat] ?? sum).toFixed(4));
+                                    }
+                                } else {
+                                    const strs = matches.map(m => m.props[k]).filter(v => v !== null && v !== undefined && String(v).trim() !== '').map(v => String(v).trim());
+                                    const outK = Object.prototype.hasOwnProperty.call(copy.properties, k) ? `j_${k}` : k;
+                                    if (txtStat === 'concat') {
+                                        copy.properties[outK] = Array.from(new Set(strs)).join('; ');
+                                    } else {
+                                        // Moda (valor más frecuente)
+                                        const freq = new Map();
+                                        let bestStr = '', bestCnt = 0;
+                                        for (const s of strs) {
+                                            const c = (freq.get(s) || 0) + 1;
+                                            freq.set(s, c);
+                                            if (c > bestCnt) { bestCnt = c; bestStr = s; }
+                                        }
+                                        copy.properties[outK] = bestStr;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    outFeats.push(copy);
+                }
+
+                await addVectorLayer(turf.featureCollection(outFeats), `Spatial Join (${pred}) - ${layerA.name}`, {
+                    isPoints: layerA.isPoints, color: '#0d9488', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Spatial Join completado: ${totalMatchedA}/${outFeats.length} entidades de A recibieron atributos de B.`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'split_poly_by_lines') {
                 const linesB = [];
                 for (const fb of featsB) {
                     if (!fb?.geometry) continue;
