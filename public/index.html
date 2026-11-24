@@ -6604,6 +6604,65 @@
           </div>
         </div>
 
+        <!-- 2k. Ecología del Paisaje, Urbanismo y COGO -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-700 text-base">eco</span>
+            <span class="text-[11px] font-black uppercase tracking-wider text-zinc-900">Ecología del Paisaje, Urbanismo y COGO</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('tabulate_intersection');" class="p-4 bg-zinc-50 hover:bg-emerald-50/50 border border-zinc-200 hover:border-emerald-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-emerald-700">
+                  <span class="material-symbols-outlined text-emerald-600 text-lg">pivot_table_chart</span> Tabulación Cruzada (Tabulate)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula área (m²/ha) y porcentaje (%) de cada categoría de Capa B dentro de Capa A (+ CSV).</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openTwoLayerSpatialModal('isovist_2d');" class="p-4 bg-zinc-50 hover:bg-amber-50/50 border border-zinc-200 hover:border-amber-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-amber-700">
+                  <span class="material-symbols-outlined text-amber-600 text-lg">visibility</span> Isovista / Visibilidad 2D
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Polígono real de línea de vista 360° bloqueado por edificios u obstáculos vectoriales.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('orthogonalize');" class="p-4 bg-zinc-50 hover:bg-indigo-50/50 border border-zinc-200 hover:border-indigo-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-indigo-700">
+                  <span class="material-symbols-outlined text-indigo-600 text-lg">domain</span> Escuadrar Edificaciones (90°)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Corrige esquinas casi rectas (80°–100° → 90° exactos) en huellas de edificios.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openSingleVectorModal('landscape_metrics');" class="p-4 bg-zinc-50 hover:bg-teal-50/50 border border-zinc-200 hover:border-teal-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-teal-700">
+                  <span class="material-symbols-outlined text-teal-600 text-lg">eco</span> Métricas de Paisaje (Shape/Fractal)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Calcula Polsby-Popper, Índice de Forma (SI), Dimensión Fractal y relación P/A.</p>
+            </button>
+
+            <button onclick="closeVectorAdvancedModal(); openCogoModal();" class="col-span-2 p-4 bg-zinc-50 hover:bg-rose-50/50 border border-zinc-200 hover:border-rose-300 rounded-2xl text-left transition-all group">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2 text-zinc-900 font-bold text-xs group-hover:text-rose-700">
+                  <span class="material-symbols-outlined text-rose-600 text-lg">architecture</span> Constructor COGO (Rumbos / Azimut + Distancia → Polígono)
+                </div>
+                <span class="text-[10px] text-zinc-400 group-hover:translate-x-0.5 transition-transform">→</span>
+              </div>
+              <p class="text-[10px] text-zinc-500 leading-relaxed">Construye polígonos o poligonales exactas desde un punto base usando rumbos/azimuts y distancias.</p>
+            </button>
+          </div>
+        </div>
+
         <!-- 2b. Selección Espacial, Muestreo y Proximidad -->
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -8165,6 +8224,22 @@
           </div>
         </div>
 
+        <!-- Dynamic Option: Escuadrar Edificaciones (Orthogonalize) -->
+        <div id="singleVectorOrthoOpt" class="space-y-3 hidden">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tolerancia Angular (± grados desde 90°)</label>
+            <input type="number" id="singleVectorOrthoTolDeg" value="15" min="1" max="35" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            <p class="text-[10px] text-zinc-400">Las esquinas dentro de 90° ± tolerancia se regularizan iterativamente a ángulos rectos exactos.</p>
+          </div>
+        </div>
+
+        <!-- Dynamic Option: Métricas de Paisaje (Landscape Metrics) -->
+        <div id="singleVectorLandscapeOpt" class="space-y-2 hidden">
+          <p class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200/80 rounded-xl px-3 py-2 leading-relaxed">
+            Calcula para cada parche poligonal: <code>polsby_popper</code>, <code>shape_index</code>, <code>fractal_dim</code>, <code>para_ratio</code> y área en hectáreas.
+          </p>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button onclick="closeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">Cancelar</button>
           <button id="singleVectorExecuteBtn" onclick="executeSingleVectorModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5" style="background:#1a1c1f;">
@@ -8339,6 +8414,41 @@
               <select id="twoLayerJoinTxtStat" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
                 <option value="mode" selected>Moda (Más frecuente)</option>
                 <option value="concat">Concatenar únicos (; )</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Opciones Tabulación Cruzada (Tabulate Intersection) -->
+        <div id="twoLayerTabulateOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Zona (Capa A)</label>
+              <select id="twoLayerTabFieldA" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Campo Categoría (Capa B)</label>
+              <select id="twoLayerTabFieldB" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none"></select>
+            </div>
+          </div>
+          <label class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+            <span class="text-xs font-bold text-zinc-900">Descargar tabla cruzada (.csv)</span>
+            <input type="checkbox" id="twoLayerTabCsv" checked class="w-4 h-4 accent-emerald-600 rounded cursor-pointer">
+          </label>
+        </div>
+
+        <!-- Opciones Isovista / Visibilidad 2D -->
+        <div id="twoLayerIsovistOpt" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Radio de Visión (m)</label>
+              <input type="number" id="twoLayerIsovistRadiusM" value="400" min="10" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-bold text-zinc-900 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Resolución (Rayos 360°)</label>
+              <select id="twoLayerIsovistRays" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-semibold outline-none">
+                <option value="180" selected>180 rayos (cada 2°)</option>
+                <option value="360">360 rayos (cada 1°)</option>
               </select>
             </div>
           </div>
@@ -8754,6 +8864,57 @@
         <div class="flex gap-3 pt-1">
           <button onclick="document.getElementById('batchGeocodeModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
           <button onclick="executeBatchGeocode()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm">Geocodificar Puntos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Constructor COGO (Rumbos / Azimut + Distancia -> Polígono / Línea) -->
+  <div id="cogoModal" style="display:none" class="fixed inset-0 z-[9000] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100">
+      <div class="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">architecture</span>
+          </div>
+          <div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Topografía COGO</span>
+            <h3 class="font-bold text-base text-zinc-900">Constructor COGO (Rumbos y Distancias)</h3>
+          </div>
+        </div>
+        <button onclick="document.getElementById('cogoModal').style.display='none'" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100">
+          <span class="material-symbols-outlined text-zinc-400 text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-3 gap-2.5">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lon Base (X)</label>
+            <input type="number" id="cogoStartLon" value="-74.0800" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lat Base (Y)</label>
+            <input type="number" id="cogoStartLat" value="4.6020" step="any" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-bold text-zinc-900 outline-none">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Salida</label>
+            <select id="cogoOutputType" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2 text-xs font-semibold outline-none">
+              <option value="polygon" selected>Polígono Cerrado</option>
+              <option value="line">Poligonal Abierta</option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tramos: Azimut(°) o Rumbo (ej: N 45 E), Distancia(m)</label>
+          <textarea id="cogoLegsInput" rows="5" class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-xs font-mono outline-none">90, 250
+180, 150
+270, 250
+0, 150</textarea>
+          <p class="text-[10px] text-zinc-400">Soporta azimut en grados (<code>90, 250</code>) o rumbo topográfico (<code>N 45 E, 200</code> / <code>S 30 15 O, 120</code>).</p>
+        </div>
+        <div class="flex gap-3 pt-1">
+          <button onclick="document.getElementById('cogoModal').style.display='none'" class="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Cancelar</button>
+          <button onclick="executeCogoBuilder()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm">Construir Geometría</button>
         </div>
       </div>
     </div>
@@ -44640,7 +44801,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const netTraceOpt = document.getElementById('singleVectorNetTraceOpt');
         const cartoOpt = document.getElementById('singleVectorCartogramOpt');
         const splitRatiosOpt = document.getElementById('singleVectorSplitRatiosOpt');
-        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt, gridIdxOpt, invMaskOpt, topoSurvOpt, spSortOpt, aggPolysOpt, netTraceOpt, cartoOpt, splitRatiosOpt].forEach(el => {
+        const orthoOpt = document.getElementById('singleVectorOrthoOpt');
+        const landscapeOpt = document.getElementById('singleVectorLandscapeOpt');
+        [simpOpt, expOpt, bufOpt, vorOpt, tinOpt, sampOpt, dissolveOpt, collectOpt, deleteHolesOpt, smoothOpt, centroidsOpt, polyLineOpt, pointsPathOpt, meanEllipseOpt, clusteringOpt, multiRingOpt, splitAttrOpt, deleteDupsOpt, equalSplitOpt, pointsAlongOpt, offsetOpt, affineOpt, topoCheckOpt, concaveOpt, ombbOpt, centerlineOpt, sliversOpt, densifyOpt, lineOpsOpt, spatialStatsOpt, idwOpt, wedgesOpt, xyLineOpt, toRasterOpt, topoSimpOpt, reprojOpt, gridIdxOpt, invMaskOpt, topoSurvOpt, spSortOpt, aggPolysOpt, netTraceOpt, cartoOpt, splitRatiosOpt, orthoOpt, landscapeOpt].forEach(el => {
             if (el) el.classList.add('hidden');
         });
 
@@ -44780,6 +44943,24 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 bg: 'bg-zinc-100 border-zinc-200',
                 desc: 'Crea un polígono exterior perforado exactamente con los polígonos de la capa para sombrear todo lo que queda fuera.',
                 opt: invMaskOpt
+            },
+            orthogonalize: {
+                title: 'Escuadrar Edificaciones (90°)',
+                sub: 'Regularización Ortogonal',
+                icon: 'crop_square',
+                color: 'text-sky-600',
+                bg: 'bg-sky-50 border-sky-100',
+                desc: 'Ajusta automáticamente esquinas casi rectas a 90° exactos según la orientación dominante de cada edificación o predio.',
+                opt: orthoOpt
+            },
+            landscape_metrics: {
+                title: 'Métricas de Paisaje y Fragmentación',
+                sub: 'Ecología del Paisaje y Morfometría',
+                icon: 'forest',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50 border-emerald-100',
+                desc: 'Calcula por polígono Polsby-Popper, Índice de Forma (SI), Dimensión Fractal y Relación Perímetro/Área.',
+                opt: landscapeOpt
             },
             vector_to_raster: {
                 title: 'Rasterizar Vector (Vector → Ráster)',
@@ -45211,7 +45392,143 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         showProgress('Ejecutando operación vectorial...', 30);
 
         try {
-            if (tool === 'topographic_survey') {
+            if (tool === 'orthogonalize') {
+                const tolDeg = Math.max(1, Math.min(40, parseFloat(document.getElementById('singleVectorOrthoTolDeg')?.value || '15') || 15));
+                const tolRad = (tolDeg * Math.PI) / 180;
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+
+                const orthoRing = (ring) => {
+                    if (!Array.isArray(ring) || ring.length < 4) return ring;
+                    const pts = ring.slice(0, -1);
+                    const n = pts.length;
+                    if (n < 3) return ring;
+                    let cx = 0, cy = 0;
+                    pts.forEach(p => { cx += p[0]; cy += p[1]; });
+                    cx /= n; cy /= n;
+                    const kx = 111320 * Math.cos((cy * Math.PI) / 180);
+                    const ky = 110540;
+                    const mPts = pts.map(p => [(p[0] - cx) * kx, (p[1] - cy) * ky]);
+
+                    // Orientación dominante ponderada por longitud de arista (módulo 90°)
+                    let sumCos4 = 0, sumSin4 = 0;
+                    const edges = [];
+                    for (let i = 0; i < n; i++) {
+                        const a = mPts[i], b = mPts[(i + 1) % n];
+                        const dx = b[0] - a[0], dy = b[1] - a[1];
+                        const len = Math.hypot(dx, dy);
+                        const ang = Math.atan2(dy, dx);
+                        if (len > 1e-4) {
+                            sumCos4 += len * Math.cos(4 * ang);
+                            sumSin4 += len * Math.sin(4 * ang);
+                        }
+                        edges.push({ mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2, ang, len });
+                    }
+                    const baseAng = Math.atan2(sumSin4, sumCos4) / 4;
+
+                    const snappedEdges = edges.map(e => {
+                        let bestAng = e.ang;
+                        let minDiff = Infinity;
+                        for (let k = -4; k <= 4; k++) {
+                            const cand = baseAng + k * (Math.PI / 2);
+                            let d = e.ang - cand;
+                            while (d > Math.PI) d -= 2 * Math.PI;
+                            while (d < -Math.PI) d += 2 * Math.PI;
+                            if (Math.abs(d) < minDiff) {
+                                minDiff = Math.abs(d);
+                                bestAng = cand;
+                            }
+                        }
+                        const finalAng = (minDiff <= tolRad) ? bestAng : e.ang;
+                        return { mx: e.mx, my: e.my, ux: Math.cos(finalAng), uy: Math.sin(finalAng) };
+                    });
+
+                    const newM = [];
+                    for (let i = 0; i < n; i++) {
+                        const e1 = snappedEdges[(i - 1 + n) % n];
+                        const e2 = snappedEdges[i];
+                        const det = e1.ux * e2.uy - e1.uy * e2.ux;
+                        if (Math.abs(det) > 0.15) {
+                            const dx = e2.mx - e1.mx, dy = e2.my - e1.my;
+                            const t = (dx * e2.uy - dy * e2.ux) / det;
+                            newM.push([e1.mx + t * e1.ux, e1.my + t * e1.uy]);
+                        } else {
+                            newM.push(mPts[i]);
+                        }
+                    }
+                    const resRing = newM.map(p => [cx + p[0] / kx, cy + p[1] / ky]);
+                    resRing.push(resRing[0]);
+                    return { ring: resRing, baseDeg: ((baseAng * 180 / Math.PI) % 90 + 90) % 90 };
+                };
+
+                const outFeats = [];
+                rawFeats.forEach(f => {
+                    if (!f?.geometry) return;
+                    const t = f.geometry.type;
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+                    let baseDeg = 0;
+                    if (t === 'Polygon') {
+                        copy.geometry.coordinates = f.geometry.coordinates.map((r, idx) => {
+                            const res = orthoRing(r);
+                            if (idx === 0 && res.baseDeg !== undefined) baseDeg = res.baseDeg;
+                            return res.ring || res;
+                        });
+                    } else if (t === 'MultiPolygon') {
+                        copy.geometry.coordinates = f.geometry.coordinates.map(poly =>
+                            poly.map((r, idx) => {
+                                const res = orthoRing(r);
+                                if (idx === 0 && res.baseDeg !== undefined) baseDeg = res.baseDeg;
+                                return res.ring || res;
+                            })
+                        );
+                    }
+                    copy.properties.ortho_tol_deg = tolDeg;
+                    copy.properties.ortho_base_deg = parseFloat(baseDeg.toFixed(2));
+                    outFeats.push(copy);
+                });
+                if (outFeats.length === 0) throw new Error('La capa no contiene polígonos para escuadrar.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Escuadrado 90° - ${layer.name}`, {
+                    color: '#0284c7', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Escuadrado ortogonal completado en ${outFeats.length} edificaciones/polígonos.`, 'success');
+
+            } else if (tool === 'landscape_metrics') {
+                const rawFeats = Array.isArray(layer.geoJson.features) ? layer.geoJson.features : [layer.geoJson];
+                const outFeats = [];
+                rawFeats.forEach(f => {
+                    if (!f?.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) return;
+                    const copy = JSON.parse(JSON.stringify(f));
+                    if (!copy.properties) copy.properties = {};
+                    delete copy.properties._selected;
+                    const areaM2 = turf.area(copy);
+                    const areaHa = areaM2 / 10000;
+                    let perimM = 0;
+                    try {
+                        const lineObj = turf.polygonToLine(copy);
+                        const lines = lineObj.type === 'FeatureCollection' ? lineObj.features : [lineObj];
+                        lines.forEach(lf => { perimM += turf.length(lf, { units: 'meters' }); });
+                    } catch (_) {}
+                    const pp = (areaM2 > 0 && perimM > 0) ? Math.min(1, (4 * Math.PI * areaM2) / (perimM * perimM)) : 0;
+                    const si = (areaM2 > 0 && perimM > 0) ? perimM / (2 * Math.sqrt(Math.PI * areaM2)) : 0;
+                    const fd = (areaM2 > 1 && perimM > 4) ? (2 * Math.log(perimM / 4)) / Math.log(areaM2) : 1;
+                    const para = (areaM2 > 0) ? perimM / areaM2 : 0;
+                    copy.properties.area_m2 = parseFloat(areaM2.toFixed(2));
+                    copy.properties.area_ha = parseFloat(areaHa.toFixed(4));
+                    copy.properties.perim_m = parseFloat(perimM.toFixed(2));
+                    copy.properties.polsby_popper = parseFloat(pp.toFixed(4));
+                    copy.properties.shape_index = parseFloat(si.toFixed(4));
+                    copy.properties.fractal_dim = parseFloat(fd.toFixed(4));
+                    copy.properties.para_ratio = parseFloat(para.toFixed(5));
+                    outFeats.push(copy);
+                });
+                if (outFeats.length === 0) throw new Error('La capa debe contener polígonos.');
+                await addVectorLayer(turf.featureCollection(outFeats), `Métricas Paisaje - ${layer.name}`, {
+                    color: '#059669', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Métricas de paisaje calculadas para ${outFeats.length} parches/polígonos.`, 'success');
+
+            } else if (tool === 'topographic_survey') {
                 const crs = document.getElementById('singleVectorTopoSurveyCrs')?.value || 'EPSG:9377';
                 const dlCsv = Boolean(document.getElementById('singleVectorTopoSurveyCsv')?.checked);
                 if (typeof proj4 !== 'undefined') {
@@ -48168,20 +48485,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const splitLinesOpt = document.getElementById('twoLayerSplitLinesOpt');
         const batchSnapOpt = document.getElementById('twoLayerBatchSnapOpt');
         const advJoinOpt = document.getElementById('twoLayerAdvJoinOpt');
-        [selOpt, nearOpt, countOpt, splitLinesOpt, batchSnapOpt, advJoinOpt].forEach(el => { if (el) el.classList.add('hidden'); });
+        const tabulateOpt = document.getElementById('twoLayerTabulateOpt');
+        const isovistOpt = document.getElementById('twoLayerIsovistOpt');
+        [selOpt, nearOpt, countOpt, splitLinesOpt, batchSnapOpt, advJoinOpt, tabulateOpt, isovistOpt].forEach(el => { if (el) el.classList.add('hidden'); });
 
-        const _syncCountStatFields = () => {
+        const _syncTwoLayerFields = () => {
+            const idA = parseInt(selA?.value || '0', 10);
             const idB = parseInt(selB?.value || '0', 10);
+            const lA = vectorLayers.find(l => l.id === idA);
             const lB = vectorLayers.find(l => l.id === idB);
-            const keys = new Set();
-            (lB?.geoJson?.features || []).slice(0, 50).forEach(f => {
-                Object.keys(f?.properties || {}).forEach(k => { if (!k.startsWith('_')) keys.add(k); });
+            const keysA = new Set();
+            (lA?.geoJson?.features || []).slice(0, 50).forEach(f => {
+                Object.keys(f?.properties || {}).forEach(k => { if (!k.startsWith('_')) keysA.add(k); });
             });
+            const keysB = new Set();
+            (lB?.geoJson?.features || []).slice(0, 50).forEach(f => {
+                Object.keys(f?.properties || {}).forEach(k => { if (!k.startsWith('_')) keysB.add(k); });
+            });
+            const optsA = Array.from(keysA).map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">(Índice automático)</option>';
+            const optsB = Array.from(keysB).map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
             const statSel = document.getElementById('twoLayerCountStatField');
-            if (statSel) statSel.innerHTML = Array.from(keys).map(k => `<option value="${k}">${k}</option>`).join('') || '<option value="">Sin campos</option>';
+            const tabASel = document.getElementById('twoLayerTabFieldA');
+            const tabBSel = document.getElementById('twoLayerTabFieldB');
+            if (statSel) statSel.innerHTML = optsB;
+            if (tabASel) tabASel.innerHTML = optsA;
+            if (tabBSel) tabBSel.innerHTML = optsB;
         };
-        if (selB) selB.onchange = _syncCountStatFields;
-        _syncCountStatFields();
+        if (selA) selA.onchange = _syncTwoLayerFields;
+        if (selB) selB.onchange = _syncTwoLayerFields;
+        _syncTwoLayerFields();
 
         if (_currentTwoLayerSpatialTool === 'nearest') {
             document.getElementById('twoLayerSpatialIcon').textContent = 'hub';
@@ -48230,6 +48562,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             document.getElementById('twoLayerSpatialDesc').textContent = 'Calcula la longitud total (m y km) y la densidad lineal (km/km²) de las líneas de Capa B dentro de cada polígono de Capa A.';
             document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Polígonos / Malla (A)';
             document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Líneas / Vías / Ríos (B)';
+        } else if (_currentTwoLayerSpatialTool === 'tabulate_intersection') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'pivot_table_chart';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Cruce Poligonal Cuantitativo';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Tabulación Cruzada de Áreas';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Calcula el área exacta (m², ha) y porcentaje (%) que ocupa cada categoría de Capa B dentro de cada zona de Capa A.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Zonas / Predios (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Cobertura / Uso (B)';
+            if (tabulateOpt) tabulateOpt.classList.remove('hidden');
+        } else if (_currentTwoLayerSpatialTool === 'isovist_2d') {
+            document.getElementById('twoLayerSpatialIcon').textContent = 'visibility';
+            document.getElementById('twoLayerSpatialSub').textContent = 'Visibilidad 2D (Raycasting)';
+            document.getElementById('twoLayerSpatialTitle').textContent = 'Isovista / Viewshed 2D con Obstáculos';
+            document.getElementById('twoLayerSpatialDesc').textContent = 'Traza un abanico 360° de rayos desde cada observador en Capa A bloqueado por los muros o edificaciones de Capa B.';
+            document.getElementById('twoLayerSpatialLabelA').textContent = 'Capa de Observadores / Cámaras (A)';
+            document.getElementById('twoLayerSpatialLabelB').textContent = 'Capa de Obstáculos / Edificios (B)';
+            if (isovistOpt) isovistOpt.classList.remove('hidden');
         } else {
             document.getElementById('twoLayerSpatialIcon').textContent = 'travel_explore';
             document.getElementById('twoLayerSpatialSub').textContent = 'Consulta Espacial';
@@ -48262,7 +48610,138 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const featsA = (layerA.geoJson.features && Array.isArray(layerA.geoJson.features)) ? layerA.geoJson.features : [layerA.geoJson];
             const featsB = (layerB.geoJson.features && Array.isArray(layerB.geoJson.features)) ? layerB.geoJson.features : [layerB.geoJson];
 
-            if (_currentTwoLayerSpatialTool === 'sum_line_lengths') {
+            if (_currentTwoLayerSpatialTool === 'tabulate_intersection') {
+                const fieldA = document.getElementById('twoLayerTabFieldA')?.value || '';
+                const fieldB = document.getElementById('twoLayerTabFieldB')?.value || '';
+                const dlCsv = Boolean(document.getElementById('twoLayerTabCsv')?.checked);
+                const polysA = featsA.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                const polysB = featsB.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+                if (polysA.length === 0 || polysB.length === 0) throw new Error('Ambas capas deben contener polígonos.');
+
+                const bItems = polysB.map((fb, idx) => ({
+                    feat: fb,
+                    bb: turf.bbox(fb),
+                    cat: String(fb.properties?.[fieldB] ?? `Cat_${idx + 1}`)
+                }));
+
+                const outInter = [];
+                const csvRows = [];
+                polysA.forEach((fa, iA) => {
+                    const zoneVal = String(fa.properties?.[fieldA] ?? `Zona_${iA + 1}`);
+                    const bbA = turf.bbox(fa);
+                    const zoneAreaM2 = Math.max(0.01, turf.area(fa));
+                    for (const b of bItems) {
+                        if (b.bb[0] > bbA[2] || b.bb[2] < bbA[0] || b.bb[1] > bbA[3] || b.bb[3] < bbA[1]) continue;
+                        try {
+                            const inter = turf.intersect(turf.featureCollection([fa, b.feat]));
+                            if (!inter) continue;
+                            const iArea = turf.area(inter);
+                            if (iArea <= 0.01) continue;
+                            const pct = (iArea / zoneAreaM2) * 100;
+                            inter.properties = {
+                                zone_id: iA + 1,
+                                zone_name: zoneVal,
+                                category: b.cat,
+                                area_m2: parseFloat(iArea.toFixed(2)),
+                                area_ha: parseFloat((iArea / 10000).toFixed(4)),
+                                pct_of_zone: parseFloat(pct.toFixed(2))
+                            };
+                            outInter.push(inter);
+                            csvRows.push([iA + 1, zoneVal, b.cat, iArea.toFixed(2), (iArea / 10000).toFixed(4), pct.toFixed(2)]);
+                        } catch (_) {}
+                    }
+                });
+
+                if (outInter.length === 0) throw new Error('No se encontraron intersecciones de área entre Capa A y Capa B.');
+                await addVectorLayer(turf.featureCollection(outInter), `Tabulación Cruzada - ${layerA.name} × ${layerB.name}`, {
+                    color: '#4f46e5', fillOpacity: 0.45, strokeWidth: 2
+                });
+                if (dlCsv && csvRows.length > 0) {
+                    const header = 'zone_id,zone_name,category,area_m2,area_ha,pct_of_zone\n';
+                    const body = csvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `tabulacion_cruzada_${layerA.name.replace(/\s+/g, '_')}.csv`;
+                    a.click();
+                }
+                toast(`Tabulación cruzada: ${outInter.length} cruces calculados.`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'isovist_2d') {
+                const radiusM = Math.max(5, Math.min(20000, parseFloat(document.getElementById('twoLayerIsovistRadiusM')?.value || '300') || 300));
+                const nRays = parseInt(document.getElementById('twoLayerIsovistRays')?.value || '180', 10) || 180;
+                const obsPts = featsA.filter(f => f?.geometry).map((f, idx) => {
+                    const c = f.geometry.type === 'Point' ? f.geometry.coordinates.slice(0, 2) : turf.centroid(f).geometry.coordinates.slice(0, 2);
+                    return { coord: c, props: f.properties || {}, idx };
+                });
+                if (obsPts.length === 0) throw new Error('Capa A no tiene observadores válidos.');
+
+                const segs = [];
+                featsB.forEach(fb => {
+                    if (!fb?.geometry) return;
+                    const t = fb.geometry.type;
+                    const rings = [];
+                    if (t === 'Polygon') fb.geometry.coordinates.forEach(r => rings.push(r));
+                    else if (t === 'MultiPolygon') fb.geometry.coordinates.forEach(p => p.forEach(r => rings.push(r)));
+                    else if (t === 'LineString') rings.push(fb.geometry.coordinates);
+                    else if (t === 'MultiLineString') fb.geometry.coordinates.forEach(l => rings.push(l));
+                    rings.forEach(r => {
+                        for (let i = 0; i < r.length - 1; i++) {
+                            segs.push([r[i][0], r[i][1], r[i + 1][0], r[i + 1][1]]);
+                        }
+                    });
+                });
+
+                const outVis = obsPts.map(obs => {
+                    const ox = obs.coord[0], oy = obs.coord[1];
+                    const kx = 111320 * Math.cos((oy * Math.PI) / 180);
+                    const ky = 110540;
+                    const dLon = (radiusM * 1.1) / kx;
+                    const dLat = (radiusM * 1.1) / ky;
+
+                    const localSegs = [];
+                    for (const s of segs) {
+                        if (Math.max(s[0], s[2]) < ox - dLon || Math.min(s[0], s[2]) > ox + dLon) continue;
+                        if (Math.max(s[1], s[3]) < oy - dLat || Math.min(s[1], s[3]) > oy + dLat) continue;
+                        localSegs.push([(s[0] - ox) * kx, (s[1] - oy) * ky, (s[2] - ox) * kx, (s[3] - oy) * ky]);
+                    }
+
+                    const ring = [];
+                    for (let k = 0; k < nRays; k++) {
+                        const th = (2 * Math.PI * k) / nRays;
+                        const dx = Math.sin(th), dy = Math.cos(th);
+                        let minT = radiusM;
+                        for (const ls of localSegs) {
+                            const sx = ls[2] - ls[0], sy = ls[3] - ls[1];
+                            const denom = dx * sy - dy * sx;
+                            if (Math.abs(denom) < 1e-9) continue;
+                            const t = (ls[0] * sy - ls[1] * sx) / denom;
+                            const u = (ls[0] * dy - ls[1] * dx) / denom;
+                            if (t > 0.05 && t < minT && u >= 0 && u <= 1) minT = t;
+                        }
+                        ring.push([ox + (minT * dx) / kx, oy + (minT * dy) / ky]);
+                    }
+                    ring.push(ring[0]);
+                    const poly = turf.polygon([ring]);
+                    const visArea = turf.area(poly);
+                    const maxArea = Math.PI * radiusM * radiusM;
+                    const copyProps = { ...(obs.props || {}) };
+                    delete copyProps._selected;
+                    copyProps.radius_m = radiusM;
+                    copyProps.rays = nRays;
+                    copyProps.visible_area_m2 = parseFloat(visArea.toFixed(2));
+                    copyProps.visible_area_ha = parseFloat((visArea / 10000).toFixed(4));
+                    copyProps.visibility_pct = parseFloat(Math.min(100, (visArea / maxArea) * 100).toFixed(2));
+                    poly.properties = copyProps;
+                    return poly;
+                });
+
+                await addVectorLayer(turf.featureCollection(outVis), `Isovista 2D (${radiusM}m) - ${layerA.name}`, {
+                    color: '#eab308', fillOpacity: 0.35, strokeWidth: 2
+                });
+                toast(`Isovista 2D calculada para ${outVis.length} observador(es).`, 'success');
+
+            } else if (_currentTwoLayerSpatialTool === 'sum_line_lengths') {
                 const polysA = featsA.filter(f => f?.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
                 const linesB = [];
                 featsB.forEach(fb => {
@@ -49901,6 +50380,91 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             isPoints: true, color: '#e11d48', pointSize: 7
         });
         toast(`Geocodificación completada: ${okCount} de ${items.length} ubicaciones encontradas.`, 'success');
+    }
+
+    function openCogoModal() {
+        const m = document.getElementById('cogoModal');
+        if (m) m.style.display = 'flex';
+    }
+
+    async function executeCogoBuilder() {
+        const lon0 = parseFloat(document.getElementById('cogoStartLon')?.value || '');
+        const lat0 = parseFloat(document.getElementById('cogoStartLat')?.value || '');
+        const outType = document.getElementById('cogoOutputType')?.value || 'polygon';
+        const rawText = (document.getElementById('cogoLegsInput')?.value || '').trim();
+        if (!Number.isFinite(lon0) || !Number.isFinite(lat0)) return toast('Ingresa coordenadas base (Lon, Lat) válidas.', 'warning');
+        if (!rawText) return toast('Ingresa al menos un tramo (azimut/rumbo y distancia).', 'warning');
+
+        const parseAngle = (str) => {
+            const s = str.trim().toUpperCase().replace(/[°'"]/g, ' ');
+            const qMatch = s.match(/^([NS])\s+([0-9.\s]+?)\s+([EOW])$/);
+            if (qMatch) {
+                const ns = qMatch[1], ew = qMatch[3];
+                const nums = qMatch[2].trim().split(/\s+/).map(Number);
+                const d = (nums[0] || 0) + (nums[1] || 0) / 60 + (nums[2] || 0) / 3600;
+                if (ns === 'N' && ew === 'E') return d;
+                if (ns === 'S' && ew === 'E') return 180 - d;
+                if (ns === 'S' && (ew === 'O' || ew === 'W')) return 180 + d;
+                if (ns === 'N' && (ew === 'O' || ew === 'W')) return 360 - d;
+            }
+            const parts = s.split(/\s+/).filter(Boolean).map(Number);
+            if (parts.length > 0 && parts.every(Number.isFinite)) {
+                return (parts[0] || 0) + (parts[1] || 0) / 60 + (parts[2] || 0) / 3600;
+            }
+            return NaN;
+        };
+
+        const legs = [];
+        const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+        for (const line of lines) {
+            const cols = line.split(/[,;\t]/).map(c => c.trim()).filter(Boolean);
+            if (cols.length < 2) continue;
+            const az = parseAngle(cols[0]);
+            const distM = parseFloat(cols[1]);
+            if (Number.isFinite(az) && Number.isFinite(distM) && distM > 0) {
+                legs.push({ az: ((az % 360) + 360) % 360, distM });
+            }
+        }
+        if (legs.length === 0) return toast('No se pudieron interpretar los tramos COGO.', 'error');
+
+        document.getElementById('cogoModal').style.display = 'none';
+        let curr = turf.point([lon0, lat0]);
+        const coords = [[lon0, lat0]];
+        let totalPerim = 0;
+        legs.forEach(leg => {
+            totalPerim += leg.distM;
+            curr = turf.destination(curr, leg.distM / 1000, leg.az, { units: 'kilometers' });
+            coords.push(curr.geometry.coordinates.slice(0, 2));
+        });
+
+        let feat;
+        if (outType === 'polygon' && coords.length >= 3) {
+            const startPt = coords[0];
+            const endPt = coords[coords.length - 1];
+            const misclosureM = turf.distance(startPt, endPt, { units: 'meters' });
+            if (misclosureM > 0.001) coords.push([startPt[0], startPt[1]]);
+            feat = turf.polygon([coords], {
+                cogo_tramos: legs.length,
+                perim_cogo_m: parseFloat(totalPerim.toFixed(2)),
+                error_cierre_m: parseFloat(misclosureM.toFixed(3)),
+                area_m2: 0,
+                area_ha: 0
+            });
+            const a = turf.area(feat);
+            feat.properties.area_m2 = parseFloat(a.toFixed(2));
+            feat.properties.area_ha = parseFloat((a / 10000).toFixed(4));
+        } else {
+            feat = turf.lineString(coords, {
+                cogo_tramos: legs.length,
+                longitud_m: parseFloat(totalPerim.toFixed(2))
+            });
+        }
+
+        const fc = turf.featureCollection([feat]);
+        await addVectorLayer(fc, `COGO ${outType === 'polygon' ? 'Polígono' : 'Polilínea'} (${legs.length} tramos)`, {
+            color: '#4f46e5', fillOpacity: 0.35, strokeWidth: 3
+        });
+        toast(`Geometría COGO construida (${legs.length} tramos, ${totalPerim.toFixed(1)} m).`, 'success');
     }
 
     function applyCentroids() {
