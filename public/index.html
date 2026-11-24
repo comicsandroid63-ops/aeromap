@@ -12856,7 +12856,7 @@ self.onmessage = async function(e) {
                     const activeLbl = (mType && _ATTR_UNIT_DEFS[mType]?.[activeKey]?.label) || '';
                     const escK = k.replace(/'/g, "\\'");
                     const unitMenuHtml = mType ? `
-                        <div class="hidden group-hover/header:flex items-center gap-1 absolute left-1 top-full mt-0.5 z-50 bg-white border border-zinc-200 shadow-xl rounded-xl p-1" onclick="event.stopPropagation()">
+                        <div class="attr-unit-menu items-center gap-1 absolute left-1 top-full z-50 bg-white border border-zinc-200 shadow-xl rounded-xl p-1" style="display:none" onclick="event.stopPropagation()">
                             ${Object.entries(_ATTR_UNIT_DEFS[mType]).map(([uKey, uDef]) => `
                                 <button type="button" onclick="event.stopPropagation(); setAttrColUnit('${escK}', '${uKey}')"
                                     class="px-2 py-1 rounded-lg text-[9.5px] font-black normal-case transition-colors ${uKey === activeKey ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-zinc-50 text-zinc-600 hover:bg-indigo-50 hover:text-indigo-700'}">
@@ -12865,8 +12865,10 @@ self.onmessage = async function(e) {
                             `).join('')}
                         </div>
                     ` : '';
+                    const hoverAttrs = mType ? `onmouseenter="const m=this.querySelector('.attr-unit-menu'); if(m) m.style.display='flex';" onmouseleave="const m=this.querySelector('.attr-unit-menu'); if(m) m.style.display='none';"` : '';
                     return `
                         <th class="relative px-4 py-3 text-[10px] font-black uppercase text-zinc-500 border-r border-zinc-100 bg-zinc-50 min-w-[120px] whitespace-nowrap cursor-pointer hover:bg-zinc-200 transition-colors group/header" 
+                            ${hoverAttrs}
                             onclick="sortAttributeTable('${escK}')">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="${state.attrTable.sortCol === k ? 'text-indigo-600 font-black' : ''}">
