@@ -2607,10 +2607,10 @@
           <span class="hidden sm:inline">Capturar Mapa</span>
         </button>
 
-        <!-- Presentation Mode -->
-        <button onclick="startMHPresentation()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 bg-indigo-600 text-white shadow-sm hover:shadow" title="Iniciar presentación a pantalla completa (Slideshow)">
-          <span class="material-symbols-outlined text-[15px]">slideshow</span>
-          <span>Presentación</span>
+        <!-- Web Story Mode -->
+        <button onclick="startMHPresentation()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90 bg-indigo-600 text-white shadow-sm hover:shadow" title="Abrir historia como página web interactiva">
+          <span class="material-symbols-outlined text-[15px]">web</span>
+          <span>Ver Web</span>
         </button>
 
         <!-- Preview Tab -->
@@ -2956,48 +2956,42 @@
     </div>
   </div>
 
-  <!-- ═══ MAP HISTORY FULLSCREEN PRESENTATION MODAL ═══ -->
-  <div id="mhPresentationModal" class="hidden fixed inset-0 z-[10000] flex flex-col bg-zinc-950 text-white select-none">
-    <!-- Top Bar -->
-    <div class="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-md">
-      <div class="flex items-center gap-3">
-        <span class="material-symbols-outlined text-amber-400 text-[20px]">auto_stories</span>
-        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-xs sm:max-w-md">Map History</span>
+  <!-- ═══ MAP HISTORY WEB STORY VIEWER MODAL ═══ -->
+  <div id="mhPresentationModal" class="hidden fixed inset-0 z-[10000] flex flex-col bg-zinc-950 text-white">
+    <!-- Sticky Web Navbar -->
+    <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-4 px-5 sm:px-8 py-3 border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl z-20">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="material-symbols-outlined text-sky-400 text-[20px] shrink-0">auto_stories</span>
+        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-[180px] sm:max-w-xs">Map History</span>
       </div>
-      <div class="flex items-center gap-3">
-        <span id="mhPresSlideCounter" class="text-xs font-mono font-medium text-zinc-400">1 / 5</span>
-        <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors flex items-center gap-1.5" title="Reproducción automática">
+      <nav id="mhPresNavLinks" class="hidden md:flex items-center gap-1.5 overflow-x-auto max-w-2xl no-scrollbar">
+        <!-- Web section anchor links injected here -->
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="mhPresSlideCounter" class="text-[11px] font-mono text-zinc-400 hidden sm:inline-block mr-1">0%</span>
+        <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-zinc-200 transition-colors flex items-center gap-1.5 cursor-pointer" title="Desplazamiento automático suave">
           <span class="material-symbols-outlined text-[15px]" id="mhPresAutoPlayIcon">play_arrow</span>
-          <span id="mhPresAutoPlayText">Auto</span>
+          <span id="mhPresAutoPlayText" class="hidden sm:inline">Auto-scroll</span>
         </button>
-        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors" title="Pantalla completa (F)">
+        <button onclick="downloadMHHtml()" class="p-1.5 rounded-lg hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer" title="Descargar como página HTML">
+          <span class="material-symbols-outlined text-[18px]">download</span>
+        </button>
+        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer" title="Pantalla completa (F)">
           <span class="material-symbols-outlined text-[18px]">fullscreen</span>
         </button>
-        <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors" title="Salir de presentación (Esc)">
+        <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-300 hover:text-red-400 transition-colors cursor-pointer" title="Cerrar historia (Esc)">
           <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
+    </header>
+    <!-- Web Reading Progress Bar -->
+    <div class="shrink-0 w-full h-[3px] bg-white/10 z-20">
+      <div id="mhPresProgressBar" class="h-full bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 transition-all duration-150" style="width: 0%;"></div>
     </div>
-    <!-- Slide Progress Bar -->
-    <div class="w-full h-1 bg-zinc-800">
-      <div id="mhPresProgressBar" class="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300" style="width: 20%;"></div>
-    </div>
-    <!-- Slide Content Stage -->
-    <div class="flex-1 relative flex items-center justify-center p-4 sm:p-10 overflow-y-auto custom-scrollbar" id="mhPresStage">
-      <!-- Animated Slide injected here -->
-    </div>
-    <!-- Bottom Controls & Nav -->
-    <div class="flex items-center justify-between px-6 py-3 border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-md">
-      <button onclick="prevMHPresSlide()" class="flex items-center gap-1 px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none" id="mhPresPrevBtn">
-        <span class="material-symbols-outlined text-[16px]">arrow_back</span> Anterior
-      </button>
-      <div id="mhPresThumbDots" class="flex items-center gap-1.5 max-w-xs sm:max-w-md overflow-x-auto py-1">
-        <!-- Dots injected here -->
-      </div>
-      <button onclick="nextMHPresSlide()" class="flex items-center gap-1 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none" id="mhPresNextBtn">
-        Siguiente <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-      </button>
-    </div>
+    <!-- Continuous Scrollable Web Page Content -->
+    <main class="flex-1 relative overflow-y-auto scroll-smooth custom-scrollbar" id="mhPresStage" onscroll="updateMHWebScrollProgress()">
+      <!-- Full Web Story injected here -->
+    </main>
   </div>
 
   <!-- ═══ WORKSPACE ═══ -->
@@ -62520,13 +62514,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     // ═══════════════════════════════════════════════════════════
-    // Presentation Mode (Fullscreen Slideshow)
+    // Web Story Mode (Continuous Editorial Webpage Scrollytelling)
     // ═══════════════════════════════════════════════════════════
+
+    let mhWebNavObserver = null;
 
     function startMHPresentation(storyData) {
       const data = storyData || mhData;
       if (!data || !data.sections || data.sections.length === 0) {
-        toast('No hay secciones para presentar', 'warning');
+        toast('No hay secciones para visualizar', 'warning');
         return;
       }
 
@@ -62539,9 +62535,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const titleEl = document.getElementById('mhPresTitle');
       if (titleEl) titleEl.textContent = data.title || data.sections[0]?.title || 'Map History';
 
-      renderMHPresSlide();
+      renderMHWebStory(data);
 
-      // Keyboard listeners
       window.addEventListener('keydown', handleMHPresKeydown);
     }
 
@@ -62552,7 +62547,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         clearInterval(mhPresTimer);
         mhPresTimer = null;
       }
+      if (mhWebNavObserver) {
+        mhWebNavObserver.disconnect();
+        mhWebNavObserver = null;
+      }
       mhPresAutoPlay = false;
+      const icon = document.getElementById('mhPresAutoPlayIcon');
+      const text = document.getElementById('mhPresAutoPlayText');
+      if (icon) icon.textContent = 'play_arrow';
+      if (text) text.textContent = 'Auto-scroll';
       window.removeEventListener('keydown', handleMHPresKeydown);
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -62560,169 +62563,276 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function handleMHPresKeydown(e) {
-      if (e.key === 'ArrowRight' || e.key === ' ') {
-        e.preventDefault();
-        nextMHPresSlide();
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        prevMHPresSlide();
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         closeMHPresentation();
       } else if (e.key === 'f' || e.key === 'F') {
         toggleMHPresentationFullscreen();
       }
     }
 
-    function renderMHPresSlide() {
+    function scrollToMHWebSection(secIdx) {
+      const stage = document.getElementById('mhPresStage');
+      const target = document.getElementById(`mhWebSec_${secIdx}`);
+      if (stage && target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function scrollMHWebToTop() {
+      const stage = document.getElementById('mhPresStage');
+      if (stage) stage.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateMHWebScrollProgress() {
       const stage = document.getElementById('mhPresStage');
       if (!stage) return;
+      const maxScroll = Math.max(1, stage.scrollHeight - stage.clientHeight);
+      const pct = Math.min(100, Math.max(0, Math.round((stage.scrollTop / maxScroll) * 100)));
+      const bar = document.getElementById('mhPresProgressBar');
+      const counter = document.getElementById('mhPresSlideCounter');
+      if (bar) bar.style.width = pct + '%';
+      if (counter) counter.textContent = `${pct}%`;
+    }
 
-      // Filter out standalone separators for slides
-      const nonSepSections = mhData.sections.filter(s => s.type !== 'separator');
-      if (nonSepSections.length === 0) return;
+    function renderMHWebStory(storyData) {
+      const data = storyData || mhData;
+      const stage = document.getElementById('mhPresStage');
+      const navLinksEl = document.getElementById('mhPresNavLinks');
+      const modal = document.getElementById('mhPresentationModal');
+      if (!stage || !data) return;
 
-      if (mhPresIndex < 0) mhPresIndex = 0;
-      if (mhPresIndex >= nonSepSections.length) mhPresIndex = nonSepSections.length - 1;
+      const globalBg = data.globalBg || '#0f0f0f';
+      const globalText = data.globalText || '#ffffff';
+      const accent = data.globalAccent || '#38bdf8';
+      const storyTitle = data.title || data.sections[0]?.title || 'Map History';
 
-      const sec = nonSepSections[mhPresIndex];
-      const bg = sec.bgColor || mhData.globalBg;
-      const text = sec.textColor || mhData.globalText;
-      const accent = mhData.globalAccent;
+      if (modal) modal.style.background = globalBg;
+      stage.style.background = globalBg;
+      stage.style.color = globalText;
+      stage.scrollTop = 0;
 
-      // Update counters & progress
-      const counterEl = document.getElementById('mhPresSlideCounter');
-      if (counterEl) counterEl.textContent = `${mhPresIndex + 1} / ${nonSepSections.length}`;
+      // Build top web navbar section anchor links
+      const navItems = [];
+      let contentSectionsHtml = '';
+      let firstBodyIdx = -1;
 
-      const progressEl = document.getElementById('mhPresProgressBar');
-      if (progressEl) {
-        const pct = ((mhPresIndex + 1) / nonSepSections.length) * 100;
-        progressEl.style.width = pct + '%';
-      }
+      data.sections.forEach((sec, idx) => {
+        if (sec.type !== 'separator' && idx > 0 && firstBodyIdx === -1) firstBodyIdx = idx;
+      });
+      if (firstBodyIdx === -1 && data.sections.length > 1) firstBodyIdx = 1;
 
-      const prevBtn = document.getElementById('mhPresPrevBtn');
-      const nextBtn = document.getElementById('mhPresNextBtn');
-      if (prevBtn) prevBtn.disabled = (mhPresIndex === 0);
-      if (nextBtn) nextBtn.disabled = (mhPresIndex === nonSepSections.length - 1);
+      data.sections.forEach((sec, idx) => {
+        const bg = sec.bgColor || globalBg;
+        const text = sec.textColor || globalText;
 
-      // Render dots
-      const dots = document.getElementById('mhPresThumbDots');
-      if (dots) {
-        dots.innerHTML = nonSepSections.map((_, i) => `
-          <button onclick="goToMHPresSlide(${i})" class="w-2.5 h-2.5 rounded-full transition-all ${i === mhPresIndex ? 'bg-white scale-125' : 'bg-zinc-600 hover:bg-zinc-400'}"></button>
-        `).join('');
-      }
+        if (sec.type === 'separator') {
+          const sepColor = sec.sepColor || accent;
+          contentSectionsHtml += `
+            <div class="w-full py-10 px-6 flex flex-col items-center justify-center" style="background:${bg};">
+              ${sec.title ? `<span class="text-[11px] font-bold tracking-[0.25em] uppercase mb-3" style="color:${sepColor};">${escHtml(sec.title)}</span>` : ''}
+              <div style="width:${sec.sepWidth || 64}px;border-top:${sec.sepThick || 2}px ${sec.sepStyle || 'solid'} ${sepColor};opacity:0.75;"></div>
+            </div>`;
+          return;
+        }
 
-      // Build slide HTML
-      let slideContent = '';
-      if (sec.type === 'cover') {
-        slideContent = `
-          <div class="flex flex-col items-center justify-center text-center p-8 max-w-2xl animate-fade-in">
-            <span class="text-xs font-bold uppercase tracking-widest mb-4" style="color:${accent};">Map History · Presentación</span>
-            <h1 class="text-3xl sm:text-5xl font-black mb-6 leading-tight" style="color:${text};">${escHtml(sec.title)}</h1>
-            ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed mb-6">${sec.body}</div>` : ''}
-            ${sec.imageUrl ? `<img src="${sec.imageUrl}" class="w-full max-h-72 object-cover rounded-2xl shadow-2xl mb-6">` : ''}
-            <div class="w-12 h-1 rounded-full" style="background:${accent};"></div>
-          </div>`;
-      } else if (sec.type === 'comparison') {
-        const img1 = sec.imageUrl || '';
-        const img2 = sec.imageUrl2 || '';
-        slideContent = `
-          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
-            <h2 class="text-2xl sm:text-3xl font-extrabold mb-2" style="color:${text};">${escHtml(sec.title)}</h2>
-            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-6 text-center max-w-xl">${sec.body}</div>` : ''}
-            ${(img1 && img2 && sec.compareMode === 'slider') ? `
-              <div class="mh-compare-container w-full h-[55vh] shadow-2xl rounded-2xl" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
-                <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
-                  <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
-                </div>
-                <div class="mh-compare-divider" style="left:50%;">
-                  <div class="mh-compare-handle">⇄</div>
-                </div>
-                <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1||'Antes')}</span>
-                <span class="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2||'Después')}</span>
+        const navLabel = sec.title || (sec.type === 'cover' ? 'Inicio' : `Sección ${idx + 1}`);
+        navItems.push(`<button type="button" onclick="scrollToMHWebSection(${idx})" data-web-nav="${idx}" class="mh-web-nav-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer">${escHtml(navLabel)}</button>`);
+
+        if (sec.type === 'cover') {
+          contentSectionsHtml += `
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="relative min-h-[84vh] w-full flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden" style="background:${bg};color:${text};">
+              ${sec.imageUrl ? `
+                <div class="absolute inset-0 pointer-events-none">
+                  <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full h-full object-cover opacity-25 scale-105">
+                  <div class="absolute inset-0" style="background:linear-gradient(to bottom, ${bg}88 0%, ${bg}cc 55%, ${bg} 100%);"></div>
+                </div>` : ''}
+              <div class="relative z-10 max-w-3xl mx-auto flex flex-col items-center">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-[0.2em] mb-6 border" style="color:${accent};border-color:${accent}40;background:${accent}14;">
+                  Map History · Historia Web
+                </span>
+                <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6" style="color:${text};">${escHtml(sec.title || storyTitle)}</h1>
+                ${sec.body ? `<div class="text-base sm:text-xl opacity-85 leading-relaxed max-w-2xl mb-8">${sec.body}</div>` : ''}
+                ${sec.imageUrl ? `
+                  <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 mb-8">
+                    <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full max-h-[380px] object-cover">
+                  </div>` : ''}
+                ${firstBodyIdx !== -1 ? `
+                  <button type="button" onclick="scrollToMHWebSection(${firstBodyIdx})" class="mt-2 inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold shadow-lg transition-transform hover:scale-105 cursor-pointer" style="background:${accent};color:#09090b;">
+                    <span>Explorar historia</span>
+                    <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+                  </button>` : ''}
               </div>
-            ` : `
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                  ${img1 ? `<img src="${img1}" class="w-full h-80 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center">Sin imagen</div>'}
-                  <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label1||'Antes')}</span>
+            </section>`;
+        } else if (sec.type === 'comparison') {
+          const img1 = sec.imageUrl || '';
+          const img2 = sec.imageUrl2 || '';
+          contentSectionsHtml += `
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+              <div class="max-w-5xl mx-auto">
+                <div class="max-w-2xl mb-8">
+                  <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Comparación Multitemporal</span>
+                  <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Comparación')}</h2>
+                  ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed">${sec.body}</div>` : ''}
                 </div>
-                <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                  ${img2 ? `<img src="${img2}" class="w-full h-80 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center">Sin imagen</div>'}
-                  <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2||'Después')}</span>
+                ${(img1 && img2 && sec.compareMode === 'slider') ? `
+                  <div class="mh-compare-container w-full h-[55vh] min-h-[360px] shadow-2xl rounded-2xl border border-white/10" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                    <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                    <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
+                      <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                    </div>
+                    <div class="mh-compare-divider" style="left:50%;">
+                      <div class="mh-compare-handle">⇄</div>
+                    </div>
+                    <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/65 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
+                    <span class="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/65 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
+                  </div>
+                ` : `
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                    <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+                      ${img1 ? `<img src="${img1}" class="w-full h-80 sm:h-96 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 1</div>'}
+                      <span class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
+                    </div>
+                    <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+                      ${img2 ? `<img src="${img2}" class="w-full h-80 sm:h-96 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 2</div>'}
+                      <span class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
+                    </div>
+                  </div>`}
+              </div>
+            </section>`;
+        } else if (sec.type === 'metrics') {
+          const metricsList = sec.metrics || [];
+          contentSectionsHtml += `
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+              <div class="max-w-5xl mx-auto">
+                <div class="max-w-2xl mb-10">
+                  <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Indicadores Espaciales</span>
+                  <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Métricas')}</h2>
+                  ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed">${sec.body}</div>` : ''}
                 </div>
-              </div>`}
-          </div>`;
-      } else if (sec.type === 'metrics') {
-        const metricsList = sec.metrics || [];
-        slideContent = `
-          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
-            <span class="text-xs font-bold uppercase tracking-widest mb-2" style="color:${accent};">Indicadores de Desempeño Espacial</span>
-            <h2 class="text-2xl sm:text-4xl font-extrabold mb-4" style="color:${text};">${escHtml(sec.title)}</h2>
-            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-8 text-center max-w-xl">${sec.body}</div>` : ''}
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full">
-              ${metricsList.map(m => `
-                <div class="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col justify-between shadow-xl">
-                  <div class="flex items-center justify-between mb-4">
-                    <span class="material-symbols-outlined text-3xl" style="color:${m.color || accent};">${m.icon || 'analytics'}</span>
-                    ${m.change ? `<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:${m.color||accent}22;color:${m.color||accent};">${escHtml(m.change)}</span>` : ''}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  ${metricsList.map(m => `
+                    <div class="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col justify-between shadow-xl">
+                      <div class="flex items-center justify-between mb-4">
+                        <span class="material-symbols-outlined text-3xl" style="color:${m.color || accent};">${m.icon || 'analytics'}</span>
+                        ${m.change ? `<span class="text-xs font-bold px-2.5 py-0.5 rounded-full" style="background:${m.color || accent}22;color:${m.color || accent};">${escHtml(m.change)}</span>` : ''}
+                      </div>
+                      <div>
+                        <div class="text-3xl sm:text-4xl font-black tracking-tight" style="color:${text};">${escHtml(m.value || '0')}</div>
+                        <div class="text-xs font-semibold opacity-75 mt-1.5">${escHtml(m.label || '')}</div>
+                      </div>
+                    </div>`).join('')}
+                </div>
+              </div>
+            </section>`;
+        } else if (sec.type === 'quote') {
+          contentSectionsHtml += `
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-20 sm:py-28 px-6" style="background:${bg};color:${text};">
+              <div class="max-w-3xl mx-auto text-center flex flex-col items-center">
+                <span class="material-symbols-outlined text-5xl mb-6 opacity-35" style="color:${accent};">format_quote</span>
+                <blockquote class="text-2xl sm:text-3xl font-medium italic leading-relaxed mb-6" style="color:${text};">
+                  "${escHtml(sec.quoteText || sec.body)}"
+                </blockquote>
+                <div class="w-12 h-1 rounded-full mb-4" style="background:${accent};"></div>
+                ${sec.author ? `<div class="text-base font-bold">${escHtml(sec.author)}</div>` : ''}
+                ${sec.role ? `<div class="text-xs opacity-65 mt-0.5">${escHtml(sec.role)}</div>` : ''}
+              </div>
+            </section>`;
+        } else {
+          // Standard Editorial Web Section (full, left, right, center)
+          const img = sec.imageUrl;
+          const layout = sec.layout || 'center';
+          if (img && (layout === 'left' || layout === 'right')) {
+            const imgColOrder = layout === 'right' ? 'lg:order-2' : 'lg:order-1';
+            const txtColOrder = layout === 'right' ? 'lg:order-1' : 'lg:order-2';
+            contentSectionsHtml += `
+              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+                <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+                  <div class="lg:col-span-7 ${imgColOrder} lg:sticky lg:top-20">
+                    <div class="rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/20">
+                      <img src="${img}" alt="${escHtml(sec.title)}" class="w-full max-h-[68vh] object-cover">
+                    </div>
                   </div>
-                  <div>
-                    <div class="text-3xl sm:text-4xl font-black tracking-tight" style="color:${text};">${escHtml(m.value || '0')}</div>
-                    <div class="text-xs font-semibold opacity-70 mt-1">${escHtml(m.label || '')}</div>
+                  <div class="lg:col-span-5 ${txtColOrder} flex flex-col justify-center py-2">
+                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style="color:${accent};">Capítulo ${idx + 1}</span>
+                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4" style="color:${text};">${escHtml(sec.title || 'Sin título')}</h2>
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed space-y-3">${sec.body}</div>` : ''}
                   </div>
-                </div>`).join('')}
+                </div>
+              </section>`;
+          } else {
+            contentSectionsHtml += `
+              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+                <div class="${layout === 'full' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto">
+                  <div class="max-w-3xl mb-8">
+                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Capítulo ${idx + 1}</span>
+                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4" style="color:${text};">${escHtml(sec.title || 'Sin título')}</h2>
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+                  </div>
+                  ${img ? `
+                    <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/20">
+                      <img src="${img}" alt="${escHtml(sec.title)}" class="w-full max-h-[72vh] object-contain mx-auto">
+                    </div>` : ''}
+                </div>
+              </section>`;
+          }
+        }
+      });
+
+      const footerHtml = `
+        <footer class="w-full py-12 px-6 border-t border-white/10" style="background:${globalBg};color:${globalText};">
+          <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-xs opacity-70">
+              <span class="material-symbols-outlined text-[16px]" style="color:${accent};">auto_stories</span>
+              <span>${escHtml(storyTitle)} · Map History Web</span>
             </div>
-          </div>`;
-      } else if (sec.type === 'quote') {
-        slideContent = `
-          <div class="flex flex-col items-center justify-center text-center p-8 max-w-2xl animate-fade-in">
-            <span class="material-symbols-outlined text-6xl mb-6 opacity-30" style="color:${accent};">format_quote</span>
-            <blockquote class="text-xl sm:text-3xl font-medium italic leading-relaxed mb-6" style="color:${text};">
-              "${escHtml(sec.quoteText || sec.body)}"
-            </blockquote>
-            <div class="w-12 h-1 rounded-full mb-4" style="background:${accent};"></div>
-            ${sec.author ? `<div class="text-base font-bold">${escHtml(sec.author)}</div>` : ''}
-            ${sec.role ? `<div class="text-xs opacity-60">${escHtml(sec.role)}</div>` : ''}
-          </div>`;
-      } else {
-        // Standard Map
-        slideContent = `
-          <div class="w-full max-w-4xl p-6 flex flex-col items-center animate-fade-in">
-            <h2 class="text-2xl sm:text-3xl font-extrabold mb-3" style="color:${text};">${escHtml(sec.title)}</h2>
-            ${sec.body ? `<div class="text-xs sm:text-sm opacity-80 mb-6 text-center max-w-2xl">${sec.body}</div>` : ''}
-            ${sec.imageUrl ? `
-              <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 max-h-[60vh] flex items-center justify-center bg-black/40">
-                <img src="${sec.imageUrl}" class="w-full h-auto max-h-[60vh] object-contain">
-              </div>` : ''}
-          </div>`;
+            <button type="button" onclick="scrollMHWebToTop()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border border-white/15 hover:bg-white/10 transition-colors cursor-pointer">
+              <span class="material-symbols-outlined text-[15px]">arrow_upward</span>
+              Volver arriba
+            </button>
+          </div>
+        </footer>`;
+
+      stage.innerHTML = `<article class="w-full min-h-full">${contentSectionsHtml}${footerHtml}</article>`;
+
+      if (navLinksEl) {
+        navLinksEl.innerHTML = navItems.join('');
       }
 
-      stage.innerHTML = `<div class="w-full h-full flex items-center justify-center" style="background:${bg};color:${text};border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">${slideContent}</div>`;
+      // Highlight active section in navbar while scrolling
+      if (mhWebNavObserver) mhWebNavObserver.disconnect();
+      mhWebNavObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const secIdx = entry.target.getAttribute('data-web-sec');
+            document.querySelectorAll('#mhPresNavLinks .mh-web-nav-btn').forEach(btn => {
+              const active = btn.getAttribute('data-web-nav') === secIdx;
+              btn.style.color = active ? accent : '';
+              btn.style.background = active ? `${accent}1a` : '';
+            });
+          }
+        });
+      }, { root: stage, threshold: 0.35 });
+
+      stage.querySelectorAll('[data-web-sec]').forEach(el => mhWebNavObserver.observe(el));
+      updateMHWebScrollProgress();
+    }
+
+    function renderMHPresSlide() {
+      renderMHWebStory(mhData);
     }
 
     function nextMHPresSlide() {
-      const nonSep = mhData.sections.filter(s => s.type !== 'separator');
-      if (mhPresIndex < nonSep.length - 1) {
-        mhPresIndex++;
-        renderMHPresSlide();
-      } else if (mhPresAutoPlay) {
-        mhPresIndex = 0;
-        renderMHPresSlide();
-      }
+      const stage = document.getElementById('mhPresStage');
+      if (stage) stage.scrollBy({ top: Math.round(stage.clientHeight * 0.75), behavior: 'smooth' });
     }
 
     function prevMHPresSlide() {
-      if (mhPresIndex > 0) {
-        mhPresIndex--;
-        renderMHPresSlide();
-      }
+      const stage = document.getElementById('mhPresStage');
+      if (stage) stage.scrollBy({ top: -Math.round(stage.clientHeight * 0.75), behavior: 'smooth' });
     }
 
     function goToMHPresSlide(idx) {
-      mhPresIndex = idx;
-      renderMHPresSlide();
+      scrollToMHWebSection(idx);
     }
 
     function toggleMHPresentationFullscreen() {
@@ -62739,15 +62849,23 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       mhPresAutoPlay = !mhPresAutoPlay;
       const icon = document.getElementById('mhPresAutoPlayIcon');
       const text = document.getElementById('mhPresAutoPlayText');
+      const stage = document.getElementById('mhPresStage');
 
       if (mhPresAutoPlay) {
         if (icon) icon.textContent = 'pause';
         if (text) text.textContent = 'Pausar';
-        mhPresTimer = setInterval(nextMHPresSlide, 5000);
-        toast('Reproducción automática iniciada (5s)', 'info');
+        mhPresTimer = setInterval(() => {
+          if (!stage) return;
+          if (stage.scrollTop + stage.clientHeight >= stage.scrollHeight - 4) {
+            stage.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            stage.scrollBy({ top: 2, behavior: 'auto' });
+          }
+        }, 30);
+        toast('Auto-scroll suave iniciado', 'info');
       } else {
         if (icon) icon.textContent = 'play_arrow';
-        if (text) text.textContent = 'Auto';
+        if (text) text.textContent = 'Auto-scroll';
         if (mhPresTimer) {
           clearInterval(mhPresTimer);
           mhPresTimer = null;
