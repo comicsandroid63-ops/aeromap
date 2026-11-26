@@ -61398,7 +61398,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     };
 
     const MH_STORAGE_KEY = '_zima_map_histories';
-    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v5';
+    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v6';
 
     const MH_MIDCENTURY_SWATCHES = [
       { label: 'Crema 50s', bg: '#F6EFE2', text: '#1F2421', accent: '#C25634' },
@@ -61674,7 +61674,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_sec_9',
             type: 'chart',
             title: 'Índices Biofísicos Espectrales NDVI, NDWI y SAVI (Diaps. 10–15)',
-            body: 'Evolución porcentual sobre Norte (1.230.591,7 ha) y Sur (1.025.103,2 ha): en 2026 la vegetación densa NDVI alcanzó 76,35% (Norte) y 83,36% (Sur); SAVI > 0,45 llegó a 37,90% (Norte) y 49,73% (Sur); el estrés hídrico NDWI en el Norte suma 41,05%.',
+            body: 'Evolución porcentual sobre Norte (1.230.591,7 ha) y Sur (1.025.103,2 ha): contraste entre vegetación densa NDVI/SAVI en 2026, retracción de coberturas moderadas/bajas (38,9% → 19,0% en NDVI Norte; 32,6% → 9,9% en SAVI Norte) y aumento del estrés hídrico NDWI en el Sur (29,7% → 32,3%).',
             bgColor: '#D99B26',
             textColor: '#1F2421',
             chartType: 'line',
@@ -61685,16 +61685,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               { name: 'NDVI Densa >0.6 (Sur)', color: '#1F2421', values: [68.20, 82.43, 81.25, 85.66, 83.36] },
               { name: 'NDVI Densa >0.6 (Norte)', color: '#17525E', values: [51.46, 74.56, 84.43, 84.16, 76.35] },
               { name: 'SAVI Densa >0.45 (Sur)', color: '#6B7A3A', values: [20.18, 26.43, 32.04, 42.44, 49.73] },
-              { name: 'SAVI Densa >0.45 (Norte)', color: '#4A5D23', values: [11.95, 24.93, 30.21, 34.24, 37.90] },
-              { name: 'NDWI Humedad Fav. (Sur)', color: '#C25634', values: [26.74, 19.22, 22.17, 27.01, 28.52] },
-              { name: 'NDWI Humedad Fav. (Norte)', color: '#FBF7EE', values: [16.98, 18.57, 20.07, 23.14, 24.83] }
+              { name: 'NDWI Estrés Sev.+Alto (Sur ↑)', color: '#C25634', values: [29.70, 38.73, 33.35, 31.35, 32.33] },
+              { name: 'NDVI Veg. Moderada (Norte ↓)', color: '#FBF7EE', values: [38.93, 21.45, 12.99, 12.64, 19.01] },
+              { name: 'SAVI Veg. Baja (Norte ↓)', color: '#8C4A27', values: [32.65, 12.68, 9.58, 7.94, 9.87] }
             ]
           },
           {
             id: 'tdg_cmp_ndvi_norte',
             type: 'comparison',
             title: 'Vigor Fotosintético NDVI · Subregión Norte (1996 ↔ 2026 · Diap. 10)',
-            body: 'NDVI = (NIR - RED) / (NIR + RED) con sombreado DEM y red hídrica: vegetación densa (>0,60) pasa de 633.252 a 939.563 ha (+306.311 ha; 76,35% del Norte en 2026).',
+            body: 'Datos exactos Diap. 10 (Norte): en 2026 caen Vegetación Moderada (-245.153 ha) y Baja/Pastos (-63.868 ha), mientras Vegetación Densa (>0,60) sube +306.311 ha (633.252 → 939.563 ha) y Suelo Desnudo/Minería suma +2.412 ha.',
             bgColor: '#17525E',
             textColor: '#FBF7EE',
             compareMode: 'slider',
@@ -61707,7 +61707,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_cmp_ndvi_sur',
             type: 'comparison',
             title: 'Vigor Fotosintético NDVI · Subregión Sur (1996 ↔ 2026 · Diap. 11)',
-            body: 'Distribución del índice NDVI sobre 1.025.103,2 ha del Sur: bosques y palma vigorosa (>0,60) alcanzan 854.565 ha (83,36%, +155.458 ha), junto con 40.492 ha de espejos de agua.',
+            body: 'Datos exactos Diap. 11 (Sur): en 2026 bajan Vegetación Moderada (-148.052 ha) y Baja (-17.877 ha), mientras Vegetación Densa (>0,60) crece +155.458 ha (699.108 → 854.565 ha) y Agua alcanza 40.492 ha (+15.388 ha).',
             bgColor: '#F6EFE2',
             textColor: '#1F2421',
             compareMode: 'slider',
@@ -61720,7 +61720,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_cmp_ndwi_norte',
             type: 'comparison',
             title: 'Estrés y Recursos Hídricos NDWI · Norte (1996 ↔ 2026 · Diap. 12)',
-            body: 'NDWI = (GREEN - NIR) / (GREEN + NIR) en la Subregión Norte: el estrés hídrico severo y alto suma 505.172 ha (41,05%) en 2026 frente a 305.528 ha (24,83%) con humedad favorable.',
+            body: 'Datos exactos Diap. 12 (Norte): en 2026 el Agua (>0,45) cae -11.211 ha (26.164 → 14.954 ha) y el estrés hídrico suma 505.172 ha (41,05%), aunque respecto al año seco 1996 se redujo el estrés severo (-51.758 ha) y subió humedad favorable (+96.585 ha).',
             bgColor: '#6B7A3A',
             textColor: '#FBF7EE',
             compareMode: 'slider',
@@ -61733,7 +61733,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_cmp_ndwi_sur',
             type: 'comparison',
             title: 'Estrés y Recursos Hídricos NDWI · Sur (1996 ↔ 2026 · Diap. 13)',
-            body: 'Monitoreo del complejo cenagoso de Zapatosa y contenido hídrico foliar en el Sur: 59.462 ha (5,80%) de alto contenido hídrico (>0,45) y 292.351 ha (28,52%) de humedad favorable en 2026.',
+            body: 'Datos exactos Diap. 13 (Sur): en 2026 los Cuerpos de Agua (>0,45) pierden -11.005 ha (70.467 → 59.462 ha) y aumenta el estrés hídrico (+4.820 ha Severo y +22.185 ha Alto) en el complejo de Zapatosa.',
             bgColor: '#F6EFE2',
             textColor: '#1F2421',
             compareMode: 'slider',
@@ -61746,7 +61746,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_cmp_savi_norte',
             type: 'comparison',
             title: 'Índice Ajustado al Suelo SAVI · Norte (1996 ↔ 2026 · Diap. 14)',
-            body: 'SAVI con L=0,5 para zonas secas del Norte: vegetación densa (>0,45) sube +319.353 ha hasta 466.455 ha (37,90%) y vegetación baja/pastos cae -280.239 ha frente a 1996.',
+            body: 'Datos exactos Diap. 14 (Norte, L=0,5): en 2026 caen Vegetación Baja/Pastos (-280.239 ha), Suelo Desnudo (-26.090 ha) y Moderada (-13.321 ha), y sube Biomasa Densa (>0,45: +319.353 ha hasta 466.455 ha).',
             bgColor: '#17525E',
             textColor: '#FBF7EE',
             compareMode: 'slider',
@@ -61759,7 +61759,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             id: 'tdg_cmp_savi_sur',
             type: 'comparison',
             title: 'Índice Ajustado al Suelo SAVI · Sur (1996 ↔ 2026 · Diap. 15)',
-            body: 'Con factor de ajuste L=0,5 en el Sur, discrimina playones cenagosos, pasturas y palma: biomasa densa (>0,45) crece +302.845 ha hasta 509.761 ha (49,73% del Sur en 2026).',
+            body: 'Datos exactos Diap. 15 (Sur, L=0,5): en 2026 bajan Vegetación Moderada (-163.473 ha) y Baja/Pastos (-135.952 ha), mientras Biomasa Densa (>0,45) crece +302.845 ha (206.916 → 509.761 ha · 49,73%).',
             bgColor: '#6B7A3A',
             textColor: '#FBF7EE',
             compareMode: 'slider',
@@ -62873,14 +62873,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       } else if (type === 'diverging') {
         const s0 = series[0] || { name: 'Cambio Neto', values: [] };
         const vals = labels.map((_, i) => Number(s0.values?.[i]) || 0);
-        const minV = Math.min(0, ...vals) * 1.18;
-        const maxV = Math.max(0, ...vals) * 1.22;
+        const minRaw = Math.min(0, ...vals);
+        const maxRaw = Math.max(0, ...vals);
+        const minV = minRaw * 1.06;
+        const maxV = maxRaw * 1.06;
         const span = Math.max(1, maxV - minV);
-        const W = 800, padL = 185, padR = 95, padT = 24, padB = 34;
+        const W = 820, padL = 198, padR = 92, padT = 24, padB = 34;
+        const negLabelPad = minRaw < 0 ? 78 : 0;
+        const plotLeft = padL + negLabelPad;
         const rowH = 38;
         const H = padT + padB + labels.length * rowH;
-        const plotW = W - padL - padR;
-        const xOf = (v) => padL + ((v - minV) / span) * plotW;
+        const plotW = W - plotLeft - padR;
+        const xOf = (v) => plotLeft + ((v - minV) / span) * plotW;
         const x0 = xOf(0);
 
         let bars = '';
