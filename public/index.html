@@ -639,10 +639,10 @@
     .mh-compare-container {
       position: relative;
       overflow: hidden;
-      border-radius: 12px;
+      border-radius: 16px;
       user-select: none;
       touch-action: none;
-      background: #000;
+      background: rgba(31, 36, 33, 0.06);
     }
     .mh-compare-container img {
       pointer-events: none;
@@ -61397,7 +61397,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     };
 
     const MH_STORAGE_KEY = '_zima_map_histories';
-    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v3';
+    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v4';
 
     const MH_MIDCENTURY_SWATCHES = [
       { label: 'Crema 50s', bg: '#F6EFE2', text: '#1F2421', accent: '#C25634' },
@@ -61551,6 +61551,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             ]
           },
           {
+            id: 'tdg_cmp_sup_norte',
+            type: 'comparison',
+            title: 'Raster Optimizado · Clasificación Supervisada Norte (1996 ↔ 2026)',
+            body: 'Desliza la barra para comparar las coberturas de la Subregión Norte (11 municipios · 1.230.591,7 ha) sin zoom pesado: cultivos (+244,7%) y pastos (+30,6%) frente a retracción boscosa en laderas y valles.',
+            bgColor: '#F6EFE2',
+            textColor: '#1F2421',
+            compareMode: 'slider',
+            label1: 'Cesar Norte · 1996 (L5)',
+            label2: 'Cesar Norte · 2026 (L9)',
+            imageUrl: '/assets/tdg_opt/sup_norte_1996.webp',
+            imageUrl2: '/assets/tdg_opt/sup_norte_2026.webp'
+          },
+          {
+            id: 'tdg_cmp_sup_sur',
+            type: 'comparison',
+            title: 'Raster Optimizado · Clasificación Supervisada Sur (1996 ↔ 2026)',
+            body: 'Desliza para contrastar la expansión agroindustrial (+259,9% en cultivos: palma Elaeis y arroz en San Martín, San Alberto y Aguachica) en los 14 municipios de la Subregión Sur (1.025.103,2 ha).',
+            bgColor: '#6B7A3A',
+            textColor: '#FBF7EE',
+            compareMode: 'slider',
+            label1: 'Cesar Sur · 1996 (L5)',
+            label2: 'Cesar Sur · 2026 (L9)',
+            imageUrl: '/assets/tdg_opt/sup_sur_1996.webp',
+            imageUrl2: '/assets/tdg_opt/sup_sur_2026.webp'
+          },
+          {
             id: 'tdg_sec_6',
             type: 'chart',
             title: 'Balance Neto de Cambio de Coberturas (Diapositiva 21)',
@@ -61636,6 +61662,45 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               { name: 'NDWI Humedad Fav. (Sur)', color: '#C25634', values: [26.74, 19.22, 22.17, 27.01, 28.52] },
               { name: 'NDWI Humedad Fav. (Norte)', color: '#FBF7EE', values: [16.98, 18.57, 20.07, 23.14, 24.83] }
             ]
+          },
+          {
+            id: 'tdg_cmp_ndvi_norte',
+            type: 'comparison',
+            title: 'Raster Optimizado · NDVI Vigor Vegetal Norte (1996 ↔ 2026)',
+            body: 'Vista raster optimizada (WebP ligero sin zoom): incremento de vegetación densa (>0,60) hasta 76,35% (939.563 ha) entre bosques serranos y núcleos palmicultores de Codazzi, Becerril y El Copey.',
+            bgColor: '#17525E',
+            textColor: '#FBF7EE',
+            compareMode: 'slider',
+            label1: 'NDVI Norte · 1996',
+            label2: 'NDVI Norte · 2026',
+            imageUrl: '/assets/tdg_opt/ndvi_norte_1996.webp',
+            imageUrl2: '/assets/tdg_opt/ndvi_norte_2026.webp'
+          },
+          {
+            id: 'tdg_cmp_ndwi_sur',
+            type: 'comparison',
+            title: 'Raster Optimizado · NDWI Balance Hídrico Sur (La Niña 2011 ↔ 2026)',
+            body: 'Comparador entre el máximo histórico de inundación en la Ciénaga de Zapatosa (2011: 82.231 ha con alto contenido hídrico) y el estado balanceado de 2026 (59.462 ha / 5,80%).',
+            bgColor: '#F6EFE2',
+            textColor: '#1F2421',
+            compareMode: 'slider',
+            label1: 'NDWI Sur · La Niña 2011',
+            label2: 'NDWI Sur · 2026',
+            imageUrl: '/assets/tdg_opt/ndwi_sur_2011.webp',
+            imageUrl2: '/assets/tdg_opt/ndwi_sur_2026.webp'
+          },
+          {
+            id: 'tdg_cmp_savi_sur',
+            type: 'comparison',
+            title: 'Raster Optimizado · SAVI Ajustado al Suelo Sur (1996 ↔ 2026)',
+            body: 'Con factor L=0,5, evidencia cómo los pastos dispersos se redujeron en -135.952 ha al consolidarse biomasa perenne (509.761 ha · 49,73% del Sur en 2026).',
+            bgColor: '#6B7A3A',
+            textColor: '#FBF7EE',
+            compareMode: 'slider',
+            label1: 'SAVI Sur · 1996',
+            label2: 'SAVI Sur · 2026',
+            imageUrl: '/assets/tdg_opt/savi_sur_1996.webp',
+            imageUrl2: '/assets/tdg_opt/savi_sur_2026.webp'
           },
           {
             id: 'tdg_sec_10',
@@ -62170,16 +62235,215 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderMHEditor();
     }
 
-    // Image Upload
+    // Image & Unique Map-History-Only TIFF Optimizer (no GIS canvas zoom/tiles)
+    async function _mhOptimizeTiffFileToDataUrl(file) {
+      const MAX_DIM = 860;
+      if (typeof GeoTIFF !== 'undefined') {
+        const tiff = await GeoTIFF.fromBlob(file);
+        const imgCount = await tiff.getImageCount();
+        let chosen = await tiff.getImage(0);
+        const baseW = chosen.getWidth();
+        const baseH = chosen.getHeight();
+
+        // Pick smallest pyramid overview that still meets display resolution
+        if (imgCount > 1) {
+          for (let i = 1; i < imgCount; i++) {
+            try {
+              const cand = await tiff.getImage(i);
+              const cw = cand.getWidth();
+              const ch = cand.getHeight();
+              if (Math.max(cw, ch) >= MAX_DIM && Math.max(cw, ch) < Math.max(chosen.getWidth(), chosen.getHeight())) {
+                chosen = cand;
+              }
+            } catch (_) {}
+          }
+        }
+
+        const cw = chosen.getWidth();
+        const ch = chosen.getHeight();
+        const scale = Math.min(1, MAX_DIM / Math.max(cw, ch));
+        const tw = Math.max(1, Math.round(cw * scale));
+        const th = Math.max(1, Math.round(ch * scale));
+        const fd = chosen.fileDirectory || {};
+        const hasCmap = Array.isArray(fd.ColorMap) && fd.ColorMap.length >= 12;
+        const nodataStr = fd.GDAL_NODATA;
+        const nodata = (nodataStr !== undefined && nodataStr !== null) ? parseFloat(nodataStr) : null;
+
+        const rasters = await chosen.readRasters({
+          width: tw,
+          height: th,
+          resampleMethod: hasCmap ? 'nearest' : 'bilinear'
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = tw;
+        canvas.height = th;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(tw, th);
+        const px = imgData.data;
+        const total = tw * th;
+
+        if (hasCmap) {
+          const cm = fd.ColorMap;
+          const nColors = Math.floor(cm.length / 3);
+          const b0 = rasters[0];
+          const ndVal = nodata !== null && Number.isFinite(nodata) ? nodata : 0;
+          for (let i = 0; i < total; i++) {
+            const v = Math.round(b0[i]);
+            const o = i * 4;
+            if (v === ndVal || v < 0 || v >= nColors) {
+              px[o + 3] = 0;
+            } else {
+              px[o] = cm[v] >> 8;
+              px[o + 1] = cm[nColors + v] >> 8;
+              px[o + 2] = cm[2 * nColors + v] >> 8;
+              px[o + 3] = 255;
+            }
+          }
+        } else if (rasters.length >= 3) {
+          const rBand = rasters[0], gBand = rasters[1], bBand = rasters[2];
+          const aBand = rasters.length >= 4 ? rasters[3] : null;
+          const getBounds = (arr) => {
+            let mn = Infinity, mx = -Infinity;
+            for (let i = 0; i < total; i += 4) {
+              const v = arr[i];
+              if (!Number.isFinite(v) || (nodata !== null && v === nodata)) continue;
+              if (v < mn) mn = v;
+              if (v > mx) mx = v;
+            }
+            return mn < mx ? [mn, mx] : [0, 255];
+          };
+          const [rMin, rMax] = getBounds(rBand);
+          const [gMin, gMax] = getBounds(gBand);
+          const [bMin, bMax] = getBounds(bBand);
+          for (let i = 0; i < total; i++) {
+            const o = i * 4;
+            const rv = rBand[i], gv = gBand[i], bv = bBand[i];
+            if (!Number.isFinite(rv) || (nodata !== null && rv === nodata) || (aBand && aBand[i] === 0)) {
+              px[o + 3] = 0;
+            } else {
+              px[o] = Math.max(0, Math.min(255, ((rv - rMin) / (rMax - rMin)) * 255));
+              px[o + 1] = Math.max(0, Math.min(255, ((gv - gMin) / (gMax - gMin)) * 255));
+              px[o + 2] = Math.max(0, Math.min(255, ((bv - bMin) / (bMax - bMin)) * 255));
+              px[o + 3] = 255;
+            }
+          }
+        } else {
+          // Single-band thematic/continuous raster -> Mid-Century thematic palette / ramp
+          const b0 = rasters[0];
+          const catColors = [
+            [23, 82, 94], [194, 86, 52], [217, 155, 38], [107, 122, 58],
+            [43, 122, 155], [140, 122, 107], [31, 36, 33]
+          ];
+          let mn = Infinity, mx = -Infinity, allIntSmall = true;
+          for (let i = 0; i < total; i++) {
+            const v = b0[i];
+            if (!Number.isFinite(v) || (nodata !== null && v === nodata)) continue;
+            if (v < mn) mn = v;
+            if (v > mx) mx = v;
+            if (!Number.isInteger(v) || v < 0 || v > 15) allIntSmall = false;
+          }
+          if (!(mn < mx)) { mn = 0; mx = 1; }
+          for (let i = 0; i < total; i++) {
+            const v = b0[i];
+            const o = i * 4;
+            if (!Number.isFinite(v) || (nodata !== null && v === nodata) || (nodata === null && allIntSmall && v === 0)) {
+              px[o + 3] = 0;
+            } else if (allIntSmall) {
+              const col = catColors[Math.abs(Math.round(v)) % catColors.length];
+              px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = 255;
+            } else {
+              const t = Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
+              px[o] = Math.round(194 * (1 - t) + 23 * t);
+              px[o + 1] = Math.round(86 * (1 - t) + 122 * t);
+              px[o + 2] = Math.round(52 * (1 - t) + 94 * t);
+              px[o + 3] = 255;
+            }
+          }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        let dataUrl = canvas.toDataURL('image/webp', 0.85);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        }
+        return { dataUrl, origW: baseW, origH: baseH, optW: tw, optH: th };
+      }
+
+      if (typeof UTIF !== 'undefined') {
+        const buf = await file.arrayBuffer();
+        const ifds = UTIF.decode(buf);
+        if (!ifds || ifds.length === 0) throw new Error('TIFF inválido');
+        UTIF.decodeImage(buf, ifds[0]);
+        const rgba = UTIF.toRGBA8(ifds[0]);
+        const ow = ifds[0].width, oh = ifds[0].height;
+        const scale = Math.min(1, MAX_DIM / Math.max(ow, oh));
+        const tw = Math.max(1, Math.round(ow * scale)), th = Math.max(1, Math.round(oh * scale));
+        const srcC = document.createElement('canvas');
+        srcC.width = ow; srcC.height = oh;
+        srcC.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba), ow, oh), 0, 0);
+        const dstC = document.createElement('canvas');
+        dstC.width = tw; dstC.height = th;
+        dstC.getContext('2d').drawImage(srcC, 0, 0, tw, th);
+        let dataUrl = dstC.toDataURL('image/webp', 0.85);
+        if (!dataUrl.startsWith('data:image/webp')) dataUrl = dstC.toDataURL('image/jpeg', 0.85);
+        return { dataUrl, origW: ow, origH: oh, optW: tw, optH: th };
+      }
+      throw new Error('Decodificador GeoTIFF/UTIF no disponible');
+    }
+
+    function handleMHTiffUpload(secId, field = 'imageUrl') {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec) return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.tif,.tiff,image/tiff';
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showProgress('Optimizando TIFF para Map History (sin carga de zoom)...', 40);
+        try {
+          const res = await _mhOptimizeTiffFileToDataUrl(file);
+          sec[field] = res.dataUrl;
+          const kb = Math.round((res.dataUrl.length * 0.75) / 1024);
+          renderMHPreview();
+          renderMHEditor();
+          hideProgress();
+          toast(`TIFF optimizado (${res.origW}×${res.origH} → ${res.optW}×${res.optH} WebP · ~${kb} KB)`, 'success');
+        } catch (err) {
+          hideProgress();
+          toast('Error optimizando TIFF para Map History: ' + (err.message || err), 'error');
+        }
+      };
+      input.click();
+    }
+
+    // Image Upload (supports both standard images and unique TIFF optimization if .tif is chosen)
     function handleMHImageUpload(secId, field = 'imageUrl') {
       const sec = mhData.sections.find(s => s.id === secId);
       if (!sec) return;
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e) => {
+      input.accept = 'image/*,.tif,.tiff';
+      input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (/\.tiff?$/i.test(file.name) || file.type === 'image/tiff') {
+          showProgress('Optimizando TIFF exclusivamente para Map History...', 40);
+          try {
+            const res = await _mhOptimizeTiffFileToDataUrl(file);
+            sec[field] = res.dataUrl;
+            const kb = Math.round((res.dataUrl.length * 0.75) / 1024);
+            renderMHPreview();
+            renderMHEditor();
+            hideProgress();
+            toast(`TIFF optimizado (${res.optW}×${res.optH} WebP · ~${kb} KB)`, 'success');
+          } catch (err) {
+            hideProgress();
+            toast('No se pudo optimizar el TIFF: ' + (err.message || err), 'error');
+          }
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (ev) => {
           sec[field] = ev.target.result;
@@ -62275,7 +62539,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       }
     }
 
-    // Comparison slider mouse/touch drag handler
+    // Comparison slider mouse/touch drag handler (supports both clip-path 1:1 align and legacy width%)
     function handleMHCompareDrag(e, container) {
       if (e.buttons !== 1 && e.type !== 'touchmove') return;
       const rect = container.getBoundingClientRect();
@@ -62283,7 +62547,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       const beforeEl = container.querySelector('.mh-compare-before');
       const dividerEl = container.querySelector('.mh-compare-divider');
-      if (beforeEl) beforeEl.style.width = pct + '%';
+      if (beforeEl) {
+        if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+        else beforeEl.style.width = pct + '%';
+      }
       if (dividerEl) dividerEl.style.left = pct + '%';
     }
 
@@ -62293,7 +62560,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       const beforeEl = container.querySelector('.mh-compare-before');
       const dividerEl = container.querySelector('.mh-compare-divider');
-      if (beforeEl) beforeEl.style.width = pct + '%';
+      if (beforeEl) {
+        if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+        else beforeEl.style.width = pct + '%';
+      }
       if (dividerEl) dividerEl.style.left = pct + '%';
     }
 
@@ -63024,26 +63294,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;margin-bottom:16px;">${sec.body}</div>` : ''}
               
               ${(img1 && img2 && sec.compareMode === 'slider') ? `
-                <div class="mh-compare-container w-full h-72 sm:h-80" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
-                  <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                  <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
-                    <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                <div class="mh-compare-container w-full h-96 sm:h-[440px]" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                  <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                  <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                    <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                   </div>
                   <div class="mh-compare-divider" style="left:50%;">
                     <div class="mh-compare-handle">⇄</div>
                   </div>
-                  <span class="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l1)}</span>
-                  <span class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l2)}</span>
+                  <span class="pointer-events-none absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l1)}</span>
+                  <span class="pointer-events-none absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l2)}</span>
                 </div>
               ` : (img1 || img2) ? `
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                  <div class="rounded-xl overflow-hidden border border-white/10 relative">
-                    ${img1 ? `<img src="${img1}" style="width:100%;height:180px;object-fit:cover;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 1</div>'}
-                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">${escHtml(l1)}</span>
+                  <div class="rounded-xl overflow-hidden border border-black/10 bg-black/5 relative">
+                    ${img1 ? `<img src="${img1}" loading="lazy" decoding="async" style="width:100%;height:220px;object-fit:contain;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 1</div>'}
+                    <span class="pointer-events-none absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 text-white text-[9px] font-bold">${escHtml(l1)}</span>
                   </div>
-                  <div class="rounded-xl overflow-hidden border border-white/10 relative">
-                    ${img2 ? `<img src="${img2}" style="width:100%;height:180px;object-fit:cover;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 2</div>'}
-                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">${escHtml(l2)}</span>
+                  <div class="rounded-xl overflow-hidden border border-black/10 bg-black/5 relative">
+                    ${img2 ? `<img src="${img2}" loading="lazy" decoding="async" style="width:100%;height:220px;object-fit:contain;">` : '<div class="h-44 bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">Sin imagen 2</div>'}
+                    <span class="pointer-events-none absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 text-white text-[9px] font-bold">${escHtml(l2)}</span>
                   </div>
                 </div>
               ` : `
@@ -63349,7 +63619,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </div>
             <input type="text" value="${escHtml(sec.label1 || 'Antes')}" onchange="updateMHField('label1',this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs border border-zinc-200 mb-2 bg-white" placeholder="Etiqueta Capa 1">
             ${sec.imageUrl ? `
-              <img src="${sec.imageUrl}" class="w-full h-20 object-cover rounded-lg border border-zinc-200 mb-2">
+              <img src="${sec.imageUrl}" loading="lazy" decoding="async" class="w-full h-24 object-contain bg-zinc-100 rounded-lg border border-zinc-200 mb-2">
             ` : ''}
             <div class="grid grid-cols-2 gap-1.5">
               <button onclick="captureActiveMapToCurrentSection('imageUrl')" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200 flex items-center justify-center gap-1">
@@ -63359,6 +63629,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <span class="material-symbols-outlined text-[13px]">upload</span> Subir
               </button>
             </div>
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+              <span class="material-symbols-outlined text-[14px]">compress</span> TIFF Optimizado (.tif)
+            </button>
           </div>
 
           <!-- Image 2 -->
@@ -63369,7 +63642,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </div>
             <input type="text" value="${escHtml(sec.label2 || 'Después')}" onchange="updateMHField('label2',this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs border border-zinc-200 mb-2 bg-white" placeholder="Etiqueta Capa 2">
             ${sec.imageUrl2 ? `
-              <img src="${sec.imageUrl2}" class="w-full h-20 object-cover rounded-lg border border-zinc-200 mb-2">
+              <img src="${sec.imageUrl2}" loading="lazy" decoding="async" class="w-full h-24 object-contain bg-zinc-100 rounded-lg border border-zinc-200 mb-2">
             ` : ''}
             <div class="grid grid-cols-2 gap-1.5">
               <button onclick="captureActiveMapToCurrentSection('imageUrl2')" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200 flex items-center justify-center gap-1">
@@ -63379,6 +63652,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <span class="material-symbols-outlined text-[13px]">upload</span> Subir
               </button>
             </div>
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl2')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+              <span class="material-symbols-outlined text-[14px]">compress</span> TIFF Optimizado (.tif)
+            </button>
           </div>`;
       } else if (sec.type === 'metrics') {
         const metricsList = sec.metrics || [];
@@ -63472,8 +63748,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           <div class="mb-4">
             <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Imagen / Captura de Mapa</label>
             ${sec.imageUrl ? `
-              <div class="relative rounded-xl overflow-hidden mb-2 border border-zinc-200">
-                <img src="${sec.imageUrl}" class="w-full h-24 object-cover">
+              <div class="relative rounded-xl overflow-hidden mb-2 border border-zinc-200 bg-zinc-100">
+                <img src="${sec.imageUrl}" loading="lazy" decoding="async" class="w-full h-24 object-contain">
                 <button onclick="updateMHField('imageUrl',null)" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-red-500 transition-colors">
                   <span class="material-symbols-outlined text-[12px]">close</span>
                 </button>
@@ -63488,6 +63764,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 Subir Archivo
               </button>
             </div>
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-2 w-full px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 text-[11px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+              <span class="material-symbols-outlined text-[15px]">compress</span>
+              Importar TIFF Optimizado (.tif)
+            </button>
           </div>`;
       }
 
@@ -63812,26 +64092,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed">${sec.body}</div>` : ''}
                 </div>
                 ${(img1 && img2 && sec.compareMode === 'slider') ? `
-                  <div class="mh-compare-container w-full h-[55vh] min-h-[360px] shadow-2xl rounded-2xl border border-white/10" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
-                    <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                    <div class="mh-compare-before" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.4);">
-                      <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                  <div class="mh-compare-container w-full h-[62vh] min-h-[420px] max-h-[640px] shadow-2xl rounded-2xl border border-black/10" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                    <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                    <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                      <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                     </div>
                     <div class="mh-compare-divider" style="left:50%;">
                       <div class="mh-compare-handle">⇄</div>
                     </div>
-                    <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/65 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
-                    <span class="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/65 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
+                    <span class="pointer-events-none absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
+                    <span class="pointer-events-none absolute top-4 right-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
                   </div>
                 ` : `
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                    <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-                      ${img1 ? `<img src="${img1}" class="w-full h-80 sm:h-96 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 1</div>'}
-                      <span class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
+                    <div class="relative rounded-2xl overflow-hidden border border-black/10 bg-black/5 shadow-xl">
+                      ${img1 ? `<img src="${img1}" loading="lazy" decoding="async" class="w-full h-96 sm:h-[440px] object-contain">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 1</div>'}
+                      <span class="pointer-events-none absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
                     </div>
-                    <div class="relative rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-                      ${img2 ? `<img src="${img2}" class="w-full h-80 sm:h-96 object-cover">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 2</div>'}
-                      <span class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
+                    <div class="relative rounded-2xl overflow-hidden border border-black/10 bg-black/5 shadow-xl">
+                      ${img2 ? `<img src="${img2}" loading="lazy" decoding="async" class="w-full h-96 sm:h-[440px] object-contain">` : '<div class="h-80 bg-zinc-900 flex items-center justify-center text-sm opacity-50">Sin imagen 2</div>'}
+                      <span class="pointer-events-none absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
                     </div>
                   </div>`}
               </div>
@@ -64081,16 +64361,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
                 ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.8;margin-bottom:24px;">${sec.body}</div>` : ''}
                 ${(img1 && img2) ? `
-                  <div class="mh-compare-container" style="height:480px;position:relative;overflow:hidden;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.2);" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
-                    <img src="${img2}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                    <div class="before-layer" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:2px solid white;">
-                      <img src="${img1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;min-width:100%;">
+                  <div class="mh-compare-container" style="height:540px;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
+                    <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                    <div class="before-layer" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                      <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                     </div>
-                    <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;">
+                    <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                       <div style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
                     </div>
-                    <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.6);color:white;font-size:11px;font-weight:700;">${escHtml(sec.label1||'Antes')}</span>
-                    <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.6);color:white;font-size:11px;font-weight:700;">${escHtml(sec.label2||'Después')}</span>
+                    <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
+                    <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
                   </div>` : ''}
               </div>
             </section>`;
@@ -64185,13 +64465,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       wrap.querySelectorAll('[data-mh-series="' + idx + '"]').forEach(function(el){ el.style.opacity = nextHidden ? '0.07' : ''; });
     }
     function handleCompare(e, container) {
-      if (e.buttons !== 1 && e.type !== 'touchmove') return;
+      if (e.type !== 'click' && e.buttons !== 1 && e.type !== 'touchmove') return;
       const rect = container.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       const before = container.querySelector('.before-layer');
       const div = container.querySelector('.divider');
-      if (before) before.style.width = pct + '%';
+      if (before) {
+        if (before.dataset.clip === '1') before.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+        else before.style.width = pct + '%';
+      }
       if (div) div.style.left = pct + '%';
     }
   <\/script>
