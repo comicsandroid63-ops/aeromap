@@ -717,6 +717,125 @@
       display: none;
       max-width: 240px;
     }
+    @keyframes mhFloatSlow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-7px) rotate(2.5deg); }
+    }
+    @keyframes mhFloatAlt {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(6px) scale(1.05); }
+    }
+    @keyframes mhFlowDash {
+      to { stroke-dashoffset: -42; }
+    }
+    @keyframes mhDrawStroke {
+      from { stroke-dashoffset: 2200; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes mhPopIn {
+      0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes mhBarGrowX {
+      from { transform: scaleX(0); opacity: 0.35; }
+      to { transform: scaleX(1); opacity: 1; }
+    }
+    @keyframes mhBarGrowY {
+      from { transform: scaleY(0); opacity: 0.35; }
+      to { transform: scaleY(1); opacity: 1; }
+    }
+    @keyframes mhPulseGlow {
+      0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.32), 0 0 0 0 rgba(217,155,38,0.48); }
+      50% { box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 8px rgba(217,155,38,0); }
+    }
+    @keyframes mhHeroBtnBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(4px); }
+    }
+    .mh-anim-ready .mh-reveal {
+      opacity: 0;
+      transform: translateY(26px);
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mh-anim-ready .mh-reveal.mh-in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item {
+      animation: mhPopIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: calc(var(--mh-idx, 0) * 55ms);
+    }
+    .mh-anim-ready .mh-in-view .mh-svg-line-path {
+      stroke-dasharray: 2200;
+      animation: mhDrawStroke 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .mh-anim-ready .mh-in-view .mh-svg-bar-x {
+      transform-box: fill-box;
+      transform-origin: var(--mh-origin, left center);
+      animation: mhBarGrowX 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: calc(var(--mh-idx, 0) * 45ms);
+    }
+    .mh-anim-ready .mh-in-view .mh-svg-bar-y {
+      transform-box: fill-box;
+      transform-origin: bottom center;
+      animation: mhBarGrowY 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: calc(var(--mh-idx, 0) * 50ms);
+    }
+    .mh-flow-dash {
+      stroke-dasharray: 8 6;
+      animation: mhFlowDash 1.5s linear infinite;
+    }
+    .mh-kinetic-1 {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: mhFloatSlow 5.8s ease-in-out infinite;
+    }
+    .mh-kinetic-2 {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: mhFloatAlt 4.8s ease-in-out infinite;
+    }
+    .mh-compare-handle {
+      animation: mhPulseGlow 2.4s ease-in-out infinite;
+      transition: transform 0.2s ease;
+    }
+    .mh-compare-container:hover .mh-compare-handle {
+      transform: scale(1.14);
+    }
+    .mh-compare-container.mh-compare-smooth .mh-compare-before,
+    .mh-compare-container.mh-compare-smooth .before-layer,
+    .mh-compare-container.mh-compare-smooth .mh-compare-divider,
+    .mh-compare-container.mh-compare-smooth .divider {
+      transition: clip-path 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), left 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mh-class-chip {
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .mh-class-chip:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+    }
+    .mh-hero-cta-arrow {
+      animation: mhHeroBtnBounce 1.8s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mh-anim-ready .mh-reveal,
+      .mh-anim-ready .mh-reveal.mh-in-view,
+      .mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item,
+      .mh-anim-ready .mh-in-view .mh-svg-line-path,
+      .mh-anim-ready .mh-in-view .mh-svg-bar-x,
+      .mh-anim-ready .mh-in-view .mh-svg-bar-y,
+      .mh-flow-dash,
+      .mh-kinetic-1,
+      .mh-kinetic-2,
+      .mh-compare-handle,
+      .mh-hero-cta-arrow {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
     @media print {
       body * {
         visibility: hidden !important;
@@ -61398,7 +61517,73 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     };
 
     const MH_STORAGE_KEY = '_zima_map_histories';
-    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v6';
+    const MH_SEEDED_KEY = '_zima_mh_tdg_seeded_v7';
+
+    const MH_CLASS_PALETTES = {
+      supervisada: {
+        label: 'Clasificación Supervisada (7 Clases)',
+        items: [
+          { code: 'C1', name: 'Cultivos Agrícolas', color: '#ffffa6', detail: '' },
+          { code: 'C2', name: 'Urbano e Infraestructura', color: '#cc0000', detail: '' },
+          { code: 'C3', name: 'Bosque y Veg. Densa', color: '#478f00', detail: '' },
+          { code: 'C4', name: 'Peladeros / Suelo Expuesto', color: '#9e9e9e', detail: '' },
+          { code: 'C5', name: 'Cuerpos de Agua', color: '#0000f8', detail: '' },
+          { code: 'C6', name: 'Rastrojo y Veg. Sec.', color: '#96bf0d', detail: '' },
+          { code: 'C7', name: 'Pastos y Sabanas', color: '#ccffcc', detail: '' }
+        ]
+      },
+      isodata: {
+        label: 'No Supervisada ISODATA (5 Clases)',
+        items: [
+          { code: 'C1', name: 'Cuerpos de Agua', color: '#0000f8', detail: '' },
+          { code: 'C2', name: 'Suelo Expuesto / No Veg.', color: '#9e9e9e', detail: '' },
+          { code: 'C3', name: 'Veg. Baja / Pastos', color: '#ccffcc', detail: '' },
+          { code: 'C4', name: 'Veg. Moderada / Cultivos', color: '#96bf0d', detail: '' },
+          { code: 'C5', name: 'Veg. Densa / Bosques', color: '#478f00', detail: '' }
+        ]
+      },
+      ndvi: {
+        label: 'Índice NDVI (5 Rangos)',
+        items: [
+          { code: '≤0,00', name: 'Cuerpos de Agua / Humedales', color: '#1f78b4', detail: '' },
+          { code: '0–0,20', name: 'Suelo Desnudo / Urbano', color: '#d95f0e', detail: '' },
+          { code: '0,20–0,40', name: 'Veg. Baja / Pastos', color: '#fed976', detail: '' },
+          { code: '0,40–0,60', name: 'Veg. Moderada / Cultivos', color: '#74c476', detail: '' },
+          { code: '>0,60', name: 'Veg. Densa / Bosques', color: '#006837', detail: '' }
+        ]
+      },
+      ndwi: {
+        label: 'Índice NDWI (5 Rangos)',
+        items: [
+          { code: '≤0,00', name: 'Estrés Hídrico Severo', color: '#d73027', detail: '' },
+          { code: '0–0,15', name: 'Estrés Hídrico Alto', color: '#fdae61', detail: '' },
+          { code: '0,15–0,30', name: 'Humedad Moderada', color: '#fee08b', detail: '' },
+          { code: '0,30–0,45', name: 'Humedad Favorable', color: '#66c2a5', detail: '' },
+          { code: '>0,45', name: 'Alto Cont. Hídrico / Agua', color: '#1f78b4', detail: '' }
+        ]
+      },
+      savi: {
+        label: 'Índice SAVI (5 Rangos)',
+        items: [
+          { code: '≤0,00', name: 'Cuerpos de Agua / Humedales', color: '#1f78b4', detail: '' },
+          { code: '0–0,15', name: 'Suelo Desnudo / Urbano', color: '#d95f0e', detail: '' },
+          { code: '0,15–0,30', name: 'Veg. Baja / Pastos', color: '#fed976', detail: '' },
+          { code: '0,30–0,45', name: 'Veg. Moderada / Cultivos', color: '#74c476', detail: '' },
+          { code: '>0,45', name: 'Veg. Densa / Palma y Bosque', color: '#006837', detail: '' }
+        ]
+      }
+    };
+
+    function buildMHClassLegend(presetKey, details = []) {
+      const preset = MH_CLASS_PALETTES[presetKey];
+      if (!preset) return [];
+      return preset.items.map((it, i) => ({
+        code: it.code,
+        name: it.name,
+        color: it.color,
+        detail: details[i] !== undefined ? details[i] : (it.detail || '')
+      }));
+    }
 
     const MH_MIDCENTURY_SWATCHES = [
       { label: 'Crema 50s', bg: '#F6EFE2', text: '#1F2421', accent: '#C25634' },
@@ -61562,7 +61747,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'Supervisada Norte · 1996 (L5)',
             label2: 'Supervisada Norte · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/sup_norte_1996.webp',
-            imageUrl2: '/assets/tdg_opt/sup_norte_2026.webp'
+            imageUrl2: '/assets/tdg_opt/sup_norte_2026.webp',
+            classLegend: buildMHClassLegend('supervisada', [
+              '+92.504 ha (+244,7%)',
+              '+7.074 ha (+165,2%)',
+              '-52.640 ha (-9,3%)',
+              '-55.630 ha (-26,8%)',
+              '-1.127 ha (-16,4%)',
+              '-49.449 ha (-23,0%)',
+              '+59.269 ha (+30,6%)'
+            ])
           },
           {
             id: 'tdg_cmp_sup_sur',
@@ -61575,7 +61769,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'Supervisada Sur · 1996 (L5)',
             label2: 'Supervisada Sur · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/sup_sur_1996.webp',
-            imageUrl2: '/assets/tdg_opt/sup_sur_2026.webp'
+            imageUrl2: '/assets/tdg_opt/sup_sur_2026.webp',
+            classLegend: buildMHClassLegend('supervisada', [
+              '+77.877 ha (+259,9%)',
+              '+8.893 ha (+301,8%)',
+              '-77.929 ha (-17,8%)',
+              '+27.496 ha (+56,0%)',
+              '+1.837 ha (+3,1%)',
+              '-78.730 ha (-36,0%)',
+              '+40.556 ha (+17,7%)'
+            ])
           },
           {
             id: 'tdg_cmp_iso_norte',
@@ -61588,7 +61791,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'ISODATA Norte · 1996 (L5)',
             label2: 'ISODATA Norte · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/iso_norte_1996.webp',
-            imageUrl2: '/assets/tdg_opt/iso_norte_2026.webp'
+            imageUrl2: '/assets/tdg_opt/iso_norte_2026.webp',
+            classLegend: buildMHClassLegend('isodata', [
+              '-1.092 ha (-15,8%)',
+              '-48.725 ha (-23,0%)',
+              '+60.988 ha (+31,5%)',
+              '+43.471 ha (+17,3%)',
+              '-54.642 ha (-9,6%)'
+            ])
           },
           {
             id: 'tdg_cmp_iso_sur',
@@ -61601,7 +61811,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'ISODATA Sur · 1996 (L5)',
             label2: 'ISODATA Sur · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/iso_sur_1996.webp',
-            imageUrl2: '/assets/tdg_opt/iso_sur_2026.webp'
+            imageUrl2: '/assets/tdg_opt/iso_sur_2026.webp',
+            classLegend: buildMHClassLegend('isodata', [
+              '+1.564 ha (+2,8%)',
+              '+36.753 ha (+70,8%)',
+              '+42.563 ha (+18,6%)',
+              '+27 ha (Estable)',
+              '-80.906 ha (-18,3%)'
+            ])
           },
           {
             id: 'tdg_sec_6',
@@ -61701,7 +61918,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'NDVI Norte · 1996 (L5)',
             label2: 'NDVI Norte · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/ndvi_norte_1996.webp',
-            imageUrl2: '/assets/tdg_opt/ndvi_norte_2026.webp'
+            imageUrl2: '/assets/tdg_opt/ndvi_norte_2026.webp',
+            classLegend: buildMHClassLegend('ndvi', [
+              '+298 ha (812 ha)',
+              '+2.412 ha (10.982 ha)',
+              '-63.868 ha (45.319 ha)',
+              '-245.153 ha (233.917 ha)',
+              '+306.311 ha (939.563 ha)'
+            ])
           },
           {
             id: 'tdg_cmp_ndvi_sur',
@@ -61714,7 +61938,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'NDVI Sur · 1996 (L5)',
             label2: 'NDVI Sur · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/ndvi_sur_1996.webp',
-            imageUrl2: '/assets/tdg_opt/ndvi_sur_2026.webp'
+            imageUrl2: '/assets/tdg_opt/ndvi_sur_2026.webp',
+            classLegend: buildMHClassLegend('ndvi', [
+              '+15.388 ha (40.492 ha)',
+              '-4.917 ha (10.025 ha)',
+              '-17.877 ha (12.471 ha)',
+              '-148.052 ha (107.549 ha)',
+              '+155.458 ha (854.565 ha)'
+            ])
           },
           {
             id: 'tdg_cmp_ndwi_norte',
@@ -61727,7 +61958,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'NDWI Norte · 1996 (L5)',
             label2: 'NDWI Norte · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/ndwi_norte_1996.webp',
-            imageUrl2: '/assets/tdg_opt/ndwi_norte_2026.webp'
+            imageUrl2: '/assets/tdg_opt/ndwi_norte_2026.webp',
+            classLegend: buildMHClassLegend('ndwi', [
+              '-51.758 ha (156.939 ha)',
+              '-64.329 ha (348.233 ha)',
+              '+30.713 ha (404.938 ha)',
+              '+96.585 ha (305.528 ha)',
+              '-11.211 ha (14.954 ha)'
+            ])
           },
           {
             id: 'tdg_cmp_ndwi_sur',
@@ -61740,7 +61978,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'NDWI Sur · 1996 (L5)',
             label2: 'NDWI Sur · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/ndwi_sur_1996.webp',
-            imageUrl2: '/assets/tdg_opt/ndwi_sur_2026.webp'
+            imageUrl2: '/assets/tdg_opt/ndwi_sur_2026.webp',
+            classLegend: buildMHClassLegend('ndwi', [
+              '+4.820 ha (78.660 ha)',
+              '+22.185 ha (252.771 ha)',
+              '-34.228 ha (341.858 ha)',
+              '+18.229 ha (292.351 ha)',
+              '-11.005 ha (59.462 ha)'
+            ])
           },
           {
             id: 'tdg_cmp_savi_norte',
@@ -61753,7 +61998,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'SAVI Norte · 1996 (L5)',
             label2: 'SAVI Norte · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/savi_norte_1996.webp',
-            imageUrl2: '/assets/tdg_opt/savi_norte_2026.webp'
+            imageUrl2: '/assets/tdg_opt/savi_norte_2026.webp',
+            classLegend: buildMHClassLegend('savi', [
+              '+298 ha (812 ha)',
+              '-26.090 ha (17.485 ha)',
+              '-280.239 ha (121.503 ha)',
+              '-13.321 ha (624.337 ha)',
+              '+319.353 ha (466.455 ha)'
+            ])
           },
           {
             id: 'tdg_cmp_savi_sur',
@@ -61766,7 +62018,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             label1: 'SAVI Sur · 1996 (L5)',
             label2: 'SAVI Sur · 2026 (L9)',
             imageUrl: '/assets/tdg_opt/savi_sur_1996.webp',
-            imageUrl2: '/assets/tdg_opt/savi_sur_2026.webp'
+            imageUrl2: '/assets/tdg_opt/savi_sur_2026.webp',
+            classLegend: buildMHClassLegend('savi', [
+              '+15.388 ha (40.492 ha)',
+              '-18.808 ha (15.179 ha)',
+              '-135.952 ha (39.940 ha)',
+              '-163.473 ha (419.732 ha)',
+              '+302.845 ha (509.761 ha)'
+            ])
           },
           {
             id: 'tdg_sec_10',
@@ -62606,13 +62865,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     // Comparison slider mouse/touch drag handler (supports both clip-path 1:1 align and legacy width%)
-    function handleMHCompareDrag(e, container) {
-      if (e.buttons !== 1 && e.type !== 'touchmove') return;
-      const rect = container.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      const beforeEl = container.querySelector('.mh-compare-before');
-      const dividerEl = container.querySelector('.mh-compare-divider');
+    function _mhStopSweep(container) {
+      if (!container) return;
+      if (container._mhSweepRaf) {
+        cancelAnimationFrame(container._mhSweepRaf);
+        container._mhSweepRaf = null;
+      }
+      container.dataset.sweeping = '0';
+      const wrap = container.closest('.mh-compare-wrapper');
+      const btn = wrap ? wrap.querySelector('[data-mh-sweep-btn]') : null;
+      if (btn) btn.innerHTML = '<span>▶</span> Animar barrido';
+    }
+
+    function _mhApplyComparePct(container, pct) {
+      if (!container) return;
+      const beforeEl = container.querySelector('.mh-compare-before, .before-layer');
+      const dividerEl = container.querySelector('.mh-compare-divider, .divider');
       if (beforeEl) {
         if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
         else beforeEl.style.width = pct + '%';
@@ -62620,17 +62888,145 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (dividerEl) dividerEl.style.left = pct + '%';
     }
 
-    function handleMHCompareClick(e, container) {
+    function handleMHCompareDrag(e, container) {
+      if (e.buttons !== 1 && e.type !== 'touchmove') return;
+      container.dataset.userTouched = '1';
+      container.classList.remove('mh-compare-smooth');
+      _mhStopSweep(container);
       const rect = container.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      const beforeEl = container.querySelector('.mh-compare-before');
-      const dividerEl = container.querySelector('.mh-compare-divider');
-      if (beforeEl) {
-        if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-        else beforeEl.style.width = pct + '%';
+      _mhApplyComparePct(container, pct);
+    }
+
+    function handleMHCompareClick(e, container) {
+      container.dataset.userTouched = '1';
+      container.classList.add('mh-compare-smooth');
+      _mhStopSweep(container);
+      const rect = container.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      _mhApplyComparePct(container, pct);
+    }
+
+    function setMHSliderPos(btn, pct) {
+      const wrap = btn ? btn.closest('.mh-compare-wrapper') : null;
+      const container = wrap ? wrap.querySelector('.mh-compare-container') : null;
+      if (!container) return;
+      container.dataset.userTouched = '1';
+      _mhStopSweep(container);
+      container.classList.add('mh-compare-smooth');
+      _mhApplyComparePct(container, pct);
+    }
+
+    function toggleMHSliderAutoSweep(btn) {
+      const wrap = btn ? btn.closest('.mh-compare-wrapper') : null;
+      const container = wrap ? wrap.querySelector('.mh-compare-container') : null;
+      if (!container) return;
+      if (container.dataset.sweeping === '1') {
+        _mhStopSweep(container);
+        return;
       }
-      if (dividerEl) dividerEl.style.left = pct + '%';
+      container.dataset.userTouched = '1';
+      container.classList.remove('mh-compare-smooth');
+      container.dataset.sweeping = '1';
+      btn.innerHTML = '<span>❚❚</span> Pausar barrido';
+      const t0 = performance.now();
+      const tick = (now) => {
+        if (container.dataset.sweeping !== '1' || !container.isConnected) {
+          _mhStopSweep(container);
+          return;
+        }
+        const pct = 50 + 40 * Math.sin(((now - t0) / 1000) * 1.45);
+        _mhApplyComparePct(container, pct);
+        container._mhSweepRaf = requestAnimationFrame(tick);
+      };
+      container._mhSweepRaf = requestAnimationFrame(tick);
+    }
+
+    // Class Legend CRUD & Reusable UI Renderers for Raster Classifications
+    function applyMHClassPreset(secId, presetKey) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec || !MH_CLASS_PALETTES[presetKey]) return;
+      sec.classLegend = buildMHClassLegend(presetKey);
+      renderMHEditor();
+      renderMHPreview();
+      toast(`Clases cargadas: ${MH_CLASS_PALETTES[presetKey].label}`, 'success');
+    }
+
+    function addMHClassItem(secId) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec) return;
+      if (!Array.isArray(sec.classLegend)) sec.classLegend = [];
+      sec.classLegend.push({
+        code: `C${sec.classLegend.length + 1}`,
+        name: 'Nueva Clase',
+        color: mhData.globalAccent || '#D99B26',
+        detail: ''
+      });
+      renderMHEditor();
+      renderMHPreview();
+    }
+
+    function updateMHClassItem(secId, idx, key, val) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec || !Array.isArray(sec.classLegend) || !sec.classLegend[idx]) return;
+      sec.classLegend[idx][key] = val;
+      renderMHPreview();
+    }
+
+    function deleteMHClassItem(secId, idx) {
+      const sec = mhData.sections.find(s => s.id === secId);
+      if (!sec || !Array.isArray(sec.classLegend)) return;
+      sec.classLegend.splice(idx, 1);
+      renderMHEditor();
+      renderMHPreview();
+    }
+
+    function renderMHCompareToolbar(sec, bg) {
+      const isDark = _mhIsDarkBg(bg);
+      const pillBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(31,36,33,0.08)';
+      const pillBorder = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(31,36,33,0.18)';
+      const l1Short = String(sec.label1 || 'Antes').split('·')[0].trim().slice(0, 14);
+      const l2Short = String(sec.label2 || 'Después').split('·')[0].trim().slice(0, 14);
+      return `
+        <div class="mh-compare-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-top:12px;">
+          <button type="button" onclick="setMHSliderPos(this, 100)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Sólo ${escHtml(l1Short)}</button>
+          <button type="button" onclick="setMHSliderPos(this, 50)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">50 / 50</button>
+          <button type="button" onclick="setMHSliderPos(this, 0)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Sólo ${escHtml(l2Short)}</button>
+          <button type="button" data-mh-sweep-btn="1" onclick="toggleMHSliderAutoSweep(this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:900;background:#D99B26;color:#1F2421;border:1px solid rgba(31,36,33,0.25);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.14);"><span>▶</span> Animar barrido</button>
+        </div>`;
+    }
+
+    function renderMHClassesLegend(sec, bg, text, compact = false) {
+      const items = Array.isArray(sec.classLegend) ? sec.classLegend : [];
+      if (!items.length) return '';
+      const isDark = _mhIsDarkBg(bg);
+      const cardBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.84)';
+      const cardBorder = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(31,36,33,0.15)';
+      return `
+        <div class="mh-class-legend" style="max-width:860px;margin:${compact ? '14px' : '18px'} auto 0;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;opacity:0.75;margin-bottom:8px;text-align:center;">Clases Cartográficas (${items.length})</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(${compact ? '160px' : '185px'}, 1fr));gap:${compact ? '7px' : '9px'};">
+            ${items.map((cl, i) => {
+              const det = String(cl.detail || '');
+              const isNeg = det.trim().startsWith('-');
+              const isPos = det.trim().startsWith('+');
+              const detColor = isNeg ? (isDark ? '#FCA5A5' : '#B91C1C') : isPos ? (isDark ? '#86EFAC' : '#15803D') : text;
+              return `
+                <div class="mh-class-chip mh-stagger-item" style="--mh-idx:${i};display:flex;align-items:center;gap:9px;padding:${compact ? '7px 9px' : '9px 11px'};border-radius:12px;background:${cardBg};border:1.25px solid ${cardBorder};cursor:pointer;"
+                     onmousemove="if(typeof showMHChartTooltip==='function')showMHChartTooltip(event,'${escHtml((cl.code ? cl.code + ' · ' : '') + cl.name)}','Cambio 1996→2026','${escHtml(det || cl.name)}')" onmouseleave="if(typeof hideMHChartTooltip==='function')hideMHChartTooltip()">
+                  <span style="width:${compact ? '16px' : '20px'};height:${compact ? '16px' : '20px'};border-radius:6px;background:${cl.color || '#478f00'};border:1.5px solid ${isDark ? 'rgba(255,255,255,0.45)' : 'rgba(31,36,33,0.3)'};flex-shrink:0;"></span>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font-size:${compact ? '10.5px' : '11.5px'};font-weight:800;line-height:1.2;color:${text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      ${cl.code ? `<span style="opacity:0.65;margin-right:3px;">${escHtml(cl.code)}</span>` : ''}${escHtml(cl.name || 'Clase')}
+                    </div>
+                    ${det ? `<div style="font-size:${compact ? '9.5px' : '10px'};font-weight:800;margin-top:2px;color:${detColor};line-height:1.2;">${escHtml(det)}</div>` : ''}
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
     }
 
     // Metrics CRUD
@@ -62726,15 +63122,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const isDark = _mhIsDarkBg(bg);
       const lineStroke = isDark ? 'rgba(246,239,226,0.35)' : 'rgba(31,36,33,0.25)';
       return `
-        <svg viewBox="0 0 560 150" style="width:100%;max-width:520px;height:auto;margin:20px auto 12px;display:block;">
+        <svg viewBox="0 0 560 150" style="width:100%;max-width:520px;height:auto;margin:20px auto 12px;display:block;overflow:visible;">
           <path d="M15,95 C110,20 220,140 340,58 C425,2 490,92 545,48" fill="none" stroke="${lineStroke}" stroke-width="2.5"/>
-          <path d="M25,115 C140,145 245,35 380,102 C460,140 510,75 545,98" fill="none" stroke="#D99B26" stroke-width="3" stroke-dasharray="10 6"/>
-          <path d="M55,118 A48,48 0 0,1 151,118 Z" fill="#D99B26"/>
-          <circle cx="205" cy="72" r="28" fill="#6B7A3A"/>
-          <rect x="255" y="42" width="64" height="64" rx="18" fill="#C25634"/>
-          <path d="M350,115 C350,62 415,40 448,74 C475,102 435,126 392,124 Z" fill="#F6EFE2" opacity="${isDark ? '0.9' : '0.85'}" stroke="#17525E" stroke-width="3"/>
-          <circle cx="492" cy="54" r="18" fill="${accent || '#D99B26'}"/>
-          <circle cx="492" cy="54" r="7" fill="${isDark ? '#17525E' : '#F6EFE2'}"/>
+          <path class="mh-flow-dash" d="M25,115 C140,145 245,35 380,102 C460,140 510,75 545,98" fill="none" stroke="#D99B26" stroke-width="3"/>
+          <path class="mh-kinetic-1" d="M55,118 A48,48 0 0,1 151,118 Z" fill="#D99B26"/>
+          <circle class="mh-kinetic-2" cx="205" cy="72" r="28" fill="#6B7A3A"/>
+          <rect class="mh-kinetic-1" x="255" y="42" width="64" height="64" rx="18" fill="#C25634"/>
+          <path class="mh-kinetic-2" d="M350,115 C350,62 415,40 448,74 C475,102 435,126 392,124 Z" fill="#F6EFE2" opacity="${isDark ? '0.9' : '0.85'}" stroke="#17525E" stroke-width="3"/>
+          <circle class="mh-kinetic-1" cx="492" cy="54" r="18" fill="${accent || '#D99B26'}"/>
+          <circle class="mh-kinetic-2" cx="492" cy="54" r="7" fill="${isDark ? '#17525E' : '#F6EFE2'}"/>
         </svg>`;
     }
 
@@ -62790,11 +63186,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const r = 42, c = 2 * Math.PI * r;
                 const dash = (v / 100) * c;
                 return `
-                  <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 8px;border-radius:16px;background:${isDark ? 'rgba(255,255,255,0.05)' : '#FBF7EE'};border:1px solid ${cardBorder};cursor:pointer;"
+                  <div class="mh-stagger-item mh-class-chip" style="--mh-idx:${idx};display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 8px;border-radius:16px;background:${isDark ? 'rgba(255,255,255,0.05)' : '#FBF7EE'};border:1px solid ${cardBorder};cursor:pointer;"
                        onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','Indicador','${escHtml(v + (unit || '%'))}')" onmouseleave="hideMHChartTooltip()">
                     <svg viewBox="0 0 110 110" style="width:96px;height:96px;">
                       <circle cx="55" cy="55" r="${r}" fill="none" stroke="${gridColor}" stroke-width="11"/>
-                      <circle cx="55" cy="55" r="${r}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"
+                      <circle class="mh-svg-line-path" cx="55" cy="55" r="${r}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"
                         stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 55 55)"/>
                       <text x="55" y="59" text-anchor="middle" fill="${txt}" font-size="18" font-weight="900">${v.toFixed(1).replace(/\.0$/, '')}%</text>
                     </svg>
@@ -62823,7 +63219,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             coordsMap[`${ci}_${ni}`] = { x, y, w: colW, h: nodeH, cx: x + colW / 2, cy: y + nodeH / 2 };
             const nColor = nd.color || '#17525E';
             nodesSvg += `
-              <g style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(nd.title)}','${escHtml(col.title)}','${escHtml(nd.desc || '')}')" onmouseleave="hideMHChartTooltip()">
+              <g class="mh-stagger-item" style="--mh-idx:${ci * 3 + ni};cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(nd.title)}','${escHtml(col.title)}','${escHtml(nd.desc || '')}')" onmouseleave="hideMHChartTooltip()">
                 <rect x="${x}" y="${y}" width="${colW}" height="${nodeH}" rx="16" fill="#FBF7EE" stroke="${nColor}" stroke-width="2.5"/>
                 <rect x="${x}" y="${y}" width="10" height="${nodeH}" rx="5" fill="${nColor}"/>
                 <text x="${x + 20}" y="${y + 24}" fill="#1F2421" font-size="11.5" font-weight="900">${escHtml((nd.title || '').slice(0, 32))}</text>
@@ -62851,7 +63247,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           }
           linksSvg += `
             <g>
-              <path d="${pathD}" fill="none" stroke="${isDark ? '#F6EFE2' : '#17525E'}" stroke-width="2.2" marker-end="url(#mhArrow_${sec.id})" opacity="0.88"/>
+              <path class="mh-flow-dash" d="${pathD}" fill="none" stroke="${isDark ? '#F6EFE2' : '#17525E'}" stroke-width="2.2" marker-end="url(#mhArrow_${sec.id})" opacity="0.9"/>
               ${lk.label ? `
                 <rect x="${lx - 44}" y="${ly - 10}" width="88" height="16" rx="8" fill="#D99B26" stroke="#1F2421" stroke-width="0.8"/>
                 <text x="${lx}" y="${ly + 1}" text-anchor="middle" fill="#1F2421" font-size="8.5" font-weight="800">${escHtml(lk.label)}</text>` : ''}
@@ -62899,9 +63295,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const tx = v >= 0 ? bx + bw + 7 : bx - 7;
           const anchor = v >= 0 ? 'start' : 'end';
           bars += `
-            <g style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s0.name || 'Cambio')}','${escHtml(lblText)}')" onmouseleave="hideMHChartTooltip()">
+            <g class="mh-stagger-item" style="--mh-idx:${i};cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s0.name || 'Cambio')}','${escHtml(lblText)}')" onmouseleave="hideMHChartTooltip()">
               <text x="${padL - 10}" y="${y + bh / 2 + 4}" text-anchor="end" fill="${txt}" font-size="11.5" font-weight="800">${escHtml(lb)}</text>
-              <rect x="${bx}" y="${y}" width="${bw}" height="${bh}" rx="6" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1"/>
+              <rect class="mh-svg-bar-x" style="--mh-idx:${i};--mh-origin:${v >= 0 ? 'left center' : 'right center'};" x="${bx}" y="${y}" width="${bw}" height="${bh}" rx="6" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1"/>
               <text x="${tx}" y="${y + bh / 2 + 4}" text-anchor="${anchor}" fill="${txt}" font-size="11" font-weight="900">${escHtml(lblText)}</text>
             </g>`;
         });
@@ -62944,7 +63340,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             if (bw > 0.5) {
               rowsSvg += `
                 <g data-mh-series="${si}" style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(valDisp)}')" onmouseleave="hideMHChartTooltip()">
-                  <rect x="${curX}" y="${y}" width="${bw}" height="${bh}" rx="${si === 0 ? 4 : 0}" fill="${segColor}" stroke="${isDark ? '#17525E' : '#F6EFE2'}" stroke-width="0.8"/>
+                  <rect class="mh-svg-bar-x" style="--mh-idx:${li};--mh-origin:left center;" x="${curX}" y="${y}" width="${bw}" height="${bh}" rx="${si === 0 ? 4 : 0}" fill="${segColor}" stroke="${isDark ? '#17525E' : '#F6EFE2'}" stroke-width="0.8"/>
                   ${bw > 34 ? `<text x="${curX + bw / 2}" y="${y + bh / 2 + 3.5}" text-anchor="middle" fill="${segDark ? '#FBF7EE' : '#1F2421'}" font-size="9.5" font-weight="800">${normalize100 ? Math.round(val) + '%' : raw.toFixed(0)}</text>` : ''}
                 </g>`;
               curX += bw;
@@ -62986,7 +63382,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const sDark = _mhIsDarkBg(col);
             colsSvg += `
               <g data-mh-series="${si}" style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(fmtVal(v))}')" onmouseleave="hideMHChartTooltip()">
-                <rect x="${cx - bw / 2}" y="${curY}" width="${bw}" height="${Math.max(1, bh)}" rx="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.2"/>
+                <rect class="mh-svg-bar-y" style="--mh-idx:${li};" x="${cx - bw / 2}" y="${curY}" width="${bw}" height="${Math.max(1, bh)}" rx="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.2"/>
                 ${bh > 22 ? `<text x="${cx}" y="${curY + bh / 2 + 4}" text-anchor="middle" fill="${sDark ? '#FBF7EE' : '#1F2421'}" font-size="11" font-weight="900">${escHtml(fmtVal(v))}</text>` : ''}
               </g>`;
           });
@@ -63045,9 +63441,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
           linesSvg += `
             <g data-mh-series="${si}">
-              <path d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path class="mh-svg-line-path" d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               ${pts.map((pt, pi) => `
-                <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.5" style="cursor:pointer;"
+                <circle class="mh-stagger-item" style="--mh-idx:${pi};cursor:pointer;" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.5"
                   onmousemove="showMHChartTooltip(event,'${escHtml(labels[pi] || '')}','${escHtml(s.name)}','${escHtml(fmtVal(pt[2]))}')" onmouseleave="hideMHChartTooltip()"/>`).join('')}
               <text x="${(pts.length ? pts[pts.length - 1][0] : padL) + 10}" y="${ey + 4}" fill="${txt}" font-size="10" font-weight="800">${escHtml((s.name || '').slice(0, 14))}: ${escHtml(lastVal)}</text>
             </g>`;
@@ -63364,16 +63760,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.8;margin-bottom:16px;">${sec.body}</div>` : ''}
               
               ${(img1 && img2 && sec.compareMode === 'slider') ? `
-                <div class="mh-compare-container w-full" style="height:420px;" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
-                  <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
-                  <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
-                    <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                <div class="mh-compare-wrapper">
+                  <div class="mh-compare-container w-full" style="height:420px;" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                    <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                    <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                      <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                    </div>
+                    <div class="mh-compare-divider" style="left:50%;">
+                      <div class="mh-compare-handle">⇄</div>
+                    </div>
+                    <span class="pointer-events-none absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l1)}</span>
+                    <span class="pointer-events-none absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l2)}</span>
                   </div>
-                  <div class="mh-compare-divider" style="left:50%;">
-                    <div class="mh-compare-handle">⇄</div>
-                  </div>
-                  <span class="pointer-events-none absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l1)}</span>
-                  <span class="pointer-events-none absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-bold backdrop-blur-sm">${escHtml(l2)}</span>
+                  ${renderMHCompareToolbar(sec, bg)}
                 </div>
               ` : (img1 || img2) ? `
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -63390,6 +63789,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <div class="p-6 rounded-xl border border-dashed border-zinc-500/30 text-center text-xs opacity-60">
                   Inserta ambas imágenes en el panel derecho para activar el comparador antes/después
                 </div>`}
+              ${renderMHClassesLegend(sec, bg, text, true)}
             </div>`;
         } else if (sec.type === 'metrics') {
           const metricsList = sec.metrics || [];
@@ -63402,8 +63802,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.85;margin-bottom:16px;">${sec.body}</div>` : ''}
 
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
-                ${metricsList.map(m => `
-                  <div class="mh-metric-card flex flex-col justify-between" style="background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.82)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.15)'};">
+                ${metricsList.map((m, mi) => `
+                  <div class="mh-metric-card mh-stagger-item flex flex-col justify-between" style="--mh-idx:${mi};background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.82)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.15)'};">
                     <div class="flex items-center justify-between mb-2">
                       <span class="material-symbols-outlined text-[20px]" style="color:${m.color || accent};">${m.icon || 'analytics'}</span>
                       ${m.change ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${m.color || accent}22;color:${m.color || accent};">${escHtml(m.change)}</span>` : ''}
@@ -63725,6 +64125,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl2')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
               <span class="material-symbols-outlined text-[14px]">compress</span> TIFF Optimizado (.tif)
             </button>
+          </div>
+
+          <!-- Clases / Leyenda de Clasificación -->
+          <div class="mb-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold text-zinc-700 uppercase">Clases Cartográficas (${(sec.classLegend || []).length})</span>
+              <button type="button" onclick="addMHClassItem('${sec.id}')" class="text-[10px] font-bold text-indigo-600 hover:underline">+ Añadir Clase</button>
+            </div>
+            <div class="flex flex-wrap gap-1 mb-2.5">
+              ${Object.entries(MH_CLASS_PALETTES).map(([pk, pv]) => `
+                <button type="button" onclick="applyMHClassPreset('${sec.id}','${pk}')" class="px-2 py-0.5 rounded-md bg-white hover:bg-zinc-900 hover:text-white text-zinc-700 text-[9px] font-bold border border-zinc-200 transition-colors" title="${escHtml(pv.label)}">${pk.toUpperCase()}</button>`).join('')}
+            </div>
+            <div class="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+              ${(sec.classLegend || []).map((cl, ci) => `
+                <div class="p-1.5 rounded-lg bg-white border border-zinc-200 space-y-1">
+                  <div class="flex items-center gap-1.5">
+                    <input type="color" value="${cl.color || '#478f00'}" onchange="updateMHClassItem('${sec.id}',${ci},'color',this.value)" class="w-5 h-5 rounded border border-zinc-300 cursor-pointer shrink-0">
+                    <input type="text" value="${escHtml(cl.code || '')}" onchange="updateMHClassItem('${sec.id}',${ci},'code',this.value)" class="w-14 px-1.5 py-0.5 text-[10px] font-bold border border-zinc-200 rounded bg-zinc-50" placeholder="Cód.">
+                    <input type="text" value="${escHtml(cl.name || '')}" onchange="updateMHClassItem('${sec.id}',${ci},'name',this.value)" class="flex-1 px-1.5 py-0.5 text-[10px] font-semibold border border-zinc-200 rounded" placeholder="Nombre de clase">
+                    <button type="button" onclick="deleteMHClassItem('${sec.id}',${ci})" class="text-zinc-400 hover:text-red-500 text-xs px-1">✕</button>
+                  </div>
+                  <input type="text" value="${escHtml(cl.detail || '')}" onchange="updateMHClassItem('${sec.id}',${ci},'detail',this.value)" class="w-full px-1.5 py-0.5 text-[9.5px] border border-zinc-200 rounded text-zinc-600" placeholder="Cambio / Hectáreas (ej. -52.640 ha)">
+                </div>`).join('')}
+            </div>
           </div>`;
       } else if (sec.type === 'metrics') {
         const metricsList = sec.metrics || [];
@@ -64115,32 +64539,32 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (sec.type === 'cover') {
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="relative min-h-[82vh] w-full flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal mh-in-view relative min-h-[82vh] w-full flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden" style="background:${bg};color:${text};">
               ${sec.imageUrl ? `
                 <div class="absolute inset-0 pointer-events-none">
                   <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full h-full object-cover opacity-25 scale-105">
                   <div class="absolute inset-0" style="background:linear-gradient(to bottom, ${bg}88 0%, ${bg}cc 55%, ${bg} 100%);"></div>
                 </div>` : ''}
               <div class="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
-                <span class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] mb-6 border" style="color:${secAccent};border-color:${secAccent}55;background:${secAccent}18;">
+                <span class="mh-stagger-item inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] mb-6 border" style="--mh-idx:0;color:${secAccent};border-color:${secAccent}55;background:${secAccent}18;">
                   ${isOrganicWeb ? 'Mosaico Orgánico Mid-Century · Historia Web' : 'Map History · Historia Web'}
                 </span>
-                <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6" style="color:${text};">${escHtml(sec.title || storyTitle)}</h1>
-                ${sec.body ? `<div class="text-base sm:text-xl opacity-90 leading-relaxed max-w-2xl mb-6">${sec.body}</div>` : ''}
+                <h1 class="mh-stagger-item text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6" style="--mh-idx:1;color:${text};">${escHtml(sec.title || storyTitle)}</h1>
+                ${sec.body ? `<div class="mh-stagger-item text-base sm:text-xl opacity-90 leading-relaxed max-w-2xl mb-6" style="--mh-idx:2;">${sec.body}</div>` : ''}
                 ${sec.imageUrl ? `
                   <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 mb-8">
                     <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full max-h-[380px] object-cover">
                   </div>` : (isOrganicWeb ? renderMHMidCenturyCoverSvg(secAccent, bg, text) : '')}
                 ${firstBodyIdx !== -1 ? `
-                  <button type="button" onclick="scrollToMHWebSection(${firstBodyIdx})" class="mt-4 inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-black shadow-lg transition-transform hover:scale-105 cursor-pointer" style="background:#D99B26;color:#1F2421;">
+                  <button type="button" onclick="scrollToMHWebSection(${firstBodyIdx})" class="mh-stagger-item mt-4 inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-black shadow-lg transition-transform hover:scale-105 cursor-pointer" style="--mh-idx:3;background:#D99B26;color:#1F2421;">
                     <span>Explorar historia</span>
-                    <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+                    <span class="material-symbols-outlined text-[18px] mh-hero-cta-arrow">arrow_downward</span>
                   </button>` : ''}
               </div>
             </section>`;
         } else if (sec.type === 'chart') {
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
               <div class="max-w-5xl mx-auto">
                 <div class="max-w-3xl mb-8">
                   <span class="inline-block text-[11px] font-extrabold uppercase tracking-[0.2em] mb-2" style="color:${secAccent};">Gráfica Interactiva · Código de la Página</span>
@@ -64154,24 +64578,27 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const img1 = sec.imageUrl || '';
           const img2 = sec.imageUrl2 || '';
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
               <div class="max-w-5xl mx-auto">
                 <div class="max-w-2xl mb-8">
-                  <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Comparación Multitemporal</span>
+                  <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Comparación Multitemporal</span>
                   <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Comparación')}</h2>
-                  ${sec.body ? `<div class="text-sm sm:text-base opacity-80 leading-relaxed">${sec.body}</div>` : ''}
+                  ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
                 </div>
                 ${(img1 && img2 && sec.compareMode === 'slider') ? `
-                  <div class="mh-compare-container w-full shadow-2xl rounded-2xl border border-black/10" style="max-width:740px;margin:0 auto;height:clamp(460px, 64vh, 620px);" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
-                    <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
-                    <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
-                      <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                  <div class="mh-compare-wrapper">
+                    <div class="mh-compare-container w-full shadow-2xl rounded-2xl border border-black/10" style="max-width:740px;margin:0 auto;height:clamp(460px, 64vh, 620px);" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                      <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                      <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                        <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                      </div>
+                      <div class="mh-compare-divider" style="left:50%;">
+                        <div class="mh-compare-handle">⇄</div>
+                      </div>
+                      <span class="pointer-events-none absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
+                      <span class="pointer-events-none absolute top-4 right-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
                     </div>
-                    <div class="mh-compare-divider" style="left:50%;">
-                      <div class="mh-compare-handle">⇄</div>
-                    </div>
-                    <span class="pointer-events-none absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
-                    <span class="pointer-events-none absolute top-4 right-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
+                    ${renderMHCompareToolbar(sec, bg)}
                   </div>
                 ` : `
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
@@ -64184,13 +64611,14 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       <span class="pointer-events-none absolute top-3 left-3 px-3 py-1 rounded-lg bg-black/70 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
                     </div>
                   </div>`}
+                ${renderMHClassesLegend(sec, bg, text, false)}
               </div>
             </section>`;
         } else if (sec.type === 'metrics') {
           const metricsList = sec.metrics || [];
           const mDark = _mhIsDarkBg(bg);
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
               <div class="max-w-5xl mx-auto">
                 <div class="max-w-2xl mb-10">
                   <span class="text-[11px] font-extrabold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Indicadores Espaciales</span>
@@ -64198,8 +64626,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                  ${metricsList.map(m => `
-                    <div class="p-6 rounded-2xl flex flex-col justify-between shadow-lg" style="background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.82)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};">
+                  ${metricsList.map((m, mi) => `
+                    <div class="mh-metric-card mh-stagger-item p-6 rounded-2xl flex flex-col justify-between shadow-lg" style="--mh-idx:${mi};background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.82)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};">
                       <div class="flex items-center justify-between mb-4">
                         <span class="material-symbols-outlined text-3xl" style="color:${m.color || secAccent};">${m.icon || 'analytics'}</span>
                         ${m.change ? `<span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full" style="background:${m.color || secAccent}22;color:${m.color || secAccent};">${escHtml(m.change)}</span>` : ''}
@@ -64280,18 +64708,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </div>
         </footer>`;
 
+      stage.classList.add('mh-anim-ready');
       stage.innerHTML = `<article class="w-full min-h-full">${contentSectionsHtml}${footerHtml}</article>`;
 
       if (navLinksEl) {
         navLinksEl.innerHTML = navItems.join('');
       }
 
-      // Highlight active section in navbar while scrolling
+      // Highlight active section & trigger scroll-reveal animations + gentle slider nudge
       if (mhWebNavObserver) mhWebNavObserver.disconnect();
       mhWebNavObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
-            const secIdx = entry.target.getAttribute('data-web-sec');
+            const target = entry.target;
+            target.classList.add('mh-in-view');
+            const cmp = target.querySelector('.mh-compare-container');
+            if (cmp && cmp.dataset.nudged !== '1' && cmp.dataset.userTouched !== '1') {
+              cmp.dataset.nudged = '1';
+              cmp.classList.add('mh-compare-smooth');
+              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 64); }, 180);
+              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 38); }, 620);
+              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 50); }, 1050);
+            }
+            const secIdx = target.getAttribute('data-web-sec');
             document.querySelectorAll('#mhPresNavLinks .mh-web-nav-btn').forEach(btn => {
               const active = btn.getAttribute('data-web-nav') === secIdx;
               btn.style.color = active ? '#D99B26' : '#E4E4E7';
@@ -64299,7 +64738,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             });
           }
         });
-      }, { root: stage, threshold: 0.35 });
+      }, { root: stage, threshold: 0.08 });
 
       stage.querySelectorAll('[data-web-sec]').forEach(el => mhWebNavObserver.observe(el));
       updateMHWebScrollProgress();
@@ -64405,16 +64844,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (sec.type === 'cover') {
           sectionsHtml += `
-            <section id="sec_${idx}" style="min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;background:${sBg};color:${sText};">
-              <span style="font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:${sAccent};margin-bottom:16px;">Map History · Historia Web</span>
-              <h1 style="font-size:44px;font-weight:900;line-height:1.12;max-width:740px;margin-bottom:18px;">${escHtml(sec.title)}</h1>
-              ${sec.body ? `<div style="font-size:16px;line-height:1.7;max-width:620px;opacity:0.88;margin-bottom:20px;">${sec.body}</div>` : ''}
+            <section id="sec_${idx}" class="mh-reveal mh-in-view" style="min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;background:${sBg};color:${sText};">
+              <span class="mh-stagger-item" style="--mh-idx:0;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:${sAccent};margin-bottom:16px;">Map History · Historia Web</span>
+              <h1 class="mh-stagger-item" style="--mh-idx:1;font-size:44px;font-weight:900;line-height:1.12;max-width:740px;margin-bottom:18px;">${escHtml(sec.title)}</h1>
+              ${sec.body ? `<div class="mh-stagger-item" style="--mh-idx:2;font-size:16px;line-height:1.7;max-width:620px;opacity:0.88;margin-bottom:20px;">${sec.body}</div>` : ''}
               ${sec.imageUrl ? `<img src="${sec.imageUrl}" style="width:100%;max-width:550px;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.3);margin-bottom:24px;">` : (isOrganic ? renderMHMidCenturyCoverSvg(sAccent, sBg, sText) : '')}
               <div style="width:56px;height:3px;background:${sAccent};border-radius:2px;margin-top:16px;"></div>
             </section>`;
         } else if (sec.type === 'chart') {
           sectionsHtml += `
-            <section id="sec_${idx}" style="padding:72px 24px;background:${sBg};color:${sText};">
+            <section id="sec_${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};">
               <div style="max-width:960px;margin:0 auto;">
                 <span style="display:block;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:${sAccent};margin-bottom:8px;">Gráfica Interactiva · Código SVG</span>
                 <h2 style="font-size:28px;font-weight:900;margin-bottom:10px;">${escHtml(sec.title)}</h2>
@@ -64426,34 +64865,38 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const img1 = sec.imageUrl || '';
           const img2 = sec.imageUrl2 || '';
           sectionsHtml += `
-            <section id="sec_${idx}" style="padding:64px 24px;background:${sBg};color:${sText};">
+            <section id="sec_${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
               <div style="max-width:940px;margin:0 auto;">
                 <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.8;margin-bottom:24px;">${sec.body}</div>` : ''}
+                ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
                 ${(img1 && img2) ? `
-                  <div class="mh-compare-container" style="height:540px;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
-                    <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
-                    <div class="before-layer" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
-                      <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                  <div class="mh-compare-wrapper">
+                    <div class="mh-compare-container" style="height:540px;max-width:740px;margin:0 auto;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
+                      <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                      <div class="before-layer" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
+                        <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
+                      </div>
+                      <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                        <div class="mh-compare-handle" style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
+                      </div>
+                      <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
+                      <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
                     </div>
-                    <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-                      <div style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
-                    </div>
-                    <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
-                    <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
+                    ${renderMHCompareToolbar(sec, sBg)}
                   </div>` : ''}
+                ${renderMHClassesLegend(sec, sBg, sText, false)}
               </div>
             </section>`;
         } else if (sec.type === 'metrics') {
           const metricsList = sec.metrics || [];
           sectionsHtml += `
-            <section id="sec_${idx}" style="padding:64px 24px;background:${sBg};color:${sText};">
+            <section id="sec_${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
               <div style="max-width:960px;margin:0 auto;">
                 <h2 style="font-size:28px;font-weight:900;margin-bottom:8px;">${escHtml(sec.title)}</h2>
                 ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;">
-                  ${metricsList.map(m => `
-                    <div style="background:${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.75)'};border:1.5px solid ${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};border-radius:16px;padding:20px;">
+                  ${metricsList.map((m, mi) => `
+                    <div class="mh-stagger-item mh-class-chip" style="--mh-idx:${mi};background:${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.75)'};border:1.5px solid ${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};border-radius:16px;padding:20px;">
                       <div style="font-size:26px;font-weight:900;color:${sText};">${escHtml(m.value)}</div>
                       <div style="font-size:12px;font-weight:700;opacity:0.78;margin-top:4px;">${escHtml(m.label)}</div>
                       ${m.change ? `<div style="font-size:11px;font-weight:800;color:${m.color||sAccent};margin-top:8px;">${escHtml(m.change)}</div>` : ''}
@@ -64463,7 +64906,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </section>`;
         } else if (sec.type === 'quote') {
           sectionsHtml += `
-            <section id="sec_${idx}" style="padding:72px 24px;background:${sBg};color:${sText};text-align:center;">
+            <section id="sec_${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};text-align:center;">
               <blockquote style="font-size:22px;font-style:italic;line-height:1.6;max-width:720px;margin:0 auto 18px;">
                 "${escHtml(sec.quoteText || sec.body)}"
               </blockquote>
@@ -64495,14 +64938,35 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     img { max-width:100%; display:block; }
     .mh-organic-wave { display:block; width:100%; line-height:0; overflow:hidden; margin:-1px 0; }
     .mh-chart-tooltip { position:fixed; z-index:999999; pointer-events:none; background:#1F2421; color:#F6EFE2; border:1.5px solid #D99B26; border-radius:10px; padding:6px 10px; font-size:11px; line-height:1.35; box-shadow:0 8px 20px rgba(0,0,0,0.25); display:none; }
+    @keyframes mhFloatSlow { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-7px) rotate(2.5deg)} }
+    @keyframes mhFloatAlt { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(6px) scale(1.05)} }
+    @keyframes mhFlowDash { to { stroke-dashoffset:-42; } }
+    @keyframes mhDrawStroke { from { stroke-dashoffset:2200; } to { stroke-dashoffset:0; } }
+    @keyframes mhPopIn { 0%{opacity:0;transform:translateY(16px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes mhBarGrowX { from{transform:scaleX(0);opacity:0.35} to{transform:scaleX(1);opacity:1} }
+    @keyframes mhBarGrowY { from{transform:scaleY(0);opacity:0.35} to{transform:scaleY(1);opacity:1} }
+    @keyframes mhPulseGlow { 0%,100%{box-shadow:0 2px 10px rgba(0,0,0,0.32),0 0 0 0 rgba(217,155,38,0.45)} 50%{box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 0 8px rgba(217,155,38,0)} }
+    body.mh-anim-ready .mh-reveal { opacity:0; transform:translateY(24px); transition:opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1); }
+    body.mh-anim-ready .mh-reveal.mh-in-view { opacity:1; transform:translateY(0); }
+    body.mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item { animation:mhPopIn 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay:calc(var(--mh-idx, 0) * 55ms); }
+    body.mh-anim-ready .mh-in-view .mh-svg-line-path { stroke-dasharray:2200; animation:mhDrawStroke 1.2s cubic-bezier(0.22,1,0.36,1) both; }
+    body.mh-anim-ready .mh-in-view .mh-svg-bar-x { transform-box:fill-box; transform-origin:var(--mh-origin,left center); animation:mhBarGrowX 0.72s cubic-bezier(0.22,1,0.36,1) both; animation-delay:calc(var(--mh-idx,0) * 45ms); }
+    body.mh-anim-ready .mh-in-view .mh-svg-bar-y { transform-box:fill-box; transform-origin:bottom center; animation:mhBarGrowY 0.72s cubic-bezier(0.22,1,0.36,1) both; animation-delay:calc(var(--mh-idx,0) * 50ms); }
+    .mh-flow-dash { stroke-dasharray:8 6; animation:mhFlowDash 1.5s linear infinite; }
+    .mh-kinetic-1 { transform-box:fill-box; transform-origin:center; animation:mhFloatSlow 5.8s ease-in-out infinite; }
+    .mh-kinetic-2 { transform-box:fill-box; transform-origin:center; animation:mhFloatAlt 4.8s ease-in-out infinite; }
+    .mh-compare-handle { animation:mhPulseGlow 2.4s ease-in-out infinite; transition:transform 0.2s; }
+    .mh-compare-container.mh-compare-smooth .before-layer, .mh-compare-container.mh-compare-smooth .divider { transition:clip-path 0.45s cubic-bezier(0.22,1,0.36,1), width 0.45s cubic-bezier(0.22,1,0.36,1), left 0.45s cubic-bezier(0.22,1,0.36,1); }
+    .mh-class-chip { transition:transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s; }
+    .mh-class-chip:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 8px 18px rgba(0,0,0,0.14); }
     @media print {
       header { display:none !important; }
       body { background:#fff !important; color:#000 !important; }
-      section { page-break-after:always; break-after:page; }
+      section { page-break-after:always; break-after:page; opacity:1 !important; transform:none !important; }
     }
   </style>
 </head>
-<body>
+<body class="mh-anim-ready">
   <header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:${bg}ee;backdrop-filter:blur(10px);border-bottom:1px solid rgba(128,128,128,0.2);">
     <span style="font-weight:900;font-size:14px;">${escHtml(title)}</span>
     <nav style="display:flex;gap:8px;overflow-x:auto;">${navLinks.join('')}</nav>
@@ -64534,18 +64998,67 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       btn.style.textDecoration = nextHidden ? 'line-through' : 'none';
       wrap.querySelectorAll('[data-mh-series="' + idx + '"]').forEach(function(el){ el.style.opacity = nextHidden ? '0.07' : ''; });
     }
-    function handleCompare(e, container) {
-      if (e.type !== 'click' && e.buttons !== 1 && e.type !== 'touchmove') return;
-      const rect = container.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      const before = container.querySelector('.before-layer');
-      const div = container.querySelector('.divider');
+    function _stopSweep(c) {
+      if (!c) return;
+      if (c._raf) { cancelAnimationFrame(c._raf); c._raf = null; }
+      c.dataset.sweeping = '0';
+      var w = c.closest('.mh-compare-wrapper');
+      var b = w && w.querySelector('[data-mh-sweep-btn]');
+      if (b) b.innerHTML = '<span>▶</span> Animar barrido';
+    }
+    function _applyPct(c, pct) {
+      var before = c.querySelector('.before-layer');
+      var div = c.querySelector('.divider');
       if (before) {
         if (before.dataset.clip === '1') before.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
         else before.style.width = pct + '%';
       }
       if (div) div.style.left = pct + '%';
+    }
+    function handleCompare(e, container) {
+      if (e.type !== 'click' && e.buttons !== 1 && e.type !== 'touchmove') return;
+      container.dataset.userTouched = '1';
+      _stopSweep(container);
+      container.classList[e.type === 'click' ? 'add' : 'remove']('mh-compare-smooth');
+      var rect = container.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      _applyPct(container, pct);
+    }
+    function setMHSliderPos(btn, pct) {
+      var w = btn.closest('.mh-compare-wrapper');
+      var c = w && w.querySelector('.mh-compare-container');
+      if (!c) return;
+      c.dataset.userTouched = '1';
+      _stopSweep(c);
+      c.classList.add('mh-compare-smooth');
+      _applyPct(c, pct);
+    }
+    function toggleMHSliderAutoSweep(btn) {
+      var w = btn.closest('.mh-compare-wrapper');
+      var c = w && w.querySelector('.mh-compare-container');
+      if (!c) return;
+      if (c.dataset.sweeping === '1') { _stopSweep(c); return; }
+      c.dataset.userTouched = '1';
+      c.classList.remove('mh-compare-smooth');
+      c.dataset.sweeping = '1';
+      btn.innerHTML = '<span>❚❚</span> Pausar barrido';
+      var t0 = performance.now();
+      (function tick(now) {
+        if (c.dataset.sweeping !== '1') return;
+        _applyPct(c, 50 + 40 * Math.sin(((now - t0) / 1000) * 1.45));
+        c._raf = requestAnimationFrame(tick);
+      })(t0);
+    }
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+          if (en.isIntersecting) en.target.classList.add('mh-in-view');
+        });
+      }, { threshold: 0.08 });
+      document.querySelectorAll('.mh-reveal').forEach(function(s) { obs.observe(s); });
+    } else {
+      document.querySelectorAll('.mh-reveal').forEach(function(s) { s.classList.add('mh-in-view'); });
     }
   <\/script>
 </body>
