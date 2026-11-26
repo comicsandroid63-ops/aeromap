@@ -3041,34 +3041,34 @@
   <!-- ═══ MAP HISTORY WEB STORY VIEWER MODAL ═══ -->
   <div id="mhPresentationModal" class="hidden fixed inset-0 z-[100020] flex flex-col bg-zinc-950 text-white" style="z-index:100020;">
     <!-- Sticky Web Navbar -->
-    <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-4 px-5 sm:px-8 py-3 border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl z-20">
+    <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-4 px-5 sm:px-8 py-3 border-b border-white/10 backdrop-blur-xl z-20" style="background:rgba(24,27,25,0.96);color:#F6EFE2;">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="material-symbols-outlined text-sky-400 text-[20px] shrink-0">auto_stories</span>
-        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-[180px] sm:max-w-xs">Map History</span>
+        <span class="material-symbols-outlined text-[20px] shrink-0" style="color:#D99B26;">auto_stories</span>
+        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-[180px] sm:max-w-xs" style="color:#FBF7EE;">Map History</span>
       </div>
       <nav id="mhPresNavLinks" class="hidden md:flex items-center gap-1.5 overflow-x-auto max-w-2xl no-scrollbar">
         <!-- Web section anchor links injected here -->
       </nav>
       <div class="flex items-center gap-2 shrink-0">
-        <span id="mhPresSlideCounter" class="text-[11px] font-mono text-zinc-400 hidden sm:inline-block mr-1">0%</span>
-        <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-zinc-200 transition-colors flex items-center gap-1.5 cursor-pointer" title="Desplazamiento automático suave">
+        <span id="mhPresSlideCounter" class="text-[11px] font-mono hidden sm:inline-block mr-1" style="color:#D4D4D8;">0%</span>
+        <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer" style="background:rgba(255,255,255,0.12);color:#FBF7EE;" title="Desplazamiento automático suave">
           <span class="material-symbols-outlined text-[15px]" id="mhPresAutoPlayIcon">play_arrow</span>
           <span id="mhPresAutoPlayText" class="hidden sm:inline">Auto-scroll</span>
         </button>
-        <button onclick="downloadMHHtml()" class="p-1.5 rounded-lg hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer" title="Descargar como página HTML">
+        <button onclick="downloadMHHtml()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Descargar como página HTML">
           <span class="material-symbols-outlined text-[18px]">download</span>
         </button>
-        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer" title="Pantalla completa (F)">
+        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Pantalla completa (F)">
           <span class="material-symbols-outlined text-[18px]">fullscreen</span>
         </button>
-        <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 text-zinc-300 hover:text-red-400 transition-colors cursor-pointer" title="Cerrar historia (Esc)">
+        <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Cerrar historia (Esc)">
           <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
     </header>
     <!-- Web Reading Progress Bar -->
     <div class="shrink-0 w-full h-[3px] bg-white/10 z-20">
-      <div id="mhPresProgressBar" class="h-full bg-gradient-to-r from-sky-400 via-blue-500 to-emerald-400 transition-all duration-150" style="width: 0%;"></div>
+      <div id="mhPresProgressBar" class="h-full transition-all duration-150" style="width: 0%;background:linear-gradient(90deg,#D99B26,#6B7A3A,#C25634);"></div>
     </div>
     <!-- Continuous Scrollable Web Page Content -->
     <main class="flex-1 relative overflow-y-auto scroll-smooth custom-scrollbar" id="mhPresStage" onscroll="updateMHWebScrollProgress()">
@@ -62644,7 +62644,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           </svg>`;
         return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}</div>`;
       } else {
-        const W = 780, H = compact ? 300 : 355, padL = 56, padR = 135, padT = 24, padB = 40;
+        const W = 820, H = compact ? 300 : 355, padL = 56, padR = 175, padT = 24, padB = 40;
         const plotW = W - padL - padR, plotH = H - padT - padB;
         const allVals = series.flatMap(s => (s.values || []).map(Number)).filter(Number.isFinite);
         const rawMax = allVals.length ? Math.max(...allVals) : 100;
@@ -63740,7 +63740,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         prevWebBg = bg;
 
         const navLabel = sec.title || (sec.type === 'cover' ? 'Inicio' : `Sección ${idx + 1}`);
-        navItems.push(`<button type="button" onclick="scrollToMHWebSection(${idx})" data-web-nav="${idx}" class="mh-web-nav-btn px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer">${escHtml(navLabel)}</button>`);
+        navItems.push(`<button type="button" onclick="scrollToMHWebSection(${idx})" data-web-nav="${idx}" style="color:#E4E4E7;" class="mh-web-nav-btn px-3 py-1.5 rounded-lg text-xs font-medium hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer">${escHtml(navLabel)}</button>`);
 
         if (sec.type === 'cover') {
           contentSectionsHtml += `
@@ -63923,8 +63923,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const secIdx = entry.target.getAttribute('data-web-sec');
             document.querySelectorAll('#mhPresNavLinks .mh-web-nav-btn').forEach(btn => {
               const active = btn.getAttribute('data-web-nav') === secIdx;
-              btn.style.color = active ? accent : '';
-              btn.style.background = active ? `${accent}1a` : '';
+              btn.style.color = active ? '#D99B26' : '#E4E4E7';
+              btn.style.background = active ? 'rgba(217,155,38,0.16)' : '';
             });
           }
         });
