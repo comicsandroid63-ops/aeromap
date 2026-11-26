@@ -62987,13 +62987,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const isDark = _mhIsDarkBg(bg);
       const pillBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(31,36,33,0.08)';
       const pillBorder = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(31,36,33,0.18)';
-      const l1Short = String(sec.label1 || 'Antes').split('·')[0].trim().slice(0, 14);
-      const l2Short = String(sec.label2 || 'Después').split('·')[0].trim().slice(0, 14);
+      const shortTag = (raw, fallback) => {
+        const s = String(raw || fallback);
+        const yr = s.match(/\b(19|20)\d{2}\b/);
+        if (yr) return yr[0];
+        return s.split('·').pop().replace(/\(.*?\)/g, '').trim().slice(0, 14) || s.slice(0, 14);
+      };
+      const l1Short = shortTag(sec.label1, 'Antes');
+      const l2Short = shortTag(sec.label2, 'Después');
       return `
         <div class="mh-compare-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-top:12px;">
-          <button type="button" onclick="setMHSliderPos(this, 100)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Sólo ${escHtml(l1Short)}</button>
+          <button type="button" onclick="setMHSliderPos(this, 100)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l1Short)}</button>
           <button type="button" onclick="setMHSliderPos(this, 50)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">50 / 50</button>
-          <button type="button" onclick="setMHSliderPos(this, 0)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Sólo ${escHtml(l2Short)}</button>
+          <button type="button" onclick="setMHSliderPos(this, 0)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l2Short)}</button>
           <button type="button" data-mh-sweep-btn="1" onclick="toggleMHSliderAutoSweep(this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:900;background:#D99B26;color:#1F2421;border:1px solid rgba(31,36,33,0.25);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.14);"><span>▶</span> Animar barrido</button>
         </div>`;
     }
