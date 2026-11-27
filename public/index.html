@@ -65028,7 +65028,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
+      if (window._mhGuestStoryMode && (typeof _currentUser === 'undefined' || !_currentUser)) {
+        window._mhGuestStoryMode = false;
+        if (typeof showLanding === 'function') showLanding();
+        toast('Inicia sesión o crea una cuenta para continuar en Zima', 'info');
+      }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const storyParam = new URLSearchParams(location.search).get('story');
+      if (storyParam && typeof playMHBuiltinTemplate === 'function') {
+        window._mhGuestStoryMode = true;
+        playMHBuiltinTemplate(storyParam);
+      }
+    });
 
     function handleMHPresKeydown(e) {
       if (e.key === 'Escape') {
