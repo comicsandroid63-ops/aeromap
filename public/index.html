@@ -864,7 +864,56 @@
     .mh-hero-cta-arrow {
       animation: mhHeroBtnBounce 1.8s ease-in-out infinite;
     }
+    [data-web-sec] {
+      overflow-x: clip;
+      position: relative;
+    }
+    .mh-agri-widget {
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      text-align: left;
+    }
+    .mh-agri-svg-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transform: translate3d(0, calc(var(--mh-sp, 0) * -10px), 0) rotate(calc(var(--mh-sp, 0) * 8deg)) scale(calc(1 + (1 - var(--mh-sp-abs, 0.5)) * 0.08));
+      will-change: transform;
+    }
+    .mh-agri-bg-mark {
+      position: absolute;
+      pointer-events: none;
+      opacity: 0.085;
+      transform: translate3d(calc(var(--mh-sp, 0) * 18px), calc(var(--mh-sp, 0) * -26px), 0) rotate(calc(var(--mh-sp, 0) * -11deg));
+      will-change: transform;
+      z-index: 0;
+    }
+    .mh-agri-hero-btn {
+      transform: translate3d(0, calc(var(--mh-sp, 0) * var(--mh-lag, -12px)), 0);
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+    .mh-agri-hero-btn.mh-active,
+    .mh-agri-widget.mh-agri-open {
+      outline: 2px solid #D99B26;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.16);
+    }
+    @keyframes mhAgriPop {
+      0% { transform: scale(1) rotate(0deg); }
+      45% { transform: scale(1.2) rotate(-7deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    .mh-agri-widget.mh-agri-open .mh-agri-svg-wrap svg,
+    .mh-agri-hero-btn.mh-active svg {
+      animation: mhAgriPop 0.45s cubic-bezier(0.22,1,0.36,1);
+    }
     @media (max-width: 768px) {
+      .mh-agri-bg-mark {
+        width: 96px !important;
+        height: 96px !important;
+        opacity: 0.065;
+      }
       .mh-anim-ready .mh-in-view .mh-svg-line-path {
         animation: none !important;
         stroke-dasharray: none !important;
@@ -2489,11 +2538,11 @@
         </div>
       </div>
 
-      <!-- ═══════ MAP HISTORY ═══════ -->
+      <!-- ═══════ MAP STORY ═══════ -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Map History</h2>
+            <h2 class="text-xl sm:text-2xl font-bold" style="color:#1a1c1f;">Map Story</h2>
             <p class="text-xs sm:text-sm" style="color:#666;">Diseña historias visuales para tus mapas con estilos minimalistas, métricas interactivas y comparadores temporales</p>
           </div>
           <div class="flex items-center gap-2">
@@ -2532,10 +2581,10 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-white" style="background:#C25634;">Plantilla Web TDG</span>
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white" style="background:#6B7A3A;">Mosaico Orgánico Mid-Century</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#D99B26;color:#1F2421;">Gráficas Interactivas en Código</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#D99B26;color:#1F2421;">Gráficas Interactivas</span>
               </div>
               <h3 class="text-base sm:text-lg font-black tracking-tight" style="color:#1F2421;">Dinámica Multitemporal de la Frontera Agrícola · Cesar (1996–2026)</h3>
-              <p class="text-xs leading-relaxed" style="color:#454a45;">Plantilla narrativa web basada en series Landsat (1996–2026), índices NDVI/NDWI/SAVI y estadísticas municipales (2,25M ha · 25 municipios), con 6 tipos de gráficas generadas por código SVG y bloques planos retro años 50.</p>
+              <p class="text-xs leading-relaxed" style="color:#454a45;">Plantilla narrativa web basada en series Landsat (1996–2026), índices NDVI/NDWI/SAVI y estadísticas municipales (2,25M ha · 25 municipios), con 6 tipos de gráficas interactivas y bloques planos retro años 50.</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button onclick="playMHBuiltinTemplate('tpl_tdg_cesar_1996_2026')" class="px-4 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer" style="background:#17525E;">
@@ -2564,7 +2613,7 @@
           <div onclick="openMapHistoryDesigner('oscuro')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0f0f0f 0%,#2a2a2a 50%,#1a1a2e 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2576,7 +2625,7 @@
           <div onclick="openMapHistoryDesigner('claro')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#f5f5f0 0%,#ffffff 50%,#e8e8e0 100%);">
               <div style="text-align:center;color:#1a1c1f;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.4;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.4;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2588,7 +2637,7 @@
           <div onclick="openMapHistoryDesigner('naturaleza')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#1b3b22 0%,#2d5a35 50%,#4a7c59 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2600,7 +2649,7 @@
           <div onclick="openMapHistoryDesigner('minimal')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#000000 0%,#333333 50%,#666666 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2614,7 +2663,7 @@
           <div onclick="openMapHistoryDesigner('oceano')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 50%,#2d6a9f 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2626,7 +2675,7 @@
           <div onclick="openMapHistoryDesigner('atardecer')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#2d1b00 0%,#8b4513 50%,#d4a373 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2638,7 +2687,7 @@
           <div onclick="openMapHistoryDesigner('bosque')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#0b2b1a 0%,#1b5e3a 50%,#3b8b5e 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2650,7 +2699,7 @@
           <div onclick="openMapHistoryDesigner('desierto')" class="history-card cursor-pointer rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" style="background:#fff;border:1px solid #e8e8e0;">
             <div class="h-28 sm:h-32 flex items-center justify-center" style="background:linear-gradient(135deg,#5c4033 0%,#a0785a 50%,#d4b896 100%);">
               <div style="text-align:center;color:#fff;">
-                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map History</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.5;">Map Story</div>
                 <div style="font-size:16px;font-weight:700;margin-top:4px;">Título</div>
               </div>
             </div>
@@ -2795,7 +2844,7 @@
         <span class="material-symbols-outlined text-amber-500 text-[24px]">auto_stories</span>
         <div class="flex flex-col min-w-0">
           <div class="flex items-center gap-2">
-            <input id="mhStoryTitleInput" type="text" value="Map History" oninput="updateMHTitle(this.value)" placeholder="Título de la historia..."
+            <input id="mhStoryTitleInput" type="text" value="Map Story" oninput="updateMHTitle(this.value)" placeholder="Título de la historia..."
               class="text-sm font-bold bg-transparent border-b border-transparent hover:border-zinc-300 focus:border-zinc-800 outline-none px-1 py-0.5 max-w-[180px] sm:max-w-xs transition-colors truncate" title="Clic para renombrar historia">
             <span id="mhThemeBadge" class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200">Nocturno</span>
           </div>
@@ -3227,7 +3276,7 @@
     <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-8 py-2.5 sm:py-3 border-b border-white/10 z-30" style="background:rgba(24,27,25,0.98);color:#F6EFE2;">
       <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <span class="material-symbols-outlined text-[20px] shrink-0" style="color:#D99B26;">auto_stories</span>
-        <span id="mhPresTitle" class="text-xs sm:text-sm font-bold truncate max-w-[130px] sm:max-w-xs" style="color:#FBF7EE;">Map History</span>
+        <span id="mhPresTitle" class="text-xs sm:text-sm font-bold truncate max-w-[130px] sm:max-w-xs" style="color:#FBF7EE;">Map Story</span>
       </div>
       <nav id="mhPresNavLinks" class="hidden lg:flex items-center gap-1.5 overflow-x-auto max-w-2xl no-scrollbar">
         <!-- Web section anchor links injected here -->
@@ -3302,7 +3351,7 @@
         <a class="text-zinc-900 dark:text-zinc-50 font-bold border-b-2 border-zinc-900 dark:border-zinc-50 pb-1 font-sans tracking-tight text-sm"
           href="#">Analysis</a>
         <a class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 font-sans tracking-tight text-sm font-medium transition-colors cursor-pointer"
-          onclick="goToMapHistory()">History</a>
+          onclick="goToMapHistory()">Map Story</a>
       </nav>
     </div>
     <div class="flex items-center gap-4">
@@ -62165,7 +62214,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     let mhData = {
       id: 'mh_' + Date.now(),
-      title: 'Map History',
+      title: 'Map Story',
       sections: [],
       resources: [],
       theme: 'oscuro',
@@ -62207,7 +62256,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const list = getSavedMapHistories();
       const idx = list.findIndex(s => s.id === story.id);
       story.updatedAt = new Date().toISOString();
-      if (!story.title) story.title = story.sections[0]?.title || 'Map History';
+      if (!story.title) story.title = story.sections[0]?.title || 'Map Story';
       
       // Auto-extract thumbnail from first image or generate gradient
       if (!story.thumb) {
@@ -62258,11 +62307,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   ${!story.thumb ? `
                     <div class="text-center" style="color:${theme.text};">
                       <span class="material-symbols-outlined text-2xl" style="color:${theme.accent};">auto_stories</span>
-                      <h4 class="text-xs font-bold mt-1 line-clamp-1">${escHtml(story.title || 'Map History')}</h4>
+                      <h4 class="text-xs font-bold mt-1 line-clamp-1">${escHtml(story.title || 'Map Story')}</h4>
                     </div>` : `
                     <div class="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors"></div>
                     <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white drop-shadow">
-                      <span class="text-xs font-bold truncate">${escHtml(story.title || 'Map History')}</span>
+                      <span class="text-xs font-bold truncate">${escHtml(story.title || 'Map Story')}</span>
                     </div>`}
                   <span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
                     ${story.sections?.length || 1} partes
@@ -62314,7 +62363,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           dropItems.innerHTML = tplHtml + list.map(story => `
             <div class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-50 border border-transparent hover:border-zinc-200 cursor-pointer transition-all" onclick="openSavedMapHistory('${story.id}');toggleMHSavedList();">
               <div class="min-w-0 pr-2">
-                <p class="text-xs font-bold text-zinc-800 truncate">${escHtml(story.title || 'Map History')}</p>
+                <p class="text-xs font-bold text-zinc-800 truncate">${escHtml(story.title || 'Map Story')}</p>
                 <p class="text-[10px] text-zinc-400">${story.sections?.length || 1} secciones</p>
               </div>
               <button onclick="event.stopPropagation();playSavedMapHistory('${story.id}');" class="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Ver como Web">
@@ -62348,7 +62397,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const t = mhThemes[themeId] || mhThemes.oscuro;
         
         // Auto-detect project or active layers for title
-        let defaultTitle = 'Map History';
+        let defaultTitle = 'Map Story';
         let defaultSubtitle = 'Historia visual y análisis espacial interactivo';
         if (typeof _currentProject !== 'undefined' && _currentProject?.name) {
           defaultTitle = _currentProject.name;
@@ -62385,7 +62434,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       mhSelectedSection = mhData.sections[0]?.id || 'sec_0';
       
       const titleInput = document.getElementById('mhStoryTitleInput');
-      if (titleInput) titleInput.value = mhData.title || 'Map History';
+      if (titleInput) titleInput.value = mhData.title || 'Map Story';
       
       const badge = document.getElementById('mhThemeBadge');
       if (badge) {
@@ -62411,9 +62460,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function updateMHTitle(newTitle) {
-      mhData.title = newTitle || 'Map History';
+      mhData.title = newTitle || 'Map Story';
       // If the first section is cover, sync title if appropriate
-      if (mhData.sections[0] && mhData.sections[0].type === 'cover' && (!mhData.sections[0].title || mhData.sections[0].title === 'Portada' || mhData.sections[0].title === 'Map History')) {
+      if (mhData.sections[0] && mhData.sections[0].type === 'cover' && (!mhData.sections[0].title || mhData.sections[0].title === 'Portada' || mhData.sections[0].title === 'Map History' || mhData.sections[0].title === 'Map Story')) {
         mhData.sections[0].title = mhData.title;
       }
       renderMHPreview();
@@ -62426,7 +62475,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (ws && !ws.classList.contains('hidden')) {
         // We are inside the GIS workspace! Open designer directly so layers and map remain ready for snapshots
         openMapHistoryDesigner();
-        toast('Map History abierto sobre el espacio de trabajo actual', 'info');
+        toast('Map Story abierto sobre el espacio de trabajo actual', 'info');
       } else {
         // We are on landing or dashboard: scroll smoothly to Map History section
         const section = document.getElementById('mapHistoryGrid');
@@ -62808,7 +62857,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        showProgress('Optimizando TIFF para Map History (sin carga de zoom)...', 40);
+        showProgress('Optimizando TIFF para Map Story (sin carga de zoom)...', 40);
         try {
           const res = await _mhOptimizeTiffFileToDataUrl(file);
           sec[field] = res.dataUrl;
@@ -62819,7 +62868,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           toast(`TIFF optimizado (${res.origW}×${res.origH} → ${res.optW}×${res.optH} WebP · ~${kb} KB)`, 'success');
         } catch (err) {
           hideProgress();
-          toast('Error optimizando TIFF para Map History: ' + (err.message || err), 'error');
+          toast('Error optimizando TIFF para Map Story: ' + (err.message || err), 'error');
         }
       };
       input.click();
@@ -62836,7 +62885,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const file = e.target.files[0];
         if (!file) return;
         if (/\.tiff?$/i.test(file.name) || file.type === 'image/tiff') {
-          showProgress('Optimizando TIFF exclusivamente para Map History...', 40);
+          showProgress('Optimizando TIFF exclusivamente para Map Story...', 40);
           try {
             const res = await _mhOptimizeTiffFileToDataUrl(file);
             sec[field] = res.dataUrl;
@@ -63341,6 +63390,237 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ═══════════════════════════════════════════════════════════
     // Motor Nativo de Gráficas Interactivas SVG & Mosaico Mid-Century
     // ═══════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════
+    // Vectores Agrícolas Interactivos (assets/vectors/agri/*.svg · MIT Phosphor Duotone)
+    // ═══════════════════════════════════════════════════════════
+
+    const MH_AGRI_VECTORS = {
+      'tractor': {
+        label: 'Mecanización Agrícola',
+        tag: 'Frontera Productiva',
+        fact: '+270.205 ha de expansión agropecuaria acumulada (1996–2026)',
+        paths: '<path d="M240,188a28,28,0,1,1-28-28A28,28,0,0,1,240,188ZM68,128a44,44,0,1,0,44,44A44,44,0,0,0,68,128Z" opacity="0.2"/><path d="M240,165.41V134a15.89,15.89,0,0,0-11.4-15.32l-.21-.06L192,108.71V72a8,8,0,0,0-16,0v32.38l-24-6.5V56h8a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16h8V88H40a8,8,0,0,0,0,16H68a68.07,68.07,0,0,1,68,68v12a8,8,0,0,0,8,8h32.23A36,36,0,1,0,240,165.41ZM68,88H64V56h72v66.77A83.92,83.92,0,0,0,68,88Zm84,26.45L224,134v20.1A36,36,0,0,0,178.06,176H152ZM212,208a20,20,0,1,1,20-20A20,20,0,0,1,212,208ZM68,120a52,52,0,1,0,52,52A52.06,52.06,0,0,0,68,120Zm0,88a36,36,0,1,1,36-36A36,36,0,0,1,68,208Zm12-36a12,12,0,1,1-12-12A12,12,0,0,1,80,172Z"/>'
+      },
+      'grains': {
+        label: 'Cultivos Agrícolas',
+        tag: 'Expansión +251,5%',
+        fact: 'De 67.756 ha en 1996 a 238.137 ha cultivadas en 2026',
+        paths: '<path d="M208,64v56a80,80,0,0,0-80,80,80,80,0,0,0-80-80V64a79.67,79.67,0,0,1,36.05,8.59v0C95.62,40.19,128,24,128,24S160.39,40.19,172,72.58h0A79.6,79.6,0,0,1,208,64Z" opacity="0.2"/><path d="M208,56a87.53,87.53,0,0,0-31.85,6c-14.32-29.7-43.25-44.46-44.57-45.13a8,8,0,0,0-7.16,0c-1.33.67-30.25,15.43-44.57,45.13A87.53,87.53,0,0,0,48,56a8,8,0,0,0-8,8v80a88,88,0,0,0,176,0V64A8,8,0,0,0,208,56ZM120,215.56A72.1,72.1,0,0,1,56,144V128.44A72.1,72.1,0,0,1,120,200Zm0-66.1a88,88,0,0,0-64-37.09V72.44A72.1,72.1,0,0,1,120,144ZM94.15,69.11C103.37,49.89,120.58,37.76,128,33.2c7.44,4.54,24.6,16.6,33.84,35.91A88.51,88.51,0,0,0,128,107.36,88.51,88.51,0,0,0,94.15,69.11ZM200,144a72.1,72.1,0,0,1-64,71.56V200a72.1,72.1,0,0,1,64-71.56Zm0-31.63a88,88,0,0,0-64,37.09V144a72.1,72.1,0,0,1,64-71.56Z"/>'
+      },
+      'plant': {
+        label: 'Vigor Fotosintético',
+        tag: 'NDVI & SAVI',
+        fact: 'Vegetación densa (NDVI > 0,60) consolida zonas núcleo productivas y serranía',
+        paths: '<path d="M138.54,149.46C106.62,96.25,149.18,43.05,239.63,48.37,245,138.82,191.75,181.39,138.54,149.46ZM16.26,88.26c-3.8,64.61,34.21,95,72.21,72.21C111.27,122.47,80.87,84.46,16.26,88.26Z" opacity="0.2"/><path d="M247.63,47.89a8,8,0,0,0-7.52-7.52c-51.76-3-93.32,12.74-111.18,42.22-11.8,19.48-11.78,43.16-.16,65.74a71.37,71.37,0,0,0-14.17,26.95L98.33,159c7.82-16.33,7.52-33.36-1-47.49C84.09,89.73,53.62,78,15.79,80.27a8,8,0,0,0-7.52,7.52c-2.23,37.83,9.46,68.3,31.25,81.5A45.82,45.82,0,0,0,63.44,176,54.58,54.58,0,0,0,87,170.33l25,25V224a8,8,0,0,0,16,0V194.51a55.61,55.61,0,0,1,12.27-35,73.91,73.91,0,0,0,33.31,8.4,60.9,60.9,0,0,0,31.83-8.86C234.89,141.21,250.67,99.65,247.63,47.89ZM86.06,146.74l-24.41-24.4a8,8,0,0,0-11.31,11.31l24.41,24.41c-9.61,3.18-18.93,2.39-26.94-2.46C32.47,146.31,23.79,124.32,24,96c28.31-.25,50.31,8.47,59.6,23.81C88.45,127.82,89.24,137.14,86.06,146.74Zm111.06-1.36c-13.4,8.11-29.15,8.73-45.15,2l53.69-53.7a8,8,0,0,0-11.31-11.32L140.65,136c-6.76-16-6.15-31.76,2-45.15,13.94-23,47-35.8,89.33-34.83C232.94,98.34,220.14,131.44,197.12,145.38Z"/>'
+      },
+      'farm': {
+        label: 'Parcelas y Paisaje Rural',
+        tag: '25 Municipios',
+        fact: '2.255.695 ha analizadas entre las subregiones Norte y Sur del Cesar',
+        paths: '<path d="M223.85,216H24V120a257,257,0,0,1,56.2,6.21l-.2-.07V80l64-48,64,48v41.11a254.67,254.67,0,0,0-40,7V96H120v42.61l0,0,0,0A256.79,256.79,0,0,1,223.85,216Z" opacity="0.2"/><path d="M232,160a8,8,0,0,0,0-16,232.2,232.2,0,0,0-65.8,9.47q-9-5.78-18.46-10.78A246.3,246.3,0,0,1,232,128a8,8,0,0,0,0-16c-5.36,0-10.69.18-16,.49V80a8,8,0,0,0-3.2-6.4l-64-48a8,8,0,0,0-9.6,0l-64,48A8,8,0,0,0,72,80v36.37A266.33,266.33,0,0,0,24,112a8,8,0,0,0,0,16,247,247,0,0,1,193.61,93,8,8,0,1,0,12.48-10q-7.59-9.5-15.94-18.14c5.92-.57,11.89-.86,17.85-.86a8,8,0,0,0,0-16,201.53,201.53,0,0,0-32.59,2.65q-7.75-6.92-16-13.16A216.51,216.51,0,0,1,232,160ZM128,133.24V104h32v17.94a262.48,262.48,0,0,0-31.93,11.33ZM88,84l56-42,56,42v29.93q-12.12,1.45-24,4V96a8,8,0,0,0-8-8H120a8,8,0,0,0-8,8v31q-11.79-4.15-24-7.18Zm48.83,136.43a8,8,0,0,1-11.09,2.23A183.15,183.15,0,0,0,24,192a8,8,0,0,1,0-16,199.11,199.11,0,0,1,110.6,33.34A8,8,0,0,1,136.83,220.43Zm49.54-10.14a8,8,0,1,1-11.2,11.42A214.81,214.81,0,0,0,24,160a8,8,0,0,1,0-16A230.69,230.69,0,0,1,186.37,210.29Z"/>'
+      },
+      'cow': {
+        label: 'Pastos y Ganadería',
+        tag: '522.455 ha (2026)',
+        fact: 'Pastos y sabanas ganaderas representan el 23,2% de todo el territorio',
+        paths: '<path d="M208,192h0a32,32,0,0,1-32,32H80a32,32,0,0,1-32-32h0a32,32,0,0,1,32-32h96A32,32,0,0,1,208,192ZM64,104A32,32,0,0,1,96,72H63.22a48,48,0,0,0-47.07,38.53A8,8,0,0,0,24,120H64Zm175.85,6.53A48,48,0,0,0,192.78,72H160a32,32,0,0,1,32,32v16h40A8,8,0,0,0,239.85,110.53Z" opacity="0.2"/><path d="M104,192a8,8,0,0,1-8,8H80a8,8,0,0,1,0-16H96A8,8,0,0,1,104,192Zm72-8H160a8,8,0,0,0,0,16h16a8,8,0,0,0,0-16Zm-76-72a12,12,0,1,0,12,12A12,12,0,0,0,100,112Zm56,0a12,12,0,1,0,12,12A12,12,0,0,0,156,112Zm88.39,10.12A16,16,0,0,1,232,128H200v32a40,40,0,0,1-24,72H80a40,40,0,0,1-24-72V128H24A16,16,0,0,1,8.31,109,56.13,56.13,0,0,1,63.22,64h1.64A55.83,55.83,0,0,1,48,24a8,8,0,0,1,16,0,40,40,0,0,0,40,40h48a40,40,0,0,0,40-40,8,8,0,0,1,16,0,55.83,55.83,0,0,1-16.86,40h1.64a56.13,56.13,0,0,1,54.91,45A15.82,15.82,0,0,1,244.39,122.12ZM56,112v-8a39.81,39.81,0,0,1,8-24h-.8A40.09,40.09,0,0,0,24,112Zm144,80a24,24,0,0,0-24-24H80a24,24,0,0,0,0,48h96A24,24,0,0,0,200,192Zm-16-39.2V104a24,24,0,0,0-24-24H96a24,24,0,0,0-24,24v48.8a40.57,40.57,0,0,1,8-.8h96A40.57,40.57,0,0,1,184,152.8ZM232,112a40.08,40.08,0,0,0-39.2-32H192a39.81,39.81,0,0,1,8,24v8Z"/>'
+      },
+      'tree': {
+        label: 'Bosque Nativo',
+        tag: '-130.570 ha (-13,0%)',
+        fact: 'Presión de frontera agropecuaria sobre el bosque seco tropical en 30 años',
+        paths: '<path d="M232,127.82c.09,33.94-28.41,63.3-62.34,64.16a63.72,63.72,0,0,1-41.66-14,63.71,63.71,0,0,1-41.65,14c-33.93-.86-62.44-30.22-62.35-64.16a64,64,0,0,1,40.13-59.2,68,68,0,0,1,127.74,0A64,64,0,0,1,232,127.82Z" opacity="0.2"/><path d="M198.1,62.59a76,76,0,0,0-140.2,0A71.71,71.71,0,0,0,16,127.8C15.9,166,48,199,86.14,200A72.22,72.22,0,0,0,120,192.47V232a8,8,0,0,0,16,0V192.47A72.17,72.17,0,0,0,168,200l1.82,0C208,199,240.11,166,240,127.8A71.71,71.71,0,0,0,198.1,62.59ZM169.45,184a56.08,56.08,0,0,1-33.45-10v-41l43.58-21.78a8,8,0,1,0-7.16-14.32L136,115.06V88a8,8,0,0,0-16,0v51.06L83.58,120.84a8,8,0,1,0-7.16,14.32L120,156.94v17a56,56,0,0,1-33.45,10C56.9,183.23,31.92,157.52,32,127.84A55.79,55.79,0,0,1,67.11,76a8,8,0,0,0,4.53-4.67,60,60,0,0,1,112.72,0A8,8,0,0,0,188.89,76,55.79,55.79,0,0,1,224,127.84C224.08,157.52,199.1,183.23,169.45,184Z"/>'
+      },
+      'drop': {
+        label: 'Recursos Hídricos & NDWI',
+        tag: 'Ciénagas y Estrés',
+        fact: 'Retracción de espejos de agua (-11,2k ha Norte · -11,0k ha Sur) hacia 2026',
+        paths: '<path d="M208,144a80,80,0,0,1-160,0c0-72,80-128,80-128S208,72,208,144Z" opacity="0.2"/><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75ZM128,216a72.08,72.08,0,0,1-72-72c0-57.23,55.47-105,72-118,16.53,13,72,60.75,72,118A72.08,72.08,0,0,1,128,216Zm55.89-62.66a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/>'
+      },
+      'sun-horizon': {
+        label: 'Suelo y Clima (SAVI)',
+        tag: 'Factor L = 0,5',
+        fact: 'Índice ajustado al suelo distingue cobertura vegetal densa de suelo expuesto',
+        paths: '<path d="M192,144a64.33,64.33,0,0,1-2,16H66a64,64,0,1,1,126-16Z" opacity="0.2"/><path d="M240,152H199.55a73.54,73.54,0,0,0,.45-8,72,72,0,0,0-144,0,73.54,73.54,0,0,0,.45,8H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM72,144a56,56,0,1,1,111.41,8H72.59A56.13,56.13,0,0,1,72,144Zm144,56a8,8,0,0,1-8,8H48a8,8,0,0,1,0-16H208A8,8,0,0,1,216,200ZM72.84,43.58a8,8,0,0,1,14.32-7.16l8,16a8,8,0,0,1-14.32,7.16Zm-56,48.84a8,8,0,0,1,10.74-3.57l16,8a8,8,0,0,1-7.16,14.31l-16-8A8,8,0,0,1,16.84,92.42Zm192,15.16a8,8,0,0,1,3.58-10.73l16-8a8,8,0,1,1,7.16,14.31l-16,8a8,8,0,0,1-10.74-3.58Zm-48-55.16,8-16a8,8,0,0,1,14.32,7.16l-8,16a8,8,0,1,1-14.32-7.16Z"/>'
+      },
+      'windmill': {
+        label: 'Trayectorias del Campo',
+        tag: '1991 → 2026',
+        fact: 'Transición de crisis algodonera a economía campesina y polos agroindustriales',
+        paths: '<path d="M176,232H80l10.27-71.89,17.63-30,58.46,34.41Z" opacity="0.2"/><path d="M224,224H182.94l-6.3-44.12,3.24,1.91a16,16,0,0,0,21.91-5.67l12-20.34a16,16,0,0,0-5.67-21.91l-35-20.61,40.69-69.13a16,16,0,0,0-5.67-21.91l-20.34-12a16,16,0,0,0-21.91,5.67l-20.61,35L76.12,10.22a16,16,0,0,0-21.91,5.67l-12,20.33a16,16,0,0,0,5.67,21.92l35,20.61L42.21,147.88a16,16,0,0,0,5.67,21.91l20.34,12a15.57,15.57,0,0,0,10.58,2L73.06,224H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16Zm-24-76.34L188,168l-69.13-40.69,12-20.35ZM179.66,24,200,36l-40.69,69.14L139,93.17ZM56,44.35,68,24,137.14,64.7l-12,20.35ZM76.34,168,56,156,96.69,86.86l20.36,12Zm12.88,56L98,162.8l12.77-21.7L159,169.5l7.79,54.5Z"/>'
+      },
+      'barn': {
+        label: 'Núcleos Agroindustriales',
+        tag: 'Subregión Norte y Sur',
+        fact: 'Valledupar, San Martín, Codazzi y Bosconia concentran 37,2% del área productiva',
+        paths: '<path d="M184,120v80H72V120Z" opacity="0.2"/><path d="M240,192h-8V130.57l1.49,2.08a8,8,0,1,0,13-9.3l-40-56a8,8,0,0,0-2-1.94L137,18.77l-.1-.07a16,16,0,0,0-17.76,0l-.1.07L51.45,65.42a8,8,0,0,0-2,1.94l-40,56a8,8,0,1,0,13,9.3L24,130.57V192H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM40,108.17,61.7,77.79,128,32l66.3,45.78L216,108.17V192H192V120a8,8,0,0,0-8-8H72a8,8,0,0,0-8,8v72H40Zm88,42L97,128H159Zm48-14.62v48.91L141.76,160ZM114.24,160,80,184.46V135.55ZM128,169.83,159,192H97ZM104,88a8,8,0,0,1,8-8h32a8,8,0,1,1,0,16H112A8,8,0,0,1,104,88Z"/>'
+      },
+      'globe-hemisphere-west': {
+        label: 'Ordenamiento Territorial',
+        tag: 'UPRA + Corpocesar',
+        fact: 'Insumo técnico para actualización de POT municipales y frontera agrícola sostenible',
+        paths: '<path d="M213.09,172.48a96,96,0,0,1-80.41,51.41l3.17-16.44a8,8,0,0,0-2-6.95l-19.74-20.33a8,8,0,0,1-1.44-8.69l13.7-30.74a8,8,0,0,1,8.38-4.67l22.82,3.08a8.11,8.11,0,0,1,3.12,1.11ZM116.71,95,129,88.24a7.46,7.46,0,0,0,1.5-1.07l26.91-24.33A8,8,0,0,0,159,53l-10.5-18.81A96.62,96.62,0,0,0,128,32,95.61,95.61,0,0,0,67.78,53.23L56,81.08A8,8,0,0,0,55.88,87l11.5,30.67a8,8,0,0,0,5.81,5l2.69.58L89.2,100a8,8,0,0,1,6.94-4h16.71A7.9,7.9,0,0,0,116.71,95Z" opacity="0.2"/><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.62,87.62,0,0,1-6.4,32.94l-44.7-27.49a15.92,15.92,0,0,0-6.24-2.23l-22.82-3.08a16.11,16.11,0,0,0-16,7.86h-8.72l-3.8-7.86a15.91,15.91,0,0,0-11-8.67l-8-1.73L96.14,104h16.71a16.06,16.06,0,0,0,7.73-2l12.25-6.76a16.62,16.62,0,0,0,3-2.14l26.91-24.34A15.93,15.93,0,0,0,166,49.1l-.36-.65A88.11,88.11,0,0,1,216,128ZM143.31,41.34,152,56.9,125.09,81.24,112.85,88H96.14a16,16,0,0,0-13.88,8l-8.73,15.23L63.38,84.19,74.32,58.32a87.87,87.87,0,0,1,69-17ZM40,128a87.53,87.53,0,0,1,8.54-37.8l11.34,30.27a16,16,0,0,0,11.62,10l21.43,4.61L96.74,143a16.09,16.09,0,0,0,14.4,9h1.48l-7.23,16.23a16,16,0,0,0,2.86,17.37l.14.14L128,205.94l-1.94,10A88.11,88.11,0,0,1,40,128Zm102.58,86.78,1.13-5.81a16.09,16.09,0,0,0-4-13.9,1.85,1.85,0,0,1-.14-.14L120,174.74,133.7,144l22.82,3.08,45.72,28.12A88.18,88.18,0,0,1,142.58,214.78Z"/>'
+      },
+      'chart-line-up': {
+        label: 'Serie Satelital 1996–2026',
+        tag: '5 Cortes Landsat',
+        fact: 'Seguimiento calibrado en 1996, 2004, 2011, 2018 y 2026 (OA = 91,4%)',
+        paths: '<path d="M224,64V208H32V48H208A16,16,0,0,1,224,64Z" opacity="0.2"/><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"/>'
+      }
+    };
+    const MH_AGRI_KEYS = Object.keys(MH_AGRI_VECTORS);
+
+    function _mhAgriSvgHtml(key, sizePx = 30) {
+      const item = MH_AGRI_VECTORS[key] || MH_AGRI_VECTORS.tractor;
+      return `<svg viewBox="0 0 256 256" fill="currentColor" width="${sizePx}" height="${sizePx}" data-svg-asset="assets/vectors/agri/${key}.svg" aria-hidden="true">${item.paths}</svg>`;
+    }
+
+    function resolveMHSectionAgriVector(sec, idx) {
+      const id = String(sec?.id || '');
+      const title = String(sec?.title || '').toLowerCase();
+      const mapById = {
+        tdg_sec_0: 'farm',
+        tdg_sec_1: 'tractor',
+        tdg_sec_2: 'plant',
+        tdg_sec_3: 'windmill',
+        tdg_sec_4: 'chart-line-up',
+        tdg_sec_5: 'barn',
+        tdg_cmp_sup_norte: 'tractor',
+        tdg_cmp_sup_sur: 'grains',
+        tdg_cmp_iso_norte: 'cow',
+        tdg_cmp_iso_sur: 'tree',
+        tdg_sec_6: 'grains',
+        tdg_sec_7: 'cow',
+        tdg_sec_8: 'farm',
+        tdg_sec_9: 'sun-horizon',
+        tdg_cmp_ndvi_norte: 'plant',
+        tdg_cmp_ndvi_sur: 'tree',
+        tdg_cmp_ndwi_norte: 'drop',
+        tdg_cmp_ndwi_sur: 'drop',
+        tdg_cmp_savi_norte: 'sun-horizon',
+        tdg_cmp_savi_sur: 'farm',
+        tdg_sec_10: 'globe-hemisphere-west'
+      };
+      if (mapById[id]) return mapById[id];
+      if (/ndwi|agua|hídric|hidric/.test(title)) return 'drop';
+      if (/ndvi|vigor|vegetac/.test(title)) return 'plant';
+      if (/savi|suelo|clima/.test(title)) return 'sun-horizon';
+      if (/pasto|ganad/.test(title)) return 'cow';
+      if (/bosque|forest/.test(title)) return 'tree';
+      if (/cultivo|agríc|agric|cosecha/.test(title)) return 'grains';
+      if (/flujo|transici/.test(title)) return 'windmill';
+      if (/muni|subregi|norte|sur/.test(title)) return 'barn';
+      if (/conclus|orden|pot/.test(title)) return 'globe-hemisphere-west';
+      return MH_AGRI_KEYS[(Number(idx) || 0) % MH_AGRI_KEYS.length];
+    }
+
+    function renderMHAgriWatermark(sec, idx, bg) {
+      const key = resolveMHSectionAgriVector(sec, idx);
+      const isDark = _mhIsDarkBg(bg);
+      const col = isDark ? '#F6EFE2' : '#17525E';
+      return `<div class="mh-agri-bg-mark" style="top:16px;right:18px;width:140px;height:140px;color:${col};" aria-hidden="true">${_mhAgriSvgHtml(key, 140)}</div>`;
+    }
+
+    function renderMHAgriWidget(sec, idx, bg, text, secAccent) {
+      const key = resolveMHSectionAgriVector(sec, idx);
+      const info = MH_AGRI_VECTORS[key] || MH_AGRI_VECTORS.tractor;
+      const isDark = _mhIsDarkBg(bg);
+      const cardBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.88)';
+      const borderCol = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(23,82,94,0.22)';
+      const badgeCol = secAccent || (isDark ? '#D99B26' : '#17525E');
+      return `
+        <div class="mh-agri-widget-box shrink-0 max-w-full" style="position:relative;z-index:2;">
+          <button type="button" class="mh-agri-widget inline-flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border shadow-sm" data-agri-key="${key}"
+            onclick="toggleMHAgriWidget(this)"
+            style="background:${cardBg};border-color:${borderCol};color:${text};" title="Toca para explorar vector agrícola y dato espacial">
+            <span class="mh-agri-svg-wrap rounded-xl p-2" style="background:${badgeCol}22;color:${badgeCol};">${_mhAgriSvgHtml(key, 30)}</span>
+            <span class="min-w-0">
+              <span data-mh-agri-tag class="block text-[9.5px] font-extrabold uppercase tracking-wider" style="color:${badgeCol};">${escHtml(info.tag)}</span>
+              <span data-mh-agri-label class="block text-xs font-extrabold leading-tight truncate">${escHtml(info.label)}</span>
+            </span>
+            <span class="text-[10px] font-black px-2 py-0.5 rounded-full" style="background:${badgeCol}22;color:${badgeCol};">+ Info</span>
+          </button>
+          <div data-mh-agri-detail style="display:none;margin-top:8px;padding:10px 12px;border-radius:14px;background:${cardBg};border:1.5px solid #D99B26;color:${text};max-width:320px;font-size:11px;line-height:1.45;">
+            <div data-mh-agri-fact style="font-weight:700;margin-bottom:6px;">${escHtml(info.fact)}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-size:9.5px;opacity:0.7;">Vector agrícola interactivo</span>
+              <button type="button" onclick="cycleMHAgriVector(event,this)" style="padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#D99B26;color:#1F2421;cursor:pointer;">Cambiar vector ↻</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderMHHeroAgriStrip(secAccent, bg, text) {
+      const picks = [
+        { key: 'tractor', short: 'Expansión', lag: '-14px' },
+        { key: 'grains', short: 'Cultivos', lag: '12px' },
+        { key: 'cow', short: 'Pastos', lag: '-10px' },
+        { key: 'drop', short: 'Hídrico', lag: '14px' }
+      ];
+      return `
+        <div class="mh-stagger-item mt-6 mb-2 flex flex-col items-center gap-3 w-full" style="--mh-idx:2.5;">
+          <div class="flex flex-wrap items-center justify-center gap-2.5">
+            ${picks.map((p, pi) => {
+              const info = MH_AGRI_VECTORS[p.key];
+              return `
+                <button type="button" class="mh-agri-hero-btn flex items-center gap-2 px-3 py-2 rounded-2xl border ${pi === 0 ? 'mh-active' : ''}"
+                  data-agri-key="${p.key}" onclick="selectMHHeroAgri(this)"
+                  style="--mh-lag:${p.lag};background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.22);color:#FBF7EE;">
+                  <span style="color:#D99B26;">${_mhAgriSvgHtml(p.key, 24)}</span>
+                  <span class="text-xs font-extrabold">${escHtml(p.short)}</span>
+                </button>`;
+            }).join('')}
+          </div>
+          <div data-mh-hero-agri-readout class="px-4 py-1.5 rounded-full text-xs font-bold border border-white/20 max-w-xl" style="background:rgba(0,0,0,0.28);color:#F6EFE2;">
+            ${escHtml(MH_AGRI_VECTORS.tractor.label)}: ${escHtml(MH_AGRI_VECTORS.tractor.fact)}
+          </div>
+        </div>`;
+    }
+
+    function selectMHHeroAgri(btn) {
+      if (!btn) return;
+      const box = btn.closest('.mh-stagger-item');
+      if (box) box.querySelectorAll('.mh-agri-hero-btn').forEach(b => b.classList.remove('mh-active'));
+      btn.classList.add('mh-active');
+      const key = btn.getAttribute('data-agri-key') || 'tractor';
+      const info = MH_AGRI_VECTORS[key] || MH_AGRI_VECTORS.tractor;
+      const readout = box ? box.querySelector('[data-mh-hero-agri-readout]') : null;
+      if (readout) readout.textContent = `${info.label}: ${info.fact}`;
+    }
+
+    function toggleMHAgriWidget(btn) {
+      const box = btn ? btn.closest('.mh-agri-widget-box') : null;
+      const detail = box ? box.querySelector('[data-mh-agri-detail]') : null;
+      if (!btn || !detail) return;
+      const isOpen = detail.style.display !== 'none';
+      detail.style.display = isOpen ? 'none' : 'block';
+      btn.classList.toggle('mh-agri-open', !isOpen);
+      if (typeof refreshMHWebScrollMetrics === 'function') requestAnimationFrame(refreshMHWebScrollMetrics);
+    }
+
+    function cycleMHAgriVector(ev, actionBtn) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      const box = actionBtn ? actionBtn.closest('.mh-agri-widget-box') : null;
+      const widget = box ? box.querySelector('.mh-agri-widget') : null;
+      if (!widget) return;
+      const curKey = widget.getAttribute('data-agri-key') || 'tractor';
+      const curIdx = MH_AGRI_KEYS.indexOf(curKey);
+      const nextKey = MH_AGRI_KEYS[(curIdx + 1) % MH_AGRI_KEYS.length];
+      const info = MH_AGRI_VECTORS[nextKey];
+      widget.setAttribute('data-agri-key', nextKey);
+      const wrap = widget.querySelector('.mh-agri-svg-wrap');
+      if (wrap) wrap.innerHTML = _mhAgriSvgHtml(nextKey, 30);
+      const tagEl = widget.querySelector('[data-mh-agri-tag]');
+      const lblEl = widget.querySelector('[data-mh-agri-label]');
+      if (tagEl) tagEl.textContent = info.tag;
+      if (lblEl) lblEl.textContent = info.label;
+      const factEl = box.querySelector('[data-mh-agri-fact]');
+      if (factEl) factEl.textContent = info.fact;
+      widget.classList.remove('mh-agri-open');
+      void widget.offsetWidth;
+      widget.classList.add('mh-agri-open');
+    }
 
     function _mhIsDarkBg(hex) {
       if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return true;
@@ -64020,7 +64300,6 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           contentHtml = `
             <div class="flex flex-col items-center justify-center text-center min-h-[380px] px-8 py-14" style="background:${bg};color:${text};">
               ${sepHtml}
-              <div style="color:${secAccent};font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;">Map History · Zima</div>
               <h1 style="font-size:30px;font-weight:900;line-height:1.15;margin-bottom:12px;max-width:540px;">${escHtml(sec.title || 'Sin título')}</h1>
               ${sec.body ? `<div style="font-size:13px;line-height:1.6;max-width:460px;opacity:0.86;">${sec.body}</div>` : ''}
               ${sec.imageUrl ? `<div class="mt-6 rounded-xl overflow-hidden max-w-sm shadow-md"><img src="${sec.imageUrl}" style="width:100%;height:160px;object-fit:cover;"></div>` : (isOrganicStory ? renderMHMidCenturyCoverSvg(secAccent, bg, text) : '')}
@@ -64030,7 +64309,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           contentHtml = `
             <div style="padding:28px 24px;background:${bg};color:${text};">
               ${sepHtml}
-              <div style="color:${_mhIsDarkBg(bg) ? '#D99B26' : accent};font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Gráfica Interactiva en Código</div>
+              <div style="color:${_mhIsDarkBg(bg) ? '#D99B26' : accent};font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Gráfica Interactiva</div>
               <h2 style="font-size:20px;font-weight:900;margin-bottom:8px;">${escHtml(sec.title || 'Gráfica')}</h2>
               ${sec.body ? `<div style="font-size:12px;line-height:1.6;opacity:0.85;margin-bottom:16px;">${sec.body}</div>` : ''}
               ${renderMHChartSVG(sec, accent, text, bg, { compact: true })}
@@ -64284,7 +64563,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <textarea rows="2" onchange="updateMHField('body',this.value)" class="w-full px-3 py-1.5 rounded-lg text-xs border border-zinc-200 mt-1 outline-none resize-none">${escHtml(sec.body || '')}</textarea>
           </div>
           <div class="mb-3">
-            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Motor de Gráfica (Código SVG)</label>
+            <label class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Tipo de Gráfica</label>
             <div class="grid grid-cols-3 gap-1">
               ${cTypes.map(ct => `
                 <button onclick="updateMHChartField('${sec.id}','chartType','${ct.id}')" class="px-1.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${(sec.chartType||'line') === ct.id ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}">${ct.label}</button>
@@ -64388,7 +64667,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <span class="material-symbols-outlined text-[13px]">upload</span> Subir
               </button>
             </div>
-            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map Story (no modifica el lienzo)">
               <span class="material-symbols-outlined text-[14px]">compress</span> TIFF Optimizado (.tif)
             </button>
           </div>
@@ -64411,7 +64690,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 <span class="material-symbols-outlined text-[13px]">upload</span> Subir
               </button>
             </div>
-            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl2')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl2')" class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-900 text-[10px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map Story (no modifica el lienzo)">
               <span class="material-symbols-outlined text-[14px]">compress</span> TIFF Optimizado (.tif)
             </button>
           </div>
@@ -64547,7 +64826,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 Subir Archivo
               </button>
             </div>
-            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-2 w-full px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 text-[11px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map History (no modifica el lienzo)">
+            <button type="button" onclick="handleMHTiffUpload('${sec.id}','imageUrl')" class="mt-2 w-full px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 text-[11px] font-bold border border-teal-200 flex items-center justify-center gap-1.5 transition-colors" title="Optimiza GeoTIFF/TIFF directo a WebP ligero solo para Map Story (no modifica el lienzo)">
               <span class="material-symbols-outlined text-[15px]">compress</span>
               Importar TIFF Optimizado (.tif)
             </button>
@@ -64616,8 +64895,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     // Save Story to LocalStorage & Projects API
     async function saveMapHistory() {
-      const name = (mhData.title || mhData.sections[0]?.title || 'Map History').substring(0, 50);
-      const desc = 'Map History · ' + mhData.sections.length + ' secciones visuales';
+      const name = (mhData.title || mhData.sections[0]?.title || 'Map Story').substring(0, 50);
+      const desc = 'Map Story · ' + mhData.sections.length + ' secciones visuales';
 
       // 1. Instant local persistence
       saveMapHistoryToStorage(mhData);
@@ -64688,6 +64967,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     let mhWebNavObserver = null;
     let mhWebVisObserver = null;
+    const mhVisibleWebSections = new Set();
     let mhDrawerCatFilter = 'all';
     let mhCurrentWebSections = [];
     let _mhScrollRaf = 0;
@@ -64707,7 +64987,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       modal.classList.remove('hidden');
 
       const titleEl = document.getElementById('mhPresTitle');
-      if (titleEl) titleEl.textContent = data.title || data.sections[0]?.title || 'Map History';
+      if (titleEl) titleEl.textContent = data.title || data.sections[0]?.title || 'Map Story';
 
       renderMHWebStory(data);
 
@@ -64737,6 +65017,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         mhWebVisObserver.disconnect();
         mhWebVisObserver = null;
       }
+      mhVisibleWebSections.clear();
       mhPresAutoPlay = false;
       const icon = document.getElementById('mhPresAutoPlayIcon');
       const text = document.getElementById('mhPresAutoPlayText');
@@ -64831,6 +65112,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       updateMHWebScrollProgress();
     }
 
+    function _mhApplyVisibleScrollParallax(stage) {
+      if (!stage || !mhVisibleWebSections.size) return;
+      const stRect = stage.getBoundingClientRect();
+      const midY = stRect.top + stRect.height * 0.5;
+      const halfH = Math.max(1, stRect.height * 0.55);
+      mhVisibleWebSections.forEach(secEl => {
+        const r = secEl.getBoundingClientRect();
+        const center = r.top + r.height * 0.5;
+        const p = Math.max(-1, Math.min(1, (center - midY) / halfH));
+        secEl.style.setProperty('--mh-sp', p.toFixed(3));
+        secEl.style.setProperty('--mh-sp-abs', Math.abs(p).toFixed(3));
+      });
+    }
+
     function updateMHWebScrollProgress() {
       if (_mhScrollRaf) return;
       _mhScrollRaf = requestAnimationFrame(() => {
@@ -64844,6 +65139,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         const counter = document.getElementById('mhPresSlideCounter');
         if (bar) bar.style.transform = `scaleX(${ratio.toFixed(4)})`;
         if (counter) counter.textContent = `${pct}%`;
+        _mhApplyVisibleScrollParallax(stage);
       });
     }
 
@@ -64879,7 +65175,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const globalBg = data.globalBg || '#0f0f0f';
       const globalText = data.globalText || '#ffffff';
       const accent = data.globalAccent || '#38bdf8';
-      const storyTitle = data.title || data.sections[0]?.title || 'Map History';
+      const storyTitle = data.title || data.sections[0]?.title || 'Map Story';
 
       if (modal) modal.style.background = globalBg;
       stage.style.background = globalBg;
@@ -64957,11 +65253,9 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   <div class="absolute inset-0" style="background:linear-gradient(to bottom, ${bg}88 0%, ${bg}cc 55%, ${bg} 100%);"></div>
                 </div>` : ''}
               <div class="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
-                <span class="mh-stagger-item inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] mb-6 border" style="--mh-idx:0;color:${secAccent};border-color:${secAccent}55;background:${secAccent}18;">
-                  ${isOrganicWeb ? 'Mosaico Orgánico Mid-Century · Historia Web' : 'Map History · Historia Web'}
-                </span>
                 <h1 class="mh-stagger-item text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] mb-6" style="--mh-idx:1;color:${text};">${escHtml(sec.title || storyTitle)}</h1>
-                ${sec.body ? `<div class="mh-stagger-item text-base sm:text-xl opacity-90 leading-relaxed max-w-2xl mb-6" style="--mh-idx:2;">${sec.body}</div>` : ''}
+                ${sec.body ? `<div class="mh-stagger-item text-base sm:text-xl opacity-90 leading-relaxed max-w-2xl mb-4" style="--mh-idx:2;">${sec.body}</div>` : ''}
+                ${renderMHHeroAgriStrip(secAccent, bg, text)}
                 ${sec.imageUrl ? `
                   <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 mb-8">
                     <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full max-h-[380px] object-cover">
@@ -64982,11 +65276,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (sec.type === 'chart') {
           contentSectionsHtml += `
             <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
-              <div class="max-w-5xl mx-auto">
-                <div class="max-w-3xl mb-8">
-                  <span class="inline-block text-[11px] font-extrabold uppercase tracking-[0.2em] mb-2" style="color:${secAccent};">Gráfica Interactiva · Código de la Página</span>
-                  <h2 class="text-2xl sm:text-4xl font-black tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Gráfica')}</h2>
-                  ${sec.body ? `<div class="text-sm sm:text-base opacity-90 leading-relaxed">${sec.body}</div>` : ''}
+              ${renderMHAgriWatermark(sec, idx, bg)}
+              <div class="max-w-5xl mx-auto relative" style="z-index:2;">
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+                  <div class="max-w-2xl">
+                    <span class="inline-block text-[11px] font-extrabold uppercase tracking-[0.2em] mb-2" style="color:${secAccent};">Gráfica Interactiva</span>
+                    <h2 class="text-2xl sm:text-4xl font-black tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Gráfica')}</h2>
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-90 leading-relaxed">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, bg, text, secAccent)}
                 </div>
                 ${renderMHChartSVG(sec, accent, text, bg, { compact: false })}
               </div>
@@ -64996,11 +65294,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const img2 = sec.imageUrl2 || '';
           contentSectionsHtml += `
             <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
-              <div class="max-w-5xl mx-auto">
-                <div class="max-w-2xl mb-8">
-                  <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Comparación Multitemporal</span>
-                  <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Comparación')}</h2>
-                  ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+              ${renderMHAgriWatermark(sec, idx, bg)}
+              <div class="max-w-5xl mx-auto relative" style="z-index:2;">
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+                  <div class="max-w-2xl">
+                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Comparación Multitemporal</span>
+                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Comparación')}</h2>
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, bg, text, secAccent)}
                 </div>
                 ${(img1 && img2 && sec.compareMode === 'slider') ? `
                   <div class="mh-compare-wrapper">
@@ -65036,11 +65338,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const mDark = _mhIsDarkBg(bg);
           contentSectionsHtml += `
             <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
-              <div class="max-w-5xl mx-auto">
-                <div class="max-w-2xl mb-10">
-                  <span class="text-[11px] font-extrabold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Indicadores Espaciales</span>
-                  <h2 class="text-2xl sm:text-4xl font-black tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Métricas')}</h2>
-                  ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+              ${renderMHAgriWatermark(sec, idx, bg)}
+              <div class="max-w-5xl mx-auto relative" style="z-index:2;">
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-10">
+                  <div class="max-w-2xl">
+                    <span class="text-[11px] font-extrabold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Indicadores Espaciales</span>
+                    <h2 class="text-2xl sm:text-4xl font-black tracking-tight mb-3" style="color:${text};">${escHtml(sec.title || 'Métricas')}</h2>
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, bg, text, secAccent)}
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   ${metricsList.map((m, mi) => `
@@ -65060,14 +65366,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (sec.type === 'quote') {
           contentSectionsHtml += `
             <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-20 sm:py-28 px-6" style="background:${bg};color:${text};">
-              <div class="max-w-3xl mx-auto text-center flex flex-col items-center">
-                <span class="material-symbols-outlined text-5xl mb-6 opacity-35" style="color:${accent};">format_quote</span>
+              ${renderMHAgriWatermark(sec, idx, bg)}
+              <div class="max-w-3xl mx-auto text-center flex flex-col items-center relative" style="z-index:2;">
+                <span class="material-symbols-outlined text-5xl mb-4 opacity-35" style="color:${secAccent};">format_quote</span>
                 <blockquote class="text-2xl sm:text-3xl font-medium italic leading-relaxed mb-6" style="color:${text};">
                   "${escHtml(sec.quoteText || sec.body)}"
                 </blockquote>
-                <div class="w-12 h-1 rounded-full mb-4" style="background:${accent};"></div>
+                <div class="w-12 h-1 rounded-full mb-4" style="background:${secAccent};"></div>
                 ${sec.author ? `<div class="text-base font-bold">${escHtml(sec.author)}</div>` : ''}
-                ${sec.role ? `<div class="text-xs opacity-65 mt-0.5">${escHtml(sec.role)}</div>` : ''}
+                ${sec.role ? `<div class="text-xs opacity-65 mt-0.5 mb-6">${escHtml(sec.role)}</div>` : ''}
+                <div class="mt-4">${renderMHAgriWidget(sec, idx, bg, text, secAccent)}</div>
               </div>
             </section>`;
         } else {
@@ -65079,27 +65387,33 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const txtColOrder = layout === 'right' ? 'lg:order-1' : 'lg:order-2';
             contentSectionsHtml += `
               <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
-                <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+                ${renderMHAgriWatermark(sec, idx, bg)}
+                <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative" style="z-index:2;">
                   <div class="lg:col-span-7 ${imgColOrder} lg:sticky lg:top-20">
                     <div class="rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/20">
                       <img src="${img}" alt="${escHtml(sec.title)}" class="w-full max-h-[68vh] object-cover">
                     </div>
                   </div>
                   <div class="lg:col-span-5 ${txtColOrder} flex flex-col justify-center py-2">
-                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style="color:${accent};">Capítulo ${idx + 1}</span>
+                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style="color:${secAccent};">Capítulo ${idx + 1}</span>
                     <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4" style="color:${text};">${escHtml(sec.title || 'Sin título')}</h2>
-                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed space-y-3">${sec.body}</div>` : ''}
+                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed space-y-3 mb-5">${sec.body}</div>` : ''}
+                    ${renderMHAgriWidget(sec, idx, bg, text, secAccent)}
                   </div>
                 </div>
               </section>`;
           } else {
             contentSectionsHtml += `
               <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
-                <div class="${layout === 'full' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto">
-                  <div class="max-w-3xl mb-8">
-                    <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Capítulo ${idx + 1}</span>
-                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4" style="color:${text};">${escHtml(sec.title || 'Sin título')}</h2>
-                    ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+                ${renderMHAgriWatermark(sec, idx, bg)}
+                <div class="${layout === 'full' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto relative" style="z-index:2;">
+                  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+                    <div class="max-w-2xl">
+                      <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${secAccent};">Capítulo ${idx + 1}</span>
+                      <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4" style="color:${text};">${escHtml(sec.title || 'Sin título')}</h2>
+                      ${sec.body ? `<div class="text-sm sm:text-base opacity-85 leading-relaxed">${sec.body}</div>` : ''}
+                    </div>
+                    ${renderMHAgriWidget(sec, idx, bg, text, secAccent)}
                   </div>
                   ${img ? `
                     <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/20">
@@ -65116,7 +65430,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-2 text-xs opacity-70">
               <span class="material-symbols-outlined text-[16px]" style="color:${accent};">auto_stories</span>
-              <span>${escHtml(storyTitle)} · Map History Web</span>
+              <span>${escHtml(storyTitle)} · Map Story</span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <button type="button" onclick="toggleMHChapterDrawer(true)" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border border-amber-400/40 cursor-pointer" style="background:rgba(217,155,38,0.16);color:#FBF7EE;">
@@ -65147,12 +65461,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       // Highlight active section, reveal animations & offscreen SVG pause
       if (mhWebNavObserver) mhWebNavObserver.disconnect();
       if (mhWebVisObserver) mhWebVisObserver.disconnect();
+      mhVisibleWebSections.clear();
       const isDesktopView = window.innerWidth > 768;
 
       mhWebVisObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           entry.target.classList.toggle('mh-is-visible', entry.isIntersecting);
+          if (entry.isIntersecting) mhVisibleWebSections.add(entry.target);
+          else mhVisibleWebSections.delete(entry.target);
         });
+        _mhApplyVisibleScrollParallax(stage);
       }, { root: stage, threshold: 0, rootMargin: '140px 0px' });
 
       mhWebNavObserver = new IntersectionObserver((entries) => {
@@ -65260,7 +65578,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ═══════════════════════════════════════════════════════════
 
     function generateStandaloneMHHtml() {
-      const title = mhData.title || mhData.sections[0]?.title || 'Map History';
+      const title = mhData.title || mhData.sections[0]?.title || 'Map Story';
       const bg = mhData.globalBg;
       const text = mhData.globalText;
       const accent = mhData.globalAccent;
@@ -65291,20 +65609,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
         if (sec.type === 'cover') {
           sectionsHtml += `
-            <section id="sec_${idx}" class="mh-reveal mh-in-view" style="min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;background:${sBg};color:${sText};">
-              <span class="mh-stagger-item" style="--mh-idx:0;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:${sAccent};margin-bottom:16px;">Map History · Historia Web</span>
+            <section id="sec_${idx}" data-web-sec="${idx}" class="mh-reveal mh-in-view mh-is-visible" style="min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;background:${sBg};color:${sText};">
               <h1 class="mh-stagger-item" style="--mh-idx:1;font-size:44px;font-weight:900;line-height:1.12;max-width:740px;margin-bottom:18px;">${escHtml(sec.title)}</h1>
-              ${sec.body ? `<div class="mh-stagger-item" style="--mh-idx:2;font-size:16px;line-height:1.7;max-width:620px;opacity:0.88;margin-bottom:20px;">${sec.body}</div>` : ''}
+              ${sec.body ? `<div class="mh-stagger-item" style="--mh-idx:2;font-size:16px;line-height:1.7;max-width:620px;opacity:0.88;margin-bottom:14px;">${sec.body}</div>` : ''}
+              ${renderMHHeroAgriStrip(sAccent, sBg, sText)}
               ${sec.imageUrl ? `<img src="${sec.imageUrl}" style="width:100%;max-width:550px;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.3);margin-bottom:24px;">` : (isOrganic ? renderMHMidCenturyCoverSvg(sAccent, sBg, sText) : '')}
               <div style="width:56px;height:3px;background:${sAccent};border-radius:2px;margin-top:16px;"></div>
             </section>`;
         } else if (sec.type === 'chart') {
           sectionsHtml += `
-            <section id="sec_${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};">
-              <div style="max-width:960px;margin:0 auto;">
-                <span style="display:block;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:${sAccent};margin-bottom:8px;">Gráfica Interactiva · Código SVG</span>
-                <h2 style="font-size:28px;font-weight:900;margin-bottom:10px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.86;margin-bottom:24px;max-width:720px;">${sec.body}</div>` : ''}
+            <section id="sec_${idx}" data-web-sec="${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};">
+              ${renderMHAgriWatermark(sec, idx, sBg)}
+              <div style="max-width:960px;margin:0 auto;position:relative;z-index:2;">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px;">
+                  <div style="max-width:620px;">
+                    <span style="display:block;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:${sAccent};margin-bottom:8px;">Gráfica Interactiva</span>
+                    <h2 style="font-size:28px;font-weight:900;margin-bottom:10px;">${escHtml(sec.title)}</h2>
+                    ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.86;">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, sBg, sText, sAccent)}
+                </div>
                 ${renderMHChartSVG(sec, accent, sText, sBg, { compact: false })}
               </div>
             </section>`;
@@ -65312,10 +65636,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const img1 = sec.imageUrl || '';
           const img2 = sec.imageUrl2 || '';
           sectionsHtml += `
-            <section id="sec_${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
-              <div style="max-width:940px;margin:0 auto;">
-                <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
+            <section id="sec_${idx}" data-web-sec="${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
+              ${renderMHAgriWatermark(sec, idx, sBg)}
+              <div style="max-width:940px;margin:0 auto;position:relative;z-index:2;">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px;">
+                  <div style="max-width:580px;">
+                    <h2 style="font-size:26px;font-weight:800;margin-bottom:8px;">${escHtml(sec.title)}</h2>
+                    ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.85;">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, sBg, sText, sAccent)}
+                </div>
                 ${(img1 && img2) ? `
                   <div class="mh-compare-wrapper">
                     <div class="mh-compare-container mh-web-compare-box" style="height:540px;max-width:740px;margin:0 auto;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchstart="if(event.target.closest('.divider,.mh-compare-divider'))this.dataset.draggingDivider='1'" ontouchmove="handleCompare(event, this)" ontouchend="this.dataset.draggingDivider='0'" ontouchcancel="this.dataset.draggingDivider='0'">
@@ -65337,10 +65667,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         } else if (sec.type === 'metrics') {
           const metricsList = sec.metrics || [];
           sectionsHtml += `
-            <section id="sec_${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
-              <div style="max-width:960px;margin:0 auto;">
-                <h2 style="font-size:28px;font-weight:900;margin-bottom:8px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
+            <section id="sec_${idx}" data-web-sec="${idx}" class="mh-reveal" style="padding:64px 24px;background:${sBg};color:${sText};">
+              ${renderMHAgriWatermark(sec, idx, sBg)}
+              <div style="max-width:960px;margin:0 auto;position:relative;z-index:2;">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:24px;">
+                  <div style="max-width:580px;">
+                    <h2 style="font-size:28px;font-weight:900;margin-bottom:8px;">${escHtml(sec.title)}</h2>
+                    ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.85;">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, sBg, sText, sAccent)}
+                </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;">
                   ${metricsList.map((m, mi) => `
                     <div class="mh-stagger-item mh-metric-card mh-class-chip" role="button" tabindex="0" onclick="toggleMHMetricFocus(this)" style="--mh-idx:${mi};cursor:pointer;background:${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.84)'};border:1.5px solid ${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};border-radius:16px;padding:20px;">
@@ -65353,19 +65689,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </section>`;
         } else if (sec.type === 'quote') {
           sectionsHtml += `
-            <section id="sec_${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};text-align:center;">
-              <blockquote style="font-size:22px;font-style:italic;line-height:1.6;max-width:720px;margin:0 auto 18px;">
-                "${escHtml(sec.quoteText || sec.body)}"
-              </blockquote>
-              ${sec.author ? `<div style="font-size:15px;font-weight:800;">${escHtml(sec.author)}</div>` : ''}
-              ${sec.role ? `<div style="font-size:12px;opacity:0.75;">${escHtml(sec.role)}</div>` : ''}
+            <section id="sec_${idx}" data-web-sec="${idx}" class="mh-reveal" style="padding:72px 24px;background:${sBg};color:${sText};text-align:center;">
+              ${renderMHAgriWatermark(sec, idx, sBg)}
+              <div style="position:relative;z-index:2;">
+                <blockquote style="font-size:22px;font-style:italic;line-height:1.6;max-width:720px;margin:0 auto 18px;">
+                  "${escHtml(sec.quoteText || sec.body)}"
+                </blockquote>
+                ${sec.author ? `<div style="font-size:15px;font-weight:800;">${escHtml(sec.author)}</div>` : ''}
+                ${sec.role ? `<div style="font-size:12px;opacity:0.75;margin-bottom:18px;">${escHtml(sec.role)}</div>` : ''}
+                <div style="display:flex;justify-content:center;">${renderMHAgriWidget(sec, idx, sBg, sText, sAccent)}</div>
+              </div>
             </section>`;
         } else {
           sectionsHtml += `
-            <section id="sec_${idx}" style="padding:64px 24px;background:${sBg};color:${sText};">
-              <div style="max-width:940px;margin:0 auto;">
-                <h2 style="font-size:26px;font-weight:800;margin-bottom:12px;">${escHtml(sec.title)}</h2>
-                ${sec.body ? `<div style="font-size:14px;line-height:1.7;opacity:0.86;margin-bottom:20px;">${sec.body}</div>` : ''}
+            <section id="sec_${idx}" data-web-sec="${idx}" style="padding:64px 24px;background:${sBg};color:${sText};">
+              ${renderMHAgriWatermark(sec, idx, sBg)}
+              <div style="max-width:940px;margin:0 auto;position:relative;z-index:2;">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px;">
+                  <div style="max-width:580px;">
+                    <h2 style="font-size:26px;font-weight:800;margin-bottom:12px;">${escHtml(sec.title)}</h2>
+                    ${sec.body ? `<div style="font-size:14px;line-height:1.7;opacity:0.86;">${sec.body}</div>` : ''}
+                  </div>
+                  ${renderMHAgriWidget(sec, idx, sBg, sText, sAccent)}
+                </div>
                 ${sec.imageUrl ? `<img src="${sec.imageUrl}" style="width:100%;max-height:480px;object-fit:cover;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.15);">` : ''}
               </div>
             </section>`;
@@ -65392,7 +65738,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     @keyframes mhPopIn { 0%{opacity:0;transform:translateY(16px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
     @keyframes mhBarGrowX { from{transform:scaleX(0);opacity:0.35} to{transform:scaleX(1);opacity:1} }
     @keyframes mhBarGrowY { from{transform:scaleY(0);opacity:0.35} to{transform:scaleY(1);opacity:1} }
+    [data-web-sec] { overflow-x:clip; position:relative; }
     section.mh-reveal { content-visibility:auto; contain-intrinsic-size:auto 560px; contain:layout style; }
+    .mh-agri-widget { cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease; text-align:left; }
+    .mh-agri-svg-wrap { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; transform:translate3d(0,calc(var(--mh-sp,0) * -10px),0) rotate(calc(var(--mh-sp,0) * 8deg)) scale(calc(1 + (1 - var(--mh-sp-abs,0.5)) * 0.08)); will-change:transform; }
+    .mh-agri-bg-mark { position:absolute; pointer-events:none; opacity:0.085; transform:translate3d(calc(var(--mh-sp,0) * 18px),calc(var(--mh-sp,0) * -26px),0) rotate(calc(var(--mh-sp,0) * -11deg)); will-change:transform; z-index:0; }
+    .mh-agri-hero-btn { transform:translate3d(0,calc(var(--mh-sp,0) * var(--mh-lag,-12px)),0); transition:transform 0.2s ease, border-color 0.2s ease; cursor:pointer; }
+    .mh-agri-hero-btn.mh-active, .mh-agri-widget.mh-agri-open { outline:2px solid #D99B26; box-shadow:0 10px 24px rgba(0,0,0,0.16); }
     .mh-compare-container { touch-action:pan-y; contain:layout paint; }
     .divider, .mh-compare-divider { touch-action:none; }
     .divider::before, .mh-compare-divider::before { content:''; position:absolute; inset:0 -18px; }
@@ -65612,11 +65964,62 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         c._raf = requestAnimationFrame(tick);
       })(t0);
     }
+    var MH_AGRI_DATA = ${JSON.stringify(MH_AGRI_VECTORS)};
+    var MH_AGRI_KEY_LIST = Object.keys(MH_AGRI_DATA);
+    function selectMHHeroAgri(btn) {
+      var box = btn && btn.closest('.mh-stagger-item');
+      if (box) box.querySelectorAll('.mh-agri-hero-btn').forEach(function(b){ b.classList.remove('mh-active'); });
+      btn.classList.add('mh-active');
+      var info = MH_AGRI_DATA[btn.getAttribute('data-agri-key') || 'tractor'] || MH_AGRI_DATA.tractor;
+      var ro = box && box.querySelector('[data-mh-hero-agri-readout]');
+      if (ro) ro.textContent = info.label + ': ' + info.fact;
+    }
+    function toggleMHAgriWidget(btn) {
+      var box = btn && btn.closest('.mh-agri-widget-box');
+      var det = box && box.querySelector('[data-mh-agri-detail]');
+      if (!btn || !det) return;
+      var open = det.style.display !== 'none';
+      det.style.display = open ? 'none' : 'block';
+      btn.classList.toggle('mh-agri-open', !open);
+    }
+    function cycleMHAgriVector(ev, actionBtn) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      var box = actionBtn && actionBtn.closest('.mh-agri-widget-box');
+      var w = box && box.querySelector('.mh-agri-widget');
+      if (!w) return;
+      var cur = w.getAttribute('data-agri-key') || 'tractor';
+      var nextKey = MH_AGRI_KEY_LIST[(MH_AGRI_KEY_LIST.indexOf(cur) + 1) % MH_AGRI_KEY_LIST.length];
+      var info = MH_AGRI_DATA[nextKey];
+      w.setAttribute('data-agri-key', nextKey);
+      var wrap = w.querySelector('.mh-agri-svg-wrap');
+      if (wrap) wrap.innerHTML = '<svg viewBox="0 0 256 256" fill="currentColor" width="30" height="30">' + info.paths + '</svg>';
+      var tagEl = w.querySelector('[data-mh-agri-tag]');
+      var lblEl = w.querySelector('[data-mh-agri-label]');
+      if (tagEl) tagEl.textContent = info.tag;
+      if (lblEl) lblEl.textContent = info.label;
+      var f = box.querySelector('[data-mh-agri-fact]');
+      if (f) f.textContent = info.fact;
+    }
+    var _visSecs = new Set();
+    var _sRaf = 0;
+    function _updateAgriScroll() {
+      _sRaf = 0;
+      var mid = window.innerHeight * 0.5, hh = Math.max(1, window.innerHeight * 0.55);
+      _visSecs.forEach(function(sec){
+        var r = sec.getBoundingClientRect();
+        var p = Math.max(-1, Math.min(1, ((r.top + r.height * 0.5) - mid) / hh));
+        sec.style.setProperty('--mh-sp', p.toFixed(3));
+        sec.style.setProperty('--mh-sp-abs', Math.abs(p).toFixed(3));
+      });
+    }
+    window.addEventListener('scroll', function(){ if (!_sRaf) _sRaf = requestAnimationFrame(_updateAgriScroll); }, { passive: true });
     if ('IntersectionObserver' in window) {
       var visObs = new IntersectionObserver(function(entries) {
         entries.forEach(function(en) {
           en.target.classList.toggle('mh-is-visible', en.isIntersecting);
+          if (en.isIntersecting) _visSecs.add(en.target); else _visSecs.delete(en.target);
         });
+        _updateAgriScroll();
       }, { threshold: 0, rootMargin: '140px 0px' });
       var obs = new IntersectionObserver(function(entries) {
         entries.forEach(function(en) {
