@@ -65012,8 +65012,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       <div class="mh-compare-divider" style="left:50%;">
                         <div class="mh-compare-handle">⇄</div>
                       </div>
-                      <span class="pointer-events-none absolute top-3 left-3 px-3 py-1 rounded-full bg-black/80 text-white text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
-                      <span class="pointer-events-none absolute top-3 right-3 px-3 py-1 rounded-full bg-black/80 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
+                      <span class="pointer-events-none absolute top-3 left-3 max-w-[44%] truncate px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-black/80 text-white text-[10px] sm:text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
+                      <span class="pointer-events-none absolute top-3 right-3 max-w-[44%] truncate px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-black/80 text-white text-[10px] sm:text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
                     </div>
                     ${renderMHCompareToolbar(sec, bg)}
                   </div>
@@ -65326,8 +65326,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       <div class="divider mh-compare-divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;">
                         <div class="mh-compare-handle" style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
                       </div>
-                      <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
-                      <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
+                      <span style="position:absolute;top:12px;left:12px;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
+                      <span style="position:absolute;top:12px;right:12px;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
                     </div>
                     ${renderMHCompareToolbar(sec, sBg)}
                   </div>` : ''}
