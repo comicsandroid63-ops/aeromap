@@ -48,24 +48,24 @@
   </script>
 
   <!-- GeoTIFF.js -->
-  <script src="/vendor/geotiff.js"></script>
-  <script src="/vendor/openseadragon.min.js"></script>
+  <script defer src="/vendor/geotiff.js"></script>
+  <script defer src="/vendor/openseadragon.min.js"></script>
   <link rel="stylesheet" href="/vendor/leaflet.css" />
   <link rel="stylesheet" href="/vendor/maplibre-gl.css" />
   <script src="/vendor/leaflet.js"></script>
-  <script src="/vendor/maplibre-gl.js"></script>
-  <script src="/3d-map.js"></script>
+  <script defer src="/vendor/maplibre-gl.js"></script>
+  <script defer src="/3d-map.js"></script>
   <!-- Leaflet Side-By-Side (Swipe) -->
-  <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side/leaflet-side-by-side.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side/leaflet-side-by-side.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Proj4 for coordinate transformations -->
-  <script src="/vendor/proj4.js"></script>
-  <script src="/vendor/fflate.js"></script>
-  <script src="/vendor/shp.js"></script>
-  <script src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="/vendor/proj4.js"></script>
+  <script defer src="/vendor/fflate.js"></script>
+  <script defer src="/vendor/shp.js"></script>
+  <script defer src="https://unpkg.com/@ngageoint/geopackage@4.2.5/dist/geopackage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- html2canvas for map snapshots -->
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- jsPDF for layout export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Supabase client for cloud upload -->
   <!-- Supabase removed — using local server + Turso -->
   <!-- App version for cache busting - changes on every page load -->
@@ -85,6 +85,10 @@
     try {
       const _urlParams = new URLSearchParams(location.search);
       const _geoVisor = _urlParams.get('geovisor') || _urlParams.get('viewer');
+      const _storyParam = _urlParams.get('story');
+      if (_storyParam) {
+        window.__isGuestStoryMode = true;
+      }
       if (_geoVisor) {
         window.__isGeovisorMode = true;
         window.__geovisorId = _geoVisor;
@@ -100,25 +104,25 @@
     } catch(e) {}
   </script>
   <!-- Three.js for 3D Terrain -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/effects/AnaglyphEffect.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/effects/AnaglyphEffect.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- SheetJS for Excel/CSV -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script defer src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- togeojson for KML/GPX -->
-  <script src="/vendor/togeojson.js"></script>
+  <script defer src="/vendor/togeojson.js"></script>
   <!-- Turf.js for Geoprocessing -->
-  <script src="/vendor/turf.min.js"></script>
+  <script defer src="/vendor/turf.min.js"></script>
   <!-- Geoblaze for Zonal Statistics -->
-  <script src="/vendor/geoblaze.web.min.js"></script>
+  <script defer src="/vendor/geoblaze.web.min.js"></script>
 
 
   <link href="/output.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Playfair+Display:wght@400;700&family=Lato:wght@400;700&family=Oswald:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Playfair+Display:wght@400;700&family=Lato:wght@400;700&family=Oswald:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
@@ -879,14 +883,12 @@
       justify-content: center;
       flex-shrink: 0;
       transform: translate3d(0, calc(var(--mh-sp, 0) * -10px), 0) rotate(calc(var(--mh-sp, 0) * 8deg)) scale(calc(1 + (1 - var(--mh-sp-abs, 0.5)) * 0.08));
-      will-change: transform;
     }
     .mh-agri-bg-mark {
       position: absolute;
       pointer-events: none;
       opacity: 0.085;
       transform: translate3d(calc(var(--mh-sp, 0) * 18px), calc(var(--mh-sp, 0) * -26px), 0) rotate(calc(var(--mh-sp, 0) * -11deg));
-      will-change: transform;
       z-index: 0;
     }
     .mh-agri-hero-btn {
@@ -909,22 +911,49 @@
       animation: mhAgriPop 0.45s cubic-bezier(0.22,1,0.36,1);
     }
     @media (max-width: 768px) {
+      *, *::before, *::after {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      #landingPage {
+        scroll-behavior: auto !important;
+      }
+      #mhPresStage .shadow-2xl,
+      #mhPresStage .shadow-xl,
+      #mhPresStage .shadow-lg {
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
+      }
       .mh-agri-bg-mark {
         width: 96px !important;
         height: 96px !important;
         opacity: 0.065;
+        transform: none !important;
       }
-      .mh-anim-ready .mh-in-view .mh-svg-line-path {
-        animation: none !important;
-        stroke-dasharray: none !important;
+      .mh-agri-svg-wrap {
+        transform: rotate(-6deg) scale(0.95);
+        transition: transform 0.32s cubic-bezier(0.22,1,0.36,1);
+      }
+      .mh-in-view .mh-agri-svg-wrap {
+        transform: none;
+      }
+      .mh-agri-hero-btn {
+        transform: none !important;
       }
       .mh-anim-ready .mh-reveal {
-        transition: opacity 0.38s ease, transform 0.38s ease;
-        transform: translateY(14px);
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
       }
-      .mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item {
-        animation-duration: 0.32s;
-        animation-delay: calc(min(var(--mh-idx, 0), 6) * 28ms);
+      .mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item,
+      .mh-anim-ready .mh-in-view .mh-svg-bar-x,
+      .mh-anim-ready .mh-in-view .mh-svg-bar-y,
+      .mh-anim-ready .mh-in-view .mh-svg-line-path,
+      .mh-flow-dash,
+      .mh-kinetic-1,
+      .mh-kinetic-2,
+      .mh-hero-cta-arrow {
+        animation: none !important;
+        stroke-dasharray: none !important;
       }
       .mh-web-compare-box {
         height: 330px !important;
@@ -58643,17 +58672,15 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       createProject();
     }
 
-    // Auto-render canvas previews
+    // Auto-render canvas previews (skipped during direct Map Story guest view & debounced)
     if (typeof window !== 'undefined') {
-      window.addEventListener('DOMContentLoaded', () => setTimeout(renderAllTemplateCanvasPreviews, 60));
-      window.addEventListener('load', () => setTimeout(renderAllTemplateCanvasPreviews, 120));
-      window.addEventListener('resize', () => {
-        if (window._tmplResizeTimer) clearTimeout(window._tmplResizeTimer);
-        window._tmplResizeTimer = setTimeout(renderAllTemplateCanvasPreviews, 150);
-      });
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(renderAllTemplateCanvasPreviews, 30);
-      }
+      const _scheduleTemplatePreviews = () => {
+        if (window.__isGuestStoryMode || window._mhGuestStoryMode) return;
+        if (window._tmplPreviewTimer) clearTimeout(window._tmplPreviewTimer);
+        window._tmplPreviewTimer = setTimeout(renderAllTemplateCanvasPreviews, 180);
+      };
+      window.addEventListener('DOMContentLoaded', _scheduleTemplatePreviews);
+      window.addEventListener('resize', _scheduleTemplatePreviews, { passive: true });
     }
     function backToProjects() {
       captureThumbnail();
@@ -58789,216 +58816,154 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (closeBtn) closeBtn.classList.remove('hidden');
     }
 
-    // Three.js Realistic Earth Globe (scroll-reactive + draggable)
-    try {
-    (function initGlobe() {
-      const container = document.getElementById('globeContainer');
-      if (!container) return;
-      const baseSize = 480;
-      const width = baseSize;
-      const height = baseSize;
+    // Three.js Realistic Earth Globe (lazy/deferred so mobile & Map Story load fast without WebGL stall)
+    (function setupLandingGlobe() {
+      let _globeInited = false;
+      let _globePaused = !!(window.__isGuestStoryMode || window.__isGeovisorMode);
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-      camera.position.z = 2.8;
+      function startGlobeNow() {
+        if (_globeInited || typeof THREE === 'undefined') return;
+        const container = document.getElementById('globeContainer');
+        if (!container) return;
+        _globeInited = true;
+        try {
+          const isSmallScreen = window.innerWidth <= 768;
+          const baseSize = isSmallScreen ? 300 : 480;
+          const width = baseSize;
+          const height = baseSize;
 
-      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-      window.__gRenderer = renderer;
-      window.__gScene = scene;
-      window.__gCamera = camera;
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(1);
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.2;
-      container.appendChild(renderer.domElement);
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+          camera.position.z = 2.8;
 
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableZoom = false;
-      controls.enablePan = false;
-      controls.rotateSpeed = 0.8;
-      controls.minPolarAngle = Math.PI / 3;
-      controls.maxPolarAngle = Math.PI / 1.5;
-      controls.autoRotate = false;
+          const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isSmallScreen, preserveDrawingBuffer: false });
+          window.__gRenderer = renderer;
+          window.__gScene = scene;
+          window.__gCamera = camera;
+          renderer.setSize(width, height);
+          renderer.setPixelRatio(1);
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = 1.2;
+          container.appendChild(renderer.domElement);
 
-      const ambientLight = new THREE.AmbientLight(0x8888cc, 0.5);
-      scene.add(ambientLight);
-      const sunLight = new THREE.DirectionalLight(0xffffff, 3.5);
-      sunLight.position.set(5, 3, 5);
-      scene.add(sunLight);
-      const fillLight = new THREE.DirectionalLight(0x4488ff, 0.4);
-      fillLight.position.set(-3, -1, -2);
-      scene.add(fillLight);
+          const controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableZoom = false;
+          controls.enablePan = false;
+          controls.rotateSpeed = 0.8;
+          controls.minPolarAngle = Math.PI / 3;
+          controls.maxPolarAngle = Math.PI / 1.5;
+          controls.autoRotate = false;
 
-      const globeGroup = new THREE.Group();
-      scene.add(globeGroup);
+          const ambientLight = new THREE.AmbientLight(0x8888cc, 0.5);
+          scene.add(ambientLight);
+          const sunLight = new THREE.DirectionalLight(0xffffff, 3.5);
+          sunLight.position.set(5, 3, 5);
+          scene.add(sunLight);
+          const fillLight = new THREE.DirectionalLight(0x4488ff, 0.4);
+          fillLight.position.set(-3, -1, -2);
+          scene.add(fillLight);
 
-      const textureLoader = new THREE.TextureLoader();
-      const earthMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg', undefined, undefined, ()=>console.warn('[Globe] earth-blue-marble failed'));
-      // Fix: earth-specular.jpg 404 in three-globe repo — use three.js official specular (public/index.html:17647)
-      const earthSpecularMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg', undefined, undefined, ()=>console.warn('[Globe] earth_specular fallback failed'));
-      const earthNormalMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png', undefined, undefined, ()=>console.warn('[Globe] earth-topology failed'));
+          const globeGroup = new THREE.Group();
+          scene.add(globeGroup);
 
-      const heightMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png', undefined, undefined, ()=>console.warn('[Globe] heightMap failed'));
-
-      const earthMat = new THREE.MeshPhongMaterial({
-        map: earthMap,
-        specularMap: earthSpecularMap,
-        specular: new THREE.Color(0x222222),
-        shininess: 15,
-        normalMap: earthNormalMap,
-        normalScale: new THREE.Vector2(1.5, 1.5),
-        bumpMap: heightMap,
-        bumpScale: 0.04,
-        displacementMap: heightMap,
-        displacementScale: 0.06,
-      });
-      const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), earthMat);
-      globeGroup.add(earth);
-
-      // Atmosphere glow
-      const glowMat = new THREE.ShaderMaterial({
-        vertexShader: `
-          varying vec3 vNormal;
-          void main() {
-            vNormal = normalize(normalMatrix * normal);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          const textureLoader = new THREE.TextureLoader();
+          const earthMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg', undefined, undefined, ()=>console.warn('[Globe] earth-blue-marble failed'));
+          const earthMatOpts = { map: earthMap, specular: new THREE.Color(0x222222), shininess: 15 };
+          if (!isSmallScreen) {
+            const earthSpecularMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg', undefined, undefined, ()=>console.warn('[Globe] earth_specular fallback failed'));
+            const earthNormalMap = textureLoader.load('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png', undefined, undefined, ()=>console.warn('[Globe] earth-topology failed'));
+            earthMatOpts.specularMap = earthSpecularMap;
+            earthMatOpts.normalMap = earthNormalMap;
+            earthMatOpts.normalScale = new THREE.Vector2(1.5, 1.5);
+            earthMatOpts.bumpMap = earthNormalMap;
+            earthMatOpts.bumpScale = 0.04;
           }
-        `,
-        fragmentShader: `
-          varying vec3 vNormal;
-          void main() {
-            float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
-            gl_FragColor = vec4(0.4, 0.7, 1.0, intensity * 0.4);
+          const segs = isSmallScreen ? 40 : 96;
+          const earth = new THREE.Mesh(new THREE.SphereGeometry(1, segs, segs), new THREE.MeshPhongMaterial(earthMatOpts));
+          globeGroup.add(earth);
+
+          const glowMat = new THREE.ShaderMaterial({
+            vertexShader: `varying vec3 vNormal; void main() { vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+            fragmentShader: `varying vec3 vNormal; void main() { float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0); gl_FragColor = vec4(0.4, 0.7, 1.0, intensity * 0.4); }`,
+            blending: THREE.AdditiveBlending,
+            side: THREE.BackSide,
+            transparent: true,
+            depthWrite: false
+          });
+          const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(1.15, isSmallScreen ? 28 : 48, isSmallScreen ? 28 : 48), glowMat);
+          globeGroup.add(atmosphere);
+
+          const starsCount = isSmallScreen ? 350 : 1200;
+          const starsPos = new Float32Array(starsCount * 3);
+          for (let i = 0; i < starsCount * 3; i++) starsPos[i] = (Math.random() - 0.5) * 200;
+          const starsGeo = new THREE.BufferGeometry();
+          starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+          scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8 })));
+
+          const satellites = [];
+          function createSatellite(color, orbitRadius, orbitTilt, speed, size) {
+            const group = new THREE.Group();
+            group.add(new THREE.Mesh(new THREE.BoxGeometry(size * 0.6, size * 0.3, size * 0.4), new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.3 })));
+            const angle = Math.random() * Math.PI * 2;
+            group.position.x = orbitRadius * Math.cos(angle);
+            group.position.z = orbitRadius * Math.sin(angle);
+            group.rotation.x = orbitTilt;
+            scene.add(group);
+            return { group, angle, speed, orbitRadius };
           }
-        `,
-        blending: THREE.AdditiveBlending,
-        side: THREE.BackSide,
-        transparent: true,
-        depthWrite: false,
-      });
-      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(1.15, 64, 64), glowMat);
-      globeGroup.add(atmosphere);
+          satellites.push(createSatellite(0xff4444, 1.8, 0.2, 0.6, 0.08));
+          satellites.push(createSatellite(0x44aaff, 2.1, -0.3, 0.4, 0.06));
+          if (!isSmallScreen) {
+            satellites.push(createSatellite(0x44ff88, 1.6, 0.5, 0.8, 0.05));
+            satellites.push(createSatellite(0xffaa44, 2.4, -0.1, 0.3, 0.07));
+          }
 
-      // Stars background
-      const starsCount = 2000;
-      const starsPos = new Float32Array(starsCount * 3);
-      for (let i = 0; i < starsCount * 3; i++) starsPos[i] = (Math.random() - 0.5) * 200;
-      const starsGeo = new THREE.BufferGeometry();
-      starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
-      const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8 });
-      const stars = new THREE.Points(starsGeo, starsMat);
-      scene.add(stars);
+          let scrollY = 0, targetRotY = 0, currentRotY = 0;
+          window.addEventListener('scroll', () => { scrollY = window.scrollY || window.pageYOffset || 0; }, { passive: true });
+          renderer.domElement.style.cursor = 'grab';
+          renderer.domElement.addEventListener('click', () => container.classList.toggle('expanded'));
 
-      // Satellites
-      const satellites = [];
-      function createSatellite(color, orbitRadius, orbitTilt, speed, size) {
-        const group = new THREE.Group();
-        const bodyMat = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.3 });
-        const body = new THREE.Mesh(new THREE.BoxGeometry(size * 0.6, size * 0.3, size * 0.4), bodyMat);
-        group.add(body);
-        const panelMat = new THREE.MeshPhongMaterial({ color: 0x222244, emissive: 0x1122aa, emissiveIntensity: 0.1, side: THREE.DoubleSide });
-        const panel1 = new THREE.Mesh(new THREE.BoxGeometry(size * 1.0, size * 0.02, size * 0.3), panelMat);
-        panel1.position.x = size * 0.5;
-        group.add(panel1);
-        const panel2 = new THREE.Mesh(new THREE.BoxGeometry(size * 1.0, size * 0.02, size * 0.3), panelMat);
-        panel2.position.x = -size * 0.5;
-        group.add(panel2);
-        const antennaMat = new THREE.MeshPhongMaterial({ color: 0xcccccc });
-        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, size * 0.3), antennaMat);
-        ant.position.z = size * 0.25;
-        group.add(ant);
-        // Position on orbit
-        const angle = Math.random() * Math.PI * 2;
-        group.position.x = orbitRadius * Math.cos(angle);
-        group.position.z = orbitRadius * Math.sin(angle);
-        group.position.y = 0;
-        group.rotation.x = orbitTilt;
-        scene.add(group);
-        // Orbit trail
-        const trailPoints = [];
-        const segments = 64;
-        for (let i = 0; i <= segments; i++) {
-          const a = (i / segments) * Math.PI * 2;
-          const x = orbitRadius * Math.cos(a);
-          const z = orbitRadius * Math.sin(a);
-          const y = 0;
-          trailPoints.push(new THREE.Vector3(x, y, z));
-        }
-        const trailGeo = new THREE.BufferGeometry().setFromPoints(trailPoints);
-        const trailMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.15 });
-        const trail = new THREE.Line(trailGeo, trailMat);
-        trail.rotation.x = orbitTilt;
-        scene.add(trail);
-        return { group, angle, speed, orbitRadius, orbitTilt };
+          function animate() {
+            if (_globePaused) { window.__gAnimId = null; return; }
+            window.__gAnimId = requestAnimationFrame(animate);
+            targetRotY = (scrollY * 0.0008) * 2;
+            currentRotY += (targetRotY - currentRotY) * 0.05;
+            earth.rotation.y += 0.002 + currentRotY;
+            atmosphere.rotation.y += 0.0005;
+            for (const sat of satellites) {
+              sat.angle += sat.speed * 0.01;
+              sat.group.position.x = sat.orbitRadius * Math.cos(sat.angle);
+              sat.group.position.z = sat.orbitRadius * Math.sin(sat.angle);
+              sat.group.rotation.y = -sat.angle;
+            }
+            controls.update();
+            renderer.render(scene, camera);
+          }
+          window.__globeAnimate = animate;
+          if (!_globePaused) animate();
+        } catch(e) { console.warn('[Globe] Three.js error:', e); }
       }
-      satellites.push(createSatellite(0xff4444, 1.8, 0.2, 0.6, 0.08));
-      satellites.push(createSatellite(0x44aaff, 2.1, -0.3, 0.4, 0.06));
-      satellites.push(createSatellite(0x44ff88, 1.6, 0.5, 0.8, 0.05));
-      satellites.push(createSatellite(0xffaa44, 2.4, -0.1, 0.3, 0.07));
 
-      let scrollY = 0;
-      let targetRotY = 0;
-      let currentRotY = 0;
-
-      window.addEventListener('scroll', () => {
-        scrollY = window.scrollY || window.pageYOffset || 0;
-      }, { passive: true });
-
-      // Click to expand widget
-      renderer.domElement.addEventListener('click', () => {
-        container.classList.toggle('expanded');
-      });
-
-      // Cursor feedback
-      renderer.domElement.style.cursor = 'grab';
-      renderer.domElement.addEventListener('mousedown', () => {
-        renderer.domElement.style.cursor = 'grabbing';
-      });
-      renderer.domElement.addEventListener('mouseup', () => {
-        renderer.domElement.style.cursor = 'grab';
-      });
-
-      function animate() {
-        window.__gAnimId = requestAnimationFrame(animate);
-        const sf = scrollY * 0.0008;
-        targetRotY = sf * 2;
-        currentRotY += (targetRotY - currentRotY) * 0.05;
-        earth.rotation.y += 0.002 + currentRotY;
-        atmosphere.rotation.y += 0.0005;
-        // Update satellites
-        for (const sat of satellites) {
-          sat.angle += sat.speed * 0.01;
-          sat.group.position.x = sat.orbitRadius * Math.cos(sat.angle);
-          sat.group.position.z = sat.orbitRadius * Math.sin(sat.angle);
-          sat.group.rotation.y = -sat.angle;
-        }
-        const pulse = 1 + Math.sin(Date.now() * 0.0005) * 0.005;
-        globeGroup.scale.set(pulse, pulse, pulse);
-        controls.update();
-        renderer.render(scene, camera);
-      }
-      animate();
-
-      // Ocultar/reanudar el globo fuera del landing (p. ej. en el workspace)
       window.__globeHide = function () {
-        container.style.display = 'none';
+        _globePaused = true;
+        const container = document.getElementById('globeContainer');
+        if (container) container.style.display = 'none';
         if (window.__gAnimId) { cancelAnimationFrame(window.__gAnimId); window.__gAnimId = null; }
       };
       window.__globeShow = function () {
-        container.style.display = 'block';
-        if (!window.__gAnimId) animate();
+        _globePaused = false;
+        const container = document.getElementById('globeContainer');
+        if (container) container.style.display = 'block';
+        if (!_globeInited) startGlobeNow();
+        else if (window.__globeAnimate && !window.__gAnimId) window.__globeAnimate();
       };
 
-      function onResize() {
-        const w = baseSize;
-        const h = baseSize;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { if (!_globePaused) startGlobeNow(); });
+      } else if (!_globePaused) {
+        startGlobeNow();
       }
-      window.addEventListener('resize', onResize);
     })();
-    } catch(e) { console.warn('[Globe] Three.js error:', e); }
 
     // Restore session — si hay sesión válida ir directo al dashboard (sin pasar por landing)
     (function restoreSession() {
@@ -64985,6 +64950,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
       mhPresIndex = 0;
       modal.classList.remove('hidden');
+      if (typeof window.__globeHide === 'function') window.__globeHide();
 
       const titleEl = document.getElementById('mhPresTitle');
       if (titleEl) titleEl.textContent = data.title || data.sections[0]?.title || 'Map Story';
@@ -65032,6 +64998,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         window._mhGuestStoryMode = false;
         if (typeof showLanding === 'function') showLanding();
         toast('Inicia sesión o crea una cuenta para continuar en Zima', 'info');
+      } else {
+        const landing = document.getElementById('landingPage');
+        if (landing && !landing.classList.contains('hidden') && typeof window.__globeShow === 'function') {
+          window.__globeShow();
+        }
       }
     }
 
@@ -65126,7 +65097,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     }
 
     function _mhApplyVisibleScrollParallax(stage) {
-      if (!stage || !mhVisibleWebSections.size) return;
+      if (!stage || !mhVisibleWebSections.size || window.innerWidth <= 768) return;
       const stRect = stage.getBoundingClientRect();
       const midY = stRect.top + stRect.height * 0.5;
       const halfH = Math.max(1, stRect.height * 0.55);
@@ -66017,6 +65988,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     var _sRaf = 0;
     function _updateAgriScroll() {
       _sRaf = 0;
+      if (window.innerWidth <= 768) return;
       var mid = window.innerHeight * 0.5, hh = Math.max(1, window.innerHeight * 0.55);
       _visSecs.forEach(function(sec){
         var r = sec.getBoundingClientRect();
