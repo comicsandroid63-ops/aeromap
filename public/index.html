@@ -641,9 +641,10 @@
       overflow: hidden;
       border-radius: 16px;
       user-select: none;
-      touch-action: none;
+      touch-action: pan-y;
       background: rgba(31, 36, 33, 0.06);
-      min-height: 360px;
+      min-height: 280px;
+      contain: layout paint;
     }
     .mh-compare-container img {
       pointer-events: none;
@@ -655,40 +656,55 @@
       bottom: 0;
       width: 3px;
       background: #ffffff;
-      box-shadow: 0 0 12px rgba(0,0,0,0.5);
+      box-shadow: 0 0 10px rgba(0,0,0,0.45);
       cursor: ew-resize;
+      touch-action: none;
       z-index: 25;
       display: flex;
       align-items: center;
       justify-content: center;
       transform: translateX(-50%);
     }
+    .mh-compare-divider::before {
+      content: '';
+      position: absolute;
+      inset: 0 -18px;
+    }
     .mh-compare-handle {
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       background: #ffffff;
       color: #1a1c1f;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.34);
       font-size: 13px;
       font-weight: bold;
+      transition: transform 0.18s ease;
     }
     .mh-metric-card {
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
       border-radius: 14px;
       padding: 16px;
-      transition: all 0.25s ease;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    .mh-metric-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(255,255,255,0.28);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    @media (hover: hover) {
+      .mh-metric-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(217,155,38,0.55);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+      }
+      .mh-compare-container:hover .mh-compare-handle {
+        transform: scale(1.12);
+      }
+      .mh-class-chip:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+      }
     }
     .mh-organic-wave {
       display: block;
@@ -795,28 +811,76 @@
       transform-origin: center;
       animation: mhFloatAlt 4.8s ease-in-out infinite;
     }
-    .mh-compare-handle {
-      animation: mhPulseGlow 2.4s ease-in-out infinite;
-      transition: transform 0.2s ease;
+    #mhPresStage [data-web-sec] {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 560px;
+      contain: layout style;
     }
-    .mh-compare-container:hover .mh-compare-handle {
-      transform: scale(1.14);
+    #mhPresStage .mh-reveal:not(.mh-is-visible) .mh-flow-dash,
+    #mhPresStage .mh-reveal:not(.mh-is-visible) .mh-kinetic-1,
+    #mhPresStage .mh-reveal:not(.mh-is-visible) .mh-kinetic-2 {
+      animation-play-state: paused;
     }
     .mh-compare-container.mh-compare-smooth .mh-compare-before,
     .mh-compare-container.mh-compare-smooth .before-layer,
     .mh-compare-container.mh-compare-smooth .mh-compare-divider,
     .mh-compare-container.mh-compare-smooth .divider {
-      transition: clip-path 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), left 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: clip-path 0.35s cubic-bezier(0.22, 1, 0.36, 1), width 0.35s cubic-bezier(0.22, 1, 0.36, 1), left 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .mh-class-chip {
-      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+      transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     }
-    .mh-class-chip:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+    .mh-class-chip.mh-dimmed { opacity: 0.38; }
+    .mh-class-chip.mh-active {
+      outline: 2.5px solid #D99B26;
+      outline-offset: 1px;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+    }
+    .mh-metric-card.mh-active {
+      outline: 2.5px solid #D99B26;
+      transform: translateY(-2px);
+    }
+    input.mh-range-scrubber {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(128,128,128,0.28);
+      outline: none;
+      cursor: pointer;
+    }
+    input.mh-range-scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #D99B26;
+      border: 2.5px solid #1F2421;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      cursor: pointer;
     }
     .mh-hero-cta-arrow {
       animation: mhHeroBtnBounce 1.8s ease-in-out infinite;
+    }
+    @media (max-width: 768px) {
+      .mh-anim-ready .mh-in-view .mh-svg-line-path {
+        animation: none !important;
+        stroke-dasharray: none !important;
+      }
+      .mh-anim-ready .mh-reveal {
+        transition: opacity 0.38s ease, transform 0.38s ease;
+        transform: translateY(14px);
+      }
+      .mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item {
+        animation-duration: 0.32s;
+        animation-delay: calc(min(var(--mh-idx, 0), 6) * 28ms);
+      }
+      .mh-web-compare-box {
+        height: 330px !important;
+        min-height: 290px !important;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       .mh-anim-ready .mh-reveal,
@@ -828,7 +892,6 @@
       .mh-flow-dash,
       .mh-kinetic-1,
       .mh-kinetic-2,
-      .mh-compare-handle,
       .mh-hero-cta-arrow {
         animation: none !important;
         transition: none !important;
@@ -3160,25 +3223,29 @@
 
   <!-- ═══ MAP HISTORY WEB STORY VIEWER MODAL ═══ -->
   <div id="mhPresentationModal" class="hidden fixed inset-0 z-[100020] flex flex-col bg-zinc-950 text-white" style="z-index:100020;">
-    <!-- Sticky Web Navbar -->
-    <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-4 px-5 sm:px-8 py-3 border-b border-white/10 backdrop-blur-xl z-20" style="background:rgba(24,27,25,0.96);color:#F6EFE2;">
-      <div class="flex items-center gap-3 min-w-0">
+    <!-- Sticky Web Navbar (no backdrop-blur for 60fps mobile scrolling) -->
+    <header id="mhPresNavbar" class="shrink-0 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-8 py-2.5 sm:py-3 border-b border-white/10 z-30" style="background:rgba(24,27,25,0.98);color:#F6EFE2;">
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <span class="material-symbols-outlined text-[20px] shrink-0" style="color:#D99B26;">auto_stories</span>
-        <span id="mhPresTitle" class="text-sm font-bold truncate max-w-[180px] sm:max-w-xs" style="color:#FBF7EE;">Map History</span>
+        <span id="mhPresTitle" class="text-xs sm:text-sm font-bold truncate max-w-[130px] sm:max-w-xs" style="color:#FBF7EE;">Map History</span>
       </div>
-      <nav id="mhPresNavLinks" class="hidden md:flex items-center gap-1.5 overflow-x-auto max-w-2xl no-scrollbar">
+      <nav id="mhPresNavLinks" class="hidden lg:flex items-center gap-1.5 overflow-x-auto max-w-2xl no-scrollbar">
         <!-- Web section anchor links injected here -->
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span id="mhPresSlideCounter" class="text-[11px] font-mono hidden sm:inline-block mr-1" style="color:#D4D4D8;">0%</span>
+        <button type="button" onclick="toggleMHChapterDrawer()" id="mhChaptersToggleBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer border border-amber-400/35" style="background:rgba(217,155,38,0.16);color:#F6EFE2;" title="Explorar e ir a capítulos">
+          <span class="material-symbols-outlined text-[15px]" style="color:#D99B26;">menu_book</span>
+          <span>Capítulos</span>
+        </button>
         <button onclick="toggleMHPresentationAutoPlay()" id="mhPresAutoPlayBtn" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer" style="background:rgba(255,255,255,0.12);color:#FBF7EE;" title="Desplazamiento automático suave">
           <span class="material-symbols-outlined text-[15px]" id="mhPresAutoPlayIcon">play_arrow</span>
           <span id="mhPresAutoPlayText" class="hidden sm:inline">Auto-scroll</span>
         </button>
-        <button onclick="downloadMHHtml()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Descargar como página HTML">
+        <button onclick="downloadMHHtml()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer hidden sm:inline-flex" style="color:#E4E4E7;" title="Descargar como página HTML">
           <span class="material-symbols-outlined text-[18px]">download</span>
         </button>
-        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Pantalla completa (F)">
+        <button onclick="toggleMHPresentationFullscreen()" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer hidden sm:inline-flex" style="color:#E4E4E7;" title="Pantalla completa (F)">
           <span class="material-symbols-outlined text-[18px]">fullscreen</span>
         </button>
         <button onclick="closeMHPresentation()" class="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors cursor-pointer" style="color:#E4E4E7;" title="Cerrar historia (Esc)">
@@ -3186,12 +3253,27 @@
         </button>
       </div>
     </header>
-    <!-- Web Reading Progress Bar -->
-    <div class="shrink-0 w-full h-[3px] bg-white/10 z-20">
-      <div id="mhPresProgressBar" class="h-full transition-all duration-150" style="width: 0%;background:linear-gradient(90deg,#D99B26,#6B7A3A,#C25634);"></div>
+    <!-- Interactive Chapter & Category Drawer (Mobile + Desktop) -->
+    <div id="mhChapterDrawer" class="hidden shrink-0 border-b border-white/15 px-3 sm:px-8 py-3 z-20" style="background:#1F2421;color:#F6EFE2;">
+      <div class="max-w-5xl mx-auto flex flex-col gap-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5" id="mhDrawerFilterPills">
+            <button type="button" onclick="filterMHChapterDrawer('all', this)" data-drawer-cat="all" class="px-2.5 py-1 rounded-full text-[11px] font-extrabold cursor-pointer" style="background:#D99B26;color:#1F2421;">Todos</button>
+            <button type="button" onclick="filterMHChapterDrawer('comparison', this)" data-drawer-cat="comparison" class="px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer" style="background:rgba(255,255,255,0.1);color:#F6EFE2;">Mapas 1996↔2026</button>
+            <button type="button" onclick="filterMHChapterDrawer('chart', this)" data-drawer-cat="chart" class="px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer" style="background:rgba(255,255,255,0.1);color:#F6EFE2;">Gráficas</button>
+            <button type="button" onclick="filterMHChapterDrawer('other', this)" data-drawer-cat="other" class="px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer" style="background:rgba(255,255,255,0.1);color:#F6EFE2;">Resumen & Citas</button>
+          </div>
+          <input id="mhDrawerSearch" type="search" oninput="renderMHChapterDrawerList()" placeholder="Buscar capítulo o municipio..." class="px-3 py-1 rounded-full text-xs border border-white/20 outline-none w-full sm:w-56" style="background:rgba(255,255,255,0.08);color:#FBF7EE;">
+        </div>
+        <div id="mhChapterDrawerList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar"></div>
+      </div>
     </div>
-    <!-- Continuous Scrollable Web Page Content -->
-    <main class="flex-1 relative overflow-y-auto scroll-smooth custom-scrollbar" id="mhPresStage" onscroll="updateMHWebScrollProgress()">
+    <!-- Web Reading Progress Bar (GPU scaleX transform) -->
+    <div class="shrink-0 w-full h-[3px] bg-white/10 z-20 overflow-hidden">
+      <div id="mhPresProgressBar" class="h-full w-full" style="transform:scaleX(0);transform-origin:left center;will-change:transform;background:linear-gradient(90deg,#D99B26,#6B7A3A,#C25634);"></div>
+    </div>
+    <!-- Continuous Scrollable Web Page Content (hardware touch momentum, zero scroll-smooth interference) -->
+    <main class="flex-1 relative overflow-y-auto custom-scrollbar" id="mhPresStage" onscroll="updateMHWebScrollProgress()" style="-webkit-overflow-scrolling:touch;overscroll-behavior:contain;">
       <!-- Full Web Story injected here -->
     </main>
   </div>
@@ -62879,17 +62961,29 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function _mhApplyComparePct(container, pct) {
       if (!container) return;
+      const clamped = Math.max(0, Math.min(100, pct));
       const beforeEl = container.querySelector('.mh-compare-before, .before-layer');
       const dividerEl = container.querySelector('.mh-compare-divider, .divider');
       if (beforeEl) {
-        if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-        else beforeEl.style.width = pct + '%';
+        if (beforeEl.dataset.clip === '1') beforeEl.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
+        else beforeEl.style.width = clamped + '%';
       }
-      if (dividerEl) dividerEl.style.left = pct + '%';
+      if (dividerEl) dividerEl.style.left = clamped + '%';
+      const wrap = container.closest('.mh-compare-wrapper');
+      const rangeEl = wrap ? wrap.querySelector('.mh-range-scrubber') : null;
+      if (rangeEl && Math.abs(Number(rangeEl.value) - clamped) >= 0.5) {
+        rangeEl.value = String(Math.round(clamped));
+      }
     }
 
     function handleMHCompareDrag(e, container) {
-      if (e.buttons !== 1 && e.type !== 'touchmove') return;
+      if (e.type === 'touchmove') {
+        const fromDivider = e.target && e.target.closest && e.target.closest('.mh-compare-divider, .divider');
+        if (!fromDivider && container.dataset.draggingDivider !== '1') return;
+        e.preventDefault();
+      } else if (e.buttons !== 1) {
+        return;
+      }
       container.dataset.userTouched = '1';
       container.classList.remove('mh-compare-smooth');
       _mhStopSweep(container);
@@ -62907,6 +63001,56 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       _mhApplyComparePct(container, pct);
+    }
+
+    function handleMHCompareRange(rangeEl) {
+      const wrap = rangeEl ? rangeEl.closest('.mh-compare-wrapper') : null;
+      const container = wrap ? wrap.querySelector('.mh-compare-container') : null;
+      if (!container) return;
+      container.dataset.userTouched = '1';
+      container.classList.remove('mh-compare-smooth');
+      _mhStopSweep(container);
+      _mhApplyComparePct(container, Number(rangeEl.value));
+    }
+
+    function toggleMHCompareLayout(btn) {
+      const wrap = btn ? btn.closest('.mh-compare-wrapper') : null;
+      const cmp = wrap ? wrap.querySelector('.mh-compare-container') : null;
+      if (!wrap || !cmp) return;
+      _mhStopSweep(cmp);
+      let sideGrid = wrap.querySelector('.mh-compare-sidegrid');
+      const showingSide = wrap.dataset.sideMode === '1';
+      if (!showingSide) {
+        if (!sideGrid) {
+          const imgs = cmp.querySelectorAll('img');
+          const img2Src = imgs[0]?.getAttribute('src') || '';
+          const img1Src = imgs[1]?.getAttribute('src') || '';
+          const badges = cmp.querySelectorAll('span');
+          const l1 = badges[0]?.textContent || 'Antes';
+          const l2 = badges[1]?.textContent || 'Después';
+          sideGrid = document.createElement('div');
+          sideGrid.className = 'mh-compare-sidegrid grid grid-cols-1 sm:grid-cols-2 gap-4';
+          sideGrid.innerHTML = `
+            <div class="relative rounded-2xl overflow-hidden border border-black/10 bg-black/5 shadow-md">
+              <img src="${img1Src}" loading="lazy" decoding="async" style="width:100%;height:320px;object-fit:contain;">
+              <span style="position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,0.78);color:#fff;font-size:11px;font-weight:700;">${escHtml(l1)}</span>
+            </div>
+            <div class="relative rounded-2xl overflow-hidden border border-black/10 bg-black/5 shadow-md">
+              <img src="${img2Src}" loading="lazy" decoding="async" style="width:100%;height:320px;object-fit:contain;">
+              <span style="position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,0.78);color:#fff;font-size:11px;font-weight:700;">${escHtml(l2)}</span>
+            </div>`;
+          wrap.insertBefore(sideGrid, wrap.querySelector('.mh-compare-toolbar'));
+        }
+        cmp.style.display = 'none';
+        sideGrid.style.display = '';
+        wrap.dataset.sideMode = '1';
+        btn.innerHTML = '↔ Vista Deslizador';
+      } else {
+        cmp.style.display = '';
+        if (sideGrid) sideGrid.style.display = 'none';
+        wrap.dataset.sideMode = '0';
+        btn.innerHTML = '◫ Lado a lado';
+      }
     }
 
     function setMHSliderPos(btn, pct) {
@@ -62996,32 +63140,96 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       const l1Short = shortTag(sec.label1, 'Antes');
       const l2Short = shortTag(sec.label2, 'Después');
       return `
-        <div class="mh-compare-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-top:12px;">
-          <button type="button" onclick="setMHSliderPos(this, 100)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l1Short)}</button>
-          <button type="button" onclick="setMHSliderPos(this, 50)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">50 / 50</button>
-          <button type="button" onclick="setMHSliderPos(this, 0)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l2Short)}</button>
-          <button type="button" data-mh-sweep-btn="1" onclick="toggleMHSliderAutoSweep(this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:900;background:#D99B26;color:#1F2421;border:1px solid rgba(31,36,33,0.25);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.14);"><span>▶</span> Animar barrido</button>
+        <div class="mh-compare-toolbar" style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:12px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:480px;padding:0 8px;">
+            <span style="font-size:10px;font-weight:800;opacity:0.75;white-space:nowrap;">${escHtml(l1Short)}</span>
+            <input type="range" min="0" max="100" value="50" class="mh-range-scrubber flex-1" style="width:100%;" oninput="handleMHCompareRange(this)" aria-label="Control de comparación ${escHtml(l1Short)} vs ${escHtml(l2Short)}">
+            <span style="font-size:10px;font-weight:800;opacity:0.75;white-space:nowrap;">${escHtml(l2Short)}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;">
+            <button type="button" onclick="setMHSliderPos(this, 100)" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l1Short)}</button>
+            <button type="button" onclick="setMHSliderPos(this, 50)" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">50 / 50</button>
+            <button type="button" onclick="setMHSliderPos(this, 0)" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">Ver ${escHtml(l2Short)}</button>
+            <button type="button" data-mh-sweep-btn="1" onclick="toggleMHSliderAutoSweep(this)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;font-size:11px;font-weight:900;background:#D99B26;color:#1F2421;border:1px solid rgba(31,36,33,0.25);cursor:pointer;"><span>▶</span> Animar barrido</button>
+            <button type="button" onclick="toggleMHCompareLayout(this)" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${pillBorder};color:inherit;cursor:pointer;">◫ Lado a lado</button>
+          </div>
         </div>`;
+    }
+
+    function filterMHClasses(btn, mode) {
+      const legend = btn ? btn.closest('.mh-class-legend') : null;
+      if (!legend) return;
+      legend.querySelectorAll('[data-class-filter]').forEach(b => {
+        const active = b === btn;
+        b.style.background = active ? '#D99B26' : (legend.dataset.pillBg || 'rgba(128,128,128,0.14)');
+        b.style.color = active ? '#1F2421' : 'inherit';
+      });
+      legend.querySelectorAll('.mh-class-chip').forEach(ch => {
+        const sign = ch.dataset.sign || 'neutral';
+        const show = mode === 'all' || (mode === 'neg' && sign === 'neg') || (mode === 'pos' && sign === 'pos');
+        ch.style.display = show ? 'flex' : 'none';
+      });
+    }
+
+    function toggleMHClassFocus(chip) {
+      const legend = chip ? chip.closest('.mh-class-legend') : null;
+      if (!legend) return;
+      const inspector = legend.querySelector('[data-mh-class-inspector]');
+      const wasActive = chip.classList.contains('mh-active');
+      const chips = legend.querySelectorAll('.mh-class-chip');
+      chips.forEach(c => {
+        c.classList.remove('mh-active', 'mh-dimmed');
+      });
+      if (wasActive) {
+        if (inspector) inspector.style.display = 'none';
+        return;
+      }
+      chips.forEach(c => {
+        if (c === chip) c.classList.add('mh-active');
+        else c.classList.add('mh-dimmed');
+      });
+      if (inspector) {
+        const title = chip.dataset.classTitle || '';
+        const detail = chip.dataset.classDetail || '';
+        const color = chip.dataset.classColor || '#478f00';
+        inspector.style.display = 'flex';
+        inspector.innerHTML = `<span style="width:14px;height:14px;border-radius:4px;background:${escHtml(color)};border:1px solid rgba(128,128,128,0.5);flex-shrink:0;"></span><span style="font-weight:800;">${escHtml(title)}</span>${detail ? `<span style="opacity:0.9;font-weight:700;">· ${escHtml(detail)}</span>` : ''}<span style="margin-left:auto;font-size:10px;opacity:0.65;">(toca de nuevo para restablecer)</span>`;
+      }
     }
 
     function renderMHClassesLegend(sec, bg, text, compact = false) {
       const items = Array.isArray(sec.classLegend) ? sec.classLegend : [];
       if (!items.length) return '';
       const isDark = _mhIsDarkBg(bg);
-      const cardBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.84)';
+      const cardBg = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.88)';
       const cardBorder = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(31,36,33,0.15)';
+      const pillBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(31,36,33,0.08)';
+      const hasNeg = items.some(cl => String(cl.detail || '').trim().startsWith('-'));
+      const hasPos = items.some(cl => String(cl.detail || '').trim().startsWith('+'));
       return `
-        <div class="mh-class-legend" style="max-width:860px;margin:${compact ? '14px' : '18px'} auto 0;">
-          <div style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;opacity:0.75;margin-bottom:8px;text-align:center;">Clases Cartográficas (${items.length})</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(${compact ? '160px' : '185px'}, 1fr));gap:${compact ? '7px' : '9px'};">
+        <div class="mh-class-legend" data-pill-bg="${pillBg}" style="max-width:860px;margin:${compact ? '14px' : '18px'} auto 0;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;">
+            <span style="font-size:10px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;">Clases Cartográficas (${items.length}) · Toca una clase</span>
+            ${(hasNeg || hasPos) ? `
+              <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                <button type="button" data-class-filter="all" onclick="filterMHClasses(this,'all')" style="padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#D99B26;color:#1F2421;border:1px solid ${cardBorder};cursor:pointer;">Todas (${items.length})</button>
+                ${hasNeg ? `<button type="button" data-class-filter="neg" onclick="filterMHClasses(this,'neg')" style="padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;background:${pillBg};color:inherit;border:1px solid ${cardBorder};cursor:pointer;">Pérdidas (-)</button>` : ''}
+                ${hasPos ? `<button type="button" data-class-filter="pos" onclick="filterMHClasses(this,'pos')" style="padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;background:${pillBg};color:inherit;border:1px solid ${cardBorder};cursor:pointer;">Ganancias (+)</button>` : ''}
+              </div>` : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(${compact ? '150px' : '175px'}, 1fr));gap:${compact ? '7px' : '9px'};">
             ${items.map((cl, i) => {
               const det = String(cl.detail || '');
               const isNeg = det.trim().startsWith('-');
               const isPos = det.trim().startsWith('+');
+              const sign = isNeg ? 'neg' : isPos ? 'pos' : 'neutral';
               const detColor = isNeg ? (isDark ? '#FCA5A5' : '#B91C1C') : isPos ? (isDark ? '#86EFAC' : '#15803D') : text;
+              const fullTitle = (cl.code ? cl.code + ' · ' : '') + (cl.name || 'Clase');
               return `
-                <div class="mh-class-chip mh-stagger-item" style="--mh-idx:${i};display:flex;align-items:center;gap:9px;padding:${compact ? '7px 9px' : '9px 11px'};border-radius:12px;background:${cardBg};border:1.25px solid ${cardBorder};cursor:pointer;"
-                     onmousemove="if(typeof showMHChartTooltip==='function')showMHChartTooltip(event,'${escHtml((cl.code ? cl.code + ' · ' : '') + cl.name)}','Cambio 1996→2026','${escHtml(det || cl.name)}')" onmouseleave="if(typeof hideMHChartTooltip==='function')hideMHChartTooltip()">
+                <button type="button" class="mh-class-chip mh-stagger-item text-left" data-sign="${sign}" data-class-title="${escHtml(fullTitle)}" data-class-detail="${escHtml(det)}" data-class-color="${escHtml(cl.color || '#478f00')}"
+                     style="--mh-idx:${i};display:flex;align-items:center;gap:9px;padding:${compact ? '7px 9px' : '9px 11px'};border-radius:12px;background:${cardBg};border:1.25px solid ${cardBorder};cursor:pointer;width:100%;"
+                     onclick="toggleMHClassFocus(this)"
+                     onmousemove="if(typeof showMHChartTooltip==='function')showMHChartTooltip(event,'${escHtml(fullTitle)}','Cambio 1996→2026','${escHtml(det || cl.name)}')" onmouseleave="if(typeof hideMHChartTooltip==='function')hideMHChartTooltip()">
                   <span style="width:${compact ? '16px' : '20px'};height:${compact ? '16px' : '20px'};border-radius:6px;background:${cl.color || '#478f00'};border:1.5px solid ${isDark ? 'rgba(255,255,255,0.45)' : 'rgba(31,36,33,0.3)'};flex-shrink:0;"></span>
                   <div style="min-width:0;flex:1;">
                     <div style="font-size:${compact ? '10.5px' : '11.5px'};font-weight:800;line-height:1.2;color:${text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -63029,9 +63237,79 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     </div>
                     ${det ? `<div style="font-size:${compact ? '9.5px' : '10px'};font-weight:800;margin-top:2px;color:${detColor};line-height:1.2;">${escHtml(det)}</div>` : ''}
                   </div>
-                </div>`;
+                </button>`;
             }).join('')}
           </div>
+          <div data-mh-class-inspector style="display:none;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:9px 12px;border-radius:12px;font-size:11.5px;background:${cardBg};border:1.5px solid #D99B26;color:${text};"></div>
+        </div>`;
+    }
+
+    function toggleMHMetricFocus(card) {
+      if (!card) return;
+      card.classList.toggle('mh-active');
+    }
+
+    function pinMHChartReadout(el, label, seriesName, valStr) {
+      const wrap = el ? el.closest('.mh-chart-wrap') : null;
+      const box = wrap ? wrap.querySelector('[data-mh-chart-readout]') : null;
+      if (!box) return;
+      box.innerHTML = `<span style="font-weight:900;color:#D99B26;">${escHtml(label)}</span> · <span>${escHtml(seriesName)}:</span> <b>${escHtml(valStr)}</b>`;
+    }
+
+    function toggleMHChartTable(btn) {
+      const wrap = btn ? btn.closest('.mh-chart-wrap') : null;
+      const tbl = wrap ? wrap.querySelector('.mh-chart-table-wrap') : null;
+      if (!tbl) return;
+      const open = tbl.style.display !== 'none';
+      tbl.style.display = open ? 'none' : 'block';
+      btn.textContent = open ? '📊 Ver tabla de datos' : '📊 Ocultar tabla';
+      if (typeof refreshMHWebScrollMetrics === 'function') requestAnimationFrame(refreshMHWebScrollMetrics);
+    }
+
+    function copyMHChartCsv(btn) {
+      const tblWrap = btn ? btn.closest('.mh-chart-table-wrap') : null;
+      const csv = tblWrap ? tblWrap.getAttribute('data-csv') : '';
+      if (!csv) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(csv).then(() => toast('Datos copiados en formato CSV', 'success')).catch(() => {});
+      }
+    }
+
+    function _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt) {
+      if (!labels.length || !series.length) return '';
+      const pillBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(31,36,33,0.07)';
+      const csvRows = [
+        ['Categoría', ...series.map(s => s.name || 'Serie')].join(','),
+        ...labels.map((lb, li) => [JSON.stringify(String(lb)), ...series.map(s => Number(s.values?.[li] ?? 0))].join(','))
+      ].join('\n');
+      return `
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed ${cardBorder};font-size:11px;color:${txt};">
+          <div data-mh-chart-readout style="opacity:0.86;min-height:18px;">Toca o pasa el cursor sobre cualquier barra, punto o anillo para inspeccionar</div>
+          <button type="button" onclick="toggleMHChartTable(this)" style="padding:4px 11px;border-radius:999px;font-size:11px;font-weight:800;background:${pillBg};border:1px solid ${cardBorder};color:${txt};cursor:pointer;white-space:nowrap;">📊 Ver tabla de datos</button>
+        </div>
+        <div class="mh-chart-table-wrap" data-csv="${escHtml(csvRows)}" style="display:none;margin-top:10px;overflow-x:auto;border-radius:12px;border:1px solid ${cardBorder};background:${isDark ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.85)'};padding:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;font-weight:800;opacity:0.8;">
+            <span>DATOS EXACTOS (${unit || 'valores'})</span>
+            <button type="button" onclick="copyMHChartCsv(this)" style="padding:2px 8px;border-radius:6px;background:#D99B26;color:#1F2421;font-weight:800;cursor:pointer;">Copiar CSV</button>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;text-align:left;color:${txt};">
+            <thead>
+              <tr style="border-bottom:1.5px solid ${cardBorder};">
+                <th style="padding:5px 8px;">Categoría</th>
+                ${series.map(s => `<th style="padding:5px 8px;text-align:right;">${escHtml(s.name || 'Serie')}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${labels.map((lb, li) => `
+                <tr style="border-bottom:1px solid ${cardBorder};">
+                  <td style="padding:4px 8px;font-weight:700;">${escHtml(lb)}</td>
+                  ${series.map(s => {
+                    const v = Number(s.values?.[li] ?? 0);
+                    return `<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums;">${v.toFixed(1).replace(/\.0$/, '')}${unit ? ' ' + escHtml(unit) : ''}</td>`;
+                  }).join('')}
+                </tr>`).join('')}
+            </tbody>
+          </table>
         </div>`;
     }
 
@@ -63193,6 +63471,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 const dash = (v / 100) * c;
                 return `
                   <div class="mh-stagger-item mh-class-chip" style="--mh-idx:${idx};display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 8px;border-radius:16px;background:${isDark ? 'rgba(255,255,255,0.05)' : '#FBF7EE'};border:1px solid ${cardBorder};cursor:pointer;"
+                       onclick="pinMHChartReadout(this,'${escHtml(lb)}','Indicador','${escHtml(v + (unit || '%'))}');toggleMHMetricFocus(this)"
                        onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','Indicador','${escHtml(v + (unit || '%'))}')" onmouseleave="hideMHChartTooltip()">
                     <svg viewBox="0 0 110 110" style="width:96px;height:96px;">
                       <circle cx="55" cy="55" r="${r}" fill="none" stroke="${gridColor}" stroke-width="11"/>
@@ -63204,6 +63483,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                   </div>`;
               }).join('')}
             </div>
+            ${compact ? '' : _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt)}
           </div>`;
       } else if (type === 'flow') {
         const cols = Array.isArray(sec.chartFlowColumns) ? sec.chartFlowColumns : [];
@@ -63225,7 +63505,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             coordsMap[`${ci}_${ni}`] = { x, y, w: colW, h: nodeH, cx: x + colW / 2, cy: y + nodeH / 2 };
             const nColor = nd.color || '#17525E';
             nodesSvg += `
-              <g class="mh-stagger-item" style="--mh-idx:${ci * 3 + ni};cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(nd.title)}','${escHtml(col.title)}','${escHtml(nd.desc || '')}')" onmouseleave="hideMHChartTooltip()">
+              <g class="mh-stagger-item" style="--mh-idx:${ci * 3 + ni};cursor:pointer;" onclick="pinMHChartReadout(this,'${escHtml(nd.title)}','${escHtml(col.title)}','${escHtml(nd.desc || '')}')" onmousemove="showMHChartTooltip(event,'${escHtml(nd.title)}','${escHtml(col.title)}','${escHtml(nd.desc || '')}')" onmouseleave="hideMHChartTooltip()">
                 <rect x="${x}" y="${y}" width="${colW}" height="${nodeH}" rx="16" fill="#FBF7EE" stroke="${nColor}" stroke-width="2.5"/>
                 <rect x="${x}" y="${y}" width="10" height="${nodeH}" rx="5" fill="${nColor}"/>
                 <text x="${x + 20}" y="${y + 24}" fill="#1F2421" font-size="11.5" font-weight="900">${escHtml((nd.title || '').slice(0, 32))}</text>
@@ -63271,6 +63551,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               ${linksSvg}
               ${nodesSvg}
             </svg>
+            ${compact ? '' : `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:8px;border-top:1px dashed ${cardBorder};font-size:11px;color:${txt};"><div data-mh-chart-readout style="opacity:0.86;">Toca cualquier bloque metodológico para ver su detalle completo</div></div>`}
           </div>`;
       } else if (type === 'diverging') {
         const s0 = series[0] || { name: 'Cambio Neto', values: [] };
@@ -63301,7 +63582,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
           const tx = v >= 0 ? bx + bw + 7 : bx - 7;
           const anchor = v >= 0 ? 'start' : 'end';
           bars += `
-            <g class="mh-stagger-item" style="--mh-idx:${i};cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s0.name || 'Cambio')}','${escHtml(lblText)}')" onmouseleave="hideMHChartTooltip()">
+            <g class="mh-stagger-item" style="--mh-idx:${i};cursor:pointer;" onclick="pinMHChartReadout(this,'${escHtml(lb)}','${escHtml(s0.name || 'Cambio')}','${escHtml(lblText)}')" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s0.name || 'Cambio')}','${escHtml(lblText)}')" onmouseleave="hideMHChartTooltip()">
               <text x="${padL - 10}" y="${y + bh / 2 + 4}" text-anchor="end" fill="${txt}" font-size="11.5" font-weight="800">${escHtml(lb)}</text>
               <rect class="mh-svg-bar-x" style="--mh-idx:${i};--mh-origin:${v >= 0 ? 'left center' : 'right center'};" x="${bx}" y="${y}" width="${bw}" height="${bh}" rx="6" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1"/>
               <text x="${tx}" y="${y + bh / 2 + 4}" text-anchor="${anchor}" fill="${txt}" font-size="11" font-weight="900">${escHtml(lblText)}</text>
@@ -63318,7 +63599,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }).join('')}
             ${bars}
           </svg>`;
-        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${svgHtml}</div>`;
+        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${svgHtml}${compact ? '' : _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt)}</div>`;
       } else if (type === 'stacked_hbar') {
         const W = 800, padL = 148, padR = normalize100 ? 30 : 95, padT = 18, padB = 30;
         const rowH = 30;
@@ -63345,7 +63626,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const valDisp = normalize100 ? `${val.toFixed(1)}%` : fmtVal(raw);
             if (bw > 0.5) {
               rowsSvg += `
-                <g data-mh-series="${si}" style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(valDisp)}')" onmouseleave="hideMHChartTooltip()">
+                <g data-mh-series="${si}" style="cursor:pointer;" onclick="pinMHChartReadout(this,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(valDisp)}')" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(valDisp)}')" onmouseleave="hideMHChartTooltip()">
                   <rect class="mh-svg-bar-x" style="--mh-idx:${li};--mh-origin:left center;" x="${curX}" y="${y}" width="${bw}" height="${bh}" rx="${si === 0 ? 4 : 0}" fill="${segColor}" stroke="${isDark ? '#17525E' : '#F6EFE2'}" stroke-width="0.8"/>
                   ${bw > 34 ? `<text x="${curX + bw / 2}" y="${y + bh / 2 + 3.5}" text-anchor="middle" fill="${segDark ? '#FBF7EE' : '#1F2421'}" font-size="9.5" font-weight="800">${normalize100 ? Math.round(val) + '%' : raw.toFixed(0)}</text>` : ''}
                 </g>`;
@@ -63367,7 +63648,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }).join('')}
             ${rowsSvg}
           </svg>`;
-        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}</div>`;
+        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}${compact ? '' : _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt)}</div>`;
       } else if (type === 'stacked_bar') {
         const W = 720, H = compact ? 290 : 340, padL = 62, padR = 30, padT = 46, padB = 46;
         const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -63387,7 +63668,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const col = s.color || globalAccent;
             const sDark = _mhIsDarkBg(col);
             colsSvg += `
-              <g data-mh-series="${si}" style="cursor:pointer;" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(fmtVal(v))}')" onmouseleave="hideMHChartTooltip()">
+              <g data-mh-series="${si}" style="cursor:pointer;" onclick="pinMHChartReadout(this,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(fmtVal(v))}')" onmousemove="showMHChartTooltip(event,'${escHtml(lb)}','${escHtml(s.name)}','${escHtml(fmtVal(v))}')" onmouseleave="hideMHChartTooltip()">
                 <rect class="mh-svg-bar-y" style="--mh-idx:${li};" x="${cx - bw / 2}" y="${curY}" width="${bw}" height="${Math.max(1, bh)}" rx="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.2"/>
                 ${bh > 22 ? `<text x="${cx}" y="${curY + bh / 2 + 4}" text-anchor="middle" fill="${sDark ? '#FBF7EE' : '#1F2421'}" font-size="11" font-weight="900">${escHtml(fmtVal(v))}</text>` : ''}
               </g>`;
@@ -63405,7 +63686,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             }).join('')}
             ${colsSvg}
           </svg>`;
-        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}</div>`;
+        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}${compact ? '' : _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt)}</div>`;
       } else {
         const W = 820, H = compact ? 300 : 355, padL = 56, padR = 175, padT = 24, padB = 40;
         const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -63449,8 +63730,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             <g data-mh-series="${si}">
               <path class="mh-svg-line-path" d="${d}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               ${pts.map((pt, pi) => `
-                <circle class="mh-stagger-item" style="--mh-idx:${pi};cursor:pointer;" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.5"
-                  onmousemove="showMHChartTooltip(event,'${escHtml(labels[pi] || '')}','${escHtml(s.name)}','${escHtml(fmtVal(pt[2]))}')" onmouseleave="hideMHChartTooltip()"/>`).join('')}
+                <g style="cursor:pointer;" onclick="pinMHChartReadout(this,'${escHtml(labels[pi] || '')}','${escHtml(s.name)}','${escHtml(fmtVal(pt[2]))}')" onmousemove="showMHChartTooltip(event,'${escHtml(labels[pi] || '')}','${escHtml(s.name)}','${escHtml(fmtVal(pt[2]))}')" onmouseleave="hideMHChartTooltip()">
+                  <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="14" fill="transparent"/>
+                  <circle class="mh-stagger-item" style="--mh-idx:${pi};pointer-events:none;" cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="5" fill="${col}" stroke="${isDark ? '#F6EFE2' : '#1F2421'}" stroke-width="1.5"/>
+                </g>`).join('')}
               <text x="${(pts.length ? pts[pts.length - 1][0] : padL) + 10}" y="${ey + 4}" fill="${txt}" font-size="10" font-weight="800">${escHtml((s.name || '').slice(0, 14))}: ${escHtml(lastVal)}</text>
             </g>`;
         });
@@ -63469,7 +63752,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             `).join('')}
             ${linesSvg}
           </svg>`;
-        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}</div>`;
+        return `<div class="mh-chart-wrap" style="padding:18px;border-radius:20px;background:${cardBg};border:1.5px solid ${cardBorder};">${renderLegend(series)}${svgHtml}${compact ? '' : _mhRenderChartToolbarAndTable(labels, series, unit, isDark, cardBorder, txt)}</div>`;
       }
     }
 
@@ -64404,6 +64687,11 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     // ═══════════════════════════════════════════════════════════
 
     let mhWebNavObserver = null;
+    let mhWebVisObserver = null;
+    let mhDrawerCatFilter = 'all';
+    let mhCurrentWebSections = [];
+    let _mhScrollRaf = 0;
+    let _mhWebScrollMax = 1;
 
     function startMHPresentation(storyData) {
       const data = storyData || mhData;
@@ -64424,18 +64712,30 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       renderMHWebStory(data);
 
       window.addEventListener('keydown', handleMHPresKeydown);
+      window.addEventListener('resize', refreshMHWebScrollMetrics, { passive: true });
     }
 
     function closeMHPresentation() {
       const modal = document.getElementById('mhPresentationModal');
       if (modal) modal.classList.add('hidden');
+      const drawer = document.getElementById('mhChapterDrawer');
+      if (drawer) drawer.classList.add('hidden');
       if (mhPresTimer) {
         clearInterval(mhPresTimer);
         mhPresTimer = null;
       }
+      if (_mhScrollRaf) {
+        cancelAnimationFrame(_mhScrollRaf);
+        _mhScrollRaf = 0;
+      }
+      document.querySelectorAll('#mhPresStage .mh-compare-container').forEach(_mhStopSweep);
       if (mhWebNavObserver) {
         mhWebNavObserver.disconnect();
         mhWebNavObserver = null;
+      }
+      if (mhWebVisObserver) {
+        mhWebVisObserver.disconnect();
+        mhWebVisObserver = null;
       }
       mhPresAutoPlay = false;
       const icon = document.getElementById('mhPresAutoPlayIcon');
@@ -64443,6 +64743,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (icon) icon.textContent = 'play_arrow';
       if (text) text.textContent = 'Auto-scroll';
       window.removeEventListener('keydown', handleMHPresKeydown);
+      window.removeEventListener('resize', refreshMHWebScrollMetrics);
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
@@ -64450,34 +64751,122 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
 
     function handleMHPresKeydown(e) {
       if (e.key === 'Escape') {
+        const drawer = document.getElementById('mhChapterDrawer');
+        if (drawer && !drawer.classList.contains('hidden')) {
+          toggleMHChapterDrawer(false);
+          return;
+        }
         closeMHPresentation();
       } else if (e.key === 'f' || e.key === 'F') {
         toggleMHPresentationFullscreen();
       }
     }
 
+    function toggleMHChapterDrawer(forceOpen) {
+      const drawer = document.getElementById('mhChapterDrawer');
+      if (!drawer) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : drawer.classList.contains('hidden');
+      drawer.classList.toggle('hidden', !shouldOpen);
+      if (shouldOpen) renderMHChapterDrawerList();
+      requestAnimationFrame(refreshMHWebScrollMetrics);
+    }
+
+    function filterMHChapterDrawer(cat, btn) {
+      mhDrawerCatFilter = cat || 'all';
+      document.querySelectorAll('#mhDrawerFilterPills [data-drawer-cat]').forEach(b => {
+        const active = b.getAttribute('data-drawer-cat') === mhDrawerCatFilter;
+        b.style.background = active ? '#D99B26' : 'rgba(255,255,255,0.1)';
+        b.style.color = active ? '#1F2421' : '#F6EFE2';
+        b.style.fontWeight = active ? '800' : '700';
+      });
+      renderMHChapterDrawerList();
+    }
+
+    function renderMHChapterDrawerList() {
+      const listEl = document.getElementById('mhChapterDrawerList');
+      if (!listEl) return;
+      const q = (document.getElementById('mhDrawerSearch')?.value || '').trim().toLowerCase();
+      const filtered = mhCurrentWebSections.filter(item => {
+        const catMatch = mhDrawerCatFilter === 'all'
+          ? true
+          : mhDrawerCatFilter === 'other'
+            ? (item.type !== 'comparison' && item.type !== 'chart')
+            : item.type === mhDrawerCatFilter;
+        const qMatch = !q || item.title.toLowerCase().includes(q) || item.badge.toLowerCase().includes(q);
+        return catMatch && qMatch;
+      });
+      if (!filtered.length) {
+        listEl.innerHTML = `<div class="col-span-full text-xs opacity-65 py-2 text-center">No hay capítulos que coincidan con "${escHtml(q)}"</div>`;
+        return;
+      }
+      listEl.innerHTML = filtered.map(item => `
+        <button type="button" onclick="scrollToMHWebSection(${item.idx});toggleMHChapterDrawer(false);"
+          class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left border border-white/10 hover:border-amber-400/60 transition-colors cursor-pointer"
+          style="background:rgba(255,255,255,0.06);color:#FBF7EE;">
+          <div class="min-w-0">
+            <div class="text-[9.5px] font-extrabold uppercase tracking-wider" style="color:#D99B26;">${escHtml(item.badge)}</div>
+            <div class="text-xs font-bold truncate">${escHtml(item.title)}</div>
+          </div>
+          <span class="material-symbols-outlined text-[16px] shrink-0 opacity-70">arrow_forward</span>
+        </button>`).join('');
+    }
+
     function scrollToMHWebSection(secIdx) {
       const stage = document.getElementById('mhPresStage');
       const target = document.getElementById(`mhWebSec_${secIdx}`);
       if (stage && target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.scrollIntoView({ behavior: window.innerWidth <= 768 ? 'auto' : 'smooth', block: 'start' });
       }
     }
 
     function scrollMHWebToTop() {
       const stage = document.getElementById('mhPresStage');
-      if (stage) stage.scrollTo({ top: 0, behavior: 'smooth' });
+      if (stage) stage.scrollTo({ top: 0, behavior: window.innerWidth <= 768 ? 'auto' : 'smooth' });
+    }
+
+    function refreshMHWebScrollMetrics() {
+      const stage = document.getElementById('mhPresStage');
+      if (!stage) return;
+      _mhWebScrollMax = Math.max(1, stage.scrollHeight - stage.clientHeight);
+      updateMHWebScrollProgress();
     }
 
     function updateMHWebScrollProgress() {
-      const stage = document.getElementById('mhPresStage');
-      if (!stage) return;
-      const maxScroll = Math.max(1, stage.scrollHeight - stage.clientHeight);
-      const pct = Math.min(100, Math.max(0, Math.round((stage.scrollTop / maxScroll) * 100)));
-      const bar = document.getElementById('mhPresProgressBar');
-      const counter = document.getElementById('mhPresSlideCounter');
-      if (bar) bar.style.width = pct + '%';
-      if (counter) counter.textContent = `${pct}%`;
+      if (_mhScrollRaf) return;
+      _mhScrollRaf = requestAnimationFrame(() => {
+        _mhScrollRaf = 0;
+        const stage = document.getElementById('mhPresStage');
+        if (!stage) return;
+        const maxScroll = Math.max(1, _mhWebScrollMax || (stage.scrollHeight - stage.clientHeight));
+        const ratio = Math.min(1, Math.max(0, stage.scrollTop / maxScroll));
+        const pct = Math.round(ratio * 100);
+        const bar = document.getElementById('mhPresProgressBar');
+        const counter = document.getElementById('mhPresSlideCounter');
+        if (bar) bar.style.transform = `scaleX(${ratio.toFixed(4)})`;
+        if (counter) counter.textContent = `${pct}%`;
+      });
+    }
+
+    function _mhAnimateMetricCounter(el) {
+      if (!el || el.dataset.counted === '1') return;
+      el.dataset.counted = '1';
+      const raw = (el.getAttribute('data-mh-counter') || '').trim();
+      if (!raw || raw.includes('→') || raw.includes('/')) return;
+      const m = raw.match(/^([+-]?\s*)(\d+(?:\.\d+)?)(.*)$/);
+      if (!m) return;
+      const prefix = m[1], target = parseFloat(m[2]), suffix = m[3];
+      if (!Number.isFinite(target) || target === 0) return;
+      const decimals = (m[2].split('.')[1] || '').length;
+      const t0 = performance.now(), dur = 450;
+      const tick = (now) => {
+        const p = Math.min(1, (now - t0) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const cur = (target * eased).toFixed(decimals);
+        el.textContent = `${prefix}${cur}${suffix}`;
+        if (p < 1) requestAnimationFrame(tick);
+        else el.textContent = raw;
+      };
+      requestAnimationFrame(tick);
     }
 
     function renderMHWebStory(storyData) {
@@ -64497,13 +64886,22 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       stage.style.color = globalText;
       stage.scrollTop = 0;
 
-      // Build top web navbar section anchor links
+      // Build top web navbar section anchor links & chapter index metadata
       const navItems = [];
+      mhCurrentWebSections = [];
       let contentSectionsHtml = '';
       let firstBodyIdx = -1;
+      let firstCompIdx = -1;
+      let firstChartIdx = -1;
+      let firstMetricsIdx = -1;
 
       data.sections.forEach((sec, idx) => {
-        if (sec.type !== 'separator' && idx > 0 && firstBodyIdx === -1) firstBodyIdx = idx;
+        if (sec.type !== 'separator') {
+          if (idx > 0 && firstBodyIdx === -1) firstBodyIdx = idx;
+          if (sec.type === 'comparison' && firstCompIdx === -1) firstCompIdx = idx;
+          if (sec.type === 'chart' && firstChartIdx === -1) firstChartIdx = idx;
+          if (sec.type === 'metrics' && firstMetricsIdx === -1) firstMetricsIdx = idx;
+        }
       });
       if (firstBodyIdx === -1 && data.sections.length > 1) firstBodyIdx = 1;
 
@@ -64541,11 +64939,18 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
         prevWebBg = bg;
 
         const navLabel = sec.title || (sec.type === 'cover' ? 'Inicio' : `Sección ${idx + 1}`);
+        const badgeLabel = sec.type === 'cover' ? 'Portada'
+          : sec.type === 'comparison' ? 'Mapa 1996↔2026'
+          : sec.type === 'chart' ? 'Gráfica SVG'
+          : sec.type === 'metrics' ? 'Indicadores'
+          : sec.type === 'quote' ? 'Conclusión'
+          : 'Análisis';
+        mhCurrentWebSections.push({ idx, type: sec.type || 'text', title: navLabel, badge: badgeLabel });
         navItems.push(`<button type="button" onclick="scrollToMHWebSection(${idx})" data-web-nav="${idx}" style="color:#E4E4E7;" class="mh-web-nav-btn px-3 py-1.5 rounded-lg text-xs font-medium hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer">${escHtml(navLabel)}</button>`);
 
         if (sec.type === 'cover') {
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal mh-in-view relative min-h-[82vh] w-full flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal mh-in-view mh-is-visible relative min-h-[82vh] w-full flex flex-col items-center justify-center text-center px-6 py-20 overflow-hidden" style="background:${bg};color:${text};">
               ${sec.imageUrl ? `
                 <div class="absolute inset-0 pointer-events-none">
                   <img src="${sec.imageUrl}" alt="${escHtml(sec.title)}" class="w-full h-full object-cover opacity-25 scale-105">
@@ -64566,6 +64971,12 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                     <span>Explorar historia</span>
                     <span class="material-symbols-outlined text-[18px] mh-hero-cta-arrow">arrow_downward</span>
                   </button>` : ''}
+                <div class="mh-stagger-item mt-4 flex flex-wrap items-center justify-center gap-2" style="--mh-idx:4;">
+                  ${firstCompIdx !== -1 ? `<button type="button" onclick="scrollToMHWebSection(${firstCompIdx})" class="px-3 py-1.5 rounded-full text-xs font-bold border border-white/25 hover:bg-white/15 transition-colors cursor-pointer">🗺️ Mapas 1996↔2026</button>` : ''}
+                  ${firstChartIdx !== -1 ? `<button type="button" onclick="scrollToMHWebSection(${firstChartIdx})" class="px-3 py-1.5 rounded-full text-xs font-bold border border-white/25 hover:bg-white/15 transition-colors cursor-pointer">📊 Gráficas</button>` : ''}
+                  ${firstMetricsIdx !== -1 ? `<button type="button" onclick="scrollToMHWebSection(${firstMetricsIdx})" class="px-3 py-1.5 rounded-full text-xs font-bold border border-white/25 hover:bg-white/15 transition-colors cursor-pointer">⚖️ Balance</button>` : ''}
+                  <button type="button" onclick="toggleMHChapterDrawer(true)" class="px-3 py-1.5 rounded-full text-xs font-bold border border-amber-400/50 cursor-pointer" style="background:rgba(217,155,38,0.18);color:#FBF7EE;">📑 Índice (${data.sections.filter(s => s.type !== 'separator').length})</button>
+                </div>
               </div>
             </section>`;
         } else if (sec.type === 'chart') {
@@ -64593,7 +65004,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 </div>
                 ${(img1 && img2 && sec.compareMode === 'slider') ? `
                   <div class="mh-compare-wrapper">
-                    <div class="mh-compare-container w-full shadow-2xl rounded-2xl border border-black/10" style="max-width:740px;margin:0 auto;height:clamp(460px, 64vh, 620px);" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchmove="handleMHCompareDrag(event, this)">
+                    <div class="mh-compare-container mh-web-compare-box w-full shadow-2xl rounded-2xl border border-black/10" style="max-width:740px;margin:0 auto;height:clamp(330px, 60vh, 600px);" onmousemove="handleMHCompareDrag(event, this)" onclick="handleMHCompareClick(event, this)" ontouchstart="if(event.target.closest('.mh-compare-divider'))this.dataset.draggingDivider='1'" ontouchmove="handleMHCompareDrag(event, this)" ontouchend="this.dataset.draggingDivider='0'" ontouchcancel="this.dataset.draggingDivider='0'">
                       <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                       <div class="mh-compare-before" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
                         <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
@@ -64601,8 +65012,8 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                       <div class="mh-compare-divider" style="left:50%;">
                         <div class="mh-compare-handle">⇄</div>
                       </div>
-                      <span class="pointer-events-none absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label1 || 'Antes')}</span>
-                      <span class="pointer-events-none absolute top-4 right-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-bold backdrop-blur-sm">${escHtml(sec.label2 || 'Después')}</span>
+                      <span class="pointer-events-none absolute top-3 left-3 px-3 py-1 rounded-full bg-black/80 text-white text-xs font-bold">${escHtml(sec.label1 || 'Antes')}</span>
+                      <span class="pointer-events-none absolute top-3 right-3 px-3 py-1 rounded-full bg-black/80 text-white text-xs font-bold">${escHtml(sec.label2 || 'Después')}</span>
                     </div>
                     ${renderMHCompareToolbar(sec, bg)}
                   </div>
@@ -64633,13 +65044,13 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   ${metricsList.map((m, mi) => `
-                    <div class="mh-metric-card mh-stagger-item p-6 rounded-2xl flex flex-col justify-between shadow-lg" style="--mh-idx:${mi};background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.82)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};">
+                    <div class="mh-metric-card mh-stagger-item p-6 rounded-2xl flex flex-col justify-between shadow-lg" role="button" tabindex="0" onclick="toggleMHMetricFocus(this)" style="--mh-idx:${mi};background:${mDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.86)'};border:1.5px solid ${mDark ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};">
                       <div class="flex items-center justify-between mb-4">
                         <span class="material-symbols-outlined text-3xl" style="color:${m.color || secAccent};">${m.icon || 'analytics'}</span>
                         ${m.change ? `<span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full" style="background:${m.color || secAccent}22;color:${m.color || secAccent};">${escHtml(m.change)}</span>` : ''}
                       </div>
                       <div>
-                        <div class="text-2xl sm:text-3xl font-black tracking-tight" style="color:${text};">${escHtml(m.value || '0')}</div>
+                        <div class="text-2xl sm:text-3xl font-black tracking-tight" data-mh-counter="${escHtml(m.value || '0')}" style="color:${text};">${escHtml(m.value || '0')}</div>
                         <div class="text-xs font-bold opacity-80 mt-1.5">${escHtml(m.label || '')}</div>
                       </div>
                     </div>`).join('')}
@@ -64648,7 +65059,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             </section>`;
         } else if (sec.type === 'quote') {
           contentSectionsHtml += `
-            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-20 sm:py-28 px-6" style="background:${bg};color:${text};">
+            <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-20 sm:py-28 px-6" style="background:${bg};color:${text};">
               <div class="max-w-3xl mx-auto text-center flex flex-col items-center">
                 <span class="material-symbols-outlined text-5xl mb-6 opacity-35" style="color:${accent};">format_quote</span>
                 <blockquote class="text-2xl sm:text-3xl font-medium italic leading-relaxed mb-6" style="color:${text};">
@@ -64667,7 +65078,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             const imgColOrder = layout === 'right' ? 'lg:order-2' : 'lg:order-1';
             const txtColOrder = layout === 'right' ? 'lg:order-1' : 'lg:order-2';
             contentSectionsHtml += `
-              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
                 <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
                   <div class="lg:col-span-7 ${imgColOrder} lg:sticky lg:top-20">
                     <div class="rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/20">
@@ -64683,7 +65094,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               </section>`;
           } else {
             contentSectionsHtml += `
-              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
+              <section id="mhWebSec_${idx}" data-web-sec="${idx}" class="mh-reveal w-full py-16 sm:py-24 px-6" style="background:${bg};color:${text};">
                 <div class="${layout === 'full' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto">
                   <div class="max-w-3xl mb-8">
                     <span class="text-[11px] font-bold uppercase tracking-[0.2em] block mb-2" style="color:${accent};">Capítulo ${idx + 1}</span>
@@ -64707,10 +65118,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
               <span class="material-symbols-outlined text-[16px]" style="color:${accent};">auto_stories</span>
               <span>${escHtml(storyTitle)} · Map History Web</span>
             </div>
-            <button type="button" onclick="scrollMHWebToTop()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border border-white/15 hover:bg-white/10 transition-colors cursor-pointer">
-              <span class="material-symbols-outlined text-[15px]">arrow_upward</span>
-              Volver arriba
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="toggleMHChapterDrawer(true)" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border border-amber-400/40 cursor-pointer" style="background:rgba(217,155,38,0.16);color:#FBF7EE;">
+                <span class="material-symbols-outlined text-[15px]" style="color:#D99B26;">menu_book</span>
+                Capítulos
+              </button>
+              <button type="button" onclick="scrollMHWebToTop()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border border-white/15 hover:bg-white/10 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-[15px]">arrow_upward</span>
+                Volver arriba
+              </button>
+            </div>
           </div>
         </footer>`;
 
@@ -64720,21 +65137,39 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (navLinksEl) {
         navLinksEl.innerHTML = navItems.join('');
       }
+      mhDrawerCatFilter = 'all';
+      const drawerEl = document.getElementById('mhChapterDrawer');
+      if (drawerEl) drawerEl.classList.add('hidden');
+      const drawerSearchEl = document.getElementById('mhDrawerSearch');
+      if (drawerSearchEl) drawerSearchEl.value = '';
+      filterMHChapterDrawer('all');
 
-      // Highlight active section & trigger scroll-reveal animations + gentle slider nudge
+      // Highlight active section, reveal animations & offscreen SVG pause
       if (mhWebNavObserver) mhWebNavObserver.disconnect();
+      if (mhWebVisObserver) mhWebVisObserver.disconnect();
+      const isDesktopView = window.innerWidth > 768;
+
+      mhWebVisObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          entry.target.classList.toggle('mh-is-visible', entry.isIntersecting);
+        });
+      }, { root: stage, threshold: 0, rootMargin: '140px 0px' });
+
       mhWebNavObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const target = entry.target;
             target.classList.add('mh-in-view');
-            const cmp = target.querySelector('.mh-compare-container');
-            if (cmp && cmp.dataset.nudged !== '1' && cmp.dataset.userTouched !== '1') {
-              cmp.dataset.nudged = '1';
-              cmp.classList.add('mh-compare-smooth');
-              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 64); }, 180);
-              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 38); }, 620);
-              setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 50); }, 1050);
+            target.querySelectorAll('[data-mh-counter]').forEach(_mhAnimateMetricCounter);
+            if (isDesktopView) {
+              const cmp = target.querySelector('.mh-compare-container');
+              if (cmp && cmp.dataset.nudged !== '1' && cmp.dataset.userTouched !== '1') {
+                cmp.dataset.nudged = '1';
+                cmp.classList.add('mh-compare-smooth');
+                setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 64); }, 180);
+                setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 38); }, 620);
+                setTimeout(() => { if (cmp.dataset.userTouched !== '1') _mhApplyComparePct(cmp, 50); }, 1050);
+              }
             }
             const secIdx = target.getAttribute('data-web-sec');
             document.querySelectorAll('#mhPresNavLinks .mh-web-nav-btn').forEach(btn => {
@@ -64744,10 +65179,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
             });
           }
         });
-      }, { root: stage, threshold: 0.08 });
+      }, { root: stage, threshold: 0.05 });
 
-      stage.querySelectorAll('[data-web-sec]').forEach(el => mhWebNavObserver.observe(el));
-      updateMHWebScrollProgress();
+      stage.querySelectorAll('[data-web-sec]').forEach(el => {
+        mhWebNavObserver.observe(el);
+        mhWebVisObserver.observe(el);
+      });
+      requestAnimationFrame(() => {
+        refreshMHWebScrollMetrics();
+        setTimeout(refreshMHWebScrollMetrics, 350);
+      });
     }
 
     function renderMHPresSlide() {
@@ -64877,16 +65318,16 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 ${sec.body ? `<div style="font-size:13px;line-height:1.6;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
                 ${(img1 && img2) ? `
                   <div class="mh-compare-wrapper">
-                    <div class="mh-compare-container" style="height:540px;max-width:740px;margin:0 auto;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchmove="handleCompare(event, this)">
+                    <div class="mh-compare-container mh-web-compare-box" style="height:540px;max-width:740px;margin:0 auto;position:relative;overflow:hidden;border-radius:16px;background:rgba(31,36,33,0.06);border:1.5px solid rgba(31,36,33,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.16);cursor:ew-resize;user-select:none;" onmousemove="handleCompare(event, this)" onclick="handleCompare(event, this)" ontouchstart="if(event.target.closest('.divider,.mh-compare-divider'))this.dataset.draggingDivider='1'" ontouchmove="handleCompare(event, this)" ontouchend="this.dataset.draggingDivider='0'" ontouchcancel="this.dataset.draggingDivider='0'">
                       <img src="${img2}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                       <div class="before-layer" data-clip="1" style="position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none;">
                         <img src="${img1}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
                       </div>
-                      <div class="divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                      <div class="divider mh-compare-divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center;">
                         <div class="mh-compare-handle" style="width:28px;height:28px;border-radius:50%;background:white;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:12px;">⇄</div>
                       </div>
-                      <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
-                      <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.7);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
+                      <span style="position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label1||'Antes')}</span>
+                      <span style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:20px;background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:700;pointer-events:none;">${escHtml(sec.label2||'Después')}</span>
                     </div>
                     ${renderMHCompareToolbar(sec, sBg)}
                   </div>` : ''}
@@ -64902,7 +65343,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
                 ${sec.body ? `<div style="font-size:14px;line-height:1.65;opacity:0.85;margin-bottom:24px;">${sec.body}</div>` : ''}
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;">
                   ${metricsList.map((m, mi) => `
-                    <div class="mh-stagger-item mh-class-chip" style="--mh-idx:${mi};background:${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.75)'};border:1.5px solid ${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};border-radius:16px;padding:20px;">
+                    <div class="mh-stagger-item mh-metric-card mh-class-chip" role="button" tabindex="0" onclick="toggleMHMetricFocus(this)" style="--mh-idx:${mi};cursor:pointer;background:${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.84)'};border:1.5px solid ${_mhIsDarkBg(sBg) ? 'rgba(255,255,255,0.16)' : 'rgba(31,36,33,0.14)'};border-radius:16px;padding:20px;">
                       <div style="font-size:26px;font-weight:900;color:${sText};">${escHtml(m.value)}</div>
                       <div style="font-size:12px;font-weight:700;opacity:0.78;margin-top:4px;">${escHtml(m.label)}</div>
                       ${m.change ? `<div style="font-size:11px;font-weight:800;color:${m.color||sAccent};margin-top:8px;">${escHtml(m.change)}</div>` : ''}
@@ -64951,7 +65392,10 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     @keyframes mhPopIn { 0%{opacity:0;transform:translateY(16px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
     @keyframes mhBarGrowX { from{transform:scaleX(0);opacity:0.35} to{transform:scaleX(1);opacity:1} }
     @keyframes mhBarGrowY { from{transform:scaleY(0);opacity:0.35} to{transform:scaleY(1);opacity:1} }
-    @keyframes mhPulseGlow { 0%,100%{box-shadow:0 2px 10px rgba(0,0,0,0.32),0 0 0 0 rgba(217,155,38,0.45)} 50%{box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 0 8px rgba(217,155,38,0)} }
+    section.mh-reveal { content-visibility:auto; contain-intrinsic-size:auto 560px; contain:layout style; }
+    .mh-compare-container { touch-action:pan-y; contain:layout paint; }
+    .divider, .mh-compare-divider { touch-action:none; }
+    .divider::before, .mh-compare-divider::before { content:''; position:absolute; inset:0 -18px; }
     body.mh-anim-ready .mh-reveal { opacity:0; transform:translateY(24px); transition:opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1); }
     body.mh-anim-ready .mh-reveal.mh-in-view { opacity:1; transform:translateY(0); }
     body.mh-anim-ready .mh-reveal.mh-in-view .mh-stagger-item { animation:mhPopIn 0.55s cubic-bezier(0.22,1,0.36,1) both; animation-delay:calc(var(--mh-idx, 0) * 55ms); }
@@ -64961,10 +65405,20 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
     .mh-flow-dash { stroke-dasharray:8 6; animation:mhFlowDash 1.5s linear infinite; }
     .mh-kinetic-1 { transform-box:fill-box; transform-origin:center; animation:mhFloatSlow 5.8s ease-in-out infinite; }
     .mh-kinetic-2 { transform-box:fill-box; transform-origin:center; animation:mhFloatAlt 4.8s ease-in-out infinite; }
-    .mh-compare-handle { animation:mhPulseGlow 2.4s ease-in-out infinite; transition:transform 0.2s; }
-    .mh-compare-container.mh-compare-smooth .before-layer, .mh-compare-container.mh-compare-smooth .divider { transition:clip-path 0.45s cubic-bezier(0.22,1,0.36,1), width 0.45s cubic-bezier(0.22,1,0.36,1), left 0.45s cubic-bezier(0.22,1,0.36,1); }
-    .mh-class-chip { transition:transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s; }
-    .mh-class-chip:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 8px 18px rgba(0,0,0,0.14); }
+    .mh-reveal:not(.mh-is-visible) .mh-flow-dash, .mh-reveal:not(.mh-is-visible) .mh-kinetic-1, .mh-reveal:not(.mh-is-visible) .mh-kinetic-2 { animation-play-state:paused; }
+    .mh-compare-handle { transition:transform 0.2s; }
+    .mh-compare-container.mh-compare-smooth .before-layer, .mh-compare-container.mh-compare-smooth .divider { transition:clip-path 0.35s cubic-bezier(0.22,1,0.36,1), width 0.35s cubic-bezier(0.22,1,0.36,1), left 0.35s cubic-bezier(0.22,1,0.36,1); }
+    .mh-class-chip { transition:transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease; }
+    .mh-class-chip.mh-dimmed { opacity:0.38; }
+    .mh-class-chip.mh-active, .mh-metric-card.mh-active { outline:2.5px solid #D99B26; transform:translateY(-2px); box-shadow:0 8px 18px rgba(0,0,0,0.14); }
+    input.mh-range-scrubber { -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:rgba(128,128,128,0.28); outline:none; cursor:pointer; }
+    input.mh-range-scrubber::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:20px; height:20px; border-radius:50%; background:#D99B26; border:2.5px solid #1F2421; cursor:pointer; }
+    @media (hover:hover) { .mh-class-chip:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 8px 18px rgba(0,0,0,0.14); } }
+    @media (max-width: 768px) {
+      .mh-web-compare-box { height:330px !important; min-height:290px !important; }
+      body.mh-anim-ready .mh-in-view .mh-svg-line-path { animation:none !important; stroke-dasharray:none !important; }
+      body.mh-anim-ready .mh-reveal { transition:opacity 0.38s ease, transform 0.38s ease; }
+    }
     @media print {
       header { display:none !important; }
       body { background:#fff !important; color:#000 !important; }
@@ -64973,7 +65427,7 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
   </style>
 </head>
 <body class="mh-anim-ready">
-  <header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:${bg}ee;backdrop-filter:blur(10px);border-bottom:1px solid rgba(128,128,128,0.2);">
+  <header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:${bg}f8;border-bottom:1px solid rgba(128,128,128,0.2);">
     <span style="font-weight:900;font-size:14px;">${escHtml(title)}</span>
     <nav style="display:flex;gap:8px;overflow-x:auto;">${navLinks.join('')}</nav>
   </header>
@@ -65013,16 +65467,26 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       if (b) b.innerHTML = '<span>▶</span> Animar barrido';
     }
     function _applyPct(c, pct) {
+      var clamped = Math.max(0, Math.min(100, pct));
       var before = c.querySelector('.before-layer');
       var div = c.querySelector('.divider');
       if (before) {
-        if (before.dataset.clip === '1') before.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
-        else before.style.width = pct + '%';
+        if (before.dataset.clip === '1') before.style.clipPath = 'inset(0 ' + (100 - clamped) + '% 0 0)';
+        else before.style.width = clamped + '%';
       }
-      if (div) div.style.left = pct + '%';
+      if (div) div.style.left = clamped + '%';
+      var w = c.closest('.mh-compare-wrapper');
+      var r = w && w.querySelector('.mh-range-scrubber');
+      if (r && Math.abs(Number(r.value) - clamped) >= 0.5) r.value = String(Math.round(clamped));
     }
     function handleCompare(e, container) {
-      if (e.type !== 'click' && e.buttons !== 1 && e.type !== 'touchmove') return;
+      if (e.type === 'touchmove') {
+        var fromDiv = e.target && e.target.closest && e.target.closest('.divider,.mh-compare-divider');
+        if (!fromDiv && container.dataset.draggingDivider !== '1') return;
+        e.preventDefault();
+      } else if (e.type !== 'click' && e.buttons !== 1) {
+        return;
+      }
       container.dataset.userTouched = '1';
       _stopSweep(container);
       container.classList[e.type === 'click' ? 'add' : 'remove']('mh-compare-smooth');
@@ -65030,6 +65494,98 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       var clientX = e.touches ? e.touches[0].clientX : e.clientX;
       var pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       _applyPct(container, pct);
+    }
+    function handleMHCompareDrag(e, container) { handleCompare(e, container); }
+    function handleMHCompareClick(e, container) { handleCompare(e, container); }
+    function handleMHCompareRange(rangeEl) {
+      var w = rangeEl && rangeEl.closest('.mh-compare-wrapper');
+      var c = w && w.querySelector('.mh-compare-container');
+      if (!c) return;
+      c.dataset.userTouched = '1';
+      c.classList.remove('mh-compare-smooth');
+      _stopSweep(c);
+      _applyPct(c, Number(rangeEl.value));
+    }
+    function toggleMHCompareLayout(btn) {
+      var w = btn && btn.closest('.mh-compare-wrapper');
+      var cmp = w && w.querySelector('.mh-compare-container');
+      if (!w || !cmp) return;
+      _stopSweep(cmp);
+      var grid = w.querySelector('.mh-compare-sidegrid');
+      if (w.dataset.sideMode !== '1') {
+        if (!grid) {
+          var imgs = cmp.querySelectorAll('img');
+          var spans = cmp.querySelectorAll('span');
+          grid = document.createElement('div');
+          grid.className = 'mh-compare-sidegrid';
+          grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;';
+          grid.innerHTML =
+            '<div style="position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.1);background:rgba(0,0,0,0.04);">' +
+              '<img src="' + (imgs[1] ? imgs[1].getAttribute('src') : '') + '" loading="lazy" style="width:100%;height:320px;object-fit:contain;">' +
+              '<span style="position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,0.8);color:#fff;font-size:11px;font-weight:700;">' + escHtml(spans[0] ? spans[0].textContent : 'Antes') + '</span>' +
+            '</div>' +
+            '<div style="position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,0.1);background:rgba(0,0,0,0.04);">' +
+              '<img src="' + (imgs[0] ? imgs[0].getAttribute('src') : '') + '" loading="lazy" style="width:100%;height:320px;object-fit:contain;">' +
+              '<span style="position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,0.8);color:#fff;font-size:11px;font-weight:700;">' + escHtml(spans[1] ? spans[1].textContent : 'Después') + '</span>' +
+            '</div>';
+          w.insertBefore(grid, w.querySelector('.mh-compare-toolbar'));
+        }
+        cmp.style.display = 'none';
+        grid.style.display = 'grid';
+        w.dataset.sideMode = '1';
+        btn.innerHTML = '↔ Vista Deslizador';
+      } else {
+        cmp.style.display = '';
+        if (grid) grid.style.display = 'none';
+        w.dataset.sideMode = '0';
+        btn.innerHTML = '◫ Lado a lado';
+      }
+    }
+    function filterMHClasses(btn, mode) {
+      var leg = btn && btn.closest('.mh-class-legend');
+      if (!leg) return;
+      var pBg = leg.getAttribute('data-pill-bg') || 'rgba(128,128,128,0.12)';
+      leg.querySelectorAll('[data-class-filter]').forEach(function(b){
+        var act = b.getAttribute('data-class-filter') === mode;
+        b.style.background = act ? '#D99B26' : pBg;
+        b.style.color = act ? '#1F2421' : 'inherit';
+      });
+      leg.querySelectorAll('.mh-class-chip').forEach(function(ch){
+        var s = ch.getAttribute('data-sign') || 'neutral';
+        ch.style.display = (mode === 'all' || s === mode) ? 'flex' : 'none';
+      });
+    }
+    function toggleMHClassFocus(chip) {
+      var leg = chip && chip.closest('.mh-class-legend');
+      if (!leg) return;
+      var was = chip.classList.contains('mh-active');
+      leg.querySelectorAll('.mh-class-chip').forEach(function(c){ c.classList.remove('mh-active','mh-dimmed'); });
+      var insp = leg.querySelector('[data-mh-class-inspector]');
+      if (was) { if (insp) insp.style.display = 'none'; return; }
+      leg.querySelectorAll('.mh-class-chip').forEach(function(c){ c.classList.add(c === chip ? 'mh-active' : 'mh-dimmed'); });
+      if (insp) {
+        insp.style.display = 'flex';
+        insp.innerHTML = '<span style="width:14px;height:14px;border-radius:4px;background:' + escHtml(chip.dataset.classColor || '#478f00') + ';flex-shrink:0;"></span><span style="font-weight:800;">' + escHtml(chip.dataset.classTitle || '') + '</span>' + (chip.dataset.classDetail ? '<span>· ' + escHtml(chip.dataset.classDetail) + '</span>' : '');
+      }
+    }
+    function toggleMHMetricFocus(card) { if (card) card.classList.toggle('mh-active'); }
+    function pinMHChartReadout(el, label, seriesName, valStr) {
+      var wrap = el && el.closest('.mh-chart-wrap');
+      var box = wrap && wrap.querySelector('[data-mh-chart-readout]');
+      if (box) box.innerHTML = '<span style="font-weight:900;color:#D99B26;">' + escHtml(label) + '</span> · <span>' + escHtml(seriesName) + ':</span> <b>' + escHtml(valStr) + '</b>';
+    }
+    function toggleMHChartTable(btn) {
+      var wrap = btn && btn.closest('.mh-chart-wrap');
+      var tbl = wrap && wrap.querySelector('.mh-chart-table-wrap');
+      if (!tbl) return;
+      var open = tbl.style.display !== 'none';
+      tbl.style.display = open ? 'none' : 'block';
+      btn.textContent = open ? '📊 Ver tabla de datos' : '📊 Ocultar tabla';
+    }
+    function copyMHChartCsv(btn) {
+      var tbl = btn && btn.closest('.mh-chart-table-wrap');
+      var csv = tbl && tbl.getAttribute('data-csv');
+      if (csv && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(csv).catch(function(){});
     }
     function setMHSliderPos(btn, pct) {
       var w = btn.closest('.mh-compare-wrapper');
@@ -65057,14 +65613,19 @@ L.GeoTIFFTileLayer = L.GridLayer.extend({
       })(t0);
     }
     if ('IntersectionObserver' in window) {
+      var visObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+          en.target.classList.toggle('mh-is-visible', en.isIntersecting);
+        });
+      }, { threshold: 0, rootMargin: '140px 0px' });
       var obs = new IntersectionObserver(function(entries) {
         entries.forEach(function(en) {
           if (en.isIntersecting) en.target.classList.add('mh-in-view');
         });
-      }, { threshold: 0.08 });
-      document.querySelectorAll('.mh-reveal').forEach(function(s) { obs.observe(s); });
+      }, { threshold: 0.05 });
+      document.querySelectorAll('.mh-reveal').forEach(function(s) { obs.observe(s); visObs.observe(s); });
     } else {
-      document.querySelectorAll('.mh-reveal').forEach(function(s) { s.classList.add('mh-in-view'); });
+      document.querySelectorAll('.mh-reveal').forEach(function(s) { s.classList.add('mh-in-view', 'mh-is-visible'); });
     }
   <\/script>
 </body>
